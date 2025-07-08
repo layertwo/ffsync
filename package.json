@@ -1,0 +1,25 @@
+{
+  "name": "@layertwo/ffsync",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk",
+    "clean": "find infra \\( -name \"*.d.ts\" -o -name \"*.js\" \\) -delete"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "*",
+    "jest": "^30.0.4",
+    "ts-jest": "^29.4.0",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.8.3"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.204.0",
+    "constructs":  "^10.4.2",
+    "env-var": "^6.3.0",
+    "source-map-support": "^0.5.16"
+  }
+}
