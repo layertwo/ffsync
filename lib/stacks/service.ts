@@ -1,5 +1,5 @@
 import { Stack, StackProps } from "aws-cdk-lib";
-import { EndpointType, RestApi } from "aws-cdk-lib/aws-apigateway";
+import { AuthorizationType, EndpointType, Integration, MockIntegration, PassthroughBehavior, RestApi } from "aws-cdk-lib/aws-apigateway";
 import { Certificate } from "aws-cdk-lib/aws-certificatemanager";
 import { Construct } from "constructs";
 
@@ -21,7 +21,7 @@ export class ServiceStack extends Stack {
     private buildApi(): RestApi {
         const domainName = `${this.props.stage}.ffsync.layertwo.dev`;
         const certificate = new Certificate(this, "Certificate", {domainName});
-        return new RestApi(this, 'Api', {
+        const api = new RestApi(this, 'Api', {
             // TODO migrate to EDGE, but need to put cert in IAD
             endpointTypes: [EndpointType.REGIONAL],
             restApiName: `ffsync-${this.props.stage}`,
@@ -30,5 +30,21 @@ export class ServiceStack extends Stack {
                 certificate,
             }
         });
+
+        api.root.addMethod('GET', new MockIntegration({
+        integrationResponses: [
+            { statusCode: '200' },
+        ],
+        passthroughBehavior: PassthroughBehavior.NEVER,
+        requestTemplates: {
+            'application/json': '{ "statusCode": 200 }',
+        },
+        }), {
+        methodResponses: [
+            { statusCode: '200' },
+        ],
+        authorizationType: AuthorizationType.IAM,
+        });
+        return api;
     }
 }
