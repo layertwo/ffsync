@@ -2,3 +2,4 @@ node_modules
 cdk.out
 *.d.ts
 *.js
+!.prettierrc.js
