@@ -1,3 +1,4 @@
+import {DnsValidatedCertificate} from "@trautonen/cdk-dns-validated-certificate";
 import {Construct} from "constructs";
 
 import {Stack, StackProps} from "aws-cdk-lib";
@@ -8,9 +9,9 @@ import {
     PassthroughBehavior,
     RestApi,
 } from "aws-cdk-lib/aws-apigateway";
-import {Certificate} from "aws-cdk-lib/aws-certificatemanager";
+import {HostedZone} from "aws-cdk-lib/aws-route53";
 
-import {BASE_DOMAIN, StageType} from "../config";
+import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
 
 export interface ServiceStackProps extends StackProps {
     stageType: StageType;
@@ -28,11 +29,18 @@ export class ServiceStack extends Stack {
     }
 
     private buildApi(): RestApi {
+        const hostedZone = HostedZone.fromHostedZoneAttributes(this, "HostedZone", {
+            hostedZoneId: HOSTED_ZONE_ID,
+            zoneName: BASE_DOMAIN,
+        });
         const domainName = `${this.props.stageType}.${BASE_DOMAIN}`;
-        const certificate = new Certificate(this, "Certificate", {domainName});
+        const certificate = new DnsValidatedCertificate(this, "Certificate", {
+            domainName,
+            validationHostedZones: [{hostedZone}],
+            certificateRegion: "us-east-1",
+        });
         const api = new RestApi(this, "Api", {
-            // TODO migrate to EDGE, but need to put cert in IAD
-            endpointTypes: [EndpointType.REGIONAL],
+            endpointTypes: [EndpointType.EDGE],
             restApiName: `ffsync-${this.props.stageType}`,
             domainName: {
                 domainName,

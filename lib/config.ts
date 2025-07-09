@@ -7,3 +7,4 @@ export enum StageType {
 }
 
 export const BASE_DOMAIN = "ffsync.layertwo.dev";
+export const HOSTED_ZONE_ID = "Z0557162T90BYTET3VI9";

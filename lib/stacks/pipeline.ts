@@ -2,11 +2,9 @@ import {Construct} from "constructs";
 
 import {SecretValue, Stack, StackProps, Stage, StageProps} from "aws-cdk-lib";
 import {PipelineType} from "aws-cdk-lib/aws-codepipeline";
-import {HostedZone} from "aws-cdk-lib/aws-route53";
 import * as pipelines from "aws-cdk-lib/pipelines";
 
 import {ACCOUNT_ID, REGION, StageType} from "../config";
-import {DnsStack} from "./dns";
 import {ServiceStack} from "./service";
 
 export class PipelineStack extends Stack {
@@ -24,13 +22,6 @@ export class PipelineStack extends Stack {
             selfMutation: true,
         });
 
-        const infraStage = new InfraStage(this, "Infra", {
-            env: {
-                account: ACCOUNT_ID,
-                region: REGION,
-            },
-        });
-        pipeline.addStage(infraStage);
         pipeline.addStage(
             new LogicalStage(this, "Beta", {
                 env: {
@@ -38,7 +29,6 @@ export class PipelineStack extends Stack {
                     region: REGION,
                 },
                 stageType: StageType.BETA,
-                hostedZone: infraStage.hostedZone,
             }),
         );
 
@@ -49,7 +39,6 @@ export class PipelineStack extends Stack {
                     region: REGION,
                 },
                 stageType: StageType.PROD,
-                hostedZone: infraStage.hostedZone,
             }),
         );
     }
@@ -57,7 +46,6 @@ export class PipelineStack extends Stack {
 
 export interface LogicalStageProps extends StageProps {
     stageType: StageType;
-    hostedZone: HostedZone;
 }
 
 export class LogicalStage extends Stage {
@@ -68,20 +56,5 @@ export class LogicalStage extends Stage {
             env: props.env,
             stageType: props.stageType,
         });
-    }
-}
-
-export class InfraStage extends Stage {
-    readonly hostedZone: HostedZone;
-    constructor(scope: Construct, id: string, props: StageProps) {
-        super(scope, id, props);
-
-        const dnsStack = new DnsStack(this, "Dns", {
-            env: {
-                account: ACCOUNT_ID,
-                region: REGION,
-            },
-        });
-        this.hostedZone = dnsStack.hostedZone;
     }
 }
