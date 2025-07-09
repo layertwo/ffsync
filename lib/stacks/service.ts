@@ -41,11 +41,15 @@ export class ServiceStack extends Stack {
         });
         const api = new RestApi(this, "Api", {
             endpointTypes: [EndpointType.EDGE],
+            endpointConfiguration: {
+                types: [EndpointType.EDGE],
+            },
             restApiName: `ffsync-${this.props.stageType}`,
             domainName: {
                 domainName,
                 certificate,
             },
+            disableExecuteApiEndpoint: true,
         });
 
         api.root.addMethod(
