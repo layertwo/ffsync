@@ -40,7 +40,6 @@ export class ServiceStack extends Stack {
             certificateRegion: "us-east-1",
         });
         const api = new RestApi(this, "Api", {
-            endpointTypes: [EndpointType.EDGE],
             endpointConfiguration: {
                 types: [EndpointType.EDGE],
             },
