@@ -5,3 +5,5 @@ export enum StageType {
     PROD = "prod",
     BETA = "beta",
 }
+
+export const BASE_DOMAIN = "ffsync.layertwo.dev";

@@ -10,7 +10,7 @@ import {
 } from "aws-cdk-lib/aws-apigateway";
 import {Certificate} from "aws-cdk-lib/aws-certificatemanager";
 
-import {StageType} from "../config";
+import {BASE_DOMAIN, StageType} from "../config";
 
 export interface ServiceStackProps extends StackProps {
     stageType: StageType;
@@ -28,7 +28,7 @@ export class ServiceStack extends Stack {
     }
 
     private buildApi(): RestApi {
-        const domainName = `${this.props.stageType}.ffsync.layertwo.dev`;
+        const domainName = `${this.props.stageType}.${BASE_DOMAIN}`;
         const certificate = new Certificate(this, "Certificate", {domainName});
         const api = new RestApi(this, "Api", {
             // TODO migrate to EDGE, but need to put cert in IAD
