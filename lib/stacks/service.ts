@@ -1,4 +1,3 @@
-import {DnsValidatedCertificate} from "@trautonen/cdk-dns-validated-certificate";
 import {Construct} from "constructs";
 
 import {Stack, StackProps} from "aws-cdk-lib";
@@ -8,8 +7,11 @@ import {
     MockIntegration,
     PassthroughBehavior,
     RestApi,
+    SecurityPolicy,
 } from "aws-cdk-lib/aws-apigateway";
-import {HostedZone} from "aws-cdk-lib/aws-route53";
+import {Certificate, CertificateValidation} from "aws-cdk-lib/aws-certificatemanager";
+import {ARecord, HostedZone, RecordTarget} from "aws-cdk-lib/aws-route53";
+import {ApiGateway} from "aws-cdk-lib/aws-route53-targets";
 
 import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
 
@@ -34,19 +36,17 @@ export class ServiceStack extends Stack {
             zoneName: BASE_DOMAIN,
         });
         const domainName = `${this.props.stageType}.${BASE_DOMAIN}`;
-        const certificate = new DnsValidatedCertificate(this, "Certificate", {
+        const certificate = new Certificate(this, "Certificate", {
             domainName,
-            validationHostedZones: [{hostedZone}],
-            certificateRegion: "us-east-1",
+            validation: CertificateValidation.fromDns(hostedZone),
         });
         const api = new RestApi(this, "Api", {
-            endpointConfiguration: {
-                types: [EndpointType.EDGE],
-            },
+            endpointTypes: [EndpointType.EDGE],
             restApiName: `ffsync-${this.props.stageType}`,
             domainName: {
                 domainName,
                 certificate,
+                securityPolicy: SecurityPolicy.TLS_1_2,
             },
             disableExecuteApiEndpoint: true,
         });
@@ -65,6 +65,11 @@ export class ServiceStack extends Stack {
                 authorizationType: AuthorizationType.IAM,
             },
         );
+        new ARecord(this, "ARecord", {
+            zone: hostedZone,
+            recordName: domainName,
+            target: RecordTarget.fromAlias(new ApiGateway(api)),
+        });
         return api;
     }
 }

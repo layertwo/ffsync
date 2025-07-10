@@ -11,7 +11,7 @@
         "watch": "tsc -w"
     },
     "dependencies": {
-        "@trautonen/cdk-dns-validated-certificate": "^0.1.19",
+        "aws-cdk": "^2.204.0",
         "aws-cdk-lib": "^2.204.0",
         "constructs": "^10.4.2",
         "env-var": "^7.0.0",
