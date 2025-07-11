@@ -48,6 +48,9 @@ export class ServiceStack extends Stack {
                 certificate,
                 securityPolicy: SecurityPolicy.TLS_1_2,
             },
+            deployOptions: {
+                stageName: this.props.stageType.toLowerCase(),
+            },
             disableExecuteApiEndpoint: true,
         });
 
