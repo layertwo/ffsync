@@ -85,7 +85,7 @@ export class ServiceStack extends Stack {
             readFileSync(
                 path.join(
                     __dirname,
-                    "../../smithy/build/smithy/source/openapi/StorageService.openapi.json",
+                    "../../build/smithy/source/openapi/StorageService.openapi.json",
                 ),
                 "utf8",
             ),

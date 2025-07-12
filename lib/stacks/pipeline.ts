@@ -18,14 +18,20 @@ export class PipelineStack extends Stack {
                 input: pipelines.CodePipelineSource.gitHub("layertwo/ffsync", "mainline", {
                     authentication: SecretValue.secretsManager("ffsync-github-cdk"),
                 }),
-                installCommands: ["npm ci"],
+                installCommands: [
+                    "mkdir -p smithy-install/smithy",
+                    "curl -L https://github.com/smithy-lang/smithy/releases/download/1.60.3/smithy-cli-linux-aarch64.zip -o smithy-install/smithy-cli-linux-aarch64.zip",
+                    "unzip -qo smithy-install/smithy-cli-linux-aarch64.zip -d smithy-install",
+                    "mv smithy-install/smithy-cli-linux-aarch64/* smithy-install/smithy",
+                    "sudo smithy-install/smithy/install",
+                ],
                 commands: [
-                    "cd smithy/",
-                    "smithy build",
-                    "cd $CODEBUILD_SRC_DIR/",
+                    "npm ci",
+                    "npx smithy build -c smithy/smithy-build.json smithy",
                     "npm run build",
                     "npx cdk synth",
                 ],
+                primaryOutputDirectory: "build/cdk.out",
             }),
             selfMutation: true,
             codeBuildDefaults: {

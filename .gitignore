@@ -5,3 +5,4 @@ cdk.out
 !.prettierrc.js
 
 smithy/build
+build/
