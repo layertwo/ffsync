@@ -5,7 +5,7 @@ import {ComputeType, LinuxArmBuildImage} from "aws-cdk-lib/aws-codebuild";
 import {PipelineType} from "aws-cdk-lib/aws-codepipeline";
 import * as pipelines from "aws-cdk-lib/pipelines";
 
-import {ACCOUNT_ID, REGION, StageType} from "../config";
+import {ACCOUNT_ID, REGION, SMITHY_DOWNLOAD_URL, StageType} from "../config";
 import {ServiceStack} from "./service";
 
 export class PipelineStack extends Stack {
@@ -20,7 +20,7 @@ export class PipelineStack extends Stack {
                 }),
                 installCommands: [
                     "mkdir -p smithy-install/smithy",
-                    "curl -L https://github.com/smithy-lang/smithy/releases/download/1.60.3/smithy-cli-linux-aarch64.zip -o smithy-install/smithy-cli-linux-aarch64.zip",
+                    `curl -L ${SMITHY_DOWNLOAD_URL} -o smithy-install/smithy-cli-linux-aarch64.zip`,
                     "unzip -qo smithy-install/smithy-cli-linux-aarch64.zip -d smithy-install",
                     "mv smithy-install/smithy-cli-linux-aarch64/* smithy-install/smithy",
                     "sudo smithy-install/smithy/install",
