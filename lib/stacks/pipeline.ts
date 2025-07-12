@@ -1,6 +1,7 @@
 import {Construct} from "constructs";
 
 import {SecretValue, Stack, StackProps, Stage, StageProps} from "aws-cdk-lib";
+import {ComputeType, LinuxArmBuildImage} from "aws-cdk-lib/aws-codebuild";
 import {PipelineType} from "aws-cdk-lib/aws-codepipeline";
 import * as pipelines from "aws-cdk-lib/pipelines";
 
@@ -17,9 +18,22 @@ export class PipelineStack extends Stack {
                 input: pipelines.CodePipelineSource.gitHub("layertwo/ffsync", "mainline", {
                     authentication: SecretValue.secretsManager("ffsync-github-cdk"),
                 }),
-                commands: ["npm ci", "npm run build", "npx cdk synth"],
+                installCommands: ["npm ci"],
+                commands: [
+                    "cd smithy/",
+                    "smithy build",
+                    "cd $CODEBUILD_SRC_DIR/",
+                    "npm run build",
+                    "npx cdk synth",
+                ],
             }),
             selfMutation: true,
+            codeBuildDefaults: {
+                buildEnvironment: {
+                    buildImage: LinuxArmBuildImage.AMAZON_LINUX_2_STANDARD_3_0,
+                    computeType: ComputeType.SMALL,
+                },
+            },
         });
 
         pipeline.addStage(

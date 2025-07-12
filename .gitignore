@@ -3,3 +3,5 @@ cdk.out
 *.d.ts
 *.js
 !.prettierrc.js
+
+smithy/build

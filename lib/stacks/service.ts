@@ -1,13 +1,16 @@
 import {Construct} from "constructs";
+import {readFileSync} from "fs";
+import * as path from "path";
 
 import {Stack, StackProps} from "aws-cdk-lib";
 import {
+    ApiDefinition,
     AuthorizationType,
     EndpointType,
     MockIntegration,
     PassthroughBehavior,
-    RestApi,
     SecurityPolicy,
+    SpecRestApi,
 } from "aws-cdk-lib/aws-apigateway";
 import {Certificate, CertificateValidation} from "aws-cdk-lib/aws-certificatemanager";
 import {ARecord, HostedZone, RecordTarget} from "aws-cdk-lib/aws-route53";
@@ -21,7 +24,7 @@ export interface ServiceStackProps extends StackProps {
 
 export class ServiceStack extends Stack {
     private readonly props: ServiceStackProps;
-    private readonly api: RestApi;
+    private readonly api: SpecRestApi;
 
     constructor(scope: Construct, id: string, props: ServiceStackProps) {
         super(scope, id, props);
@@ -30,7 +33,7 @@ export class ServiceStack extends Stack {
         this.api = this.buildApi();
     }
 
-    private buildApi(): RestApi {
+    private buildApi(): SpecRestApi {
         const hostedZone = HostedZone.fromHostedZoneAttributes(this, "HostedZone", {
             hostedZoneId: HOSTED_ZONE_ID,
             zoneName: BASE_DOMAIN,
@@ -40,7 +43,8 @@ export class ServiceStack extends Stack {
             domainName,
             validation: CertificateValidation.fromDns(hostedZone),
         });
-        const api = new RestApi(this, "Api", {
+        const api = new SpecRestApi(this, "Api", {
+            apiDefinition: ApiDefinition.fromInline(this.openApiSpec),
             endpointTypes: [EndpointType.EDGE],
             restApiName: `ffsync-${this.props.stageType}`,
             domainName: {
@@ -74,5 +78,18 @@ export class ServiceStack extends Stack {
             target: RecordTarget.fromAlias(new ApiGateway(api)),
         });
         return api;
+    }
+
+    private get openApiSpec(): string {
+        const openapi = JSON.parse(
+            readFileSync(
+                path.join(
+                    __dirname,
+                    "../../smithy/build/smithy/source/openapi/StorageService.openapi.json",
+                ),
+                "utf8",
+            ),
+        );
+        return openapi;
     }
 }
