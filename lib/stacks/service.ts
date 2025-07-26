@@ -1,22 +1,17 @@
+import {PythonFunction} from "@aws-cdk/aws-lambda-python-alpha";
 import {Construct} from "constructs";
 import {readFileSync} from "fs";
 import * as path from "path";
 
-import {Stack, StackProps} from "aws-cdk-lib";
-import {
-    ApiDefinition,
-    AuthorizationType,
-    EndpointType,
-    MockIntegration,
-    PassthroughBehavior,
-    SecurityPolicy,
-    SpecRestApi,
-} from "aws-cdk-lib/aws-apigateway";
+import {Duration, Stack, StackProps} from "aws-cdk-lib";
+import {ApiDefinition, EndpointType, SecurityPolicy, SpecRestApi} from "aws-cdk-lib/aws-apigateway";
 import {Certificate, CertificateValidation} from "aws-cdk-lib/aws-certificatemanager";
+import {Architecture, Runtime} from "aws-cdk-lib/aws-lambda";
 import {ARecord, HostedZone, RecordTarget} from "aws-cdk-lib/aws-route53";
 import {ApiGateway} from "aws-cdk-lib/aws-route53-targets";
 
 import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
+import { Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 
 export interface ServiceStackProps extends StackProps {
     stageType: StageType;
@@ -24,13 +19,42 @@ export interface ServiceStackProps extends StackProps {
 
 export class ServiceStack extends Stack {
     private readonly props: ServiceStackProps;
+    private readonly apiHandler: PythonFunction;
+    private readonly apiRole: Role;
     private readonly api: SpecRestApi;
 
     constructor(scope: Construct, id: string, props: ServiceStackProps) {
         super(scope, id, props);
 
         this.props = props;
+        this.apiRole = this.buildApiRole();
+        this.apiHandler = this.buildApiHandler();
         this.api = this.buildApi();
+    }
+
+    private buildApiHandler(): PythonFunction {
+        const fn = new PythonFunction(this, "ApiHandler", {
+            entry: path.join(__dirname, "../../lambda"),
+            index: "src/entrypoint/main.py",
+            runtime: Runtime.PYTHON_3_12,
+            architecture: Architecture.ARM_64,
+            handler: "lambda_handler",
+            functionName: `ffsync-storage-${this.props.stageType.toLowerCase()}`,
+            timeout: Duration.seconds(29),
+            environment: {
+                STAGE: this.props.stageType.toLowerCase(),
+            },
+        });
+        fn.grantInvoke(this.apiRole);
+        return fn;
+    }
+
+    private buildApiRole(): Role {
+        return new Role(this, "ApiRole", {
+            roleName: `ffsync-api-role-${this.props.stageType.toLowerCase()}`,
+            assumedBy: new ServicePrincipal("apigateway.amazonaws.com"),
+            description: `Role for API Gateway to invoke Lambda for stage ${this.props.stageType}`,
+        });
     }
 
     private buildApi(): SpecRestApi {
@@ -57,21 +81,8 @@ export class ServiceStack extends Stack {
             },
             disableExecuteApiEndpoint: true,
         });
+        api.node.addDependency(this.apiHandler);
 
-        api.root.addMethod(
-            "GET",
-            new MockIntegration({
-                integrationResponses: [{statusCode: "200"}],
-                passthroughBehavior: PassthroughBehavior.NEVER,
-                requestTemplates: {
-                    "application/json": '{ "statusCode": 200 }',
-                },
-            }),
-            {
-                methodResponses: [{statusCode: "200"}],
-                authorizationType: AuthorizationType.IAM,
-            },
-        );
         new ARecord(this, "ARecord", {
             zone: hostedZone,
             recordName: domainName,
@@ -80,16 +91,16 @@ export class ServiceStack extends Stack {
         return api;
     }
 
-    private get openApiSpec(): string {
-        const openapi = JSON.parse(
-            readFileSync(
-                path.join(
-                    __dirname,
-                    "../../build/smithy/source/openapi/StorageService.openapi.json",
-                ),
-                "utf8",
-            ),
+    private get openApiSpec(): any {
+        let openApiJson = readFileSync(
+            path.join(__dirname, "../../build/smithy/source/openapi/StorageService.openapi.json"),
+            "utf8",
         );
-        return openapi;
+
+        // Replace placeholder with actual Lambda ARN
+        openApiJson = openApiJson.replace(/CDK_LAMBDA_FUNCTION_ARN/g, this.apiHandler.functionArn);
+        openApiJson = openApiJson.replace(/CDK_API_ROLE_ARN/g, this.apiRole.roleArn);
+
+        return JSON.parse(openApiJson);
     }
 }
