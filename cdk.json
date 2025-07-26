@@ -20,7 +20,7 @@
     },
     "context": {
         "@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021": true,
-        "@aws-cdk/aws-iam:enablePartitionalLiterals": true,
+        "@aws-cdk/core:enablePartitionLiterals": true,
         "@aws-cdk/aws-iam:minimizePolicies": true
     },
     "output": "build/cdk.out"
