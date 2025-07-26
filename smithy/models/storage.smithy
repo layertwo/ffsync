@@ -14,7 +14,6 @@ resource Storage {
 // ============================================================================
 // Storage Info Resource
 // ============================================================================
-
 @documentation("Storage metadata and quota information")
 resource StorageInfo {
     resources: [
@@ -26,19 +25,13 @@ resource StorageInfo {
 }
 
 @documentation("Collection count information")
-resource CollectionCountsResource {
-    read: GetCollectionCounts
-}
+resource CollectionCountsResource { read: GetCollectionCounts }
 
 @documentation("Collection usage information")
-resource CollectionUsageResource {
-    read: GetCollectionUsage
-}
+resource CollectionUsageResource { read: GetCollectionUsage }
 
 @documentation("Storage quota information")
-resource QuotaInfo {
-    read: GetQuotaInfo
-}
+resource QuotaInfo { read: GetQuotaInfo }
 
 @idempotent
 @http(method: "DELETE", uri: "/storage")
@@ -95,27 +88,24 @@ operation GetQuotaInfo {
     ]
 }
 
-
-
 /// Collection resource data
 structure CollectionData {
     @documentation("Collection name")
     @required
     name: CollectionName
-    
+
     @documentation("Last modified timestamp for the collection")
     @required
     modified: Timestamp
-    
+
     @documentation("Number of items in the collection")
     @required
     count: Integer
-    
+
     @documentation("Total size of the collection in bytes")
     @required
     usage: Long
 }
-
 
 /// Collection counts map
 map CollectionCounts {
@@ -134,7 +124,6 @@ map CollectionDataMap {
     key: CollectionName
     value: CollectionData
 }
-
 
 list ObjectIdList {
     member: ObjectId
@@ -180,10 +169,10 @@ structure GetQuotaInfoInput {}
 structure GetQuotaInfoOutput {
     @documentation("Total storage quota in bytes")
     quota: Long
-    
+
     @documentation("Used storage in bytes")
     usage: Long
-    
+
     @documentation("Remaining storage in bytes")
     remaining: Long
 }

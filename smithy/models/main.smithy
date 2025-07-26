@@ -2,28 +2,22 @@ $version: "2"
 
 namespace layertwo.syncstorage
 
-use aws.auth#sigv4
-use aws.apigateway#integration
-use aws.protocols#restJson1
-use aws.apigateway#requestValidator
-use aws.api#service
-use smithy.framework#ValidationException
 use aws.apigateway#mockIntegration
+use aws.apigateway#requestValidator
+use aws.auth#sigv4
+use aws.protocols#restJson1
+use smithy.framework#ValidationException
 
 @restJson1
 @documentation("SyncStorage")
 @sigv4(name: "ffsync")
 @mockIntegration(
     passThroughBehavior: "never"
-    requestTemplates: {
-        "application/json": "{\"statusCode\": 200}"
-    }
+    requestTemplates: { "application/json": "{\"statusCode\": 200}" }
     responses: {
         default: {
             statusCode: "200"
-            responseTemplates: {
-                "application/json": "{}"
-            }
+            responseTemplates: { "application/json": "{}" }
         }
     }
 )

@@ -2,7 +2,6 @@ $version: "2"
 
 namespace layertwo.syncstorage
 
-use aws.protocols#restJson1
 use smithy.framework#ValidationException
 
 @documentation("Individual storage object within a collection")
@@ -20,18 +19,18 @@ structure BasicStorageObject {
     @documentation("Unique identifier within the collection")
     @required
     id: ObjectId
-    
+
     @documentation("JSON payload of the storage object")
     @required
     payload: String
-    
+
     @documentation("Last modified timestamp (milliseconds since epoch)")
     @required
     modified: Timestamp
-    
+
     @documentation("Sort index for ordering")
     sortindex: Integer
-    
+
     @documentation("Time-to-live in seconds")
     ttl: Integer
 }
@@ -41,18 +40,17 @@ structure BasicStorageObjectInput {
     @documentation("Unique identifier within the collection")
     @required
     id: ObjectId
-    
+
     @documentation("JSON payload of the storage object")
     @required
     payload: String
-    
+
     @documentation("Sort index for ordering")
     sortindex: Integer
-    
+
     @documentation("Time-to-live in seconds")
     ttl: Integer
 }
-
 
 @readonly
 @http(method: "GET", uri: "/storage/{collectionName}/{objectId}")
@@ -96,12 +94,11 @@ operation DeleteBasicStorageObject {
     ]
 }
 
-
 structure GetBasicStorageObjectInput {
     @httpLabel
     @required
     collectionName: CollectionName
-    
+
     @httpLabel
     @required
     objectId: ObjectId
@@ -110,7 +107,7 @@ structure GetBasicStorageObjectInput {
 structure GetBasicStorageObjectOutput {
     @documentation("The requested storage object")
     object: BasicStorageObject
-    
+
     @httpHeader("X-Last-Modified")
     lastModified: Timestamp
 }
@@ -119,15 +116,15 @@ structure UpdateBasicStorageObjectInput {
     @httpLabel
     @required
     collectionName: CollectionName
-    
+
     @httpLabel
     @required
     objectId: ObjectId
-    
+
     @httpPayload
     @required
     object: BasicStorageObjectInput
-    
+
     @httpHeader("X-If-Unmodified-Since")
     ifUnmodifiedSince: Timestamp
 }
@@ -135,7 +132,7 @@ structure UpdateBasicStorageObjectInput {
 structure UpdateBasicStorageObjectOutput {
     @documentation("Updated storage object")
     object: BasicStorageObject
-    
+
     @documentation("Timestamp when the object was modified")
     modified: Timestamp
 }
@@ -144,7 +141,7 @@ structure DeleteBasicStorageObjectInput {
     @httpLabel
     @required
     collectionName: CollectionName
-    
+
     @httpLabel
     @required
     objectId: ObjectId

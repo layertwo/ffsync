@@ -2,7 +2,6 @@ $version: "2"
 
 namespace layertwo.syncstorage
 
-use aws.protocols#restJson1
 use smithy.framework#ValidationException
 
 @documentation("A collection of storage objects grouped by type (e.g., bookmarks, history)")
@@ -48,7 +47,7 @@ structure CreateCollectionInput {
     @httpLabel
     @required
     collectionName: CollectionName
-    
+
     @required
     objects: BasicStorageObjectList
 }
@@ -57,7 +56,7 @@ structure CreateCollectionInput {
 structure CreateCollectionOutput {
     @documentation("Created collection data")
     collection: CollectionData
-    
+
     @documentation("Batch result if objects were provided")
     batchResult: BatchResult
 }
@@ -88,12 +87,10 @@ structure GetCollectionInput {
 structure GetCollectionOutput {
     @documentation("Collection data")
     collection: CollectionData
-    
+
     @httpHeader("X-Last-Modified")
     lastModified: Timestamp
 }
-
-
 
 @readonly
 @http(method: "GET", uri: "/storage/{collectionName}")
@@ -113,10 +110,10 @@ structure UpdateCollectionInput {
     @httpLabel
     @required
     collectionName: CollectionName
-    
+
     @required
     objects: BasicStorageObjectList
-    
+
     @httpHeader("X-If-Unmodified-Since")
     ifUnmodifiedSince: Timestamp
 }
@@ -125,7 +122,7 @@ structure UpdateCollectionInput {
 structure UpdateCollectionOutput {
     @documentation("Updated collection data")
     collection: CollectionData
-    
+
     @documentation("Batch operation result")
     batchResult: BatchResult
 }
@@ -176,10 +173,10 @@ structure DeleteCollectionOutput {
 structure BatchResult {
     @documentation("Successfully processed object IDs")
     success: ObjectIdList
-    
+
     @documentation("Failed operations with error details")
     failed: FailedOperations
-    
+
     @documentation("New last modified timestamp")
     modified: Timestamp
 }
