@@ -12,6 +12,15 @@
         "\\/\\/ renovate: datasource=(?<datasource>[0-9a-z-\\.]+?)?(?: registryUrl=(?<registryUrl>.*?)?)?(?: versioning=(?<versioning>[a-z-]+?))?\\s*(?<packageName>[a-zA-Z0-9_-]+):\\s*\"(?<currentValue>.+?)?(?:@(?<currentDigest>.+?))?\"",
         "\\/\\/ renovate: datasource=(?<datasource>[0-9a-z-\\.]+?)(?:\\s+depName=(?<packageName>[a-zA-Z0-9_\\/-]+?))?(?:\\s+registryUrl=(?<registryUrl>.*?))?(?:\\s+versioning=(?<versioning>[a-z-]+?))?\\s*\\nexport const [a-zA-Z0-9_]+ = \"(?<currentValue>[^\"]+)\""
       ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["smithy/smithy-build.json"],
+      "matchStrings": [
+        "\"(?<packageName>software\\.amazon\\.smithy:[^:]+):(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "maven",
+      "versioningTemplate": "gradle"
     }
   ]
 }
