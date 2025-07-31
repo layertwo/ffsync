@@ -14,6 +14,7 @@
         "@aws-cdk/aws-lambda-python-alpha": "^2.207.0-alpha.0",
         "aws-cdk": "^2.1022.0",
         "aws-cdk-lib": "^2.207.0",
+        "cdk-monitoring-constructs": "^9.13.0",
         "constructs": "^10.4.2",
         "env-var": "^7.0.0",
         "source-map-support": "^0.5.16"

@@ -4,14 +4,20 @@ import {readFileSync} from "fs";
 import * as path from "path";
 
 import {Duration, Stack, StackProps} from "aws-cdk-lib";
-import {ApiDefinition, EndpointType, SecurityPolicy, SpecRestApi} from "aws-cdk-lib/aws-apigateway";
+import {
+    ApiDefinition,
+    EndpointType,
+    MethodLoggingLevel,
+    SecurityPolicy,
+    SpecRestApi,
+} from "aws-cdk-lib/aws-apigateway";
 import {Certificate, CertificateValidation} from "aws-cdk-lib/aws-certificatemanager";
+import {Role, ServicePrincipal} from "aws-cdk-lib/aws-iam";
 import {Architecture, Runtime} from "aws-cdk-lib/aws-lambda";
 import {ARecord, HostedZone, RecordTarget} from "aws-cdk-lib/aws-route53";
 import {ApiGateway} from "aws-cdk-lib/aws-route53-targets";
 
 import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
-import { Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 
 export interface ServiceStackProps extends StackProps {
     stageType: StageType;
@@ -19,9 +25,10 @@ export interface ServiceStackProps extends StackProps {
 
 export class ServiceStack extends Stack {
     private readonly props: ServiceStackProps;
-    private readonly apiHandler: PythonFunction;
     private readonly apiRole: Role;
-    private readonly api: SpecRestApi;
+
+    public readonly apiHandler: PythonFunction;
+    public readonly api: SpecRestApi;
 
     constructor(scope: Construct, id: string, props: ServiceStackProps) {
         super(scope, id, props);
@@ -78,6 +85,8 @@ export class ServiceStack extends Stack {
             },
             deployOptions: {
                 stageName: this.props.stageType.toLowerCase(),
+                metricsEnabled: true,
+                loggingLevel: MethodLoggingLevel.INFO,
             },
             disableExecuteApiEndpoint: true,
         });

@@ -6,6 +6,7 @@ import {PipelineType} from "aws-cdk-lib/aws-codepipeline";
 import * as pipelines from "aws-cdk-lib/pipelines";
 
 import {ACCOUNT_ID, REGION, SMITHY_DOWNLOAD_URL, StageType} from "../config";
+import {MonitoringStack} from "./monitoring";
 import {ServiceStack} from "./service";
 
 export class PipelineStack extends Stack {
@@ -72,9 +73,16 @@ export class LogicalStage extends Stage {
     constructor(scope: Construct, id: string, props: LogicalStageProps) {
         super(scope, id, props);
 
-        new ServiceStack(this, `ServiceStack`, {
+        const serviceStack = new ServiceStack(this, `ServiceStack`, {
             env: props.env,
             stageType: props.stageType,
+        });
+
+        new MonitoringStack(this, `MonitoringStack`, {
+            env: props.env,
+            stageType: props.stageType,
+            api: serviceStack.api,
+            apiHandler: serviceStack.apiHandler,
         });
     }
 }
