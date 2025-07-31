@@ -15,7 +15,8 @@
             "service": "layertwo.syncstorage#StorageService",
             "protocol": "aws.protocols#restJson1",
             "version": "3.0.2",
-            "apiGatewayType" : "REST"
+            "apiGatewayType" : "REST",
+            "disableCloudFormationSubstitution": true
         }
     }
 }

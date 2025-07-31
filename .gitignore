@@ -6,3 +6,4 @@ cdk.out
 
 smithy/build
 build/
+__pycache__
