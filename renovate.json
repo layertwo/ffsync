@@ -22,5 +22,19 @@
       "datasourceTemplate": "maven",
       "versioningTemplate": "gradle"
     }
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": ["aws-cdk-lib", "aws-cdk"],
+      "groupName": "aws-cdk",
+      "matchDatasources": ["npm"]
+    },
+    {
+      "matchDepNames": [
+        "software\\.amazon\\.smithy:.*",
+        "smithy-lang/smithy"
+      ],
+      "groupName": "smithy"
+    }
   ]
 }
