@@ -11,10 +11,10 @@
         "watch": "tsc -w"
     },
     "dependencies": {
-        "@aws-cdk/aws-lambda-python-alpha": "^2.207.0-alpha.0",
-        "aws-cdk": "^2.1022.0",
-        "aws-cdk-lib": "^2.207.0",
-        "cdk-monitoring-constructs": "^9.13.0",
+        "@aws-cdk/aws-lambda-python-alpha": "^2.231.0-alpha.0",
+        "aws-cdk": "^2.1033.0",
+        "aws-cdk-lib": "^2.231.0",
+        "cdk-monitoring-constructs": "^9.16.0",
         "constructs": "^10.4.2",
         "env-var": "^7.0.0",
         "source-map-support": "^0.5.16"
@@ -34,6 +34,6 @@
         "prettier-plugin-pkgsort": "^0.2.1",
         "ts-jest": "^29.4.0",
         "ts-node": "^10.9.2",
-        "typescript": "~5.8.3"
+        "typescript": "~5.9.0"
     }
 }
