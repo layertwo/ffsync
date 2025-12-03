@@ -3,7 +3,7 @@ import {Construct} from "constructs";
 import {readFileSync} from "fs";
 import * as path from "path";
 
-import {Duration, Stack, StackProps} from "aws-cdk-lib";
+import {Duration, RemovalPolicy, Stack, StackProps} from "aws-cdk-lib";
 import {
     ApiDefinition,
     EndpointType,
@@ -12,6 +12,7 @@ import {
     SpecRestApi,
 } from "aws-cdk-lib/aws-apigateway";
 import {Certificate, CertificateValidation} from "aws-cdk-lib/aws-certificatemanager";
+import {AttributeType, BillingMode, Table, TableEncryption} from "aws-cdk-lib/aws-dynamodb";
 import {Role, ServicePrincipal} from "aws-cdk-lib/aws-iam";
 import {Architecture, Runtime} from "aws-cdk-lib/aws-lambda";
 import {ARecord, HostedZone, RecordTarget} from "aws-cdk-lib/aws-route53";
@@ -25,18 +26,42 @@ export interface ServiceStackProps extends StackProps {
 
 export class ServiceStack extends Stack {
     private readonly props: ServiceStackProps;
-    private readonly apiRole: Role;
-
+    private readonly storageTable: Table;
     public readonly apiHandler: PythonFunction;
+    private readonly apiRole: Role;
     public readonly api: SpecRestApi;
 
     constructor(scope: Construct, id: string, props: ServiceStackProps) {
         super(scope, id, props);
 
         this.props = props;
+        this.storageTable = this.buildStorageTable();
         this.apiRole = this.buildApiRole();
         this.apiHandler = this.buildApiHandler();
         this.api = this.buildApi();
+    }
+
+    private buildStorageTable(): Table {
+        return new Table(this, "StorageTable", {
+            tableName: `ffsync-storage-${this.props.stageType.toLowerCase()}`,
+            encryption: TableEncryption.AWS_MANAGED,
+            partitionKey: {
+                name: "PK",
+                type: AttributeType.STRING,
+            },
+            sortKey: {
+                name: "SK",
+                type: AttributeType.STRING,
+            },
+            billingMode: BillingMode.PAY_PER_REQUEST,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: true,
+            },
+            removalPolicy:
+                this.props.stageType === StageType.PROD
+                    ? RemovalPolicy.RETAIN
+                    : RemovalPolicy.DESTROY,
+        });
     }
 
     private buildApiHandler(): PythonFunction {
@@ -48,11 +73,18 @@ export class ServiceStack extends Stack {
             handler: "lambda_handler",
             functionName: `ffsync-storage-${this.props.stageType.toLowerCase()}`,
             timeout: Duration.seconds(29),
+            memorySize: 512,
             environment: {
                 STAGE: this.props.stageType.toLowerCase(),
+                STORAGE_TABLE_NAME: this.storageTable.tableName,
             },
         });
+
+        // Grant DynamoDB permissions to Lambda
+        this.storageTable.grantReadWriteData(fn);
         fn.grantInvoke(this.apiRole);
+        this.exportValue(fn.functionName);
+
         return fn;
     }
 

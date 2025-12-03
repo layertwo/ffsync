@@ -1,5 +1,3 @@
-from typing import Any, Dict
-
 from aws_lambda_proxy import Response, StatusCode
 
 
@@ -51,16 +49,6 @@ class PreconditionFailedException(SyncStorageException):
         super().__init__(message)
 
 
-class RequestTooLargeException(SyncStorageException):
-    """Request too large exception"""
-
-    status_code = StatusCode.REQUEST_TOO_LARGE
-    error_code = "RequestTooLargeException"
-
-    def __init__(self, message: str = "Request entity too large"):
-        super().__init__(message)
-
-
 class QuotaExceededException(SyncStorageException):
     """Quota exceeded exception"""
 
@@ -78,6 +66,16 @@ class CollectionNotFoundException(SyncStorageException):
     error_code = "CollectionNotFoundException"
 
     def __init__(self, message: str = "Collection not found"):
+        super().__init__(message)
+
+
+class StorageObjectNotFoundException(SyncStorageException):
+    """Storage object not found exception"""
+
+    status_code = StatusCode.NOT_FOUND
+    error_code = "StorageObjectNotFoundException"
+
+    def __init__(self, message: str = "Storage object not found"):
         super().__init__(message)
 
 

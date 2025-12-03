@@ -1,8 +1,14 @@
+import json
+
 from aws_lambda_proxy import Response, StatusCode
+from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 
 
 class ListCollectionsRoute(BaseRoute):
+    def __init__(self, storage_manager: StorageManager):
+        self.storage_manager = storage_manager
+
     def bind(self, api):
         @api.get("/storage")
         @api.pass_event
@@ -11,12 +17,31 @@ class ListCollectionsRoute(BaseRoute):
 
     def handle(self, event):
         """List all collections with their metadata"""
-        # TODO: Implement authentication validation
-        # TODO: Implement collection listing logic
-        # TODO: Return proper CollectionDataList structure
+        try:
+            # Get collections using storage manager
+            collections = self.storage_manager.list_collections()
 
-        return Response(
-            status_code=StatusCode.OK,
-            content_type="application/json",
-            body='{"collections": [{"name": "bookmarks", "modified": 1642678800000, "count": 10, "usage": 2048}, {"name": "history", "modified": 1642678900000, "count": 25, "usage": 4096}]}',
-        )
+            response_body = {
+                "collections": [
+                    {
+                        "name": collection.name,
+                        "modified": collection.modified,
+                        "count": collection.count,
+                        "usage": collection.usage,
+                    }
+                    for collection in collections
+                ]
+            }
+
+            return Response(
+                status_code=StatusCode.OK,
+                content_type="application/json",
+                body=json.dumps(response_body),
+            )
+
+        except Exception as e:
+            return Response(
+                status_code=StatusCode.INTERNAL_SERVER_ERROR,
+                content_type="application/json",
+                body=json.dumps({"error": "Internal server error"}),
+            )

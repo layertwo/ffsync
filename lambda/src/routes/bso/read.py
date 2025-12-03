@@ -1,8 +1,19 @@
+import json
+
 from aws_lambda_proxy import Response, StatusCode
+from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
+from src.shared.exceptions import (
+    CollectionNotFoundException,
+    StorageObjectNotFoundException,
+    ValidationException,
+)
 
 
 class ReadBSORoute(BaseRoute):
+    def __init__(self, storage_manager: StorageManager):
+        self.storage_manager = storage_manager
+
     def bind(self, api):
         @api.get("/storage/{collectionName}/{objectId}")
         @api.pass_event
@@ -11,18 +22,59 @@ class ReadBSORoute(BaseRoute):
 
     def handle(self, event):
         """Get a specific storage object"""
-        # TODO: Implement authentication validation
-        # TODO: Validate collectionName against pattern ^[a-zA-Z0-9._-]+$ and length 1-32
-        # TODO: Validate objectId against pattern ^[a-zA-Z0-9._-]+$ and length 1-64
-        # TODO: Implement storage object retrieval logic
-        # TODO: Return proper X-Last-Modified header
+        try:
+            collection_name = event["pathParameters"]["collectionName"]
+            object_id = event["pathParameters"]["objectId"]
 
-        collection_name = event["pathParameters"]["collectionName"]
-        object_id = event["pathParameters"]["objectId"]
+            # Get storage object using storage manager
+            storage_object = self.storage_manager.get_storage_object(
+                collection_name, object_id
+            )
 
-        return Response(
-            status_code=StatusCode.OK,
-            content_type="application/json",
-            body=f'{{"object": {{"id": "{object_id}", "payload": "{{\\"title\\": \\"Example Object\\", \\"url\\": \\"https://example.com\\"}}", "modified": 1642678800000, "sortindex": 100}}}}',
-            headers={"X-Last-Modified": "1642678800000"},
-        )
+            response_body = {
+                "object": {
+                    "id": storage_object.id,
+                    "payload": storage_object.payload,
+                    "modified": storage_object.modified,
+                    "sortindex": storage_object.sortindex,
+                    "ttl": storage_object.ttl,
+                }
+            }
+
+            # Remove None values
+            if response_body["object"]["sortindex"] is None:
+                del response_body["object"]["sortindex"]
+            if response_body["object"]["ttl"] is None:
+                del response_body["object"]["ttl"]
+
+            return Response(
+                status_code=StatusCode.OK,
+                content_type="application/json",
+                body=json.dumps(response_body),
+                headers={"X-Last-Modified": str(storage_object.modified)},
+            )
+
+        except ValidationException as e:
+            return Response(
+                status_code=StatusCode.BAD_REQUEST,
+                content_type="application/json",
+                body=json.dumps({"error": str(e)}),
+            )
+        except CollectionNotFoundException as e:
+            return Response(
+                status_code=StatusCode.NOT_FOUND,
+                content_type="application/json",
+                body=json.dumps({"error": str(e)}),
+            )
+        except StorageObjectNotFoundException as e:
+            return Response(
+                status_code=StatusCode.NOT_FOUND,
+                content_type="application/json",
+                body=json.dumps({"error": str(e)}),
+            )
+        except Exception as e:
+            return Response(
+                status_code=StatusCode.INTERNAL_SERVER_ERROR,
+                content_type="application/json",
+                body=json.dumps({"error": "Internal server error"}),
+            )

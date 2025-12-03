@@ -1,8 +1,14 @@
+import json
+
 from aws_lambda_proxy import Response, StatusCode
+from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 
 
 class ReadCollectionCountsRoute(BaseRoute):
+    def __init__(self, storage_manager: StorageManager):
+        self.storage_manager = storage_manager
+
     def bind(self, api):
         @api.get("/info/collection_counts")
         @api.pass_event
@@ -10,13 +16,25 @@ class ReadCollectionCountsRoute(BaseRoute):
             return self.handle(event)
 
     def handle(self, event):
-        """Get object counts for all collections"""
-        # TODO: Implement authentication validation
-        # TODO: Implement collection counts retrieval logic
-        # TODO: Return proper CollectionCounts map structure
+        """Get count information for all collections"""
+        try:
+            # Get collections using storage manager
+            collections = self.storage_manager.list_collections()
 
-        return Response(
-            status_code=StatusCode.OK,
-            content_type="application/json",
-            body='{"counts": {"bookmarks": 10, "history": 25, "tabs": 5}}',
-        )
+            # Convert to counts format
+            counts = {collection.name: collection.count for collection in collections}
+
+            response_body = {"counts": counts}
+
+            return Response(
+                status_code=StatusCode.OK,
+                content_type="application/json",
+                body=json.dumps(response_body),
+            )
+
+        except Exception as e:
+            return Response(
+                status_code=StatusCode.INTERNAL_SERVER_ERROR,
+                content_type="application/json",
+                body=json.dumps({"error": "Internal server error"}),
+            )

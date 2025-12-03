@@ -42,7 +42,7 @@ Comprehensive error handling with proper HTTP status codes:
 - `AuthenticationException` (401) - Authentication required
 - `ConflictException` (409) - Resource conflict
 - `PreconditionFailedException` (412) - Precondition failed
-- `RequestTooLargeException` (413) - Request entity too large
+- `ContentTooLargeException` (413) - Request entity too large
 - `CollectionNotFoundException` (404) - Collection not found
 - `QuotaExceededException` (507) - Storage quota exceeded
 
@@ -87,7 +87,6 @@ class NewRoute(BaseRoute):
 
 All route implementations currently contain TODO comments for:
 - Authentication validation integration
-- Backend storage implementation (likely DynamoDB)
 - Proper timestamp generation
 - Request payload parsing and validation
 - Response header management (X-Last-Modified, X-If-Unmodified-Since)
