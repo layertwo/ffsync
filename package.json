@@ -21,7 +21,7 @@
     },
     "devDependencies": {
         "@stylistic/eslint-plugin-js": "^4.0.0",
-        "@trivago/prettier-plugin-sort-imports": "^5.2.0",
+        "@trivago/prettier-plugin-sort-imports": "^6.0.0",
         "@types/jest": "^30.0.0",
         "@types/node": "*",
         "@typescript-eslint/eslint-plugin": "^8.18.0",
