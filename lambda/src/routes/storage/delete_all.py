@@ -1,8 +1,12 @@
+import json
+
 from aws_lambda_proxy import Response, StatusCode
 from src.shared.base_route import BaseRoute
+from src.shared.models import get_current_timestamp
 
 
 class DeleteAllStorageRoute(BaseRoute):
+
     def bind(self, api):
         @api.delete("/storage")
         @api.pass_event
@@ -11,12 +15,22 @@ class DeleteAllStorageRoute(BaseRoute):
 
     def handle(self, event):
         """Delete all storage data for the authenticated user"""
-        # TODO: Implement authentication validation
-        # TODO: Implement storage deletion logic
-        # TODO: Return proper timestamp in response
+        try:
+            # TODO: Implement authentication validation
+            # TODO: Implement deletion of all collections for authenticated user
 
-        return Response(
-            status_code=StatusCode.OK,
-            content_type="application/json",
-            body='{"modified": 1642678800000}',
-        )
+            # For now, return a placeholder response
+            timestamp = get_current_timestamp()
+
+            return Response(
+                status_code=StatusCode.OK,
+                content_type="application/json",
+                body=json.dumps({"modified": timestamp}),
+            )
+
+        except Exception as e:
+            return Response(
+                status_code=StatusCode.INTERNAL_SERVER_ERROR,
+                content_type="application/json",
+                body=json.dumps({"error": "Internal server error"}),
+            )

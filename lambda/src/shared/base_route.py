@@ -10,5 +10,6 @@ class BaseRoute(ABC):
         pass
 
     @abstractmethod
-    def handle(self, event, context):
+    def handle(self, event):
+        """Handle the route request"""
         pass

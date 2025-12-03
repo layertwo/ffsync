@@ -20,6 +20,7 @@ resource StorageInfo {
         CollectionCountsResource
         CollectionUsageResource
         QuotaInfo
+        ConfigurationInfo
     ]
     read: GetStorageInfo
 }
@@ -32,6 +33,9 @@ resource CollectionUsageResource { read: GetCollectionUsage }
 
 @documentation("Storage quota information")
 resource QuotaInfo { read: GetQuotaInfo }
+
+@documentation("Server configuration information")
+resource ConfigurationInfo { read: GetConfigurationInfo }
 
 @idempotent
 @http(method: "DELETE", uri: "/storage")
@@ -83,6 +87,17 @@ operation GetCollectionUsage {
 operation GetQuotaInfo {
     input: GetQuotaInfoInput
     output: GetQuotaInfoOutput
+    errors: [
+        AuthenticationException
+    ]
+}
+
+@readonly
+@http(method: "GET", uri: "/info/configuration")
+@documentation("Get server configuration limits")
+operation GetConfigurationInfo {
+    input: GetConfigurationInfoInput
+    output: GetConfigurationInfoOutput
     errors: [
         AuthenticationException
     ]
@@ -175,4 +190,23 @@ structure GetQuotaInfoOutput {
 
     @documentation("Remaining storage in bytes")
     remaining: Long
+}
+
+structure GetConfigurationInfoInput {}
+
+structure GetConfigurationInfoOutput {
+    @documentation("Maximum number of records per POST request")
+    max_post_records: Integer
+
+    @documentation("Maximum size of POST request body in bytes")
+    max_post_bytes: Long
+
+    @documentation("Maximum size of individual record in bytes")
+    max_record_payload_bytes: Long
+
+    @documentation("Maximum total size of all records in a collection")
+    max_total_records: Long
+
+    @documentation("Maximum total size of all records in bytes")
+    max_total_bytes: Long
 }

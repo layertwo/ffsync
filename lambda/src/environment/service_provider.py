@@ -1,5 +1,7 @@
+import os
 from functools import cached_property
 
+import boto3
 from src.routes.bso.delete import DeleteBSORoute
 from src.routes.bso.read import ReadBSORoute
 from src.routes.bso.update import UpdateBSORoute
@@ -14,26 +16,42 @@ from src.routes.info.read_quota import ReadQuotaInfoRoute
 from src.routes.info.read_usage import ReadCollectionUsageRoute
 from src.routes.storage.delete_all import DeleteAllStorageRoute
 from src.services.api_router import ApiRouter
+from src.services.storage_manager import StorageManager
 
 
 class ServiceProvider:
+    @cached_property
+    def aws_region(self):
+        return os.environ.get("AWS_REGION")
+
+    @cached_property
+    def session(self):
+        return boto3.Session(region_name=self.aws_region)
+
+    @cached_property
+    def table_name(self):
+        return os.environ.get("STORAGE_TABLE_NAME")
+
+    @cached_property
+    def storage_manager(self) -> StorageManager:
+        return StorageManager(session=self.session, table_name=self.table_name)
 
     @cached_property
     def api_router(self):
         return ApiRouter(
             routes=[
                 DeleteAllStorageRoute(),
-                ReadCollectionsInfoRoute(),
-                ReadCollectionCountsRoute(),
-                ReadCollectionUsageRoute(),
-                ReadQuotaInfoRoute(),
-                ListCollectionsRoute(),
-                CreateCollectionRoute(),
-                ReadCollectionRoute(),
-                UpdateCollectionRoute(),
-                DeleteCollectionRoute(),
-                ReadBSORoute(),
-                UpdateBSORoute(),
-                DeleteBSORoute(),
+                ReadCollectionsInfoRoute(self.storage_manager),
+                ReadCollectionCountsRoute(self.storage_manager),
+                ReadCollectionUsageRoute(self.storage_manager),
+                ReadQuotaInfoRoute(self.storage_manager),
+                ListCollectionsRoute(self.storage_manager),
+                CreateCollectionRoute(self.storage_manager),
+                ReadCollectionRoute(self.storage_manager),
+                UpdateCollectionRoute(self.storage_manager),
+                DeleteCollectionRoute(self.storage_manager),
+                ReadBSORoute(self.storage_manager),
+                UpdateBSORoute(self.storage_manager),
+                DeleteBSORoute(self.storage_manager),
             ]
         )

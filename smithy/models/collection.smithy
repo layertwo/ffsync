@@ -48,8 +48,11 @@ structure CreateCollectionInput {
     @required
     collectionName: CollectionName
 
-    @required
-    objects: BasicStorageObjectList
+    @httpPayload
+    objects: BasicStorageObjectInputList
+
+    @httpHeader("X-If-Unmodified-Since")
+    ifUnmodifiedSince: Timestamp
 }
 
 @output
@@ -61,9 +64,8 @@ structure CreateCollectionOutput {
     batchResult: BatchResult
 }
 
-@idempotent
 @http(method: "POST", uri: "/storage/{collectionName}")
-@documentation("Create a new collection")
+@documentation("Create a new collection or batch create/update objects")
 operation CreateCollection {
     input: CreateCollectionInput
     output: CreateCollectionOutput
@@ -81,20 +83,57 @@ structure GetCollectionInput {
     @httpLabel
     @required
     collectionName: CollectionName
+
+    @httpQuery("ids")
+    @documentation("Comma-separated list of object IDs to retrieve")
+    ids: String
+
+    @httpQuery("newer")
+    @documentation("Return objects newer than this timestamp")
+    newer: Timestamp
+
+    @httpQuery("older")
+    @documentation("Return objects older than this timestamp")
+    older: Timestamp
+
+    @httpQuery("sort")
+    @documentation("Sort order: newest, oldest, or index")
+    sort: String
+
+    @httpQuery("limit")
+    @documentation("Maximum number of objects to return")
+    limit: Integer
+
+    @httpQuery("offset")
+    @documentation("Number of objects to skip")
+    offset: Integer
+
+    @httpQuery("full")
+    @documentation("Return full objects (1) or just IDs (0)")
+    full: Boolean
 }
 
 @output
 structure GetCollectionOutput {
-    @documentation("Collection data")
+    @documentation("Collection data (when retrieving metadata only)")
     collection: CollectionData
+
+    @documentation("List of storage objects (when retrieving objects)")
+    objects: BasicStorageObjectList
 
     @httpHeader("X-Last-Modified")
     lastModified: Timestamp
+
+    @documentation("More items available (for pagination)")
+    more: Boolean
+
+    @documentation("Next offset for pagination")
+    next_offset: Integer
 }
 
 @readonly
 @http(method: "GET", uri: "/storage/{collectionName}")
-@documentation("Get collection metadata")
+@documentation("Get collection metadata or retrieve objects with filtering")
 operation GetCollection {
     input: GetCollectionInput
     output: GetCollectionOutput
@@ -111,8 +150,9 @@ structure UpdateCollectionInput {
     @required
     collectionName: CollectionName
 
+    @httpPayload
     @required
-    objects: BasicStorageObjectList
+    objects: BasicStorageObjectInputList
 
     @httpHeader("X-If-Unmodified-Since")
     ifUnmodifiedSince: Timestamp

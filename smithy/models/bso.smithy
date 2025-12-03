@@ -156,3 +156,7 @@ structure DeleteBasicStorageObjectOutput {
 list BasicStorageObjectList {
     member: BasicStorageObject
 }
+
+list BasicStorageObjectInputList {
+    member: BasicStorageObjectInput
+}
