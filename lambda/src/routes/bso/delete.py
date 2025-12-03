@@ -1,6 +1,7 @@
 import json
 
 from aws_lambda_proxy import Response, StatusCode
+
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import (
@@ -26,8 +27,8 @@ class DeleteBSORoute(BaseRoute):
             collection_name = event["pathParameters"]["collectionName"]
             object_id = event["pathParameters"]["objectId"]
 
-            # Delete storage object using DynamoDB service
-            modified_timestamp = self.dynamodb_service.delete_storage_object(
+            # Delete storage object using storage manager
+            modified_timestamp = self.storage_manager.delete_storage_object(
                 collection_name, object_id
             )
 

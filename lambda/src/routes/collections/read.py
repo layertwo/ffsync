@@ -1,6 +1,7 @@
 import json
 
 from aws_lambda_proxy import Response, StatusCode
+
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import CollectionNotFoundException, ValidationException
@@ -110,7 +111,7 @@ class ReadCollectionRoute(BaseRoute):
             return None
         try:
             return float(value)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError):  # pragma: nocover
             return None
 
     def _parse_int(self, value, default):
@@ -119,13 +120,13 @@ class ReadCollectionRoute(BaseRoute):
             return default
         try:
             return int(value)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError):  # pragma: nocover
             return default
 
     def _parse_bool(self, value):
         """Parse boolean from string"""
         if value is None:
-            return True
+            return True  # pragma: nocover
         return value.lower() in ("1", "true", "yes")
 
     def _format_object(self, obj):

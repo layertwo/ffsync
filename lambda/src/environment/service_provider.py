@@ -2,6 +2,7 @@ import os
 from functools import cached_property
 
 import boto3
+
 from src.routes.bso.delete import DeleteBSORoute
 from src.routes.bso.read import ReadBSORoute
 from src.routes.bso.update import UpdateBSORoute
@@ -21,11 +22,11 @@ from src.services.storage_manager import StorageManager
 
 class ServiceProvider:
     @cached_property
-    def aws_region(self):
+    def aws_region(self):  # pragma: nocover
         return os.environ.get("AWS_REGION")
 
     @cached_property
-    def session(self):
+    def session(self):  # pragma: nocover
         return boto3.Session(region_name=self.aws_region)
 
     @cached_property

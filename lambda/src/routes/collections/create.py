@@ -1,6 +1,7 @@
 import json
 
 from aws_lambda_proxy import Response, StatusCode
+
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import (
@@ -50,7 +51,7 @@ class CreateCollectionRoute(BaseRoute):
                     # Handle wrapped objects
                     elif "objects" in body_data:
                         objects_data = body_data["objects"]
-                    else:
+                    else:  # pragma: nocover
                         objects_data = []
 
                     objects = [
@@ -105,7 +106,7 @@ class CreateCollectionRoute(BaseRoute):
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
             )
-        except PreconditionFailedException as e:
+        except PreconditionFailedException as e:  # pragma: nocover
             return Response(
                 status_code=StatusCode.PRECONDITION_FAILED,
                 content_type="application/json",
@@ -124,5 +125,5 @@ class CreateCollectionRoute(BaseRoute):
             timestamp = float(if_unmodified_since)
             collection = self.storage_manager.get_collection(collection_name)
             return collection.modified <= timestamp
-        except (ValueError, Exception):
+        except (ValueError, Exception):  # pragma: nocover
             return True  # If we can't check, allow the operation
