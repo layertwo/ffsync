@@ -42,6 +42,13 @@ list CollectionDataList {
     member: CollectionData
 }
 
+/// Wrapper structure for batch object operations
+structure BatchObjectsPayload {
+    @documentation("List of objects to create or update")
+    @required
+    objects: BasicStorageObjectInputList
+}
+
 @input
 structure CreateCollectionInput {
     @httpLabel
@@ -49,7 +56,7 @@ structure CreateCollectionInput {
     collectionName: CollectionName
 
     @httpPayload
-    objects: BasicStorageObjectInputList
+    payload: BatchObjectsPayload
 
     @httpHeader("X-If-Unmodified-Since")
     ifUnmodifiedSince: Timestamp
@@ -64,6 +71,7 @@ structure CreateCollectionOutput {
     batchResult: BatchResult
 }
 
+@idempotent
 @http(method: "POST", uri: "/storage/{collectionName}")
 @documentation("Create a new collection or batch create/update objects")
 operation CreateCollection {
@@ -152,7 +160,7 @@ structure UpdateCollectionInput {
 
     @httpPayload
     @required
-    objects: BasicStorageObjectInputList
+    payload: BatchObjectsPayload
 
     @httpHeader("X-If-Unmodified-Since")
     ifUnmodifiedSince: Timestamp
