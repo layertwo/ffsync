@@ -25,6 +25,7 @@ export class MonitoringStack extends Stack {
 
         this.monitoring = new MonitoringFacade(this, `FFSync-${this.props.stageType}`, {});
         this.monitorApi();
+        this.monitorStorage();
     }
 
     private monitorApi(): void {
