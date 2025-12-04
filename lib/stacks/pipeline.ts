@@ -1,6 +1,6 @@
 import {Construct} from "constructs";
 
-import {SecretValue, Stack, StackProps, Stage, StageProps} from "aws-cdk-lib";
+import {Stack, StackProps, Stage, StageProps} from "aws-cdk-lib";
 import {ComputeType, LinuxArmBuildImage} from "aws-cdk-lib/aws-codebuild";
 import {PipelineType} from "aws-cdk-lib/aws-codepipeline";
 import * as pipelines from "aws-cdk-lib/pipelines";
@@ -9,6 +9,9 @@ import {ACCOUNT_ID, REGION, SMITHY_DOWNLOAD_URL, StageType} from "../config";
 import {MonitoringStack} from "./monitoring";
 import {ServiceStack} from "./service";
 
+const CONNECTION_ARN =
+    "arn:aws:codeconnections:us-west-2:830583812777:connection/148a4c06-c9f6-4c38-ae99-2e18395e4822";
+
 export class PipelineStack extends Stack {
     constructor(scope: Construct, id: string, props?: StackProps) {
         super(scope, id, props);
@@ -16,8 +19,8 @@ export class PipelineStack extends Stack {
         const pipeline = new pipelines.CodePipeline(this, "Pipeline", {
             pipelineType: PipelineType.V2,
             synth: new pipelines.ShellStep("Synth", {
-                input: pipelines.CodePipelineSource.gitHub("layertwo/ffsync", "mainline", {
-                    authentication: SecretValue.secretsManager("ffsync-github-cdk"),
+                input: pipelines.CodePipelineSource.connection("layertwo/ffsync", "mainline", {
+                    connectionArn: CONNECTION_ARN,
                 }),
                 installCommands: [
                     "mkdir -p smithy-install/smithy",

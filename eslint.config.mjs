@@ -53,6 +53,7 @@ export default [
                 {
                     code: 100,
                     ignoreUrls: true,
+                    ignoreStrings: true,
                 },
             ],
         },
