@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from aws_lambda_proxy import Response, StatusCode
+from aws_lambda_proxy import API, Response, StatusCode
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -14,21 +14,19 @@ class DeleteCollectionRoute(BaseRoute):
     def __init__(self, dynamodb_service: StorageManager):
         self.dynamodb_service = dynamodb_service
 
-    def bind(self, api):
+    def bind(self, api: API):
         @api.delete("/storage/{collectionName}")
         @api.pass_event
-        def handle_with_event(event):
+        def handle_with_event(event: dict) -> Response:
             return self.handle(event)
 
-    def handle(self, event):
+    def handle(self, event: dict) -> Response:
         """Delete an entire collection"""
         try:
             collection_name = event["pathParameters"]["collectionName"]
 
             # Delete collection using DynamoDB service
-            modified_timestamp = self.dynamodb_service.delete_collection(
-                collection_name
-            )
+            modified_timestamp = self.dynamodb_service.delete_collection(collection_name)
 
             response_body = {"modified": modified_timestamp}
 

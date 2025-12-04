@@ -1,4 +1,5 @@
 from aws_lambda_powertools import Logger
+from aws_lambda_powertools.utilities.typing import LambdaContext
 from aws_lambda_proxy import API
 
 from src.shared.base_route import BaseRoute
@@ -17,7 +18,6 @@ class ApiRouter:
         for route in self._routes:
             route.bind(self.api)
 
-    def handler(self, event, context):
+    def handler(self, event: dict, context: LambdaContext):
         """Main Lambda handler entry point"""
-        logger.info(f"Received event: {event}")
         return self.api(event=event, context=context)

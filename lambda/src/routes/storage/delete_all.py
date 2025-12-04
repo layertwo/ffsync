@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from aws_lambda_proxy import Response, StatusCode
+from aws_lambda_proxy import API, Response, StatusCode
 
 from src.shared.base_route import BaseRoute
 from src.shared.models import get_current_timestamp
@@ -11,13 +11,13 @@ logger = Logger()
 
 class DeleteAllStorageRoute(BaseRoute):
 
-    def bind(self, api):
+    def bind(self, api: API):
         @api.delete("/storage")
         @api.pass_event
-        def handle_with_event(event):
+        def handle_with_event(event: dict) -> Response:
             return self.handle(event)
 
-    def handle(self, event):
+    def handle(self, event: dict) -> Response:
         """Delete all storage data for the authenticated user"""
         try:
             # TODO: Implement authentication validation

@@ -1,5 +1,7 @@
 """AWS service fixtures with botocore stubbing"""
 
+from unittest.mock import patch
+
 import boto3
 import pytest
 from botocore.stub import Stubber
@@ -31,9 +33,7 @@ def aws_session_token():
 
 
 @pytest.fixture(autouse=True)
-def boto_session(
-    aws_region_name, aws_access_key_id, aws_secret_access_key, aws_session_token
-):
+def boto_session(aws_region_name, aws_access_key_id, aws_secret_access_key, aws_session_token):
     # Load internal service models before creating a boto session
     return boto3.session.Session(
         aws_access_key_id=aws_access_key_id,
@@ -46,9 +46,10 @@ def boto_session(
 @pytest.fixture
 def boto_session_patch(boto_session):
     # Libraries are inconsistent about which is used
-    with patch("boto3.Session", autospec=True) as m, patch(
-        "boto3.session.Session", autospec=True
-    ) as m2:
+    with (
+        patch("boto3.Session", autospec=True) as m,
+        patch("boto3.session.Session", autospec=True) as m2,
+    ):
         m.return_value = boto_session
         m2.return_value = boto_session
         yield m
@@ -83,3 +84,36 @@ def dynamodb_stubber(boto_session):
     """
     with Stubber(boto_session.client("dynamodb")) as stubber:
         yield stubber
+
+
+@pytest.fixture
+def dynamodb_table(boto_session, dynamodb_stubber, storage_table_name):
+    """
+    Provides a DynamoDB Table resource with stubbed client.
+
+    The Table resource's internal client is replaced with the stubbed client,
+    allowing all Table operations to use mocked responses from dynamodb_stubber.
+
+    Usage:
+        def test_something(dynamodb_table, dynamodb_stubber):
+            # Add stubbed responses
+            dynamodb_stubber.add_response('get_item', {...})
+
+            # Use the table with stubbed client
+            response = dynamodb_table.get_item(Key={...})
+
+    Args:
+        boto_session: The test boto3.Session
+        dynamodb_stubber: The stubbed DynamoDB client
+        storage_table_name: The table name from environment
+
+    Returns:
+        DynamoDB Table resource with stubbed client
+    """
+    resource = boto_session.resource("dynamodb")
+    table = resource.Table(storage_table_name)
+
+    # Replace the Table's internal client with the stubbed one
+    table.meta.client = dynamodb_stubber.client
+
+    return table

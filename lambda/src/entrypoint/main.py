@@ -1,7 +1,13 @@
+from typing import Optional
+
+from aws_lambda_powertools.utilities.typing import LambdaContext
+
 from src.environment.service_provider import ServiceProvider
 
 
-def lambda_handler(event, context, service_provider=None) -> dict:
+def lambda_handler(
+    event: dict, context: LambdaContext, service_provider: Optional[ServiceProvider] = None
+) -> dict:
     """
     Lambda handler with dependency injection for testing.
 

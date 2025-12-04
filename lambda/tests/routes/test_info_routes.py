@@ -3,8 +3,6 @@
 import json
 from unittest.mock import MagicMock
 
-import pytest
-
 from src.routes.info.read_collections import ReadCollectionsInfoRoute
 from src.routes.info.read_counts import ReadCollectionCountsRoute
 from src.routes.info.read_quota import ReadQuotaInfoRoute
@@ -32,12 +30,8 @@ class TestReadCollectionsInfoRoute:
         event = {}
 
         collections = [
-            CollectionData(
-                name="bookmarks", modified=1234567890.12, count=5, usage=1024
-            ),
-            CollectionData(
-                name="history", modified=1234567880.00, count=10, usage=2048
-            ),
+            CollectionData(name="bookmarks", modified=1234567890.12, count=5, usage=1024),
+            CollectionData(name="history", modified=1234567880.00, count=10, usage=2048),
             CollectionData(name="tabs", modified=1234567870.00, count=3, usage=512),
         ]
         mock_storage_manager.list_collections.return_value = collections
@@ -105,12 +99,8 @@ class TestReadCollectionCountsRoute:
         event = {}
 
         collections = [
-            CollectionData(
-                name="bookmarks", modified=1234567890.12, count=15, usage=1024
-            ),
-            CollectionData(
-                name="history", modified=1234567880.00, count=100, usage=2048
-            ),
+            CollectionData(name="bookmarks", modified=1234567890.12, count=15, usage=1024),
+            CollectionData(name="history", modified=1234567880.00, count=100, usage=2048),
             CollectionData(name="tabs", modified=1234567870.00, count=7, usage=512),
         ]
         mock_storage_manager.list_collections.return_value = collections
@@ -168,12 +158,8 @@ class TestReadCollectionUsageRoute:
         event = {}
 
         collections = [
-            CollectionData(
-                name="bookmarks", modified=1234567890.12, count=5, usage=1024
-            ),
-            CollectionData(
-                name="history", modified=1234567880.00, count=10, usage=4096
-            ),
+            CollectionData(name="bookmarks", modified=1234567890.12, count=5, usage=1024),
+            CollectionData(name="history", modified=1234567880.00, count=10, usage=4096),
             CollectionData(name="tabs", modified=1234567870.00, count=3, usage=512),
         ]
         mock_storage_manager.list_collections.return_value = collections
@@ -231,12 +217,8 @@ class TestReadQuotaInfoRoute:
         event = {}
 
         collections = [
-            CollectionData(
-                name="bookmarks", modified=1234567890.12, count=5, usage=1024
-            ),
-            CollectionData(
-                name="history", modified=1234567880.00, count=10, usage=2048
-            ),
+            CollectionData(name="bookmarks", modified=1234567890.12, count=5, usage=1024),
+            CollectionData(name="history", modified=1234567880.00, count=10, usage=2048),
             CollectionData(name="tabs", modified=1234567870.00, count=3, usage=512),
         ]
         mock_storage_manager.list_collections.return_value = collections
@@ -276,9 +258,7 @@ class TestReadQuotaInfoRoute:
         event = {}
 
         collections = [
-            CollectionData(
-                name="bookmarks", modified=1234567890.12, count=25, usage=5000
-            )
+            CollectionData(name="bookmarks", modified=1234567890.12, count=25, usage=5000)
         ]
         mock_storage_manager.list_collections.return_value = collections
 

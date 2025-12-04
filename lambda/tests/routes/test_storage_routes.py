@@ -3,8 +3,6 @@
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.routes.storage.delete_all import DeleteAllStorageRoute
 
 
@@ -26,9 +24,7 @@ class TestDeleteAllStorageRoute:
 
         event = {}
 
-        with patch(
-            "src.routes.storage.delete_all.get_current_timestamp"
-        ) as mock_timestamp:
+        with patch("src.routes.storage.delete_all.get_current_timestamp") as mock_timestamp:
             mock_timestamp.return_value = 1234567890.12
 
             response = route.handle(event)
@@ -48,9 +44,7 @@ class TestDeleteAllStorageRoute:
         timestamps = [1234567890.12, 1234567891.50, 1234567892.75]
 
         for expected_timestamp in timestamps:
-            with patch(
-                "src.routes.storage.delete_all.get_current_timestamp"
-            ) as mock_timestamp:
+            with patch("src.routes.storage.delete_all.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = expected_timestamp
 
                 response = route.handle(event)
@@ -64,9 +58,7 @@ class TestDeleteAllStorageRoute:
 
         event = {}
 
-        with patch(
-            "src.routes.storage.delete_all.get_current_timestamp"
-        ) as mock_timestamp:
+        with patch("src.routes.storage.delete_all.get_current_timestamp") as mock_timestamp:
             mock_timestamp.side_effect = Exception("Timestamp error")
 
             response = route.handle(event)
@@ -81,9 +73,7 @@ class TestDeleteAllStorageRoute:
 
         event = {}
 
-        with patch(
-            "src.routes.storage.delete_all.get_current_timestamp"
-        ) as mock_timestamp:
+        with patch("src.routes.storage.delete_all.get_current_timestamp") as mock_timestamp:
             mock_timestamp.return_value = 1234567890.12
 
             response = route.handle(event)

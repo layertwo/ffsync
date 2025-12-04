@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.entrypoint.main import lambda_handler
 
 
@@ -26,17 +24,13 @@ def test_lambda_handler_creates_service_provider_by_default(
         mock_provider_class.assert_called_once()
 
         # Verify api_router.handler was called with correct arguments
-        mock_api_router.handler.assert_called_once_with(
-            sample_lambda_event, sample_lambda_context
-        )
+        mock_api_router.handler.assert_called_once_with(sample_lambda_event, sample_lambda_context)
 
         # Verify result is returned
         assert result == {"statusCode": 200, "body": "{}"}
 
 
-def test_lambda_handler_uses_provided_service_provider(
-    sample_lambda_event, sample_lambda_context
-):
+def test_lambda_handler_uses_provided_service_provider(sample_lambda_event, sample_lambda_context):
     """Test that lambda_handler uses injected ServiceProvider"""
     # Create mock service provider
     mock_provider = MagicMock()
@@ -53,9 +47,7 @@ def test_lambda_handler_uses_provided_service_provider(
     )
 
     # Verify api_router.handler was called
-    mock_api_router.handler.assert_called_once_with(
-        sample_lambda_event, sample_lambda_context
-    )
+    mock_api_router.handler.assert_called_once_with(sample_lambda_event, sample_lambda_context)
 
     # Verify result is returned
     assert result == {"statusCode": 201, "body": '{"created": true}'}
@@ -75,8 +67,6 @@ def test_lambda_handler_returns_response(sample_lambda_event, sample_lambda_cont
         mock_api_router.handler.return_value = expected_response
         mock_provider.api_router = mock_api_router
         mock_provider_class.return_value = mock_provider
-
-        from src.entrypoint.main import lambda_handler
 
         result = lambda_handler(sample_lambda_event, sample_lambda_context)
 
@@ -145,9 +135,7 @@ def test_lambda_handler_integration_with_stubbed_dynamodb(
     }
 
     # Use dependency injection - no patching needed!
-    result = lambda_handler(
-        event, sample_lambda_context, service_provider=mock_service_provider
-    )
+    result = lambda_handler(event, sample_lambda_context, service_provider=mock_service_provider)
 
     # The result will depend on StorageManager implementation
     # For now, with NotImplementedError, this demonstrates the pattern

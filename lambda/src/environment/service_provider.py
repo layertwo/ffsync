@@ -34,8 +34,14 @@ class ServiceProvider:
         return os.environ.get("STORAGE_TABLE_NAME")
 
     @cached_property
+    def dynamodb_table(self):
+        """Create DynamoDB Table resource"""
+        resource = self.session.resource("dynamodb")
+        return resource.Table(self.table_name)
+
+    @cached_property
     def storage_manager(self) -> StorageManager:
-        return StorageManager(session=self.session, table_name=self.table_name)
+        return StorageManager(table=self.dynamodb_table)
 
     @cached_property
     def api_router(self):

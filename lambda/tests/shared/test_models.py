@@ -52,9 +52,7 @@ class TestBasicStorageObject:
 
     def test_creation_without_optional_fields(self):
         """Test creating BSO without specifying optional fields"""
-        bso = BasicStorageObject(
-            id="test_id", payload="test_payload", modified=1234567890.12
-        )
+        bso = BasicStorageObject(id="test_id", payload="test_payload", modified=1234567890.12)
 
         assert bso.id == "test_id"
         assert bso.sortindex is None
@@ -101,9 +99,7 @@ class TestCollectionData:
 
     def test_creation(self):
         """Test creating collection data"""
-        collection = CollectionData(
-            name="bookmarks", modified=1234567890.12, count=10, usage=2048
-        )
+        collection = CollectionData(name="bookmarks", modified=1234567890.12, count=10, usage=2048)
 
         assert collection.name == "bookmarks"
         assert collection.modified == 1234567890.12
@@ -112,9 +108,7 @@ class TestCollectionData:
 
     def test_to_dict(self):
         """Test converting collection to dictionary"""
-        collection = CollectionData(
-            name="history", modified=1234567880.00, count=100, usage=10240
-        )
+        collection = CollectionData(name="history", modified=1234567880.00, count=100, usage=10240)
 
         collection_dict = collection.to_dict()
 
@@ -140,9 +134,7 @@ class TestBatchResult:
 
     def test_creation_all_success(self):
         """Test creating batch result with all successes"""
-        result = BatchResult(
-            success=["obj1", "obj2", "obj3"], failed={}, modified=1234567890.12
-        )
+        result = BatchResult(success=["obj1", "obj2", "obj3"], failed={}, modified=1234567890.12)
 
         assert result.success == ["obj1", "obj2", "obj3"]
         assert result.failed == {}
@@ -176,9 +168,7 @@ class TestBatchResult:
 
     def test_to_dict(self):
         """Test converting batch result to dictionary"""
-        result = BatchResult(
-            success=["obj1"], failed={"obj2": ["error"]}, modified=1234567890.12
-        )
+        result = BatchResult(success=["obj1"], failed={"obj2": ["error"]}, modified=1234567890.12)
 
         result_dict = result.to_dict()
 

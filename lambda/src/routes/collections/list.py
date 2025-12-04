@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from aws_lambda_proxy import Response, StatusCode
+from aws_lambda_proxy import API, Response, StatusCode
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -13,13 +13,15 @@ class ListCollectionsRoute(BaseRoute):
     def __init__(self, storage_manager: StorageManager):
         self.storage_manager = storage_manager
 
-    def bind(self, api):
+    def bind(self, api: API):
         @api.get("/storage")
         @api.pass_event
-        def handle_with_event(event):
+        def handle_with_event(event: dict) -> Response:
+            # TODO pagination support
+            # TODO scope by user
             return self.handle(event)
 
-    def handle(self, event):
+    def handle(self, event: dict) -> Response:
         """List all collections with their metadata"""
         try:
             # Get collections using storage manager

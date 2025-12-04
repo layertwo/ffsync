@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from aws_lambda_proxy import Response, StatusCode
+from aws_lambda_proxy import API, Response, StatusCode
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -19,13 +19,13 @@ class UpdateCollectionRoute(BaseRoute):
     def __init__(self, storage_manager: StorageManager):
         self.storage_manager = storage_manager
 
-    def bind(self, api):
+    def bind(self, api: API):
         @api.put("/storage/{collectionName}")
         @api.pass_event
-        def handle_with_event(event):
+        def handle_with_event(event: dict) -> Response:
             return self.handle(event)
 
-    def handle(self, event):
+    def handle(self, event: dict) -> Response:
         """Update collection with batch objects"""
         try:
             collection_name = event["pathParameters"]["collectionName"]
@@ -57,7 +57,8 @@ class UpdateCollectionRoute(BaseRoute):
 
             # Update collection using storage manager
             collection_data, batch_result = self.storage_manager.update_collection(
-                collection_name, objects, if_unmodified_since
+                collection_name=collection_name,
+                objects=objects,
             )
 
             response_body = {

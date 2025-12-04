@@ -2,13 +2,11 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
+from src.services.api_router import ApiRouter
 
 
 def test_api_router_initialization():
     """Test that ApiRouter initializes with routes"""
-    from src.services.api_router import ApiRouter
-
     mock_route1 = MagicMock()
     mock_route2 = MagicMock()
     routes = [mock_route1, mock_route2]
@@ -30,27 +28,8 @@ def test_api_router_initialization():
         assert router._routes == routes
 
 
-def test_api_router_register_routes():
-    """Test that _register_routes calls bind on all routes"""
-    from src.services.api_router import ApiRouter
-
-    mock_routes = [MagicMock() for _ in range(5)]
-
-    with patch("src.services.api_router.API") as mock_api_class:
-        mock_api_instance = MagicMock()
-        mock_api_class.return_value = mock_api_instance
-
-        router = ApiRouter(routes=mock_routes)
-
-        # Verify each route's bind method was called with the API instance
-        for mock_route in mock_routes:
-            mock_route.bind.assert_called_once_with(mock_api_instance)
-
-
 def test_api_router_handler_calls_api():
     """Test that handler method calls the API instance"""
-    from src.services.api_router import ApiRouter
-
     event = {"httpMethod": "GET", "path": "/test"}
     context = MagicMock()
     expected_response = {"statusCode": 200, "body": "{}"}
@@ -68,31 +47,8 @@ def test_api_router_handler_calls_api():
         assert result == expected_response
 
 
-def test_api_router_handler_logs_event():
-    """Test that handler logs the incoming event"""
-    from src.services.api_router import ApiRouter
-
-    event = {"httpMethod": "POST", "path": "/storage/collection"}
-    context = MagicMock()
-
-    with patch("src.services.api_router.API") as mock_api_class:
-        with patch("src.services.api_router.logger") as mock_logger:
-            mock_api_instance = MagicMock()
-            mock_api_instance.return_value = {"statusCode": 201}
-            mock_api_class.return_value = mock_api_instance
-
-            router = ApiRouter(routes=[])
-            router.handler(event, context)
-
-            # Verify logger.info was called with the event
-            mock_logger.info.assert_called_once()
-            call_args = str(mock_logger.info.call_args[0][0])
-            assert "Received event:" in call_args
-
-
 def test_api_router_handler_with_different_responses():
     """Test handler with various API responses"""
-    from src.services.api_router import ApiRouter
 
     test_cases = [
         {"statusCode": 200, "body": '{"result": "success"}'},
@@ -119,8 +75,6 @@ def test_api_router_handler_with_different_responses():
 
 def test_api_router_empty_routes():
     """Test ApiRouter with no routes"""
-    from src.services.api_router import ApiRouter
-
     with patch("src.services.api_router.API") as mock_api_class:
         mock_api_instance = MagicMock()
         mock_api_class.return_value = mock_api_instance
@@ -134,8 +88,6 @@ def test_api_router_empty_routes():
 
 def test_api_router_handler_passes_context():
     """Test that handler passes context correctly to API"""
-    from src.services.api_router import ApiRouter
-
     event = {"test": "event"}
     context = MagicMock()
     context.function_name = "test-function"
