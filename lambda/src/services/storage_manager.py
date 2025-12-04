@@ -1,10 +1,22 @@
 """Storage manager for DynamoDB operations"""
 
+from decimal import Decimal
 from typing import Dict, List, Optional
 
 import boto3
+from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
+from botocore.exceptions import ClientError
 
-from src.shared.models import BasicStorageObject, BatchResult, CollectionData
+from src.shared.exceptions import (
+    CollectionNotFoundException,
+    StorageObjectNotFoundException,
+)
+from src.shared.models import (
+    BasicStorageObject,
+    BatchResult,
+    CollectionData,
+    get_current_timestamp,
+)
 
 
 class StorageManager:
@@ -19,6 +31,30 @@ class StorageManager:
         """
         self.table_name = table_name
         self.client = session.client("dynamodb")
+        self._serializer = TypeSerializer()
+        self._deserializer = TypeDeserializer()
+
+    def _collection_pk(self, collection_name: str) -> str:
+        """Generate partition key for collection"""
+        return f"COLLECTION#{collection_name}"
+
+    def _metadata_sk(self) -> str:
+        """Generate sort key for collection metadata"""
+        return "METADATA"
+
+    def _object_sk(self, object_id: str) -> str:
+        """Generate sort key for storage object"""
+        return f"OBJECT#{object_id}"
+
+    def _deserialize_item(self, item: Dict) -> Dict:
+        """Convert DynamoDB item to Python dict"""
+        return {k: self._deserializer.deserialize(v) for k, v in item.items()}
+
+    def _serialize_item(self, data: Dict) -> Dict:
+        """Convert Python dict to DynamoDB item format, skipping None values"""
+        return {
+            k: self._serializer.serialize(v) for k, v in data.items() if v is not None
+        }
 
     def get_collection(self, collection_name: str) -> CollectionData:
         """Get collection metadata
@@ -28,8 +64,49 @@ class StorageManager:
 
         Returns:
             CollectionData object
+
+        Raises:
+            CollectionNotFoundException: If collection doesn't exist
         """
-        raise NotImplementedError("get_collection not implemented")
+        try:
+            response = self.client.get_item(
+                TableName=self.table_name,
+                Key={
+                    "PK": {"S": self._collection_pk(collection_name)},
+                    "SK": {"S": self._metadata_sk()},
+                },
+            )
+
+            if "Item" not in response:
+                raise CollectionNotFoundException(
+                    f"Collection '{collection_name}' not found"
+                )
+
+            item = self._deserialize_item(response["Item"])
+            return CollectionData(
+                name=item["name"],
+                modified=(
+                    float(item["modified"])
+                    if isinstance(item["modified"], Decimal)
+                    else item["modified"]
+                ),
+                count=(
+                    int(item["count"])
+                    if isinstance(item["count"], Decimal)
+                    else item["count"]
+                ),
+                usage=(
+                    int(item["usage"])
+                    if isinstance(item["usage"], Decimal)
+                    else item["usage"]
+                ),
+            )
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ResourceNotFoundException":
+                raise CollectionNotFoundException(
+                    f"Collection '{collection_name}' not found"
+                )
+            raise
 
     def get_storage_object(
         self, collection_name: str, object_id: str
@@ -42,8 +119,48 @@ class StorageManager:
 
         Returns:
             BasicStorageObject
+
+        Raises:
+            StorageObjectNotFoundException: If object doesn't exist
         """
-        raise NotImplementedError("get_storage_object not implemented")
+        try:
+            response = self.client.get_item(
+                TableName=self.table_name,
+                Key={
+                    "PK": {"S": self._collection_pk(collection_name)},
+                    "SK": {"S": self._object_sk(object_id)},
+                },
+            )
+
+            if "Item" not in response:
+                raise StorageObjectNotFoundException(
+                    f"Object '{object_id}' not found in collection '{collection_name}'"
+                )
+
+            item = self._deserialize_item(response["Item"])
+            return BasicStorageObject(
+                id=item["id"],
+                payload=item["payload"],
+                modified=(
+                    float(item["modified"])
+                    if isinstance(item["modified"], Decimal)
+                    else item["modified"]
+                ),
+                sortindex=(
+                    int(item["sortindex"])
+                    if isinstance(item.get("sortindex"), Decimal)
+                    else item.get("sortindex")
+                ),
+                ttl=(
+                    int(item["ttl"])
+                    if isinstance(item.get("ttl"), Decimal)
+                    else item.get("ttl")
+                ),
+            )
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ResourceNotFoundException":
+                raise StorageObjectNotFoundException(f"Object '{object_id}' not found")
+            raise
 
     def create_or_update_collection(
         self, collection_name: str, objects: Optional[List[BasicStorageObject]] = None
@@ -57,7 +174,56 @@ class StorageManager:
         Returns:
             Tuple of (CollectionData, BatchResult)
         """
-        raise NotImplementedError("create_or_update_collection not implemented")
+        modified = get_current_timestamp()
+        objects = objects or []
+
+        # Calculate usage
+        usage = sum(len(obj.payload) for obj in objects)
+        count = len(objects)
+
+        # Create/update collection metadata
+        metadata_data = {
+            "PK": self._collection_pk(collection_name),
+            "SK": self._metadata_sk(),
+            "name": collection_name,
+            "modified": Decimal(str(modified)),
+            "count": count,
+            "usage": usage,
+        }
+        metadata_item = self._serialize_item(metadata_data)
+
+        self.client.put_item(TableName=self.table_name, Item=metadata_item)
+
+        # Add objects if provided
+        success = []
+        failed = {}
+
+        if objects:
+            for obj in objects:
+                try:
+                    obj_data = {
+                        "PK": self._collection_pk(collection_name),
+                        "SK": self._object_sk(obj.id),
+                        "id": obj.id,
+                        "payload": obj.payload,
+                        "modified": Decimal(str(modified)),
+                        "sortindex": obj.sortindex,
+                        "ttl": obj.ttl,
+                    }
+                    obj_item = self._serialize_item(obj_data)
+
+                    self.client.put_item(TableName=self.table_name, Item=obj_item)
+                    success.append(obj.id)
+                except Exception as e:
+                    failed[obj.id] = [str(e)]
+
+        collection_data = CollectionData(
+            name=collection_name, modified=modified, count=count, usage=usage
+        )
+
+        batch_result = BatchResult(success=success, failed=failed, modified=modified)
+
+        return collection_data, batch_result
 
     def update_collection(
         self, collection_name: str, objects: List[BasicStorageObject]
@@ -71,7 +237,60 @@ class StorageManager:
         Returns:
             Tuple of (CollectionData, BatchResult)
         """
-        raise NotImplementedError("update_collection not implemented")
+        modified = get_current_timestamp()
+
+        # Get current collection metadata
+        try:
+            collection = self.get_collection(collection_name)
+        except CollectionNotFoundException:
+            raise
+
+        # Update objects
+        success = []
+        failed = {}
+
+        for obj in objects:
+            try:
+                obj_data = {
+                    "PK": self._collection_pk(collection_name),
+                    "SK": self._object_sk(obj.id),
+                    "id": obj.id,
+                    "payload": obj.payload,
+                    "modified": Decimal(str(modified)),
+                    "sortindex": obj.sortindex,
+                    "ttl": obj.ttl,
+                }
+                obj_item = self._serialize_item(obj_data)
+
+                self.client.put_item(TableName=self.table_name, Item=obj_item)
+                success.append(obj.id)
+            except Exception as e:
+                failed[obj.id] = [str(e)]
+
+        # Update collection metadata
+        usage_delta = sum(len(obj.payload) for obj in objects if obj.id in success)
+        new_usage = collection.usage + usage_delta
+        new_count = collection.count + len(success)
+
+        metadata_data = {
+            "PK": self._collection_pk(collection_name),
+            "SK": self._metadata_sk(),
+            "name": collection_name,
+            "modified": Decimal(str(modified)),
+            "count": new_count,
+            "usage": new_usage,
+        }
+        metadata_item = self._serialize_item(metadata_data)
+
+        self.client.put_item(TableName=self.table_name, Item=metadata_item)
+
+        collection_data = CollectionData(
+            name=collection_name, modified=modified, count=new_count, usage=new_usage
+        )
+
+        batch_result = BatchResult(success=success, failed=failed, modified=modified)
+
+        return collection_data, batch_result
 
     def delete_collection(self, collection_name: str) -> float:
         """Delete a collection
@@ -81,8 +300,31 @@ class StorageManager:
 
         Returns:
             Modified timestamp
+
+        Raises:
+            CollectionNotFoundException: If collection doesn't exist
         """
-        raise NotImplementedError("delete_collection not implemented")
+        # Verify collection exists
+        self.get_collection(collection_name)
+
+        modified = get_current_timestamp()
+        pk = self._collection_pk(collection_name)
+
+        # Query all items in the collection
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="PK = :pk",
+            ExpressionAttributeValues={":pk": {"S": pk}},
+        )
+
+        # Delete all items
+        for item in response.get("Items", []):
+            self.client.delete_item(
+                TableName=self.table_name,
+                Key={"PK": item["PK"], "SK": item["SK"]},
+            )
+
+        return modified
 
     def list_collections(self) -> List[CollectionData]:
         """List all collections
@@ -90,7 +332,39 @@ class StorageManager:
         Returns:
             List of CollectionData objects
         """
-        raise NotImplementedError("list_collections not implemented")
+        collections = []
+
+        # Scan for all metadata items
+        response = self.client.scan(
+            TableName=self.table_name,
+            FilterExpression="SK = :metadata",
+            ExpressionAttributeValues={":metadata": {"S": self._metadata_sk()}},
+        )
+
+        for item in response.get("Items", []):
+            data = self._deserialize_item(item)
+            collections.append(
+                CollectionData(
+                    name=data["name"],
+                    modified=(
+                        float(data["modified"])
+                        if isinstance(data["modified"], Decimal)
+                        else data["modified"]
+                    ),
+                    count=(
+                        int(data["count"])
+                        if isinstance(data["count"], Decimal)
+                        else data["count"]
+                    ),
+                    usage=(
+                        int(data["usage"])
+                        if isinstance(data["usage"], Decimal)
+                        else data["usage"]
+                    ),
+                )
+            )
+
+        return collections
 
     def get_collection_objects(
         self,
@@ -118,7 +392,78 @@ class StorageManager:
         Returns:
             Dict with items, more, next_offset, last_modified
         """
-        raise NotImplementedError("get_collection_objects not implemented")
+        pk = self._collection_pk(collection_name)
+
+        # Query all objects in collection
+        response = self.client.query(
+            TableName=self.table_name,
+            KeyConditionExpression="PK = :pk AND begins_with(SK, :obj_prefix)",
+            ExpressionAttributeValues={
+                ":pk": {"S": pk},
+                ":obj_prefix": {"S": "OBJECT#"},
+            },
+        )
+
+        items = []
+        for item in response.get("Items", []):
+            data = self._deserialize_item(item)
+            obj = BasicStorageObject(
+                id=data["id"],
+                payload=data["payload"],
+                modified=(
+                    float(data["modified"])
+                    if isinstance(data["modified"], Decimal)
+                    else data["modified"]
+                ),
+                sortindex=(
+                    int(data["sortindex"])
+                    if isinstance(data.get("sortindex"), Decimal)
+                    else data.get("sortindex")
+                ),
+                ttl=(
+                    int(data["ttl"])
+                    if isinstance(data.get("ttl"), Decimal)
+                    else data.get("ttl")
+                ),
+            )
+            items.append(obj)
+
+        # Filter by IDs if specified
+        if ids:
+            id_list = [id.strip() for id in ids.split(",")]
+            items = [obj for obj in items if obj.id in id_list]
+
+        # Filter by timestamp
+        if newer is not None:
+            items = [obj for obj in items if obj.modified > newer]
+        if older is not None:
+            items = [obj for obj in items if obj.modified < older]
+
+        # Sort items
+        if sort == "newest":
+            items.sort(key=lambda x: x.modified, reverse=True)
+        elif sort == "oldest":
+            items.sort(key=lambda x: x.modified)
+        elif sort == "index":
+            items.sort(key=lambda x: (x.sortindex or 0, x.modified), reverse=True)
+
+        # Get last modified
+        last_modified = max((obj.modified for obj in items), default=0.0)
+
+        # Apply pagination
+        total_items = len(items)
+        items = items[offset : offset + limit]
+
+        # Check if there are more items
+        more = offset + limit < total_items
+        next_offset = offset + limit if more else None
+
+        return {
+            "items": items,
+            "more": more,
+            "next_offset": next_offset,
+            "last_modified": last_modified,
+        }
 
     def update_storage_object(
         self, collection_name: str, object_id: str, **kwargs
@@ -132,8 +477,41 @@ class StorageManager:
 
         Returns:
             Updated BasicStorageObject
+
+        Raises:
+            StorageObjectNotFoundException: If object doesn't exist
         """
-        raise NotImplementedError("update_storage_object not implemented")
+        # Get existing object to verify it exists
+        existing_obj = self.get_storage_object(collection_name, object_id)
+
+        modified = get_current_timestamp()
+
+        # Update provided fields
+        payload = kwargs.get("payload", existing_obj.payload)
+        sortindex = kwargs.get("sortindex", existing_obj.sortindex)
+        ttl = kwargs.get("ttl", existing_obj.ttl)
+
+        # Build update item data
+        obj_data = {
+            "PK": self._collection_pk(collection_name),
+            "SK": self._object_sk(object_id),
+            "id": object_id,
+            "payload": payload,
+            "modified": Decimal(str(modified)),
+            "sortindex": sortindex,
+            "ttl": ttl,
+        }
+        obj_item = self._serialize_item(obj_data)
+
+        self.client.put_item(TableName=self.table_name, Item=obj_item)
+
+        return BasicStorageObject(
+            id=object_id,
+            payload=payload,
+            modified=modified,
+            sortindex=sortindex,
+            ttl=ttl,
+        )
 
     def delete_storage_object(self, collection_name: str, object_id: str) -> float:
         """Delete a storage object
@@ -144,5 +522,21 @@ class StorageManager:
 
         Returns:
             Modified timestamp
+
+        Raises:
+            StorageObjectNotFoundException: If object doesn't exist
         """
-        raise NotImplementedError("delete_storage_object not implemented")
+        # Verify object exists
+        self.get_storage_object(collection_name, object_id)
+
+        modified = get_current_timestamp()
+
+        self.client.delete_item(
+            TableName=self.table_name,
+            Key={
+                "PK": {"S": self._collection_pk(collection_name)},
+                "SK": {"S": self._object_sk(object_id)},
+            },
+        )
+
+        return modified
