@@ -5,10 +5,12 @@ from aws_lambda_proxy import Response, StatusCode
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
-from src.shared.exceptions import (CollectionNotFoundException,
-                                   PreconditionFailedException,
-                                   StorageObjectNotFoundException,
-                                   ValidationException)
+from src.shared.exceptions import (
+    CollectionNotFoundException,
+    PreconditionFailedException,
+    StorageObjectNotFoundException,
+    ValidationException,
+)
 from src.shared.models import BasicStorageObject
 
 logger = Logger()
