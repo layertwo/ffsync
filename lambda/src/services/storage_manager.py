@@ -1,7 +1,8 @@
 """Storage manager for DynamoDB operations"""
 
-import boto3
 from typing import Dict, List, Optional
+
+import boto3
 
 from src.shared.models import BasicStorageObject, BatchResult, CollectionData
 

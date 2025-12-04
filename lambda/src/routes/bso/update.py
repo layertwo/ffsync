@@ -1,6 +1,7 @@
 import json
 
 from aws_lambda_proxy import Response, StatusCode
+
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import (
@@ -58,8 +59,8 @@ class UpdateBSORoute(BaseRoute):
                 except ValueError:
                     raise ValidationException("Invalid X-If-Unmodified-Since header")
 
-            # Update storage object using DynamoDB service
-            updated_object = self.dynamodb_service.update_storage_object(
+            # Update storage object using storage manager
+            updated_object = self.storage_manager.update_storage_object(
                 collection_name, object_id, storage_object, if_unmodified_since
             )
 

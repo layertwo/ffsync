@@ -1,0 +1,194 @@
+"""Shared test fixtures and configuration"""
+
+import json
+from unittest.mock import MagicMock, Mock
+
+import pytest
+
+from src.environment.service_provider import ServiceProvider
+from src.services.storage_manager import StorageManager
+from src.shared.models import (
+    BasicStorageObject,
+    BatchResult,
+    CollectionData,
+    get_current_timestamp,
+)
+from tests.fixtures.boto import *
+
+
+@pytest.fixture
+def storage_table_name():
+    return "test-storage-table"
+
+
+@pytest.fixture(autouse=True)
+def setup_environment(
+    monkeypatch,
+    aws_region_name,
+    aws_access_key_id,
+    aws_secret_access_key,
+    aws_session_token,
+    storage_table_name,
+):
+    """Mock environment variables"""
+    monkeypatch.setenv("AWS_REGION", aws_region_name)
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", aws_access_key_id)
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", aws_secret_access_key)
+    monkeypatch.setenv("AWS_SESSION_TOKEN", aws_session_token)
+    monkeypatch.setenv("STORAGE_TABLE_NAME", storage_table_name)
+
+
+class MockServiceProvider(ServiceProvider):
+    """
+    Mock ServiceProvider that injects stubbed DynamoDB client for integration testing.
+    Inherits from real ServiceProvider but overrides storage_manager to use stubbed client.
+    """
+
+    def __init__(self, boto_session):
+        """
+        Args:
+            boto_session: The test boto3.Session
+            dynamodb_client: The stubbed DynamoDB client from botocore.Stubber
+        """
+        self._mock_session = boto_session
+
+    @property
+    def session(self):
+        """Override to return test session"""
+        return self._mock_session
+
+
+@pytest.fixture
+def mock_service_provider(boto_session):
+    """
+    Fixture providing MockServiceProvider with stubbed DynamoDB client.
+
+    Usage:
+        def test_integration(mock_service_provider, dynamodb_stubber):
+            # Add stubbed DynamoDB responses
+            dynamodb_stubber.add_response('get_item', {...})
+
+            # Pass directly to lambda handler
+            result = lambda_handler(event, context, service_provider=mock_service_provider)
+    """
+    return MockServiceProvider(boto_session)
+
+
+@pytest.fixture
+def mock_storage_manager():
+    """Mock StorageManager for testing route handlers"""
+    manager = MagicMock()
+
+    # Configure common return values
+    manager.get_collection.return_value = CollectionData(
+        name="test_collection", modified=1234567890.12, count=5, usage=1024
+    )
+
+    manager.get_storage_object.return_value = BasicStorageObject(
+        id="test_object",
+        payload="test_payload",
+        modified=1234567890.12,
+        sortindex=100,
+        ttl=3600,
+    )
+
+    manager.create_or_update_collection.return_value = (
+        CollectionData(
+            name="test_collection", modified=1234567890.12, count=1, usage=512
+        ),
+        BatchResult(success=["obj1"], failed={}, modified=1234567890.12),
+    )
+
+    return manager
+
+
+@pytest.fixture
+def sample_lambda_event():
+    """Sample Lambda event structure"""
+    return {
+        "httpMethod": "GET",
+        "path": "/storage/test_collection/test_object",
+        "pathParameters": {
+            "collectionName": "test_collection",
+            "objectId": "test_object",
+        },
+        "headers": {"Content-Type": "application/json"},
+        "body": None,
+        "queryStringParameters": None,
+        "requestContext": {"requestId": "test-request-id", "accountId": "123456789012"},
+    }
+
+
+@pytest.fixture
+def sample_lambda_context():
+    """Sample Lambda context object"""
+    context = Mock()
+    context.function_name = "test-function"
+    context.function_version = "1"
+    context.invoked_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:test"
+    context.memory_limit_in_mb = "128"
+    context.aws_request_id = "test-request-id"
+    context.log_group_name = "/aws/lambda/test"
+    context.log_stream_name = "2024/01/01/[$LATEST]test"
+    return context
+
+
+@pytest.fixture
+def sample_bso():
+    """Sample BasicStorageObject"""
+    return BasicStorageObject(
+        id="test_bso",
+        payload="test_payload_data",
+        modified=1234567890.12,
+        sortindex=50,
+        ttl=7200,
+    )
+
+
+@pytest.fixture
+def sample_collection():
+    """Sample CollectionData"""
+    return CollectionData(
+        name="bookmarks", modified=1234567890.12, count=10, usage=2048
+    )
+
+
+@pytest.fixture
+def sample_batch_result():
+    """Sample BatchResult"""
+    return BatchResult(
+        success=["obj1", "obj2", "obj3"],
+        failed={"obj4": ["validation error"]},
+        modified=1234567890.12,
+    )
+
+
+@pytest.fixture
+def post_event_with_body():
+    """Sample POST event with body"""
+    return {
+        "httpMethod": "POST",
+        "path": "/storage/test_collection",
+        "pathParameters": {"collectionName": "test_collection"},
+        "headers": {"Content-Type": "application/json"},
+        "body": json.dumps(
+            {"objects": [{"id": "obj1", "payload": "data1", "sortindex": 100}]}
+        ),
+        "queryStringParameters": None,
+    }
+
+
+@pytest.fixture
+def delete_event():
+    """Sample DELETE event"""
+    return {
+        "httpMethod": "DELETE",
+        "path": "/storage/test_collection/test_object",
+        "pathParameters": {
+            "collectionName": "test_collection",
+            "objectId": "test_object",
+        },
+        "headers": {},
+        "body": None,
+        "queryStringParameters": None,
+    }

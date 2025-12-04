@@ -1,5 +1,6 @@
 from aws_lambda_powertools import Logger
 from aws_lambda_proxy import API
+
 from src.shared.base_route import BaseRoute
 
 logger = Logger()

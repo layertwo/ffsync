@@ -1,6 +1,7 @@
 import json
 
 from aws_lambda_proxy import Response, StatusCode
+
 from src.shared.base_route import BaseRoute
 from src.shared.models import get_current_timestamp
 
