@@ -1,10 +1,14 @@
 import json
 
+from aws_lambda_powertools import Logger
 from aws_lambda_proxy import Response, StatusCode
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
-from src.shared.exceptions import CollectionNotFoundException, ValidationException
+from src.shared.exceptions import (CollectionNotFoundException,
+                                   ValidationException)
+
+logger = Logger()
 
 
 class ReadCollectionRoute(BaseRoute):
@@ -99,6 +103,7 @@ class ReadCollectionRoute(BaseRoute):
                 body=json.dumps({"error": str(e)}),
             )
         except Exception as e:
+            logger.error(f"Internal server error: {e}")
             return Response(
                 status_code=StatusCode.INTERNAL_SERVER_ERROR,
                 content_type="application/json",
