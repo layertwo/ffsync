@@ -86,6 +86,7 @@ export class LogicalStage extends Stage {
             stageType: props.stageType,
             api: serviceStack.api,
             apiHandler: serviceStack.apiHandler,
+            storageTable: serviceStack.storageTable,
         });
     }
 }

@@ -3,6 +3,7 @@ import {Construct} from "constructs";
 
 import {Stack, StackProps} from "aws-cdk-lib";
 import {SpecRestApi} from "aws-cdk-lib/aws-apigateway";
+import {Table} from "aws-cdk-lib/aws-dynamodb";
 import {Function as LambdaFunction} from "aws-cdk-lib/aws-lambda";
 
 import {StageType} from "../config";
@@ -11,6 +12,7 @@ export interface MonitoringStackProps extends StackProps {
     stageType: StageType;
     api: SpecRestApi;
     apiHandler: LambdaFunction;
+    storageTable: Table;
 }
 
 export class MonitoringStack extends Stack {
@@ -27,10 +29,16 @@ export class MonitoringStack extends Stack {
 
     private monitorApi(): void {
         this.monitoring
-            .addLargeHeader("API Monitoring")
+            .addLargeHeader("API")
             .monitorApiGateway({api: this.props.api, apiStage: this.props.stageType.toLowerCase()})
             .monitorLambdaFunction({
                 lambdaFunction: this.props.apiHandler,
             });
+    }
+
+    private monitorStorage(): void {
+        this.monitoring
+            .addLargeHeader("Storage")
+            .monitorDynamoTable({table: this.props.storageTable});
     }
 }

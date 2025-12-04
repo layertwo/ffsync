@@ -26,9 +26,10 @@ export interface ServiceStackProps extends StackProps {
 
 export class ServiceStack extends Stack {
     private readonly props: ServiceStackProps;
-    private readonly storageTable: Table;
-    public readonly apiHandler: PythonFunction;
     private readonly apiRole: Role;
+
+    public readonly storageTable: Table;
+    public readonly apiHandler: PythonFunction;
     public readonly api: SpecRestApi;
 
     constructor(scope: Construct, id: string, props: ServiceStackProps) {
