@@ -7,3 +7,5 @@ cdk.out
 smithy/build
 build/
 __pycache__
+lambda/.coverage
+lambda/coverage.xml
