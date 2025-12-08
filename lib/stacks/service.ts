@@ -135,7 +135,7 @@ export class ServiceStack extends Stack {
 
     private get openApiSpec(): any {
         let openApiJson = readFileSync(
-            path.join(__dirname, "../../build/smithy/source/openapi/StorageService.openapi.json"),
+            path.join(__dirname, "../../build/smithy/storage/openapi/StorageService.openapi.json"),
             "utf8",
         );
 

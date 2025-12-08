@@ -1,6 +1,6 @@
 $version: "2"
 
-namespace layertwo.syncstorage
+namespace layertwo.ffsync
 
 use smithy.framework#ValidationException
 

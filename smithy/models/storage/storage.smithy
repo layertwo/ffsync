@@ -1,6 +1,6 @@
 $version: "2"
 
-namespace layertwo.syncstorage
+namespace layertwo.ffsync
 
 @documentation("Root storage resource containing all user collections and metadata")
 resource Storage {
