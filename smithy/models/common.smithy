@@ -1,6 +1,6 @@
 $version: "2"
 
-namespace layertwo.syncstorage
+namespace layertwo.ffsync
 
 /// Collection name identifier
 @pattern("^[a-zA-Z0-9._-]+$")

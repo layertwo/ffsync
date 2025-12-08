@@ -10,13 +10,28 @@
             "software.amazon.smithy:smithy-aws-apigateway-openapi:1.64.0"
         ]
     },
-    "plugins": {
-        "openapi": {
-            "service": "layertwo.syncstorage#StorageService",
-            "protocol": "aws.protocols#restJson1",
-            "version": "3.0.2",
-            "apiGatewayType" : "REST",
-            "disableCloudFormationSubstitution": true
+    "projections": {
+        "storage": {
+            "plugins": {
+                "openapi": {
+                    "service": "layertwo.ffsync#StorageService",
+                    "protocol": "aws.protocols#restJson1",
+                    "version": "3.0.2",
+                    "apiGatewayType": "REST",
+                    "disableCloudFormationSubstitution": true
+                }
+            }
+        },
+        "token": {
+            "plugins": {
+                "openapi": {
+                    "service": "layertwo.ffsync#TokenService",
+                    "protocol": "aws.protocols#restJson1",
+                    "version": "3.0.2",
+                    "apiGatewayType": "REST",
+                    "disableCloudFormationSubstitution": true
+                }
+            }
         }
     }
 }

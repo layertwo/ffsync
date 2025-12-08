@@ -233,7 +233,7 @@
 - [ ] 10. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 11. Create Smithy model for Token Server
+- [x] 11. Create Smithy model for Token Server
   - Create smithy/models/token.smithy with TokenService definition
   - Define GetToken operation with POST /1.0/sync/1.5 endpoint
   - Define GetTokenInput structure with Authorization header
@@ -242,7 +242,7 @@
   - Add @restJson1 protocol and AWS API Gateway integration traits
   - _Requirements: 1.1, 1.3, 5.1, 5.2, 6.1, 6.2_
 
-- [ ] 12. Update Smithy build configuration
+- [x] 12. Update Smithy build configuration
   - Modify smithy/smithy-build.json to use projections
   - Create "storage" projection for existing StorageService
   - Create "token" projection for new TokenService
