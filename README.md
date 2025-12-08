@@ -31,9 +31,12 @@
 | src/services/storage\_manager.py       |      148 |        0 |       32 |        0 |     100% |           |
 | src/shared/\_\_init\_\_.py             |        0 |        0 |        0 |        0 |     100% |           |
 | src/shared/base\_route.py              |        2 |        0 |        0 |        0 |     100% |           |
-| src/shared/exceptions.py               |       44 |        0 |        0 |        0 |     100% |           |
+| src/shared/exceptions.py               |       62 |        0 |        0 |        0 |     100% |           |
 | src/shared/models.py                   |       27 |        0 |        6 |        0 |     100% |           |
-|                              **TOTAL** |  **654** |    **0** |   **74** |    **0** | **100%** |           |
+| src/shared/oidc.py                     |       13 |        0 |        0 |        0 |     100% |           |
+| src/shared/token.py                    |        5 |        0 |        0 |        0 |     100% |           |
+| src/shared/user.py                     |        5 |        0 |        0 |        0 |     100% |           |
+|                              **TOTAL** |  **695** |    **0** |   **74** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
