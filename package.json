@@ -15,6 +15,7 @@
         "aws-cdk": "^2.1033.0",
         "aws-cdk-lib": "^2.231.0",
         "cdk-monitoring-constructs": "^9.16.0",
+        "change-case": "^5.4.4",
         "constructs": "^10.4.2",
         "env-var": "^7.0.0",
         "source-map-support": "^0.5.16"

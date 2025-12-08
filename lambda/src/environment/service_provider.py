@@ -44,7 +44,7 @@ class ServiceProvider:
         return StorageManager(table=self.dynamodb_table)
 
     @cached_property
-    def api_router(self):
+    def storage_api_router(self):
         return ApiRouter(
             routes=[
                 DeleteAllStorageRoute(),
