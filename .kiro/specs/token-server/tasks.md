@@ -1,0 +1,332 @@
+# Implementation Plan
+
+- [ ] 1. Set up Token Server dependencies and directory structure
+  - Add PyJWT>=2.8.0 to lambda/requirements.txt for OIDC token validation
+  - Add hypothesis>=6.0.0 to lambda/requirements-dev.txt for property-based testing
+  - Add python-jose[cryptography]>=3.3.0 to lambda/requirements.txt for JWKS support
+  - Add requests>=2.31.0 to lambda/requirements.txt for OIDC provider HTTP calls
+  - Create lambda/src/token/ directory structure:
+    - lambda/src/token/models/ (data models)
+    - lambda/src/token/validators/ (OIDC validation)
+    - lambda/src/token/services/ (business logic)
+  - Create __init__.py files for all new packages
+  - _Requirements: All_
+
+- [ ] 2. Implement core data models
+  - Create lambda/src/token/models/__init__.py
+  - Create lambda/src/token/models/user.py with UserRecord dataclass (user_id, generation, created_at, updated_at)
+  - Create lambda/src/token/models/oidc.py with OIDCTokenClaims (sub, iss, aud, exp, iat) and OIDCProviderConfig (issuer, jwks_uri, etc.) dataclasses
+  - Create lambda/src/token/models/token.py with TokenResponse dataclass (id, key, api_endpoint, uid, duration, hashalg)
+  - Create lambda/src/token/models/errors.py with custom exception classes (InvalidTokenError, InvalidCredentialsError, etc.) and ErrorDetail dataclass
+  - Use dataclasses-json for JSON serialization (following existing lambda/src/shared/models.py patterns)
+  - _Requirements: 1.1, 4.1, 4.2, 7.2, 9.2, 11.1_
+
+- [ ]* 2.1 Write property test for data model serialization
+  - **Property 1: Round-trip serialization consistency**
+  - **Validates: Requirements 1.1, 4.1, 4.2**
+  - Test that TokenResponse, UserRecord, and OIDCTokenClaims can be serialized to JSON and deserialized back to equivalent objects
+
+- [ ] 3. Implement OIDC Validator component
+  - Create lambda/src/token/validators/oidc_validator.py with OIDCValidator class
+  - Implement discover_provider_config() to fetch .well-known/openid-configuration
+  - Implement JWKS fetching and caching (1-hour TTL using functools.lru_cache)
+  - Implement validate_token() with signature verification using PyJWT
+  - Implement issuer validation against configured provider
+  - Implement audience validation against configured client_id
+  - Implement expiry validation using exp claim
+  - Extract user identifier from sub claim
+  - Define custom exceptions in lambda/src/token/models/errors.py (InvalidTokenError, etc.)
+  - _Requirements: 1.2, 9.2, 9.3, 9.4, 9.5, 11.1, 11.2_
+
+- [ ]* 3.1 Write property test for OIDC token validation
+  - **Property 2: OIDC token validation**
+  - **Validates: Requirements 1.2**
+
+- [ ]* 3.2 Write property test for invalid token rejection
+  - **Property 3: Invalid credentials rejection**
+  - **Validates: Requirements 1.3**
+
+- [ ]* 3.3 Write property test for issuer validation
+  - **Property 25: OIDC issuer validation**
+  - **Validates: Requirements 9.4**
+
+- [ ]* 3.4 Write property test for audience validation
+  - **Property 26: OIDC audience validation**
+  - **Validates: Requirements 9.5**
+
+- [ ]* 3.5 Write property test for token expiry validation
+  - **Property 29: Token expiry validation**
+  - **Validates: Requirements 11.2, 11.3**
+
+- [ ]* 3.6 Write property test for missing sub claim rejection
+  - **Property 30: Missing user identifier rejection**
+  - **Validates: Requirements 11.4**
+
+- [ ]* 3.7 Write property test for generation number validation
+  - **Property 8: Generation number validation**
+  - **Validates: Requirements 3.2**
+
+- [ ]* 3.8 Write property test for OIDC signature verification
+  - **Property 24: OIDC signature verification**
+  - **Validates: Requirements 9.3**
+
+- [ ] 3.9 Implement OIDC configuration cache refresh mechanism
+  - Add TTL-based cache invalidation for provider configuration
+  - Implement background refresh before cache expiry
+  - Test cache refresh behavior with expired configurations
+  - _Requirements: 10.4_
+
+- [ ] 4. Implement User Manager component
+  - Create lambda/src/token/services/user_manager.py with UserManager class
+  - Initialize with DynamoDB table resource (similar to StorageManager pattern)
+  - Implement get_or_create_user() with conditional writes
+  - Set default generation to 0 for new users
+  - Implement increment_generation() with atomic counter update using UpdateExpression
+  - Implement validate_generation() to check current value
+  - Update updated_at timestamp on all modifications
+  - Handle DynamoDB exceptions (ClientError, etc.)
+  - _Requirements: 3.1, 3.2, 3.4, 3.5, 7.1, 7.2, 7.3, 7.4, 7.5_
+
+- [ ]* 4.1 Write property test for new user generation number
+  - **Property 9: Default generation number**
+  - **Validates: Requirements 3.4, 7.4**
+
+- [ ]* 4.2 Write property test for generation number monotonicity
+  - **Property 10: Generation number monotonicity**
+  - **Validates: Requirements 3.5**
+
+- [ ]* 4.3 Write property test for generation-based invalidation
+  - **Property 7: Generation-based token invalidation**
+  - **Validates: Requirements 3.1, 3.3**
+
+- [ ]* 4.4 Write property test for updated timestamp modification
+  - **Property 23: Updated timestamp modification**
+  - **Validates: Requirements 7.5**
+
+- [ ] 5. Implement Token Generator component
+  - Create lambda/src/token/services/token_generator.py with TokenGenerator class
+  - Implement generate_hawk_id() encoding user_id:generation:expiry as base64
+  - Implement generate_hawk_key() using secrets.token_bytes(32) and hex encoding
+  - Implement generate_token() to construct complete TokenResponse
+  - Compute api_endpoint dynamically as {base_url}/1.5/{user_id}
+  - Set duration to 300 seconds
+  - Set hashalg to "sha256"
+  - Generate uid as hash of user_id (using hashlib)
+  - _Requirements: 1.1, 1.5, 2.1, 2.2, 2.3, 2.5, 4.1, 4.2, 4.3, 4.4_
+
+- [ ]* 5.1 Write property test for complete token response structure
+  - **Property 1: Complete token response structure**
+  - **Validates: Requirements 1.1, 2.5, 4.1, 4.2**
+
+- [ ]* 5.2 Write property test for token duration consistency
+  - **Property 5: Token duration consistency**
+  - **Validates: Requirements 1.5**
+
+- [ ]* 5.3 Write property test for node URL format
+  - **Property 6: Node URL format**
+  - **Validates: Requirements 2.1, 2.2, 2.3, 2.4**
+
+- [ ]* 5.4 Write property test for HAWK ID format
+  - **Property 11: HAWK ID format**
+  - **Validates: Requirements 4.3**
+
+- [ ]* 5.5 Write property test for HAWK key format and randomness
+  - **Property 12: HAWK key format and randomness**
+  - **Validates: Requirements 4.4**
+
+- [ ]* 5.6 Write property test for user identifier consistency
+  - **Property 31: User identifier consistency**
+  - **Validates: Requirements 11.5**
+
+- [ ] 6. Implement Error Handler component
+  - Create lambda/src/token/services/error_handler.py with ErrorHandler class
+  - Implement format_error() to create API Gateway proxy response dict
+  - Define error response structure with status and errors array (Firefox Sync format)
+  - Map HTTP status codes to error types (401→invalid-credentials, 400→invalid-request, etc.)
+  - Implement error detail formatting with location, name, description fields
+  - Return responses compatible with API Gateway proxy integration
+  - _Requirements: 1.3, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5_
+
+- [ ]* 6.1 Write property test for error response JSON validity
+  - **Property 17: Error response JSON validity**
+  - **Validates: Requirements 6.1**
+
+- [ ]* 6.2 Write property test for error response structure
+  - **Property 18: Error response structure**
+  - **Validates: Requirements 6.2, 6.3**
+
+- [ ]* 6.3 Write property test for 401 error status value
+  - **Property 19: 401 error status value**
+  - **Validates: Requirements 6.4**
+
+- [ ]* 6.4 Write property test for validation error structure
+  - **Property 20: Validation error structure**
+  - **Validates: Requirements 6.5**
+
+- [ ] 7. Implement Token Request Handler
+  - Create lambda/src/token/services/token_handler.py with TokenHandler class
+  - Implement handle() method that orchestrates the token issuance flow
+  - Implement validate_request() for HTTP method, path, headers
+  - Parse Authorization header and extract Bearer token
+  - Validate HTTP method is POST
+  - Validate path matches /1.0/sync/1.5
+  - Coordinate between OIDCValidator, UserManager, and TokenGenerator
+  - Return API Gateway proxy response dict
+  - _Requirements: 1.4, 5.1, 5.2, 5.3, 5.4_
+
+- [ ] 7.1 Write property test for malformed header rejection
+  - **Property 4: Malformed header rejection**
+  - **Validates: Requirements 1.4**
+
+- [ ] 7.2 Write property test for invalid path rejection
+  - **Property 13: Invalid path rejection**
+  - **Validates: Requirements 5.2**
+
+- [ ] 7.3 Write property test for unsupported method rejection
+  - **Property 14: Unsupported method rejection**
+  - **Validates: Requirements 5.3**
+
+- [ ] 7.4 Write property test for invalid content type rejection
+  - **Property 15: Invalid content type rejection**
+  - **Validates: Requirements 5.4**
+
+- [ ] 7.5 Write property test for error message presence
+  - **Property 16: Error message presence**
+  - **Validates: Requirements 5.5**
+
+- [ ] 8. Implement structured logging
+  - Configure AWS Lambda Powertools Logger with JSON formatter
+  - Implement log_successful_authentication() with user_id and timestamp
+  - Implement log_failed_authentication() with reason and timestamp
+  - Implement log_validation_error() with error details
+  - Ensure no sensitive data (tokens, keys) in logs
+  - Add structured fields for correlation (request_id, user_id)
+  - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
+
+- [ ] 8.1 Write property test for successful authentication logging
+  - **Property 32: Successful authentication logging**
+  - **Validates: Requirements 12.1**
+
+- [ ] 8.2 Write property test for failed authentication logging
+  - **Property 33: Failed authentication logging**
+  - **Validates: Requirements 12.2**
+
+- [ ] 8.3 Write property test for validation error logging
+  - **Property 34: Validation error logging**
+  - **Validates: Requirements 12.3**
+
+- [ ] 8.4 Write property test for structured logging format
+  - **Property 35: Structured logging format**
+  - **Validates: Requirements 12.4**
+
+- [ ] 8.5 Write property test for sensitive data exclusion from logs
+  - **Property 36: Sensitive data exclusion from logs**
+  - **Validates: Requirements 12.5**
+
+- [ ] 9. Create Token Server entrypoint and wire components
+  - Create lambda/src/entrypoint/token_main.py with token_handler() function
+  - Add TokenServiceProvider to lambda/src/environment/service_provider.py
+  - Initialize TokenHandler with dependencies from environment variables
+  - Environment variables: OIDC_PROVIDER_URL, OIDC_CLIENT_ID, STORAGE_BASE_URL, TOKEN_USERS_TABLE_NAME
+  - Use cached_property pattern for lazy initialization (like existing ServiceProvider)
+  - Implement request flow: validate → authenticate → get/create user → generate token → respond
+  - Add error handling with appropriate HTTP status codes
+  - Add retry logic for OIDC provider calls (3 retries with exponential backoff using tenacity or manual retry)
+  - _Requirements: 1.1, 1.2, 1.3, 10.1, 10.2, 10.3, 10.5_
+
+- [ ] 9.1 Write property test for OIDC provider unreachable error
+  - **Property 27: OIDC provider unreachable error**
+  - **Validates: Requirements 10.5**
+
+- [ ] 9.2 Write property test for user identifier extraction
+  - **Property 28: User identifier extraction**
+  - **Validates: Requirements 11.1**
+
+- [ ] 10. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 11. Create Smithy model for Token Server
+  - Create smithy/models/token.smithy with TokenService definition
+  - Define GetToken operation with POST /1.0/sync/1.5 endpoint
+  - Define GetTokenInput structure with Authorization header
+  - Define GetTokenOutput structure with id, key, api_endpoint, uid, duration, hashalg fields
+  - Define error structures: InvalidCredentialsError, ValidationError, ServiceUnavailableError
+  - Add @restJson1 protocol and AWS API Gateway integration traits
+  - _Requirements: 1.1, 1.3, 5.1, 5.2, 6.1, 6.2_
+
+- [ ] 12. Update Smithy build configuration
+  - Modify smithy/smithy-build.json to use projections
+  - Create "storage" projection for existing StorageService
+  - Create "token" projection for new TokenService
+  - Both projections use openapi plugin with respective service references
+  - Verify build generates: build/smithy/storage/openapi/ and build/smithy/token/openapi/
+  - _Requirements: All_
+
+- [ ] 13. Create DynamoDB table in CDK
+  - Add buildTokenUsersTable() method to ServiceStack
+  - Set partition key as user_id (String)
+  - Configure on-demand billing mode
+  - Enable encryption at rest (AWS_MANAGED)
+  - Enable point-in-time recovery
+  - Follow existing table naming pattern: ffsync-token-users-{stage}
+  - _Requirements: 7.1, 7.2_
+
+- [ ] 13.1 Write property test for user record DynamoDB structure
+  - **Property 21: User record DynamoDB structure**
+  - **Validates: Requirements 7.1**
+
+- [ ] 13.2 Write property test for user record required fields
+  - **Property 22: User record required fields**
+  - **Validates: Requirements 7.2**
+
+- [ ] 14. Create Token Server Lambda function in CDK
+  - Add buildTokenHandler() method to ServiceStack
+  - Use PythonFunction with same entry as storage Lambda: lambda/
+  - Set index to "src/entrypoint/token_main.py" and handler to "token_handler"
+  - Set runtime to Python 3.12, architecture to ARM64
+  - Configure timeout (30 seconds), memory (512MB)
+  - Set environment variables: OIDC_PROVIDER_URL, OIDC_CLIENT_ID, STORAGE_BASE_URL, TOKEN_USERS_TABLE_NAME, LOG_LEVEL, STAGE
+  - Grant DynamoDB read/write permissions to TokenUsersTable
+  - Follow existing naming pattern: ffsync-token-{stage}
+  - _Requirements: 10.1, 10.2, 10.3_
+
+- [ ] 15. Create Token Server API Gateway in CDK
+  - Add buildTokenApi() method to create separate SpecRestApi for token server
+  - Load OpenAPI spec from build/smithy/token/openapi/TokenService.openapi.json
+  - Replace CDK_LAMBDA_FUNCTION_ARN placeholder with token Lambda ARN
+  - Replace CDK_API_ROLE_ARN placeholder with API role ARN
+  - Enable CORS in OpenAPI spec or API Gateway configuration
+  - Set up custom domain: token.{stage}.{BASE_DOMAIN}
+  - Create certificate for token domain
+  - Enable CloudWatch logging with MethodLoggingLevel.INFO
+  - Create ARecord for custom domain pointing to token API
+  - _Requirements: 8.1, 8.2, 8.3, 8.4_
+
+- [ ] 16. Update existing Storage API configuration
+  - Update buildApi() to use build/smithy/storage/openapi/ path (if changed)
+  - Ensure storage API continues to use sync.{stage}.{BASE_DOMAIN}
+  - Verify both APIs can coexist with separate domains
+  - _Requirements: N/A (infrastructure maintenance)_
+
+- [ ] 17. Write integration tests
+
+- [ ] 17.1 Write integration test for end-to-end token issuance
+  - Test complete flow from API Gateway event to token response
+  - Use mocked OIDC provider and LocalStack for DynamoDB
+  - Verify token structure and validity
+  - _Requirements: 1.1, 1.2_
+
+- [ ] 17.2 Write integration test for token invalidation flow
+  - Issue token, increment generation, verify rejection
+  - _Requirements: 3.1, 3.2, 3.3_
+
+- [ ] 17.3 Write integration test for first-time user flow
+  - No existing record → create user → assign node → issue token
+  - _Requirements: 2.1, 3.4, 7.4_
+
+- [ ] 17.4 Write integration test for returning user flow
+  - Existing record → same node → issue token
+  - _Requirements: 2.2, 2.4_
+
+- [ ] 18. Final Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
