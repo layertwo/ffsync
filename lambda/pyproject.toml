@@ -34,7 +34,7 @@ exclude_lines = [
 
 [tool.black]
 line-length = 100
-target-version = ["py312"]
+target-version = ["py314"]
 src = ["src/", "tests/"]
 
 [tool.isort]

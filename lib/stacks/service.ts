@@ -69,7 +69,7 @@ export class ServiceStack extends Stack {
         const fn = new PythonFunction(this, "ApiHandler", {
             entry: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/main.py",
-            runtime: Runtime.PYTHON_3_12,
+            runtime: Runtime.PYTHON_3_14,
             architecture: Architecture.ARM_64,
             handler: "lambda_handler",
             functionName: `ffsync-storage-${this.props.stageType.toLowerCase()}`,
