@@ -3,8 +3,6 @@
 import json
 from unittest.mock import MagicMock
 
-import pytest
-
 from src.routes.collections.create import CreateCollectionRoute
 from src.routes.collections.delete import DeleteCollectionRoute
 from src.routes.collections.list import ListCollectionsRoute
@@ -52,9 +50,7 @@ class TestCreateCollectionRoute:
         collection_data = CollectionData(
             name="bookmarks", modified=1234567890.12, count=2, usage=1024
         )
-        batch_result = BatchResult(
-            success=["obj1", "obj2"], failed={}, modified=1234567890.12
-        )
+        batch_result = BatchResult(success=["obj1", "obj2"], failed={}, modified=1234567890.12)
         mock_storage_manager.create_or_update_collection.return_value = (
             collection_data,
             batch_result,
@@ -79,12 +75,8 @@ class TestCreateCollectionRoute:
             ),
         }
 
-        collection_data = CollectionData(
-            name="tabs", modified=1234567890.12, count=2, usage=512
-        )
-        batch_result = BatchResult(
-            success=["tab1", "tab2"], failed={}, modified=1234567890.12
-        )
+        collection_data = CollectionData(name="tabs", modified=1234567890.12, count=2, usage=512)
+        batch_result = BatchResult(success=["tab1", "tab2"], failed={}, modified=1234567890.12)
         mock_storage_manager.create_or_update_collection.return_value = (
             collection_data,
             batch_result,
@@ -104,9 +96,7 @@ class TestCreateCollectionRoute:
             "body": None,
         }
 
-        collection_data = CollectionData(
-            name="history", modified=1234567890.12, count=0, usage=0
-        )
+        collection_data = CollectionData(name="history", modified=1234567890.12, count=0, usage=0)
         batch_result = BatchResult(success=[], failed={}, modified=1234567890.12)
         mock_storage_manager.create_or_update_collection.return_value = (
             collection_data,
@@ -189,8 +179,8 @@ class TestCreateCollectionRoute:
             "body": None,
         }
 
-        mock_storage_manager.create_or_update_collection.side_effect = (
-            ValidationException("Invalid name")
+        mock_storage_manager.create_or_update_collection.side_effect = ValidationException(
+            "Invalid name"
         )
 
         response = route.handle(event)
@@ -207,9 +197,7 @@ class TestCreateCollectionRoute:
             "body": None,
         }
 
-        mock_storage_manager.create_or_update_collection.side_effect = (
-            ConflictException("Conflict")
-        )
+        mock_storage_manager.create_or_update_collection.side_effect = ConflictException("Conflict")
 
         response = route.handle(event)
 
@@ -225,9 +213,7 @@ class TestCreateCollectionRoute:
             "body": None,
         }
 
-        mock_storage_manager.create_or_update_collection.side_effect = Exception(
-            "Error"
-        )
+        mock_storage_manager.create_or_update_collection.side_effect = Exception("Error")
 
         response = route.handle(event)
 
@@ -390,9 +376,7 @@ class TestReadCollectionRoute:
             "queryStringParameters": None,
         }
 
-        mock_storage_manager.get_collection.side_effect = CollectionNotFoundException(
-            "Not found"
-        )
+        mock_storage_manager.get_collection.side_effect = CollectionNotFoundException("Not found")
 
         response = route.handle(event)
 
@@ -525,9 +509,7 @@ class TestUpdateCollectionRoute:
             "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
         }
 
-        mock_storage_manager.update_collection.side_effect = ValidationException(
-            "Invalid"
-        )
+        mock_storage_manager.update_collection.side_effect = ValidationException("Invalid")
 
         response = route.handle(event)
 
@@ -543,8 +525,8 @@ class TestUpdateCollectionRoute:
             "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
         }
 
-        mock_storage_manager.update_collection.side_effect = (
-            CollectionNotFoundException("Not found")
+        mock_storage_manager.update_collection.side_effect = CollectionNotFoundException(
+            "Not found"
         )
 
         response = route.handle(event)
@@ -561,9 +543,7 @@ class TestUpdateCollectionRoute:
             "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
         }
 
-        mock_storage_manager.update_collection.side_effect = (
-            PreconditionFailedException("Failed")
-        )
+        mock_storage_manager.update_collection.side_effect = PreconditionFailedException("Failed")
 
         response = route.handle(event)
 
@@ -620,9 +600,7 @@ class TestDeleteCollectionRoute:
 
         event = {"pathParameters": {"collectionName": "invalid!"}}
 
-        mock_storage_manager.delete_collection.side_effect = ValidationException(
-            "Invalid"
-        )
+        mock_storage_manager.delete_collection.side_effect = ValidationException("Invalid")
 
         response = route.handle(event)
 
@@ -634,8 +612,8 @@ class TestDeleteCollectionRoute:
 
         event = {"pathParameters": {"collectionName": "nonexistent"}}
 
-        mock_storage_manager.delete_collection.side_effect = (
-            CollectionNotFoundException("Not found")
+        mock_storage_manager.delete_collection.side_effect = CollectionNotFoundException(
+            "Not found"
         )
 
         response = route.handle(event)
@@ -675,12 +653,8 @@ class TestListCollectionsRoute:
         event = {"queryStringParameters": None}
 
         collections = [
-            CollectionData(
-                name="bookmarks", modified=1234567890.12, count=5, usage=1024
-            ),
-            CollectionData(
-                name="history", modified=1234567880.00, count=10, usage=2048
-            ),
+            CollectionData(name="bookmarks", modified=1234567890.12, count=5, usage=1024),
+            CollectionData(name="history", modified=1234567880.00, count=10, usage=2048),
         ]
         mock_storage_manager.list_collections.return_value = collections
 

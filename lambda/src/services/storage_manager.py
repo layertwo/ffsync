@@ -22,15 +22,13 @@ from src.shared.models import (
 class StorageManager:
     """Manages storage operations with DynamoDB"""
 
-    def __init__(self, session: boto3.Session, table_name: str):
+    def __init__(self, table):
         """Initialize StorageManager
 
         Args:
-            session: boto3 Session
-            table_name: DynamoDB table name
+            table: DynamoDB Table resource
         """
-        self.table_name = table_name
-        self.client = session.client("dynamodb")
+        self.table = table
         self._serializer = TypeSerializer()
         self._deserializer = TypeDeserializer()
 
@@ -52,9 +50,7 @@ class StorageManager:
 
     def _serialize_item(self, data: Dict) -> Dict:
         """Convert Python dict to DynamoDB item format, skipping None values"""
-        return {
-            k: self._serializer.serialize(v) for k, v in data.items() if v is not None
-        }
+        return {k: self._serializer.serialize(v) for k, v in data.items() if v is not None}
 
     def get_collection(self, collection_name: str) -> CollectionData:
         """Get collection metadata
@@ -69,8 +65,7 @@ class StorageManager:
             CollectionNotFoundException: If collection doesn't exist
         """
         try:
-            response = self.client.get_item(
-                TableName=self.table_name,
+            response = self.table.get_item(
                 Key={
                     "PK": {"S": self._collection_pk(collection_name)},
                     "SK": {"S": self._metadata_sk()},
@@ -78,9 +73,7 @@ class StorageManager:
             )
 
             if "Item" not in response:
-                raise CollectionNotFoundException(
-                    f"Collection '{collection_name}' not found"
-                )
+                raise CollectionNotFoundException(f"Collection '{collection_name}' not found")
 
             item = self._deserialize_item(response["Item"])
             return CollectionData(
@@ -90,27 +83,15 @@ class StorageManager:
                     if isinstance(item["modified"], Decimal)
                     else item["modified"]
                 ),
-                count=(
-                    int(item["count"])
-                    if isinstance(item["count"], Decimal)
-                    else item["count"]
-                ),
-                usage=(
-                    int(item["usage"])
-                    if isinstance(item["usage"], Decimal)
-                    else item["usage"]
-                ),
+                count=(int(item["count"]) if isinstance(item["count"], Decimal) else item["count"]),
+                usage=(int(item["usage"]) if isinstance(item["usage"], Decimal) else item["usage"]),
             )
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
-                raise CollectionNotFoundException(
-                    f"Collection '{collection_name}' not found"
-                )
+                raise CollectionNotFoundException(f"Collection '{collection_name}' not found")
             raise
 
-    def get_storage_object(
-        self, collection_name: str, object_id: str
-    ) -> BasicStorageObject:
+    def get_storage_object(self, collection_name: str, object_id: str) -> BasicStorageObject:
         """Get a storage object
 
         Args:
@@ -124,8 +105,7 @@ class StorageManager:
             StorageObjectNotFoundException: If object doesn't exist
         """
         try:
-            response = self.client.get_item(
-                TableName=self.table_name,
+            response = self.table.get_item(
                 Key={
                     "PK": {"S": self._collection_pk(collection_name)},
                     "SK": {"S": self._object_sk(object_id)},
@@ -151,11 +131,7 @@ class StorageManager:
                     if isinstance(item.get("sortindex"), Decimal)
                     else item.get("sortindex")
                 ),
-                ttl=(
-                    int(item["ttl"])
-                    if isinstance(item.get("ttl"), Decimal)
-                    else item.get("ttl")
-                ),
+                ttl=(int(item["ttl"]) if isinstance(item.get("ttl"), Decimal) else item.get("ttl")),
             )
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
@@ -192,7 +168,7 @@ class StorageManager:
         }
         metadata_item = self._serialize_item(metadata_data)
 
-        self.client.put_item(TableName=self.table_name, Item=metadata_item)
+        self.table.put_item(Item=metadata_item)
 
         # Add objects if provided
         success = []
@@ -212,7 +188,7 @@ class StorageManager:
                     }
                     obj_item = self._serialize_item(obj_data)
 
-                    self.client.put_item(TableName=self.table_name, Item=obj_item)
+                    self.table.put_item(Item=obj_item)
                     success.append(obj.id)
                 except Exception as e:
                     failed[obj.id] = [str(e)]
@@ -226,7 +202,10 @@ class StorageManager:
         return collection_data, batch_result
 
     def update_collection(
-        self, collection_name: str, objects: List[BasicStorageObject]
+        self,
+        collection_name: str,
+        objects: List[BasicStorageObject],
+        if_unmodified_since: Optional[float] = None,
     ) -> tuple[CollectionData, BatchResult]:
         """Update a collection
 
@@ -262,7 +241,7 @@ class StorageManager:
                 }
                 obj_item = self._serialize_item(obj_data)
 
-                self.client.put_item(TableName=self.table_name, Item=obj_item)
+                self.table.put_item(Item=obj_item)
                 success.append(obj.id)
             except Exception as e:
                 failed[obj.id] = [str(e)]
@@ -282,7 +261,7 @@ class StorageManager:
         }
         metadata_item = self._serialize_item(metadata_data)
 
-        self.client.put_item(TableName=self.table_name, Item=metadata_item)
+        self.table.put_item(Item=metadata_item)
 
         collection_data = CollectionData(
             name=collection_name, modified=modified, count=new_count, usage=new_usage
@@ -311,16 +290,14 @@ class StorageManager:
         pk = self._collection_pk(collection_name)
 
         # Query all items in the collection
-        response = self.client.query(
-            TableName=self.table_name,
+        response = self.table.query(
             KeyConditionExpression="PK = :pk",
             ExpressionAttributeValues={":pk": {"S": pk}},
         )
 
         # Delete all items
         for item in response.get("Items", []):
-            self.client.delete_item(
-                TableName=self.table_name,
+            self.table.delete_item(
                 Key={"PK": item["PK"], "SK": item["SK"]},
             )
 
@@ -335,8 +312,7 @@ class StorageManager:
         collections = []
 
         # Scan for all metadata items
-        response = self.client.scan(
-            TableName=self.table_name,
+        response = self.table.scan(
             FilterExpression="SK = :metadata",
             ExpressionAttributeValues={":metadata": {"S": self._metadata_sk()}},
         )
@@ -352,14 +328,10 @@ class StorageManager:
                         else data["modified"]
                     ),
                     count=(
-                        int(data["count"])
-                        if isinstance(data["count"], Decimal)
-                        else data["count"]
+                        int(data["count"]) if isinstance(data["count"], Decimal) else data["count"]
                     ),
                     usage=(
-                        int(data["usage"])
-                        if isinstance(data["usage"], Decimal)
-                        else data["usage"]
+                        int(data["usage"]) if isinstance(data["usage"], Decimal) else data["usage"]
                     ),
                 )
             )
@@ -395,8 +367,7 @@ class StorageManager:
         pk = self._collection_pk(collection_name)
 
         # Query all objects in collection
-        response = self.client.query(
-            TableName=self.table_name,
+        response = self.table.query(
             KeyConditionExpression="PK = :pk AND begins_with(SK, :obj_prefix)",
             ExpressionAttributeValues={
                 ":pk": {"S": pk},
@@ -420,11 +391,7 @@ class StorageManager:
                     if isinstance(data.get("sortindex"), Decimal)
                     else data.get("sortindex")
                 ),
-                ttl=(
-                    int(data["ttl"])
-                    if isinstance(data.get("ttl"), Decimal)
-                    else data.get("ttl")
-                ),
+                ttl=(int(data["ttl"]) if isinstance(data.get("ttl"), Decimal) else data.get("ttl")),
             )
             items.append(obj)
 
@@ -503,7 +470,7 @@ class StorageManager:
         }
         obj_item = self._serialize_item(obj_data)
 
-        self.client.put_item(TableName=self.table_name, Item=obj_item)
+        self.table.put_item(Item=obj_item)
 
         return BasicStorageObject(
             id=object_id,
@@ -531,8 +498,7 @@ class StorageManager:
 
         modified = get_current_timestamp()
 
-        self.client.delete_item(
-            TableName=self.table_name,
+        self.table.delete_item(
             Key={
                 "PK": {"S": self._collection_pk(collection_name)},
                 "SK": {"S": self._object_sk(object_id)},

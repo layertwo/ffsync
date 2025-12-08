@@ -3,8 +3,6 @@
 import json
 from unittest.mock import MagicMock
 
-import pytest
-
 from src.routes.bso.delete import DeleteBSORoute
 from src.routes.bso.read import ReadBSORoute
 from src.routes.bso.update import UpdateBSORoute
@@ -35,9 +33,7 @@ class TestReadBSORoute:
         """Test successful BSO retrieval"""
         route = ReadBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"}
-        }
+        event = {"pathParameters": {"collectionName": "bookmarks", "objectId": "item123"}}
 
         bso = BasicStorageObject(
             id="item123",
@@ -50,9 +46,7 @@ class TestReadBSORoute:
 
         response = route.handle(event)
 
-        mock_storage_manager.get_storage_object.assert_called_once_with(
-            "bookmarks", "item123"
-        )
+        mock_storage_manager.get_storage_object.assert_called_once_with("bookmarks", "item123")
         assert response.status_code == 200
 
         body = json.loads(response.body)
@@ -105,12 +99,10 @@ class TestReadBSORoute:
         """Test handling of CollectionNotFoundException"""
         route = ReadBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "nonexistent", "objectId": "item"}
-        }
+        event = {"pathParameters": {"collectionName": "nonexistent", "objectId": "item"}}
 
-        mock_storage_manager.get_storage_object.side_effect = (
-            CollectionNotFoundException("Collection not found")
+        mock_storage_manager.get_storage_object.side_effect = CollectionNotFoundException(
+            "Collection not found"
         )
 
         response = route.handle(event)
@@ -123,12 +115,10 @@ class TestReadBSORoute:
         """Test handling of StorageObjectNotFoundException"""
         route = ReadBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"}
-        }
+        event = {"pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"}}
 
-        mock_storage_manager.get_storage_object.side_effect = (
-            StorageObjectNotFoundException("Object not found")
+        mock_storage_manager.get_storage_object.side_effect = StorageObjectNotFoundException(
+            "Object not found"
         )
 
         response = route.handle(event)
@@ -143,9 +133,7 @@ class TestReadBSORoute:
 
         event = {"pathParameters": {"collectionName": "bookmarks", "objectId": "item"}}
 
-        mock_storage_manager.get_storage_object.side_effect = Exception(
-            "Database error"
-        )
+        mock_storage_manager.get_storage_object.side_effect = Exception("Database error")
 
         response = route.handle(event)
 
@@ -291,8 +279,8 @@ class TestUpdateBSORoute:
             "headers": {},
         }
 
-        mock_storage_manager.update_storage_object.side_effect = (
-            CollectionNotFoundException("Not found")
+        mock_storage_manager.update_storage_object.side_effect = CollectionNotFoundException(
+            "Not found"
         )
 
         response = route.handle(event)
@@ -312,8 +300,8 @@ class TestUpdateBSORoute:
             "headers": {},
         }
 
-        mock_storage_manager.update_storage_object.side_effect = (
-            StorageObjectNotFoundException("Not found")
+        mock_storage_manager.update_storage_object.side_effect = StorageObjectNotFoundException(
+            "Not found"
         )
 
         response = route.handle(event)
@@ -330,8 +318,8 @@ class TestUpdateBSORoute:
             "headers": {},
         }
 
-        mock_storage_manager.update_storage_object.side_effect = (
-            PreconditionFailedException("Failed")
+        mock_storage_manager.update_storage_object.side_effect = PreconditionFailedException(
+            "Failed"
         )
 
         response = route.handle(event)
@@ -348,9 +336,7 @@ class TestUpdateBSORoute:
             "headers": {},
         }
 
-        mock_storage_manager.update_storage_object.side_effect = ValidationException(
-            "Invalid"
-        )
+        mock_storage_manager.update_storage_object.side_effect = ValidationException("Invalid")
 
         response = route.handle(event)
 
@@ -399,9 +385,7 @@ class TestDeleteBSORoute:
 
         response = route.handle(event)
 
-        mock_storage_manager.delete_storage_object.assert_called_once_with(
-            "bookmarks", "item123"
-        )
+        mock_storage_manager.delete_storage_object.assert_called_once_with("bookmarks", "item123")
         assert response.status_code == 200
         body = json.loads(response.body)
         assert body["modified"] == 1234567892.00
@@ -415,9 +399,7 @@ class TestDeleteBSORoute:
             "headers": {},
         }
 
-        mock_storage_manager.delete_storage_object.side_effect = ValidationException(
-            "Invalid"
-        )
+        mock_storage_manager.delete_storage_object.side_effect = ValidationException("Invalid")
 
         response = route.handle(event)
 
@@ -432,8 +414,8 @@ class TestDeleteBSORoute:
             "headers": {},
         }
 
-        mock_storage_manager.delete_storage_object.side_effect = (
-            CollectionNotFoundException("Not found")
+        mock_storage_manager.delete_storage_object.side_effect = CollectionNotFoundException(
+            "Not found"
         )
 
         response = route.handle(event)
@@ -452,8 +434,8 @@ class TestDeleteBSORoute:
             "headers": {},
         }
 
-        mock_storage_manager.delete_storage_object.side_effect = (
-            StorageObjectNotFoundException("Not found")
+        mock_storage_manager.delete_storage_object.side_effect = StorageObjectNotFoundException(
+            "Not found"
         )
 
         response = route.handle(event)

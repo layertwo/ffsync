@@ -6,14 +6,12 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from src.environment.service_provider import ServiceProvider
-from src.services.storage_manager import StorageManager
 from src.shared.models import (
     BasicStorageObject,
     BatchResult,
     CollectionData,
-    get_current_timestamp,
 )
-from tests.fixtures.boto import *
+from tests.fixtures.boto import *  # noqa: F403,F401
 
 
 @pytest.fixture
@@ -93,9 +91,7 @@ def mock_storage_manager():
     )
 
     manager.create_or_update_collection.return_value = (
-        CollectionData(
-            name="test_collection", modified=1234567890.12, count=1, usage=512
-        ),
+        CollectionData(name="test_collection", modified=1234567890.12, count=1, usage=512),
         BatchResult(success=["obj1"], failed={}, modified=1234567890.12),
     )
 
@@ -148,9 +144,7 @@ def sample_bso():
 @pytest.fixture
 def sample_collection():
     """Sample CollectionData"""
-    return CollectionData(
-        name="bookmarks", modified=1234567890.12, count=10, usage=2048
-    )
+    return CollectionData(name="bookmarks", modified=1234567890.12, count=10, usage=2048)
 
 
 @pytest.fixture
@@ -171,9 +165,7 @@ def post_event_with_body():
         "path": "/storage/test_collection",
         "pathParameters": {"collectionName": "test_collection"},
         "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(
-            {"objects": [{"id": "obj1", "payload": "data1", "sortindex": 100}]}
-        ),
+        "body": json.dumps({"objects": [{"id": "obj1", "payload": "data1", "sortindex": 100}]}),
         "queryStringParameters": None,
     }
 

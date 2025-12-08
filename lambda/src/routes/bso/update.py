@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from aws_lambda_proxy import Response, StatusCode
+from aws_lambda_proxy import API, Response, StatusCode
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -20,13 +20,13 @@ class UpdateBSORoute(BaseRoute):
     def __init__(self, storage_manager: StorageManager):
         self.storage_manager = storage_manager
 
-    def bind(self, api):
+    def bind(self, api: API):
         @api.put("/storage/{collectionName}/{objectId}")
         @api.pass_event
-        def handle_with_event(event):
+        def handle_with_event(event: dict) -> Response:
             return self.handle(event)
 
-    def handle(self, event):
+    def handle(self, event: dict) -> Response:
         """Update a storage object"""
         try:
             collection_name = event["pathParameters"]["collectionName"]
@@ -46,9 +46,7 @@ class UpdateBSORoute(BaseRoute):
 
                 # Validate that object ID in body matches path parameter
                 if storage_object.id != object_id:
-                    raise ValidationException(
-                        "Object ID in body must match path parameter"
-                    )
+                    raise ValidationException("Object ID in body must match path parameter")
 
             except (json.JSONDecodeError, KeyError) as e:
                 raise ValidationException(f"Invalid request body: {e}")

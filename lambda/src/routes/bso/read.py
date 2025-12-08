@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from aws_lambda_proxy import Response, StatusCode
+from aws_lambda_proxy import API, Response, StatusCode
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -18,22 +18,20 @@ class ReadBSORoute(BaseRoute):
     def __init__(self, storage_manager: StorageManager):
         self.storage_manager = storage_manager
 
-    def bind(self, api):
+    def bind(self, api: API):
         @api.get("/storage/{collectionName}/{objectId}")
         @api.pass_event
-        def handle_with_event(event):
+        def handle_with_event(event: dict) -> Response:
             return self.handle(event)
 
-    def handle(self, event):
+    def handle(self, event: dict) -> Response:
         """Get a specific storage object"""
         try:
             collection_name = event["pathParameters"]["collectionName"]
             object_id = event["pathParameters"]["objectId"]
 
             # Get storage object using storage manager
-            storage_object = self.storage_manager.get_storage_object(
-                collection_name, object_id
-            )
+            storage_object = self.storage_manager.get_storage_object(collection_name, object_id)
 
             response_body = {
                 "object": {
