@@ -84,8 +84,8 @@ export class LogicalStage extends Stage {
         new MonitoringStack(this, `MonitoringStack`, {
             env: props.env,
             stageType: props.stageType,
-            api: serviceStack.api,
-            apiHandler: serviceStack.apiHandler,
+            storageApi: serviceStack.storageApi,
+            storageHandler: serviceStack.storageHandler,
             storageTable: serviceStack.storageTable,
         });
     }
