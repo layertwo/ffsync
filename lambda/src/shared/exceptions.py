@@ -87,3 +87,43 @@ class AuthenticationException(SyncStorageException):
 
     def __init__(self, message: str = "Authentication required"):
         super().__init__(message)
+
+
+# Token Server specific exceptions
+
+
+class InvalidTokenError(SyncStorageException):
+    """Raised when an OIDC token is invalid or cannot be validated"""
+
+    status_code = StatusCode.UNAUTHORIZED
+    error_code = "InvalidTokenError"
+
+    def __init__(self, message: str = "Invalid or expired token"):
+        super().__init__(message)
+
+
+class InvalidCredentialsError(SyncStorageException):
+    """Raised when authentication credentials are invalid"""
+
+    status_code = StatusCode.UNAUTHORIZED
+    error_code = "InvalidCredentialsError"
+
+    def __init__(self, message: str = "Invalid credentials"):
+        super().__init__(message)
+
+
+class TokenValidationError(ValidationException):
+    """Raised when token validation fails"""
+
+    def __init__(self, message: str = "Token validation failed"):
+        super().__init__(message)
+
+
+class ServiceUnavailableError(SyncStorageException):
+    """Raised when external services (OIDC provider, DynamoDB) are unavailable"""
+
+    status_code = StatusCode.SERVICE_UNAVAILABLE
+    error_code = "ServiceUnavailableError"
+
+    def __init__(self, message: str = "Service temporarily unavailable"):
+        super().__init__(message)

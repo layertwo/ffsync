@@ -1,33 +1,21 @@
 # Implementation Plan
 
-- [ ] 1. Set up Token Server dependencies and directory structure
+- [x] 1. Set up Token Server dependencies and directory structure
   - Add PyJWT>=2.8.0 to lambda/requirements.txt for OIDC token validation
   - Add hypothesis>=6.0.0 to lambda/requirements-dev.txt for property-based testing
   - Add python-jose[cryptography]>=3.3.0 to lambda/requirements.txt for JWKS support
   - Add requests>=2.31.0 to lambda/requirements.txt for OIDC provider HTTP calls
-  - Create lambda/src/token/ directory structure:
-    - lambda/src/token/models/ (data models)
-    - lambda/src/token/validators/ (OIDC validation)
-    - lambda/src/token/services/ (business logic)
-  - Create __init__.py files for all new packages
   - _Requirements: All_
 
-- [ ] 2. Implement core data models
-  - Create lambda/src/token/models/__init__.py
-  - Create lambda/src/token/models/user.py with UserRecord dataclass (user_id, generation, created_at, updated_at)
-  - Create lambda/src/token/models/oidc.py with OIDCTokenClaims (sub, iss, aud, exp, iat) and OIDCProviderConfig (issuer, jwks_uri, etc.) dataclasses
-  - Create lambda/src/token/models/token.py with TokenResponse dataclass (id, key, api_endpoint, uid, duration, hashalg)
-  - Create lambda/src/token/models/errors.py with custom exception classes (InvalidTokenError, InvalidCredentialsError, etc.) and ErrorDetail dataclass
-  - Use dataclasses-json for JSON serialization (following existing lambda/src/shared/models.py patterns)
+- [x] 2. Implement core data models
+  - Create lambda/src/shared/user.py with UserRecord dataclass (user_id, generation, created_at, updated_at)
+  - Create lambda/src/shared/oidc.py with OIDCTokenClaims (sub, iss, aud, exp, iat) and OIDCProviderConfig (issuer, jwks_uri, etc.) dataclasses
+  - Create lambda/src/models/token.py with TokenResponse dataclass (id, key, api_endpoint, uid, duration, hashalg)
+  - Create lambda/src/shared/errors.py with custom exception classes (InvalidTokenError, InvalidCredentialsError, etc.) and ErrorDetail dataclass
   - _Requirements: 1.1, 4.1, 4.2, 7.2, 9.2, 11.1_
 
-- [ ]* 2.1 Write property test for data model serialization
-  - **Property 1: Round-trip serialization consistency**
-  - **Validates: Requirements 1.1, 4.1, 4.2**
-  - Test that TokenResponse, UserRecord, and OIDCTokenClaims can be serialized to JSON and deserialized back to equivalent objects
-
 - [ ] 3. Implement OIDC Validator component
-  - Create lambda/src/token/validators/oidc_validator.py with OIDCValidator class
+  - Create lambda/src/validators/oidc_validator.py with OIDCValidator class
   - Implement discover_provider_config() to fetch .well-known/openid-configuration
   - Implement JWKS fetching and caching (1-hour TTL using functools.lru_cache)
   - Implement validate_token() with signature verification using PyJWT
@@ -35,7 +23,7 @@
   - Implement audience validation against configured client_id
   - Implement expiry validation using exp claim
   - Extract user identifier from sub claim
-  - Define custom exceptions in lambda/src/token/models/errors.py (InvalidTokenError, etc.)
+  - Define custom exceptions in lambda/src/shared/exception.py (InvalidTokenError, etc.)
   - _Requirements: 1.2, 9.2, 9.3, 9.4, 9.5, 11.1, 11.2_
 
 - [ ]* 3.1 Write property test for OIDC token validation
@@ -77,7 +65,7 @@
   - _Requirements: 10.4_
 
 - [ ] 4. Implement User Manager component
-  - Create lambda/src/token/services/user_manager.py with UserManager class
+  - Create lambda/src/services/user_manager.py with UserManager class
   - Initialize with DynamoDB table resource (similar to StorageManager pattern)
   - Implement get_or_create_user() with conditional writes
   - Set default generation to 0 for new users
@@ -104,7 +92,7 @@
   - **Validates: Requirements 7.5**
 
 - [ ] 5. Implement Token Generator component
-  - Create lambda/src/token/services/token_generator.py with TokenGenerator class
+  - Create lambda/src/services/token_generator.py with TokenGenerator class
   - Implement generate_hawk_id() encoding user_id:generation:expiry as base64
   - Implement generate_hawk_key() using secrets.token_bytes(32) and hex encoding
   - Implement generate_token() to construct complete TokenResponse
@@ -139,7 +127,7 @@
   - **Validates: Requirements 11.5**
 
 - [ ] 6. Implement Error Handler component
-  - Create lambda/src/token/services/error_handler.py with ErrorHandler class
+  - Create lambda/src/services/error_handler.py with ErrorHandler class
   - Implement format_error() to create API Gateway proxy response dict
   - Define error response structure with status and errors array (Firefox Sync format)
   - Map HTTP status codes to error types (401→invalid-credentials, 400→invalid-request, etc.)
@@ -164,7 +152,7 @@
   - **Validates: Requirements 6.5**
 
 - [ ] 7. Implement Token Request Handler
-  - Create lambda/src/token/services/token_handler.py with TokenHandler class
+  - Create lambda/src/services/token_handler.py with TokenHandler class
   - Implement handle() method that orchestrates the token issuance flow
   - Implement validate_request() for HTTP method, path, headers
   - Parse Authorization header and extract Bearer token

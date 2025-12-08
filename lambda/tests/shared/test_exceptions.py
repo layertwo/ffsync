@@ -9,10 +9,14 @@ from src.shared.exceptions import (
     AuthenticationException,
     CollectionNotFoundException,
     ConflictException,
+    InvalidCredentialsError,
+    InvalidTokenError,
     PreconditionFailedException,
     QuotaExceededException,
+    ServiceUnavailableError,
     StorageObjectNotFoundException,
     SyncStorageException,
+    TokenValidationError,
     ValidationException,
 )
 
@@ -268,3 +272,133 @@ class TestExceptionInheritance:
 
         with pytest.raises(SyncStorageException):
             raise ValidationException("Test error")
+
+
+# Token Server Exception Tests
+
+
+class TestInvalidTokenError:
+    """Tests for InvalidTokenError exception"""
+
+    def test_default_initialization(self):
+        """Test exception with default message"""
+
+        exc = InvalidTokenError()
+
+        assert exc.message == "Invalid or expired token"
+        assert exc.status_code == StatusCode.UNAUTHORIZED
+        assert exc.error_code == "InvalidTokenError"
+        assert str(exc) == "Invalid or expired token"
+
+    def test_custom_message(self):
+        """Test exception with custom message"""
+        exc = InvalidTokenError("Token signature verification failed")
+
+        assert exc.message == "Token signature verification failed"
+        assert str(exc) == "Token signature verification failed"
+
+    def test_to_response(self):
+        """Test converting exception to Response"""
+        exc = InvalidTokenError("Token expired")
+        response = exc.to_response()
+
+        assert response.status_code == StatusCode.UNAUTHORIZED
+        assert response.content_type == "application/json"
+
+        body = json.loads(response.body)
+        assert body["error"] == "InvalidTokenError"
+        assert body["message"] == "Token expired"
+
+
+class TestInvalidCredentialsError:
+    """Tests for InvalidCredentialsError exception"""
+
+    def test_default_initialization(self):
+        """Test exception with default message"""
+
+        exc = InvalidCredentialsError()
+
+        assert exc.message == "Invalid credentials"
+        assert exc.status_code == StatusCode.UNAUTHORIZED
+        assert exc.error_code == "InvalidCredentialsError"
+
+    def test_custom_message(self):
+        """Test exception with custom message"""
+        exc = InvalidCredentialsError("Authentication failed")
+
+        assert exc.message == "Authentication failed"
+
+    def test_to_response(self):
+        """Test converting exception to Response"""
+        exc = InvalidCredentialsError("Bad credentials")
+        response = exc.to_response()
+
+        assert response.status_code == StatusCode.UNAUTHORIZED
+        body = json.loads(response.body)
+        assert body["error"] == "InvalidCredentialsError"
+
+
+class TestTokenValidationError:
+    """Tests for TokenValidationError exception"""
+
+    def test_default_initialization(self):
+        """Test exception with default message"""
+
+        exc = TokenValidationError()
+
+        assert exc.message == "Token validation failed"
+        assert exc.status_code == StatusCode.BAD_REQUEST
+        assert exc.error_code == "ValidationException"
+
+    def test_custom_message(self):
+        """Test exception with custom message"""
+        exc = TokenValidationError("Invalid token format")
+
+        assert exc.message == "Invalid token format"
+
+    def test_inherits_from_validation_exception(self):
+        """Test that TokenValidationError inherits from ValidationException"""
+        exc = TokenValidationError()
+
+        assert isinstance(exc, ValidationException)
+        assert isinstance(exc, SyncStorageException)
+
+    def test_to_response(self):
+        """Test converting exception to Response"""
+        exc = TokenValidationError("Malformed token")
+        response = exc.to_response()
+
+        assert response.status_code == StatusCode.BAD_REQUEST
+        body = json.loads(response.body)
+        assert body["error"] == "ValidationException"
+
+
+class TestServiceUnavailableError:
+    """Tests for ServiceUnavailableError exception"""
+
+    def test_default_initialization(self):
+        """Test exception with default message"""
+
+        exc = ServiceUnavailableError()
+
+        assert exc.message == "Service temporarily unavailable"
+        assert exc.status_code == StatusCode.SERVICE_UNAVAILABLE
+        assert exc.error_code == "ServiceUnavailableError"
+
+    def test_custom_message(self):
+        """Test exception with custom message"""
+        exc = ServiceUnavailableError("OIDC provider unreachable")
+
+        assert exc.message == "OIDC provider unreachable"
+
+    def test_to_response(self):
+        """Test converting exception to Response"""
+        exc = ServiceUnavailableError("Database connection failed")
+        response = exc.to_response()
+
+        assert response.status_code == StatusCode.SERVICE_UNAVAILABLE
+        assert response.content_type == "application/json"
+
+        body = json.loads(response.body)
+        assert body["error"] == "ServiceUnavailableError"
+        assert body["message"] == "Database connection failed"
