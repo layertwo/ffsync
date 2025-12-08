@@ -1,5 +1,4 @@
 import {PythonFunction} from "@aws-cdk/aws-lambda-python-alpha";
-import {capitalCase} from "change-case";
 import {Construct} from "constructs";
 import {readFileSync} from "fs";
 import * as path from "path";
@@ -27,6 +26,7 @@ import {ApiGateway} from "aws-cdk-lib/aws-route53-targets";
 
 import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
 import {Service} from "../config/service";
+import {capitalCase} from "../utils";
 
 export interface ServiceStackProps extends StackProps {
     stageType: StageType;
