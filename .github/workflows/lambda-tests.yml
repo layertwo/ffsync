@@ -2,13 +2,11 @@ name: Lambda Tests
 
 on:
   push:
-    paths:
-      - 'lambda/**'
-      - '.github/workflows/lambda-tests.yml'
+    paths: ['lambda/**', '.github/workflows/lambda-tests.yml']
+    branches: [ "mainline" ]
   pull_request:
-    paths:
-      - 'lambda/**'
-      - '.github/workflows/lambda-tests.yml'
+    paths: ['lambda/**', '.github/workflows/lambda-tests.yml']
+    branches: [ "mainline" ]
 
 jobs:
   test:
