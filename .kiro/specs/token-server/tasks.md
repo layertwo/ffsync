@@ -116,32 +116,7 @@
   - **Property 31: User identifier consistency**
   - **Validates: Requirements 11.5**
 
-- [ ] 6. Implement Error Handler component
-  - Create lambda/src/services/error_handler.py with ErrorHandler class
-  - Implement format_error() to create API Gateway proxy response dict
-  - Define error response structure with status and errors array (Firefox Sync format)
-  - Map HTTP status codes to error types (401→invalid-credentials, 400→invalid-request, etc.)
-  - Implement error detail formatting with location, name, description fields
-  - Return responses compatible with API Gateway proxy integration
-  - _Requirements: 1.3, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5_
-
-- [ ]* 6.1 Write property test for error response JSON validity
-  - **Property 17: Error response JSON validity**
-  - **Validates: Requirements 6.1**
-
-- [ ]* 6.2 Write property test for error response structure
-  - **Property 18: Error response structure**
-  - **Validates: Requirements 6.2, 6.3**
-
-- [ ]* 6.3 Write property test for 401 error status value
-  - **Property 19: 401 error status value**
-  - **Validates: Requirements 6.4**
-
-- [ ]* 6.4 Write property test for validation error structure
-  - **Property 20: Validation error structure**
-  - **Validates: Requirements 6.5**
-
-- [ ] 7. Implement Token Request Handler
+- [x] 6. Implement Token Request Handler
   - Create lambda/src/services/token_handler.py with TokenHandler class
   - Implement handle() method that orchestrates the token issuance flow
   - Implement validate_request() for HTTP method, path, headers
@@ -149,30 +124,48 @@
   - Validate HTTP method is POST
   - Validate path matches /1.0/sync/1.5
   - Coordinate between OIDCValidator, UserManager, and TokenGenerator
-  - Return API Gateway proxy response dict
-  - _Requirements: 1.4, 5.1, 5.2, 5.3, 5.4_
+  - Return API Gateway proxy response dict with JSON body
+  - Format success response with id, key, api_endpoint, uid, duration, hashalg fields
+  - Format error responses in Firefox Sync protocol format (status, errors array)
+  - _Requirements: 1.1, 1.3, 1.4, 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ]* 7.1 Write property test for malformed header rejection
+- [ ]* 6.1 Write property test for malformed header rejection
   - **Property 4: Malformed header rejection**
   - **Validates: Requirements 1.4**
 
-- [ ]* 7.2 Write property test for invalid path rejection
+- [ ]* 6.2 Write property test for invalid path rejection
   - **Property 13: Invalid path rejection**
   - **Validates: Requirements 5.2**
 
-- [ ]* 7.3 Write property test for unsupported method rejection
+- [ ]* 6.3 Write property test for unsupported method rejection
   - **Property 14: Unsupported method rejection**
   - **Validates: Requirements 5.3**
 
-- [ ]* 7.4 Write property test for invalid content type rejection
+- [ ]* 6.4 Write property test for invalid content type rejection
   - **Property 15: Invalid content type rejection**
   - **Validates: Requirements 5.4**
 
-- [ ]* 7.5 Write property test for error message presence
+- [ ]* 6.5 Write property test for error message presence
   - **Property 16: Error message presence**
   - **Validates: Requirements 5.5**
 
-- [ ] 8. Implement structured logging
+- [ ]* 6.6 Write property test for error response JSON validity
+  - **Property 17: Error response JSON validity**
+  - **Validates: Requirements 6.1**
+
+- [ ]* 6.7 Write property test for error response structure
+  - **Property 18: Error response structure**
+  - **Validates: Requirements 6.2, 6.3**
+
+- [ ]* 6.8 Write property test for 401 error status value
+  - **Property 19: 401 error status value**
+  - **Validates: Requirements 6.4**
+
+- [ ]* 6.9 Write property test for validation error structure
+  - **Property 20: Validation error structure**
+  - **Validates: Requirements 6.5**
+
+- [ ] 7. Implement structured logging
   - Configure AWS Lambda Powertools Logger with JSON formatter
   - Implement log_successful_authentication() with user_id and timestamp
   - Implement log_failed_authentication() with reason and timestamp
@@ -181,49 +174,50 @@
   - Add structured fields for correlation (request_id, user_id)
   - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
 
-- [ ]* 8.1 Write property test for successful authentication logging
+- [ ]* 7.1 Write property test for successful authentication logging
   - **Property 32: Successful authentication logging**
   - **Validates: Requirements 12.1**
 
-- [ ]* 8.2 Write property test for failed authentication logging
+- [ ]* 7.2 Write property test for failed authentication logging
   - **Property 33: Failed authentication logging**
   - **Validates: Requirements 12.2**
 
-- [ ]* 8.3 Write property test for validation error logging
+- [ ]* 7.3 Write property test for validation error logging
   - **Property 34: Validation error logging**
   - **Validates: Requirements 12.3**
 
-- [ ]* 8.4 Write property test for structured logging format
+- [ ]* 7.4 Write property test for structured logging format
   - **Property 35: Structured logging format**
   - **Validates: Requirements 12.4**
 
-- [ ]* 8.5 Write property test for sensitive data exclusion from logs
+- [ ]* 7.5 Write property test for sensitive data exclusion from logs
   - **Property 36: Sensitive data exclusion from logs**
   - **Validates: Requirements 12.5**
 
-- [ ] 9. Wire Token Server entrypoint and components
+- [ ] 8. Wire Token Server entrypoint and components
   - Update lambda/src/entrypoint/token_api.py to implement token_handler() function
-  - Add TokenServiceProvider to lambda/src/environment/service_provider.py
+  - Add TokenServiceProvider properties to lambda/src/environment/service_provider.py
   - Initialize TokenHandler with dependencies from environment variables
   - Environment variables: OIDC_SECRET_ARN (Secrets Manager secret containing provider_url and client_id), BASE_DOMAIN, TOKEN_USERS_TABLE_NAME
+  - Fetch OIDC config from Secrets Manager and cache it
   - Use cached_property pattern for lazy initialization (like existing ServiceProvider)
   - Implement request flow: validate → authenticate → get/create user → generate token → respond
   - Add error handling with appropriate HTTP status codes
   - Add retry logic for OIDC provider calls (3 retries with exponential backoff using tenacity or manual retry)
   - _Requirements: 1.1, 1.2, 1.3, 10.1, 10.2, 10.3, 10.5_
 
-- [ ]* 9.1 Write property test for OIDC provider unreachable error
+- [ ]* 8.1 Write property test for OIDC provider unreachable error
   - **Property 27: OIDC provider unreachable error**
   - **Validates: Requirements 10.5**
 
-- [ ]* 9.2 Write property test for user identifier extraction
+- [ ]* 8.2 Write property test for user identifier extraction
   - **Property 28: User identifier extraction**
   - **Validates: Requirements 11.1**
 
-- [ ] 10. Checkpoint - Ensure all tests pass
+- [ ] 9. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [x] 11. Create Smithy model for Token Server
+- [x] 10. Create Smithy model for Token Server
   - Create smithy/models/token/token.smithy with TokenService definition
   - Define GetToken operation with POST /1.0/sync/1.5 endpoint
   - Define GetTokenInput structure with Authorization header
@@ -232,7 +226,7 @@
   - Add @restJson1 protocol and AWS API Gateway integration traits
   - _Requirements: 1.1, 1.3, 5.1, 5.2, 6.1, 6.2_
 
-- [x] 12. Update Smithy build configuration
+- [x] 11. Update Smithy build configuration
   - Modify smithy/smithy-build.json to use projections
   - Create "storage" projection for existing StorageService
   - Create "token" projection for new TokenService
@@ -240,7 +234,7 @@
   - Verify build generates: build/smithy/storage/openapi/ and build/smithy/token/openapi/
   - _Requirements: All_
 
-- [x] 13. Create DynamoDB table for Token Users in CDK
+- [x] 12. Create DynamoDB table for Token Users in CDK
   - Add buildTokenUsersTable() method to ServiceStack
   - Set partition key as PK (String) to match existing table patterns
   - Configure on-demand billing mode
@@ -249,14 +243,14 @@
   - Follow existing table naming pattern: ffsync-token-users-{stage}
   - _Requirements: 7.1, 7.2_
 
-- [x] 14. Update Token Server Lambda environment variables in CDK
+- [x] 13. Update Token Server Lambda environment variables in CDK
   - Add environment variables to buildTokenApiHandler(): OIDC_SECRET_ARN (Secrets Manager secret containing provider_url and client_id), BASE_DOMAIN, TOKEN_USERS_TABLE_NAME
   - Reference Secrets Manager secret `ffsync-oidc-config-{stage}` for OIDC configuration
   - Grant Secrets Manager read permissions to Lambda via `oidcSecret.grantRead(fn)`
   - Grant DynamoDB read/write permissions to TokenUsersTable
   - _Requirements: 10.1, 10.2, 10.3_
 
-- [x] 15. Token Server API Gateway (already implemented)
+- [x] 14. Token Server API Gateway (already implemented)
   - Token API Gateway created in buildApi() method using Service.TOKEN
   - OpenAPI spec loaded from build/smithy/token/openapi/TokenService.openapi.json
   - Custom domain: token.{stage}.{BASE_DOMAIN}
@@ -264,31 +258,31 @@
   - CloudWatch logging enabled with MethodLoggingLevel.INFO
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-- [x] 16. Storage API configuration (already implemented)
+- [x] 15. Storage API configuration (already implemented)
   - Storage API uses build/smithy/storage/openapi/ path
   - Storage API uses sync.{stage}.{BASE_DOMAIN} domain
   - Both APIs coexist with separate domains via Service enum
   - _Requirements: N/A (infrastructure maintenance)_
 
-- [ ] 17. Write integration tests
+- [ ] 16. Write integration tests
 
-- [ ]* 17.1 Write integration test for end-to-end token issuance
+- [ ]* 16.1 Write integration test for end-to-end token issuance
   - Test complete flow from API Gateway event to token response
   - Use mocked OIDC provider and mocked DynamoDB using botocore Stubber
   - Verify token structure and validity
   - _Requirements: 1.1, 1.2_
 
-- [ ]* 17.2 Write integration test for token invalidation flow
+- [ ]* 16.2 Write integration test for token invalidation flow
   - Issue token, increment generation, verify rejection
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ]* 17.3 Write integration test for first-time user flow
+- [ ]* 16.3 Write integration test for first-time user flow
   - No existing record → create user → assign node → issue token
   - _Requirements: 2.1, 3.4, 7.4_
 
-- [ ]* 17.4 Write integration test for returning user flow
+- [ ]* 16.4 Write integration test for returning user flow
   - Existing record → same node → issue token
   - _Requirements: 2.2, 2.4_
 
-- [ ] 18. Final Checkpoint - Ensure all tests pass
+- [ ] 17. Final Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
