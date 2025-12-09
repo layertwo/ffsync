@@ -14,7 +14,7 @@
   - Create lambda/src/shared/exceptions.py with custom exception classes (InvalidTokenError, InvalidCredentialsError, etc.) and ErrorDetail dataclass
   - _Requirements: 1.1, 4.1, 4.2, 7.2, 9.2, 11.1_
 
-- [ ] 3. Implement OIDC Validator component
+- [x] 3. Implement OIDC Validator component
   - Create lambda/src/services/oidc_validator.py with OIDCValidator class
   - Implement discover_provider_config() to fetch .well-known/openid-configuration
   - Implement JWKS fetching and caching (1-hour TTL using functools.lru_cache)
