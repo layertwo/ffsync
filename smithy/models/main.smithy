@@ -46,7 +46,7 @@ service StorageService {
 service TokenService {
     version: "1.0"
     operations: [
-        GetToken
+        RequestToken
     ]
     errors: [
         AuthenticationException

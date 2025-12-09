@@ -6,9 +6,9 @@ use smithy.framework#ValidationException
 
 @http(method: "POST", uri: "/1.0/sync/1.5")
 @documentation("Exchange OIDC credentials for a Firefox Sync bearer token with HAWK credentials")
-operation GetToken {
-    input: GetTokenInput
-    output: GetTokenOutput
+operation RequestToken {
+    input: RequestTokenInput
+    output: RequestTokenOutput
     errors: [
         AuthenticationException
         ValidationException
@@ -16,11 +16,11 @@ operation GetToken {
 }
 
 @input
-@documentation("Input for GetToken operation. The Authorization header with Bearer token is passed via API Gateway event headers and extracted by the Lambda function.")
-structure GetTokenInput {}
+@documentation("Input for RequestToken operation. The Authorization header with Bearer token is passed via API Gateway event headers and extracted by the Lambda function.")
+structure RequestTokenInput {}
 
 @output
-structure GetTokenOutput {
+structure RequestTokenOutput {
     @required
     @documentation("HAWK identifier for authentication")
     id: String
