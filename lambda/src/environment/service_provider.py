@@ -18,6 +18,7 @@ from src.routes.info.read_usage import ReadCollectionUsageRoute
 from src.routes.storage.delete_all import DeleteAllStorageRoute
 from src.services.api_router import ApiRouter
 from src.services.storage_manager import StorageManager
+from src.services.user_manager import UserManager
 
 
 class ServiceProvider:
@@ -42,6 +43,20 @@ class ServiceProvider:
     @cached_property
     def storage_manager(self) -> StorageManager:
         return StorageManager(table=self.dynamodb_table)
+
+    @cached_property
+    def token_users_table_name(self):  # pragma: nocover
+        return os.environ.get("TOKEN_USERS_TABLE_NAME")
+
+    @cached_property
+    def token_users_table(self):  # pragma: nocover
+        """Create DynamoDB Table resource for token users"""
+        resource = self.session.resource("dynamodb")
+        return resource.Table(self.token_users_table_name)
+
+    @cached_property
+    def user_manager(self) -> UserManager:  # pragma: nocover
+        return UserManager(table=self.token_users_table)
 
     @cached_property
     def storage_api_router(self):
