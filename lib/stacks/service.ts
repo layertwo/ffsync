@@ -152,8 +152,7 @@ export class ServiceStack extends Stack {
         });
 
         const openApiSpec = this.buildOpenApiSpec(service, handler);
-        const apiResourceName = service == Service.STORAGE ? "Api" : "TokenApi";
-        const api = new SpecRestApi(this, apiResourceName, {
+        const api = new SpecRestApi(this, `${capitalService}Api`, {
             apiDefinition: ApiDefinition.fromInline(openApiSpec),
             endpointTypes: [EndpointType.EDGE],
             restApiName: `ffsync-${service.toLowerCase()}-${this.props.stageType}`,
