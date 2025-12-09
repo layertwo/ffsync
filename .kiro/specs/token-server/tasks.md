@@ -54,7 +54,7 @@
   - **Property 24: OIDC signature verification**
   - **Validates: Requirements 9.3**
 
-- [ ] 4. Implement User Manager component
+- [x] 4. Implement User Manager component
   - Create lambda/src/services/user_manager.py with UserManager class
   - Initialize with DynamoDB table resource (similar to StorageManager pattern)
   - Implement get_or_create_user() with conditional writes
@@ -205,7 +205,7 @@
   - Update lambda/src/entrypoint/token_api.py to implement token_handler() function
   - Add TokenServiceProvider to lambda/src/environment/service_provider.py
   - Initialize TokenHandler with dependencies from environment variables
-  - Environment variables: OIDC_PROVIDER_URL, OIDC_CLIENT_ID, STORAGE_BASE_URL, TOKEN_USERS_TABLE_NAME
+  - Environment variables: OIDC_SECRET_ARN (Secrets Manager secret containing provider_url and client_id), BASE_DOMAIN, TOKEN_USERS_TABLE_NAME
   - Use cached_property pattern for lazy initialization (like existing ServiceProvider)
   - Implement request flow: validate → authenticate → get/create user → generate token → respond
   - Add error handling with appropriate HTTP status codes
@@ -250,7 +250,7 @@
   - _Requirements: 7.1, 7.2_
 
 - [x] 14. Update Token Server Lambda environment variables in CDK
-  - Add environment variables to buildTokenApiHandler(): OIDC_SECRET_ARN (Secrets Manager secret containing provider_url and client_id), STORAGE_DOMAIN_NAME, TOKEN_USERS_TABLE_NAME
+  - Add environment variables to buildTokenApiHandler(): OIDC_SECRET_ARN (Secrets Manager secret containing provider_url and client_id), BASE_DOMAIN, TOKEN_USERS_TABLE_NAME
   - Reference Secrets Manager secret `ffsync-oidc-config-{stage}` for OIDC configuration
   - Grant Secrets Manager read permissions to Lambda via `oidcSecret.grantRead(fn)`
   - Grant DynamoDB read/write permissions to TokenUsersTable

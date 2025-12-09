@@ -19,6 +19,11 @@ def storage_table_name():
     return "test-storage-table"
 
 
+@pytest.fixture
+def token_users_table_name():
+    return "test-token-users-table"
+
+
 @pytest.fixture(autouse=True)
 def setup_environment(
     monkeypatch,
@@ -27,6 +32,7 @@ def setup_environment(
     aws_secret_access_key,
     aws_session_token,
     storage_table_name,
+    token_users_table_name,
 ):
     """Mock environment variables"""
     monkeypatch.setenv("AWS_REGION", aws_region_name)
@@ -34,6 +40,7 @@ def setup_environment(
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", aws_secret_access_key)
     monkeypatch.setenv("AWS_SESSION_TOKEN", aws_session_token)
     monkeypatch.setenv("STORAGE_TABLE_NAME", storage_table_name)
+    monkeypatch.setenv("TOKEN_USERS_TABLE_NAME", token_users_table_name)
 
 
 class MockServiceProvider(ServiceProvider):
