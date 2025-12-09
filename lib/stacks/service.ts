@@ -23,6 +23,7 @@ import {
     RecordType,
 } from "aws-cdk-lib/aws-route53";
 import {ApiGateway} from "aws-cdk-lib/aws-route53-targets";
+import {Secret} from "aws-cdk-lib/aws-secretsmanager";
 
 import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
 import {Service} from "../config/service";
@@ -38,7 +39,12 @@ export class ServiceStack extends Stack {
     private readonly hostedZone: IHostedZone;
     private readonly apiExecuteRole: Role;
 
+    private get stageBaseDomain(): string {
+        return `${this.props.stageType.toLowerCase()}.${BASE_DOMAIN}`;
+    }
+
     // Token Service
+    public readonly tokenUsersTable: Table;
     public readonly tokenHandler: IFunction;
     public readonly tokenApi: SpecRestApi;
 
@@ -58,14 +64,15 @@ export class ServiceStack extends Stack {
         });
         this.apiExecuteRole = this.buildApiExecuteRole();
 
-        // Token Service
-        this.tokenHandler = this.buildTokenApiHandler();
-        this.tokenApi = this.buildApi(Service.TOKEN, this.tokenHandler);
-
         // Storage Service
         this.storageTable = this.buildStorageTable();
         this.storageHandler = this.buildStorageApiHandler();
         this.storageApi = this.buildApi(Service.STORAGE, this.storageHandler);
+
+        // Token Service
+        this.tokenUsersTable = this.buildTokenUsersTable();
+        this.tokenHandler = this.buildTokenApiHandler();
+        this.tokenApi = this.buildApi(Service.TOKEN, this.tokenHandler);
     }
 
     private buildStorageTable(): Table {
@@ -91,6 +98,25 @@ export class ServiceStack extends Stack {
         });
     }
 
+    private buildTokenUsersTable(): Table {
+        return new Table(this, "TokenUsersTable", {
+            tableName: `ffsync-token-users-${this.props.stageType.toLowerCase()}`,
+            encryption: TableEncryption.AWS_MANAGED,
+            partitionKey: {
+                name: "PK",
+                type: AttributeType.STRING,
+            },
+            billingMode: BillingMode.PAY_PER_REQUEST,
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: true,
+            },
+            removalPolicy:
+                this.props.stageType === StageType.PROD
+                    ? RemovalPolicy.RETAIN
+                    : RemovalPolicy.DESTROY,
+        });
+    }
+
     private buildStorageApiHandler(): PythonFunction {
         const fn = new PythonFunction(this, "ApiHandler", {
             entry: path.join(__dirname, "../../lambda"),
@@ -103,6 +129,7 @@ export class ServiceStack extends Stack {
             memorySize: 512,
             environment: {
                 STAGE: this.props.stageType.toLowerCase(),
+                BASE_DOMAIN: this.stageBaseDomain,
                 STORAGE_TABLE_NAME: this.storageTable.tableName,
             },
         });
@@ -116,6 +143,11 @@ export class ServiceStack extends Stack {
     }
 
     private buildTokenApiHandler(): PythonFunction {
+        const oidcSecret = new Secret(this, "OidcSecret", {
+            secretName: `ffsync-oidc-config-${this.props.stageType.toLowerCase()}`,
+            description: "OIDC provider configuration for Token Server",
+        });
+
         const fn = new PythonFunction(this, "TokenApiHandler", {
             entry: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
@@ -127,9 +159,15 @@ export class ServiceStack extends Stack {
             memorySize: 512,
             environment: {
                 STAGE: this.props.stageType.toLowerCase(),
+                BASE_DOMAIN: this.stageBaseDomain,
+                OIDC_SECRET_ARN: oidcSecret.secretArn,
+                TOKEN_USERS_TABLE_NAME: this.tokenUsersTable.tableName,
             },
         });
 
+        // Grant permissions
+        oidcSecret.grantRead(fn);
+        this.tokenUsersTable.grantReadWriteData(fn);
         fn.grantInvoke(this.apiExecuteRole);
 
         return fn;

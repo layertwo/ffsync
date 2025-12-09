@@ -909,15 +909,47 @@ All errors follow the Firefox Sync protocol format:
 ### Environment Variables
 
 **Required**:
-- `OIDC_PROVIDER_URL`: Base URL of OIDC provider (e.g., `https://auth.example.com`)
-- `OIDC_CLIENT_ID`: Expected audience claim value
-- `STORAGE_BASE_URL`: Base URL for storage node assignment (e.g., `https://sync.example.com`)
-- `DYNAMODB_TABLE_NAME`: Name of DynamoDB table for user records
+- `STAGE`: Deployment stage (e.g., `beta`, `prod`)
+- `BASE_DOMAIN`: Stage-qualified base domain (e.g., `beta.ffsync.layertwo.dev`)
+- `OIDC_SECRET_ARN`: ARN of Secrets Manager secret containing OIDC configuration
+- `TOKEN_USERS_TABLE_NAME`: Name of DynamoDB table for user records
 
 **Optional**:
 - `LOG_LEVEL`: Logging level (default: INFO)
 - `JWKS_CACHE_TTL`: JWKS cache TTL in seconds (default: 3600)
 - `TOKEN_DURATION`: Token validity in seconds (default: 300)
+
+### OIDC Secret Configuration
+
+The OIDC configuration is stored in AWS Secrets Manager with the name `ffsync-oidc-config-{stage}`.
+
+**Secret JSON Structure**:
+```json
+{
+  "provider_url": "https://auth.example.com",
+  "client_id": "your-client-id"
+}
+```
+
+**Fields**:
+- `provider_url`: Base URL of the OIDC provider (e.g., `https://auth.example.com`). The Token Server will discover the provider's configuration from `{provider_url}/.well-known/openid-configuration`.
+- `client_id`: Expected audience (`aud`) claim value in OIDC tokens. Tokens with a different audience will be rejected.
+
+**Example for Authentik**:
+```json
+{
+  "provider_url": "https://authentik.example.com/application/o/firefox-sync",
+  "client_id": "firefox-sync-client-id"
+}
+```
+
+**Example for Authelia**:
+```json
+{
+  "provider_url": "https://auth.example.com",
+  "client_id": "firefox-sync"
+}
+```
 
 ### Infrastructure Requirements
 

@@ -240,17 +240,19 @@
   - Verify build generates: build/smithy/storage/openapi/ and build/smithy/token/openapi/
   - _Requirements: All_
 
-- [ ] 13. Create DynamoDB table for Token Users in CDK
+- [x] 13. Create DynamoDB table for Token Users in CDK
   - Add buildTokenUsersTable() method to ServiceStack
-  - Set partition key as user_id (String)
+  - Set partition key as PK (String) to match existing table patterns
   - Configure on-demand billing mode
   - Enable encryption at rest (AWS_MANAGED)
   - Enable point-in-time recovery
   - Follow existing table naming pattern: ffsync-token-users-{stage}
   - _Requirements: 7.1, 7.2_
 
-- [ ] 14. Update Token Server Lambda environment variables in CDK
-  - Add environment variables to buildTokenHandler(): OIDC_PROVIDER_URL, OIDC_CLIENT_ID, STORAGE_BASE_URL, TOKEN_USERS_TABLE_NAME
+- [x] 14. Update Token Server Lambda environment variables in CDK
+  - Add environment variables to buildTokenApiHandler(): OIDC_SECRET_ARN (Secrets Manager secret containing provider_url and client_id), STORAGE_DOMAIN_NAME, TOKEN_USERS_TABLE_NAME
+  - Reference Secrets Manager secret `ffsync-oidc-config-{stage}` for OIDC configuration
+  - Grant Secrets Manager read permissions to Lambda via `oidcSecret.grantRead(fn)`
   - Grant DynamoDB read/write permissions to TokenUsersTable
   - _Requirements: 10.1, 10.2, 10.3_
 
