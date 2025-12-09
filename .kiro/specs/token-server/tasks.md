@@ -15,7 +15,7 @@
   - _Requirements: 1.1, 4.1, 4.2, 7.2, 9.2, 11.1_
 
 - [ ] 3. Implement OIDC Validator component
-  - Create lambda/src/validators/oidc_validator.py with OIDCValidator class
+  - Create lambda/src/services/oidc_validator.py with OIDCValidator class
   - Implement discover_provider_config() to fetch .well-known/openid-configuration
   - Implement JWKS fetching and caching (1-hour TTL using functools.lru_cache)
   - Implement validate_token() with signature verification using PyJWT
@@ -23,7 +23,8 @@
   - Implement audience validation against configured client_id
   - Implement expiry validation using exp claim
   - Extract user identifier from sub claim
-  - _Requirements: 1.2, 9.2, 9.3, 9.4, 9.5, 11.1, 11.2_
+  - Add TTL-based cache invalidation for provider configuration (refresh before expiry)
+  - _Requirements: 1.2, 9.2, 9.3, 9.4, 9.5, 10.4, 11.1, 11.2_
 
 - [ ]* 3.1 Write property test for OIDC token validation
   - **Property 2: OIDC token validation**
@@ -52,12 +53,6 @@
 - [ ]* 3.7 Write property test for OIDC signature verification
   - **Property 24: OIDC signature verification**
   - **Validates: Requirements 9.3**
-
-- [ ] 3.8 Implement OIDC configuration cache refresh mechanism
-  - Add TTL-based cache invalidation for provider configuration
-  - Implement background refresh before cache expiry
-  - Test cache refresh behavior with expired configurations
-  - _Requirements: 10.4_
 
 - [ ] 4. Implement User Manager component
   - Create lambda/src/services/user_manager.py with UserManager class
@@ -252,16 +247,7 @@
   - Enable encryption at rest (AWS_MANAGED)
   - Enable point-in-time recovery
   - Follow existing table naming pattern: ffsync-token-users-{stage}
-  - Grant read/write permissions to Token Lambda
   - _Requirements: 7.1, 7.2_
-
-- [ ]* 13.1 Write property test for user record DynamoDB structure
-  - **Property 21: User record DynamoDB structure**
-  - **Validates: Requirements 7.1**
-
-- [ ]* 13.2 Write property test for user record required fields
-  - **Property 22: User record required fields**
-  - **Validates: Requirements 7.2**
 
 - [ ] 14. Update Token Server Lambda environment variables in CDK
   - Add environment variables to buildTokenHandler(): OIDC_PROVIDER_URL, OIDC_CLIENT_ID, STORAGE_BASE_URL, TOKEN_USERS_TABLE_NAME
@@ -286,7 +272,7 @@
 
 - [ ]* 17.1 Write integration test for end-to-end token issuance
   - Test complete flow from API Gateway event to token response
-  - Use mocked OIDC provider and LocalStack for DynamoDB
+  - Use mocked OIDC provider and mocked DynamoDB using botocore Stubber
   - Verify token structure and validity
   - _Requirements: 1.1, 1.2_
 
