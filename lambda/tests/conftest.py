@@ -24,6 +24,16 @@ def token_users_table_name():
     return "test-token-users-table"
 
 
+@pytest.fixture
+def oidc_secret_arn():
+    return "arn:aws:secretsmanager:us-east-1:123456789012:secret:test-oidc-config"
+
+
+@pytest.fixture
+def base_domain():
+    return "sync.example.com"
+
+
 @pytest.fixture(autouse=True)
 def setup_environment(
     monkeypatch,
@@ -33,6 +43,8 @@ def setup_environment(
     aws_session_token,
     storage_table_name,
     token_users_table_name,
+    oidc_secret_arn,
+    base_domain,
 ):
     """Mock environment variables"""
     monkeypatch.setenv("AWS_REGION", aws_region_name)
@@ -41,19 +53,15 @@ def setup_environment(
     monkeypatch.setenv("AWS_SESSION_TOKEN", aws_session_token)
     monkeypatch.setenv("STORAGE_TABLE_NAME", storage_table_name)
     monkeypatch.setenv("TOKEN_USERS_TABLE_NAME", token_users_table_name)
+    monkeypatch.setenv("OIDC_SECRET_ARN", oidc_secret_arn)
+    monkeypatch.setenv("BASE_DOMAIN", base_domain)
 
 
 class MockServiceProvider(ServiceProvider):
-    """
-    Mock ServiceProvider that injects stubbed DynamoDB client for integration testing.
-    Inherits from real ServiceProvider but overrides storage_manager to use stubbed client.
-    """
-
     def __init__(self, boto_session):
         """
         Args:
             boto_session: The test boto3.Session
-            dynamodb_client: The stubbed DynamoDB client from botocore.Stubber
         """
         self._mock_session = boto_session
 
@@ -66,12 +74,15 @@ class MockServiceProvider(ServiceProvider):
 @pytest.fixture
 def mock_service_provider(boto_session):
     """
-    Fixture providing MockServiceProvider with stubbed DynamoDB client.
+    Fixture providing MockServiceProvider with stubbed AWS clients.
+
+    The secretsmanager_client is injected into the provider's __dict__,
+    bypassing the @cached_property so the stubbed client is used.
 
     Usage:
-        def test_integration(mock_service_provider, dynamodb_stubber):
-            # Add stubbed DynamoDB responses
-            dynamodb_stubber.add_response('get_item', {...})
+        def test_integration(mock_service_provider, secretsmanager_stubber):
+            # Add stubbed Secrets Manager responses
+            secretsmanager_stubber.add_response('get_secret_value', {...})
 
             # Pass directly to lambda handler
             result = lambda_handler(event, context, service_provider=mock_service_provider)

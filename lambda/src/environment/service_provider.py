@@ -1,3 +1,4 @@
+import json
 import os
 from functools import cached_property
 
@@ -16,8 +17,11 @@ from src.routes.info.read_counts import ReadCollectionCountsRoute
 from src.routes.info.read_quota import ReadQuotaInfoRoute
 from src.routes.info.read_usage import ReadCollectionUsageRoute
 from src.routes.storage.delete_all import DeleteAllStorageRoute
+from src.routes.token.request import RequestTokenRoute
 from src.services.api_router import ApiRouter
+from src.services.oidc_validator import OIDCValidator
 from src.services.storage_manager import StorageManager
+from src.services.token_generator import TokenGenerator
 from src.services.user_manager import UserManager
 
 
@@ -45,17 +49,17 @@ class ServiceProvider:
         return StorageManager(table=self.dynamodb_table)
 
     @cached_property
-    def token_users_table_name(self):  # pragma: nocover
+    def token_users_table_name(self):
         return os.environ.get("TOKEN_USERS_TABLE_NAME")
 
     @cached_property
-    def token_users_table(self):  # pragma: nocover
+    def token_users_table(self):
         """Create DynamoDB Table resource for token users"""
         resource = self.session.resource("dynamodb")
         return resource.Table(self.token_users_table_name)
 
     @cached_property
-    def user_manager(self) -> UserManager:  # pragma: nocover
+    def user_manager(self) -> UserManager:
         return UserManager(table=self.token_users_table)
 
     @cached_property
@@ -75,5 +79,59 @@ class ServiceProvider:
                 ReadBSORoute(self.storage_manager),
                 UpdateBSORoute(self.storage_manager),
                 DeleteBSORoute(self.storage_manager),
+            ]
+        )
+
+    # Token API properties
+
+    @cached_property
+    def oidc_secret_arn(self):
+        return os.environ.get("OIDC_SECRET_ARN")
+
+    @cached_property
+    def base_domain(self):
+        return os.environ.get("BASE_DOMAIN")
+
+    @cached_property
+    def secretsmanager_client(self):  # pragma: nocover
+        """Create Secrets Manager client"""
+        return self.session.client("secretsmanager")
+
+    @cached_property
+    def oidc_config(self) -> dict:
+        """
+        Fetch OIDC configuration from Secrets Manager.
+
+        Returns:
+            dict with 'provider_url' and 'client_id' keys
+        """
+        response = self.secretsmanager_client.get_secret_value(SecretId=self.oidc_secret_arn)
+        return json.loads(response["SecretString"])
+
+    @cached_property
+    def oidc_validator(self) -> OIDCValidator:
+        """Create OIDC validator with configuration from Secrets Manager"""
+        return OIDCValidator(
+            provider_url=self.oidc_config["provider_url"],
+            client_id=self.oidc_config["client_id"],
+        )
+
+    @cached_property
+    def token_generator(self) -> TokenGenerator:
+        """Create token generator with base URL from environment"""
+        # Construct base URL from BASE_DOMAIN
+        base_url = f"https://{self.base_domain}"
+        return TokenGenerator(base_url=base_url)
+
+    @cached_property
+    def token_api_router(self):
+        """Create API router for Token API with RequestTokenRoute"""
+        return ApiRouter(
+            routes=[
+                RequestTokenRoute(
+                    oidc_validator=self.oidc_validator,
+                    user_manager=self.user_manager,
+                    token_generator=self.token_generator,
+                ),
             ]
         )

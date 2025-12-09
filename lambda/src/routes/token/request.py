@@ -54,7 +54,9 @@ class RequestTokenRoute(BaseRoute):
 
         @api.post("/1.0/sync/1.5")
         @api.pass_event
-        def handle_with_event(event: dict) -> Response:
+        def handle_with_event(event: dict, **kwargs) -> Response:
+            # kwargs may contain parsed body from the API framework, which we ignore
+            # since we handle body parsing ourselves via the event
             return self.handle(event)
 
     def handle(self, event: dict) -> Response:

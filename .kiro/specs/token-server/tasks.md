@@ -165,7 +165,7 @@
   - **Property 20: Validation error structure**
   - **Validates: Requirements 6.5**
 
-- [ ] 7. Wire Token Server entrypoint and ServiceProvider
+- [x] 7. Wire Token Server entrypoint and ServiceProvider
   - Update lambda/src/entrypoint/token_api.py to route requests through RequestTokenRoute
   - Add OIDC configuration properties to ServiceProvider (oidc_validator, token_generator for token API)
   - Fetch OIDC config from Secrets Manager using OIDC_SECRET_ARN environment variable
