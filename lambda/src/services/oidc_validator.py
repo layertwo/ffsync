@@ -218,22 +218,3 @@ class OIDCValidator:
         self._provider_config = None
         self._provider_config_timestamp = 0
         self._jwk_client = None
-
-
-# Module-level cached validator factory
-@lru_cache(maxsize=10)
-def get_cached_validator(provider_url: str, client_id: str) -> OIDCValidator:
-    """
-    Get a cached OIDCValidator instance for the given provider.
-
-    This allows reusing validators across Lambda invocations when
-    the provider URL and client ID are the same.
-
-    Args:
-        provider_url: Base URL of OIDC provider
-        client_id: Expected audience claim value
-
-    Returns:
-        Cached OIDCValidator instance
-    """
-    return OIDCValidator(provider_url, client_id)

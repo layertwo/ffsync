@@ -7,7 +7,7 @@ import jwt
 import pytest
 from jwt import PyJWKClientError
 
-from src.services.oidc_validator import CACHE_TTL_SECONDS, OIDCValidator, get_cached_validator
+from src.services.oidc_validator import CACHE_TTL_SECONDS, OIDCValidator
 from src.shared.exceptions import (
     InvalidCredentialsError,
     InvalidTokenError,
@@ -518,37 +518,3 @@ class TestClearCache:
             assert validator._provider_config is None
             assert validator._provider_config_timestamp == 0
             assert validator._jwk_client is None
-
-
-class TestGetCachedValidator:
-    """Test get_cached_validator function"""
-
-    def test_get_cached_validator_returns_same_instance(self):
-        """Test that same provider/client returns cached instance"""
-        # Clear the cache first
-        get_cached_validator.cache_clear()
-
-        v1 = get_cached_validator("https://auth.example.com", "client1")
-        v2 = get_cached_validator("https://auth.example.com", "client1")
-
-        assert v1 is v2
-
-    def test_get_cached_validator_different_providers(self):
-        """Test that different providers return different instances"""
-        # Clear the cache first
-        get_cached_validator.cache_clear()
-
-        v1 = get_cached_validator("https://auth1.example.com", "client1")
-        v2 = get_cached_validator("https://auth2.example.com", "client1")
-
-        assert v1 is not v2
-
-    def test_get_cached_validator_different_clients(self):
-        """Test that different client IDs return different instances"""
-        # Clear the cache first
-        get_cached_validator.cache_clear()
-
-        v1 = get_cached_validator("https://auth.example.com", "client1")
-        v2 = get_cached_validator("https://auth.example.com", "client2")
-
-        assert v1 is not v2
