@@ -9,7 +9,7 @@
 | src/entrypoint/storage\_api.py         |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/token\_api.py           |        5 |        0 |        0 |        0 |     100% |           |
 | src/environment/\_\_init\_\_.py        |        0 |        0 |        0 |        0 |     100% |           |
-| src/environment/service\_provider.py   |       33 |        0 |        0 |        0 |     100% |           |
+| src/environment/service\_provider.py   |       67 |        0 |        0 |        0 |     100% |           |
 | src/routes/\_\_init\_\_.py             |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/delete.py               |       27 |        0 |        0 |        0 |     100% |           |
@@ -42,7 +42,7 @@
 | src/shared/oidc.py                     |       13 |        0 |        0 |        0 |     100% |           |
 | src/shared/token.py                    |        5 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                     |        5 |        0 |        0 |        0 |     100% |           |
-|                              **TOTAL** |  **952** |    **0** |  **106** |    **0** | **100%** |           |
+|                              **TOTAL** |  **986** |    **0** |  **106** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
