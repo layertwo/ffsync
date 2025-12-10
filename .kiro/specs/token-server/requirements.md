@@ -59,6 +59,8 @@ This document specifies the requirements for implementing a Firefox Sync Token S
 3. WHEN a bearer token has an outdated generation number, THE Token Server SHALL reject the token with a 401 status code
 4. WHEN the Token Server stores user data, THE Token Server SHALL include a generation number field with a default value of 0
 5. WHEN a generation number is updated, THE Token Server SHALL ensure the new value is greater than the previous value
+6. WHEN a client's X-Client-State changes from a previously stored value, THE Token Server SHALL increment the generation number
+7. WHEN an administrator triggers a password reset or key rotation event, THE Token Server SHALL increment the affected user's generation number
 
 ### Requirement 4
 
@@ -103,9 +105,9 @@ This document specifies the requirements for implementing a Firefox Sync Token S
 #### Acceptance Criteria
 
 1. WHEN the Token Server creates a user record, THE Token Server SHALL store the record in a DynamoDB table with a partition key of `user_id`
-2. WHEN the Token Server stores user data, THE Token Server SHALL include fields for `user_id`, `generation`, `created_at`, and `updated_at`
+2. WHEN the Token Server stores user data, THE Token Server SHALL include fields for `user_id`, `generation`, `client_state`, `created_at`, and `updated_at`
 3. WHEN the Token Server queries user data, THE Token Server SHALL use the `user_id` as the partition key for efficient lookups
-4. WHEN a user record does not exist, THE Token Server SHALL create a new record with generation 0
+4. WHEN a user record does not exist, THE Token Server SHALL create a new record with generation 0 and empty client_state
 5. WHEN the Token Server updates a user record, THE Token Server SHALL update the `updated_at` timestamp
 
 ### Requirement 8
@@ -167,3 +169,25 @@ This document specifies the requirements for implementing a Firefox Sync Token S
 3. WHEN a validation error occurs, THE Token Server SHALL log the error details
 4. WHEN the Token Server logs events, THE Token Server SHALL use structured logging with JSON format
 5. WHEN the Token Server logs events, THE Token Server SHALL NOT log sensitive data such as bearer tokens or HAWK keys
+
+### Requirement 13
+
+**User Story:** As a Firefox Sync client, I want the Token Server to track my encryption key state, so that key rotation scenarios are handled correctly.
+
+#### Acceptance Criteria
+
+1. WHEN a client sends a request with an X-Client-State header, THE Token Server SHALL store the client state value with the user record
+2. WHEN a client sends a request with a different X-Client-State than previously stored, THE Token Server SHALL increment the user's generation number
+3. WHEN a client sends a request without an X-Client-State header, THE Token Server SHALL accept the request and use an empty string as the default value
+4. WHEN the Token Server stores client state, THE client state value SHALL be a hexadecimal string of up to 32 characters
+5. WHEN a client sends an invalid X-Client-State format, THE Token Server SHALL return a 400 status code with a validation error
+
+### Requirement 14
+
+**User Story:** As a Firefox Sync client, I want the Token Server to include timestamp information in responses, so that I can detect clock skew for HAWK authentication.
+
+#### Acceptance Criteria
+
+1. WHEN the Token Server returns a successful response, THE response SHALL include an X-Timestamp header with the current server time in seconds since epoch
+2. WHEN the Token Server returns an error response, THE response SHALL include an X-Timestamp header with the current server time
+3. WHEN the X-Timestamp header is generated, THE value SHALL be an integer representing Unix epoch seconds

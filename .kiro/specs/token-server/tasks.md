@@ -8,11 +8,11 @@
   - _Requirements: All_
 
 - [x] 2. Implement core data models
-  - Create lambda/src/shared/user.py with UserRecord dataclass (user_id, generation, created_at, updated_at)
+  - Create lambda/src/shared/user.py with UserRecord dataclass (user_id, generation, client_state, created_at, updated_at)
   - Create lambda/src/shared/oidc.py with OIDCTokenClaims (sub, iss, aud, exp, iat) and OIDCProviderConfig (issuer, jwks_uri, etc.) dataclasses
   - Create lambda/src/shared/token.py with TokenResponse dataclass (id, key, api_endpoint, uid, duration, hashalg)
   - Create lambda/src/shared/exceptions.py with custom exception classes (InvalidTokenError, InvalidCredentialsError, etc.) and ErrorDetail dataclass
-  - _Requirements: 1.1, 4.1, 4.2, 7.2, 9.2, 11.1_
+  - _Requirements: 1.1, 4.1, 4.2, 7.2, 9.2, 11.1, 13.1_
 
 - [x] 3. Implement OIDC Validator component
   - Create lambda/src/services/oidc_validator.py with OIDCValidator class
@@ -183,10 +183,58 @@
   - **Property 28: User identifier extraction**
   - **Validates: Requirements 11.1**
 
-- [ ] 8. Checkpoint - Ensure all tests pass
+- [ ] 8. Add X-Client-State support to User Manager
+  - Update lambda/src/shared/user.py to add `client_state: str` field to UserRecord dataclass
+  - Update lambda/src/services/user_manager.py get_or_create_user() to accept client_state parameter
+  - Implement client state comparison logic in get_or_create_user()
+  - When client_state differs from stored value, increment generation number
+  - Store client_state with user record in DynamoDB
+  - Default client_state to empty string for new users and missing headers
+  - Update existing unit tests to include client_state field
+  - _Requirements: 13.1, 13.2, 13.3, 3.6_
+
+- [ ]* 8.1 Write property test for X-Client-State storage
+  - **Property 37: X-Client-State storage**
+  - **Validates: Requirements 13.1**
+
+- [ ]* 8.2 Write property test for X-Client-State change triggers generation increment
+  - **Property 38: X-Client-State change triggers generation increment**
+  - **Validates: Requirements 13.2, 3.6**
+
+- [ ]* 8.3 Write property test for X-Client-State default value
+  - **Property 39: X-Client-State default value**
+  - **Validates: Requirements 13.3**
+
+- [ ] 9. Add X-Client-State and X-Timestamp to Request Handler
+  - Update lambda/src/routes/token/request.py to parse X-Client-State header
+  - Validate X-Client-State format: hexadecimal string, max 32 characters
+  - Return 400 error for invalid X-Client-State format
+  - Pass client_state to UserManager.get_or_create_user()
+  - Add X-Timestamp header to all responses (success and error)
+  - X-Timestamp value is current Unix epoch seconds as integer
+  - Update existing unit tests to verify new header handling
+  - _Requirements: 13.4, 13.5, 14.1, 14.2, 14.3_
+
+- [ ]* 9.1 Write property test for X-Client-State format validation
+  - **Property 40: X-Client-State format validation**
+  - **Validates: Requirements 13.4**
+
+- [ ]* 9.2 Write property test for invalid X-Client-State rejection
+  - **Property 41: Invalid X-Client-State rejection**
+  - **Validates: Requirements 13.5**
+
+- [ ]* 9.3 Write property test for X-Timestamp header on all responses
+  - **Property 42/43: X-Timestamp header presence**
+  - **Validates: Requirements 14.1, 14.2**
+
+- [ ]* 9.4 Write property test for X-Timestamp format
+  - **Property 44: X-Timestamp format**
+  - **Validates: Requirements 14.3**
+
+- [ ] 10. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [x] 9. Create Smithy model for Token Server
+- [x] 11. Create Smithy model for Token Server
   - Create smithy/models/token/token.smithy with TokenService definition
   - Define GetToken operation with POST /1.0/sync/1.5 endpoint
   - Define GetTokenInput structure with Authorization header
@@ -195,7 +243,7 @@
   - Add @restJson1 protocol and AWS API Gateway integration traits
   - _Requirements: 1.1, 1.3, 5.1, 5.2, 6.1, 6.2_
 
-- [x] 10. Update Smithy build configuration
+- [x] 12. Update Smithy build configuration
   - Modify smithy/smithy-build.json to use projections
   - Create "storage" projection for existing StorageService
   - Create "token" projection for new TokenService
@@ -203,7 +251,7 @@
   - Verify build generates: build/smithy/storage/openapi/ and build/smithy/token/openapi/
   - _Requirements: All_
 
-- [x] 11. Create DynamoDB table for Token Users in CDK
+- [x] 13. Create DynamoDB table for Token Users in CDK
   - Add buildTokenUsersTable() method to ServiceStack
   - Set partition key as PK (String) to match existing table patterns
   - Configure on-demand billing mode
@@ -212,14 +260,14 @@
   - Follow existing table naming pattern: ffsync-token-users-{stage}
   - _Requirements: 7.1, 7.2_
 
-- [x] 12. Update Token Server Lambda environment variables in CDK
+- [x] 14. Update Token Server Lambda environment variables in CDK
   - Add environment variables to buildTokenApiHandler(): OIDC_SECRET_ARN (Secrets Manager secret containing provider_url and client_id), BASE_DOMAIN, TOKEN_USERS_TABLE_NAME
   - Reference Secrets Manager secret `ffsync-oidc-config-{stage}` for OIDC configuration
   - Grant Secrets Manager read permissions to Lambda via `oidcSecret.grantRead(fn)`
   - Grant DynamoDB read/write permissions to TokenUsersTable
   - _Requirements: 10.1, 10.2, 10.3_
 
-- [x] 13. Token Server API Gateway (already implemented)
+- [x] 15. Token Server API Gateway (already implemented)
   - Token API Gateway created in buildApi() method using Service.TOKEN
   - OpenAPI spec loaded from build/smithy/token/openapi/TokenService.openapi.json
   - Custom domain: token.{stage}.{BASE_DOMAIN}
@@ -227,31 +275,31 @@
   - CloudWatch logging enabled with MethodLoggingLevel.INFO
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-- [x] 14. Storage API configuration (already implemented)
+- [x] 16. Storage API configuration (already implemented)
   - Storage API uses build/smithy/storage/openapi/ path
   - Storage API uses sync.{stage}.{BASE_DOMAIN} domain
   - Both APIs coexist with separate domains via Service enum
   - _Requirements: N/A (infrastructure maintenance)_
 
-- [ ] 15. Write integration tests
+- [ ] 17. Write integration tests
 
-- [ ]* 15.1 Write integration test for end-to-end token issuance
+- [ ]* 17.1 Write integration test for end-to-end token issuance
   - Test complete flow from API Gateway event to token response
   - Use mocked OIDC provider and mocked DynamoDB using botocore Stubber
   - Verify token structure and validity
   - _Requirements: 1.1, 1.2_
 
-- [ ]* 15.2 Write integration test for token invalidation flow
+- [ ]* 17.2 Write integration test for token invalidation flow
   - Issue token, increment generation, verify rejection
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ]* 15.3 Write integration test for first-time user flow
+- [ ]* 17.3 Write integration test for first-time user flow
   - No existing record → create user → assign node → issue token
   - _Requirements: 2.1, 3.4, 7.4_
 
-- [ ]* 15.4 Write integration test for returning user flow
+- [ ]* 17.4 Write integration test for returning user flow
   - Existing record → same node → issue token
   - _Requirements: 2.2, 2.4_
 
-- [ ] 16. Final Checkpoint - Ensure all tests pass
+- [ ] 18. Final Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.

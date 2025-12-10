@@ -123,6 +123,15 @@ class TokenRequestHandler:
 - Path matches `/1.0/sync/1.5`
 - Authorization header is present
 - Content-Type is appropriate
+- X-Client-State header format (if present): hexadecimal string, max 32 characters
+
+**X-Client-State Handling**:
+- Extract X-Client-State header from request (default to empty string if absent)
+- Validate format: must be hexadecimal characters only, max 32 characters
+- Pass to UserManager for client state tracking and generation increment logic
+
+**Response Headers**:
+- All responses (success and error) include `X-Timestamp` header with current Unix epoch seconds
 
 **CORS Handling**:
 - API Gateway handles all CORS configuration and OPTIONS requests
@@ -191,7 +200,7 @@ class OIDCValidator:
 
 ### 3. User Manager
 
-**Responsibility**: Manage user records in DynamoDB, handle generation numbers for token invalidation
+**Responsibility**: Manage user records in DynamoDB, handle generation numbers for token invalidation, track client state for key rotation
 
 **Interface**:
 ```python
@@ -199,6 +208,7 @@ class OIDCValidator:
 class UserRecord:
     user_id: str
     generation: int
+    client_state: str
     created_at: float
     updated_at: float
 
@@ -212,12 +222,14 @@ class UserManager:
         """
         pass
     
-    def get_or_create_user(self, user_id: str) -> UserRecord:
+    def get_or_create_user(self, user_id: str, client_state: str = "") -> UserRecord:
         """
-        Get existing user or create new record
+        Get existing user or create new record.
+        If client_state differs from stored value, increment generation.
         
         Args:
             user_id: Unique user identifier from OIDC token
+            client_state: X-Client-State header value (hex string, max 32 chars)
             
         Returns:
             User record with current generation number
@@ -248,6 +260,19 @@ class UserManager:
             True if generation is current
         """
         pass
+    
+    def update_client_state(self, user_id: str, client_state: str) -> bool:
+        """
+        Update client state and increment generation if changed
+        
+        Args:
+            user_id: User identifier
+            client_state: New X-Client-State value
+            
+        Returns:
+            True if generation was incremented (state changed)
+        """
+        pass
 ```
 
 **DynamoDB Schema**:
@@ -258,6 +283,7 @@ Partition Key: user_id (String)
 Attributes:
 - user_id: String (PK)
 - generation: Number (default: 0)
+- client_state: String (default: "")
 - created_at: Number (timestamp)
 - updated_at: Number (timestamp)
 ```
@@ -398,6 +424,7 @@ class ErrorResponse:
 class UserRecord:
     user_id: str          # Unique identifier from OIDC sub claim
     generation: int       # Monotonic counter for token invalidation
+    client_state: str     # X-Client-State header value (hex string, max 32 chars)
     created_at: float     # Unix timestamp
     updated_at: float     # Unix timestamp
 ```
@@ -452,11 +479,13 @@ After analyzing all acceptance criteria, I've identified several areas where pro
 - Property 7.4 duplicates 3.4 (both verify new users have generation 0)
 - Properties 6.2 and 6.3 can be combined into a single error response structure property
 - Requirements 2.1-2.4 all relate to node assignment, which is now computed dynamically rather than persisted
+- Properties 14.1 and 14.2 (X-Timestamp on success/error) can be combined into a single property
 
 **Properties to combine:**
 - Response structure validation (1.1, 2.5, 4.1, 4.2) → Single property verifying all required fields
 - Node assignment (2.1, 2.2, 2.3, 2.4) → Single property verifying URL format (no persistence needed)
 - Error response structure (6.2, 6.3) → Single property verifying error format
+- X-Timestamp headers (14.1, 14.2) → Single property verifying header presence on all responses
 
 **Simplification: Node Assignment**
 Since we're using a serverless architecture with a single storage backend, node assignment is computed dynamically from `{base_url}/1.5/{user_id}` rather than persisted in DynamoDB. This eliminates the need for:
@@ -471,6 +500,40 @@ API Gateway handles all CORS configuration and OPTIONS requests automatically. T
 - Testing CORS header presence in Lambda responses
 
 CORS is configured at the API Gateway level and applies consistently to all responses, including errors. This reduces Lambda complexity and follows AWS best practices.
+
+**New Requirements Analysis (13, 14):**
+
+13.1 X-Client-State storage
+  Thoughts: This is a rule about all requests with the header. We can generate random client states and verify they are stored.
+  Testable: yes - property
+
+13.2 X-Client-State change triggers generation increment
+  Thoughts: This is a rule about state changes. We can create a user, then send a different client state and verify generation increments.
+  Testable: yes - property
+
+13.3 X-Client-State default value
+  Thoughts: This is about requests without the header. We can verify empty string is used.
+  Testable: yes - property
+
+13.4 X-Client-State format validation
+  Thoughts: This is about validating hex format. We can generate valid/invalid hex strings and verify behavior.
+  Testable: yes - property
+
+13.5 Invalid X-Client-State rejection
+  Thoughts: This is about error handling for invalid format. We can generate invalid formats and verify 400 response.
+  Testable: yes - property
+
+14.1 X-Timestamp on success
+  Thoughts: This is about response headers. We can verify all success responses include the header.
+  Testable: yes - property
+
+14.2 X-Timestamp on error
+  Thoughts: This is about response headers. We can verify all error responses include the header.
+  Testable: yes - property (can combine with 14.1)
+
+14.3 X-Timestamp format
+  Thoughts: This is about header format. We can verify the value is an integer.
+  Testable: yes - property
 
 This consolidation reduces redundancy and complexity while maintaining comprehensive coverage of all requirements.
 
@@ -619,6 +682,38 @@ This consolidation reduces redundancy and complexity while maintaining comprehen
 **Property 36: Sensitive data exclusion from logs**
 *For any* log entry, the Token Server SHALL NOT include bearer tokens, HAWK keys, or other sensitive credentials.
 **Validates: Requirements 12.5**
+
+**Property 37: X-Client-State storage**
+*For any* request with an X-Client-State header, the Token Server SHALL store the client state value with the user record.
+**Validates: Requirements 13.1**
+
+**Property 38: X-Client-State change triggers generation increment**
+*For any* request where X-Client-State differs from the previously stored value, the Token Server SHALL increment the user's generation number.
+**Validates: Requirements 13.2, 3.6**
+
+**Property 39: X-Client-State default value**
+*For any* request without an X-Client-State header, the Token Server SHALL use an empty string as the default value.
+**Validates: Requirements 13.3**
+
+**Property 40: X-Client-State format validation**
+*For any* X-Client-State header value, the Token Server SHALL validate it is a hexadecimal string of up to 32 characters.
+**Validates: Requirements 13.4**
+
+**Property 41: Invalid X-Client-State rejection**
+*For any* request with an invalid X-Client-State format, the Token Server SHALL return a 400 status code with a validation error.
+**Validates: Requirements 13.5**
+
+**Property 42: X-Timestamp header on success**
+*For any* successful response, the Token Server SHALL include an X-Timestamp header with the current server time in seconds since epoch.
+**Validates: Requirements 14.1**
+
+**Property 43: X-Timestamp header on error**
+*For any* error response, the Token Server SHALL include an X-Timestamp header with the current server time in seconds since epoch.
+**Validates: Requirements 14.2**
+
+**Property 44: X-Timestamp format**
+*For any* X-Timestamp header value, the value SHALL be an integer representing Unix epoch seconds.
+**Validates: Requirements 14.3**
 
 ## Error Handling
 
