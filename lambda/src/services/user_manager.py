@@ -57,14 +57,16 @@ class UserManager:
         """
         return {k: self._serializer.serialize(v) for k, v in data.items() if v is not None}
 
-    def get_or_create_user(self, user_id: str) -> UserRecord:
+    def get_or_create_user(self, user_id: str, client_state: str = "") -> UserRecord:
         """Get existing user or create new record with generation 0
 
         Uses conditional writes to ensure atomicity when creating new users.
         If the user already exists, returns the existing record.
+        If client_state differs from stored value, increments generation number.
 
         Args:
             user_id: Unique user identifier from OIDC sub claim
+            client_state: X-Client-State header value (hex string, max 32 chars)
 
         Returns:
             UserRecord with current generation number
@@ -81,6 +83,7 @@ class UserManager:
                 "PK": pk,
                 "user_id": user_id,
                 "generation": 0,
+                "client_state": client_state,
                 "created_at": Decimal(str(current_time)),
                 "updated_at": Decimal(str(current_time)),
             }
@@ -94,15 +97,91 @@ class UserManager:
             return UserRecord(
                 user_id=user_id,
                 generation=0,
+                client_state=client_state,
                 created_at=current_time,
                 updated_at=current_time,
             )
 
         except ClientError as e:
             if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                # User already exists, fetch and return existing record
-                return self._get_user(user_id)
+                # User already exists, fetch existing record
+                existing_user = self._get_user(user_id)
+
+                # Check if client_state has changed
+                if existing_user.client_state != client_state:
+                    # Client state changed, increment generation and update client_state
+                    return self._update_client_state_and_increment(
+                        user_id, client_state, existing_user
+                    )
+
+                return existing_user
             elif e.response["Error"]["Code"] in (
+                "ResourceNotFoundException",
+                "ProvisionedThroughputExceededException",
+                "RequestLimitExceeded",
+                "InternalServerError",
+            ):
+                raise ServiceUnavailableError(
+                    f"DynamoDB unavailable: {e.response['Error']['Code']}"
+                )
+            raise
+
+    def _update_client_state_and_increment(
+        self, user_id: str, client_state: str, existing_user: UserRecord
+    ) -> UserRecord:
+        """Update client state and increment generation atomically
+
+        Args:
+            user_id: User identifier
+            client_state: New X-Client-State value
+            existing_user: Existing user record for reference
+
+        Returns:
+            Updated UserRecord with new generation and client_state
+
+        Raises:
+            ServiceUnavailableError: If DynamoDB is unavailable
+        """
+        pk = self._user_pk(user_id)
+        current_time = get_current_timestamp()
+
+        try:
+            response = self.table.update_item(
+                Key={"PK": {"S": pk}},
+                UpdateExpression=(
+                    "SET generation = generation + :inc, "
+                    "client_state = :client_state, "
+                    "updated_at = :updated_at"
+                ),
+                ExpressionAttributeValues={
+                    ":inc": {"N": "1"},
+                    ":client_state": {"S": client_state},
+                    ":updated_at": {"N": str(current_time)},
+                },
+                ReturnValues="ALL_NEW",
+            )
+
+            updated_item = self._deserialize_item(response["Attributes"])
+            generation = updated_item["generation"]
+
+            return UserRecord(
+                user_id=user_id,
+                generation=int(generation) if isinstance(generation, Decimal) else generation,
+                client_state=updated_item["client_state"],
+                created_at=(
+                    float(updated_item["created_at"])
+                    if isinstance(updated_item["created_at"], Decimal)
+                    else updated_item["created_at"]
+                ),
+                updated_at=(
+                    float(updated_item["updated_at"])
+                    if isinstance(updated_item["updated_at"], Decimal)
+                    else updated_item["updated_at"]
+                ),
+            )
+
+        except ClientError as e:
+            if e.response["Error"]["Code"] in (
                 "ResourceNotFoundException",
                 "ProvisionedThroughputExceededException",
                 "RequestLimitExceeded",
@@ -143,6 +222,7 @@ class UserManager:
                     if isinstance(item["generation"], Decimal)
                     else item["generation"]
                 ),
+                client_state=item.get("client_state", ""),
                 created_at=(
                     float(item["created_at"])
                     if isinstance(item["created_at"], Decimal)

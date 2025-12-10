@@ -183,7 +183,7 @@
   - **Property 28: User identifier extraction**
   - **Validates: Requirements 11.1**
 
-- [ ] 8. Add X-Client-State support to User Manager
+- [x] 8. Add X-Client-State support to User Manager
   - Update lambda/src/shared/user.py to add `client_state: str` field to UserRecord dataclass
   - Update lambda/src/services/user_manager.py get_or_create_user() to accept client_state parameter
   - Implement client state comparison logic in get_or_create_user()
@@ -205,33 +205,55 @@
   - **Property 39: X-Client-State default value**
   - **Validates: Requirements 13.3**
 
-- [ ] 9. Add X-Client-State and X-Timestamp to Request Handler
-  - Update lambda/src/routes/token/request.py to parse X-Client-State header
-  - Validate X-Client-State format: hexadecimal string, max 32 characters
-  - Return 400 error for invalid X-Client-State format
+- [x] 9. Add X-Client-State and X-Timestamp headers
+
+- [x] 9.0 Update Smithy model for Token Server headers
+  - Add ClientState type to smithy/models/common.smithy with @pattern("^[a-fA-F0-9]*$") and @length(min: 0, max: 32)
+  - Add @httpHeader("X-Client-State") clientState field to RequestTokenInput structure
+  - Add @httpHeader("X-Timestamp") timestamp field to RequestTokenOutput structure
+  - Rebuild Smithy models with `smithy build` to regenerate OpenAPI specs
+  - _Requirements: 13.4, 14.3_
+
+- [x] 9.1 Update Request Handler for X-Client-State parsing
+  - Update lambda/src/routes/token/request.py to parse X-Client-State header from event
+  - Validate X-Client-State format in Python: hexadecimal string, max 32 characters
+  - Return 400 error with ValidationException for invalid X-Client-State format
   - Pass client_state to UserManager.get_or_create_user()
-  - Add X-Timestamp header to all responses (success and error)
-  - X-Timestamp value is current Unix epoch seconds as integer
-  - Update existing unit tests to verify new header handling
+  - Default to empty string when header is absent
+  - _Requirements: 13.4, 13.5_
+
+- [x] 9.2 Add X-Timestamp header to responses
+  - Add X-Timestamp header to success responses in RequestTokenRoute
+  - Add X-Timestamp header to error responses (all error paths)
+  - X-Timestamp value is current Unix epoch seconds as integer (int(time.time()))
+  - _Requirements: 14.1, 14.2, 14.3_
+
+- [x] 9.3 Update unit tests for header handling
+  - Add tests for valid X-Client-State header parsing
+  - Add tests for invalid X-Client-State format rejection (non-hex, too long)
+  - Add tests for missing X-Client-State header (defaults to empty string)
+  - Add tests verifying X-Timestamp header presence on success responses
+  - Add tests verifying X-Timestamp header presence on error responses
+  - Add tests verifying X-Timestamp format is integer
   - _Requirements: 13.4, 13.5, 14.1, 14.2, 14.3_
 
-- [ ]* 9.1 Write property test for X-Client-State format validation
+- [ ]* 9.4 Write property test for X-Client-State format validation
   - **Property 40: X-Client-State format validation**
   - **Validates: Requirements 13.4**
 
-- [ ]* 9.2 Write property test for invalid X-Client-State rejection
+- [ ]* 9.5 Write property test for invalid X-Client-State rejection
   - **Property 41: Invalid X-Client-State rejection**
   - **Validates: Requirements 13.5**
 
-- [ ]* 9.3 Write property test for X-Timestamp header on all responses
+- [ ]* 9.6 Write property test for X-Timestamp header on all responses
   - **Property 42/43: X-Timestamp header presence**
   - **Validates: Requirements 14.1, 14.2**
 
-- [ ]* 9.4 Write property test for X-Timestamp format
+- [ ]* 9.7 Write property test for X-Timestamp format
   - **Property 44: X-Timestamp format**
   - **Validates: Requirements 14.3**
 
-- [ ] 10. Checkpoint - Ensure all tests pass
+- [x] 10. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 11. Create Smithy model for Token Server

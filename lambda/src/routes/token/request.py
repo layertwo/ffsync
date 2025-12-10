@@ -2,6 +2,7 @@
 
 import json
 import re
+import time
 
 from aws_lambda_powertools import Logger
 from aws_lambda_proxy import API, Response, StatusCode
@@ -21,6 +22,9 @@ logger = Logger()
 
 # Bearer token regex pattern
 BEARER_TOKEN_PATTERN = re.compile(r"^Bearer\s+(.+)$", re.IGNORECASE)
+
+# X-Client-State validation pattern: hexadecimal string, max 32 characters
+CLIENT_STATE_PATTERN = re.compile(r"^[a-fA-F0-9]{0,32}$")
 
 
 class RequestTokenRoute(BaseRoute):
@@ -105,12 +109,26 @@ class RequestTokenRoute(BaseRoute):
                     description="Malformed Authorization header. Expected: Bearer <token>",
                 )
 
+            # Extract and validate X-Client-State header
+            client_state = self._get_client_state_header(event)
+            if client_state is not None and not self._is_valid_client_state(client_state):
+                return self._error_response(
+                    status_code=StatusCode.BAD_REQUEST,
+                    error_type="invalid-request",
+                    location="header",
+                    name="X-Client-State",
+                    description="Invalid X-Client-State format. Must be hexadecimal, max 32 chars",
+                )
+
+            # Default to empty string if header is absent
+            client_state = client_state or ""
+
             # Validate OIDC token and extract user identifier
             claims = self.oidc_validator.validate_token(token)
             user_id = claims.sub
 
-            # Get or create user record
-            user_record = self.user_manager.get_or_create_user(user_id)
+            # Get or create user record (with client_state for key rotation tracking)
+            user_record = self.user_manager.get_or_create_user(user_id, client_state)
 
             # Generate token response
             token_response = self.token_generator.generate_token(
@@ -125,6 +143,7 @@ class RequestTokenRoute(BaseRoute):
                 status_code=StatusCode.OK,
                 content_type="application/json",
                 body=token_response.to_json(),
+                headers={"X-Timestamp": str(int(time.time()))},
             )
 
         except InvalidCredentialsError as e:
@@ -261,6 +280,36 @@ class RequestTokenRoute(BaseRoute):
             return None
         return match.group(1)
 
+    def _get_client_state_header(self, event: dict) -> str | None:
+        """
+        Extract X-Client-State header from event.
+
+        Handles case-insensitive header lookup.
+
+        Args:
+            event: API Gateway proxy event
+
+        Returns:
+            X-Client-State header value or None if not present
+        """
+        headers = event.get("headers") or {}
+        # API Gateway normalizes headers to lowercase
+        return headers.get("x-client-state") or headers.get("X-Client-State")
+
+    def _is_valid_client_state(self, client_state: str) -> bool:
+        """
+        Validate X-Client-State format.
+
+        Must be a hexadecimal string of up to 32 characters.
+
+        Args:
+            client_state: X-Client-State header value
+
+        Returns:
+            True if valid, False otherwise
+        """
+        return bool(CLIENT_STATE_PATTERN.match(client_state))
+
     def _error_response(
         self,
         status_code: StatusCode,
@@ -280,7 +329,7 @@ class RequestTokenRoute(BaseRoute):
             description: Human-readable error description
 
         Returns:
-            Response with error body
+            Response with error body and X-Timestamp header
         """
         body = {
             "status": error_type,
@@ -296,4 +345,5 @@ class RequestTokenRoute(BaseRoute):
             status_code=status_code,
             content_type="application/json",
             body=json.dumps(body),
+            headers={"X-Timestamp": str(int(time.time()))},
         )

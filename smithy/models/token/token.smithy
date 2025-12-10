@@ -17,7 +17,11 @@ operation RequestToken {
 
 @input
 @documentation("Input for RequestToken operation. The Authorization header with Bearer token is passed via API Gateway event headers and extracted by the Lambda function.")
-structure RequestTokenInput {}
+structure RequestTokenInput {
+    @httpHeader("X-Client-State")
+    @documentation("Client encryption key state for key rotation tracking (hexadecimal string, max 32 chars)")
+    clientState: ClientState
+}
 
 @output
 structure RequestTokenOutput {
@@ -44,4 +48,9 @@ structure RequestTokenOutput {
     @required
     @documentation("Hash algorithm for HAWK authentication (always 'sha256')")
     hashalg: String
+
+    @httpHeader("X-Timestamp")
+    @required
+    @documentation("Current server time in seconds since Unix epoch")
+    timestamp: Long
 }
