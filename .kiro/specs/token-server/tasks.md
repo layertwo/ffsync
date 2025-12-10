@@ -117,7 +117,7 @@
   - **Validates: Requirements 11.5**
 
 - [x] 6. Implement Token Request Handler
-  - Create lambda/src/services/token_handler.py with TokenHandler class
+  - Create lambda/src/routes/token/request.py with RequestTokenRoute class
   - Implement handle() method that orchestrates the token issuance flow
   - Implement validate_request() for HTTP method, path, headers
   - Parse Authorization header and extract Bearer token
@@ -165,59 +165,28 @@
   - **Property 20: Validation error structure**
   - **Validates: Requirements 6.5**
 
-- [ ] 7. Implement structured logging
-  - Configure AWS Lambda Powertools Logger with JSON formatter
-  - Implement log_successful_authentication() with user_id and timestamp
-  - Implement log_failed_authentication() with reason and timestamp
-  - Implement log_validation_error() with error details
-  - Ensure no sensitive data (tokens, keys) in logs
-  - Add structured fields for correlation (request_id, user_id)
-  - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
-
-- [ ]* 7.1 Write property test for successful authentication logging
-  - **Property 32: Successful authentication logging**
-  - **Validates: Requirements 12.1**
-
-- [ ]* 7.2 Write property test for failed authentication logging
-  - **Property 33: Failed authentication logging**
-  - **Validates: Requirements 12.2**
-
-- [ ]* 7.3 Write property test for validation error logging
-  - **Property 34: Validation error logging**
-  - **Validates: Requirements 12.3**
-
-- [ ]* 7.4 Write property test for structured logging format
-  - **Property 35: Structured logging format**
-  - **Validates: Requirements 12.4**
-
-- [ ]* 7.5 Write property test for sensitive data exclusion from logs
-  - **Property 36: Sensitive data exclusion from logs**
-  - **Validates: Requirements 12.5**
-
-- [ ] 8. Wire Token Server entrypoint and components
-  - Update lambda/src/entrypoint/token_api.py to implement token_handler() function
-  - Add TokenServiceProvider properties to lambda/src/environment/service_provider.py
-  - Initialize TokenHandler with dependencies from environment variables
-  - Environment variables: OIDC_SECRET_ARN (Secrets Manager secret containing provider_url and client_id), BASE_DOMAIN, TOKEN_USERS_TABLE_NAME
-  - Fetch OIDC config from Secrets Manager and cache it
+- [x] 7. Wire Token Server entrypoint and ServiceProvider
+  - Update lambda/src/entrypoint/token_api.py to route requests through RequestTokenRoute
+  - Add OIDC configuration properties to ServiceProvider (oidc_validator, token_generator for token API)
+  - Fetch OIDC config from Secrets Manager using OIDC_SECRET_ARN environment variable
   - Use cached_property pattern for lazy initialization (like existing ServiceProvider)
+  - Add token_api_router property that creates ApiRouter with RequestTokenRoute
   - Implement request flow: validate → authenticate → get/create user → generate token → respond
   - Add error handling with appropriate HTTP status codes
-  - Add retry logic for OIDC provider calls (3 retries with exponential backoff using tenacity or manual retry)
   - _Requirements: 1.1, 1.2, 1.3, 10.1, 10.2, 10.3, 10.5_
 
-- [ ]* 8.1 Write property test for OIDC provider unreachable error
+- [ ]* 7.1 Write property test for OIDC provider unreachable error
   - **Property 27: OIDC provider unreachable error**
   - **Validates: Requirements 10.5**
 
-- [ ]* 8.2 Write property test for user identifier extraction
+- [ ]* 7.2 Write property test for user identifier extraction
   - **Property 28: User identifier extraction**
   - **Validates: Requirements 11.1**
 
-- [ ] 9. Checkpoint - Ensure all tests pass
+- [ ] 8. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [x] 10. Create Smithy model for Token Server
+- [x] 9. Create Smithy model for Token Server
   - Create smithy/models/token/token.smithy with TokenService definition
   - Define GetToken operation with POST /1.0/sync/1.5 endpoint
   - Define GetTokenInput structure with Authorization header
@@ -226,7 +195,7 @@
   - Add @restJson1 protocol and AWS API Gateway integration traits
   - _Requirements: 1.1, 1.3, 5.1, 5.2, 6.1, 6.2_
 
-- [x] 11. Update Smithy build configuration
+- [x] 10. Update Smithy build configuration
   - Modify smithy/smithy-build.json to use projections
   - Create "storage" projection for existing StorageService
   - Create "token" projection for new TokenService
@@ -234,7 +203,7 @@
   - Verify build generates: build/smithy/storage/openapi/ and build/smithy/token/openapi/
   - _Requirements: All_
 
-- [x] 12. Create DynamoDB table for Token Users in CDK
+- [x] 11. Create DynamoDB table for Token Users in CDK
   - Add buildTokenUsersTable() method to ServiceStack
   - Set partition key as PK (String) to match existing table patterns
   - Configure on-demand billing mode
@@ -243,14 +212,14 @@
   - Follow existing table naming pattern: ffsync-token-users-{stage}
   - _Requirements: 7.1, 7.2_
 
-- [x] 13. Update Token Server Lambda environment variables in CDK
+- [x] 12. Update Token Server Lambda environment variables in CDK
   - Add environment variables to buildTokenApiHandler(): OIDC_SECRET_ARN (Secrets Manager secret containing provider_url and client_id), BASE_DOMAIN, TOKEN_USERS_TABLE_NAME
   - Reference Secrets Manager secret `ffsync-oidc-config-{stage}` for OIDC configuration
   - Grant Secrets Manager read permissions to Lambda via `oidcSecret.grantRead(fn)`
   - Grant DynamoDB read/write permissions to TokenUsersTable
   - _Requirements: 10.1, 10.2, 10.3_
 
-- [x] 14. Token Server API Gateway (already implemented)
+- [x] 13. Token Server API Gateway (already implemented)
   - Token API Gateway created in buildApi() method using Service.TOKEN
   - OpenAPI spec loaded from build/smithy/token/openapi/TokenService.openapi.json
   - Custom domain: token.{stage}.{BASE_DOMAIN}
@@ -258,31 +227,31 @@
   - CloudWatch logging enabled with MethodLoggingLevel.INFO
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-- [x] 15. Storage API configuration (already implemented)
+- [x] 14. Storage API configuration (already implemented)
   - Storage API uses build/smithy/storage/openapi/ path
   - Storage API uses sync.{stage}.{BASE_DOMAIN} domain
   - Both APIs coexist with separate domains via Service enum
   - _Requirements: N/A (infrastructure maintenance)_
 
-- [ ] 16. Write integration tests
+- [ ] 15. Write integration tests
 
-- [ ]* 16.1 Write integration test for end-to-end token issuance
+- [ ]* 15.1 Write integration test for end-to-end token issuance
   - Test complete flow from API Gateway event to token response
   - Use mocked OIDC provider and mocked DynamoDB using botocore Stubber
   - Verify token structure and validity
   - _Requirements: 1.1, 1.2_
 
-- [ ]* 16.2 Write integration test for token invalidation flow
+- [ ]* 15.2 Write integration test for token invalidation flow
   - Issue token, increment generation, verify rejection
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ]* 16.3 Write integration test for first-time user flow
+- [ ]* 15.3 Write integration test for first-time user flow
   - No existing record → create user → assign node → issue token
   - _Requirements: 2.1, 3.4, 7.4_
 
-- [ ]* 16.4 Write integration test for returning user flow
+- [ ]* 15.4 Write integration test for returning user flow
   - Existing record → same node → issue token
   - _Requirements: 2.2, 2.4_
 
-- [ ] 17. Final Checkpoint - Ensure all tests pass
+- [ ] 16. Final Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.

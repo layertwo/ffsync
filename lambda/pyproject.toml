@@ -8,6 +8,7 @@ addopts = [
     "--cov-report=html",
     "--cov-report=xml",
     "--cov-fail-under=100",
+    "-n=auto"
 ]
 
 [tool.coverage.run]
