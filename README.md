@@ -29,12 +29,12 @@
 | src/routes/storage/\_\_init\_\_.py     |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/storage/delete\_all.py      |       15 |        0 |        0 |        0 |     100% |           |
 | src/routes/token/\_\_init\_\_.py       |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/token/request.py            |       76 |        0 |       12 |        0 |     100% |           |
+| src/routes/token/request.py            |       87 |        0 |       14 |        0 |     100% |           |
 | src/services/api\_router.py            |       15 |        0 |        2 |        0 |     100% |           |
 | src/services/oidc\_validator.py        |       85 |        0 |       10 |        0 |     100% |           |
 | src/services/storage\_manager.py       |      148 |        0 |       32 |        0 |     100% |           |
 | src/services/token\_generator.py       |       29 |        0 |        0 |        0 |     100% |           |
-| src/services/user\_manager.py          |       61 |        0 |       12 |        0 |     100% |           |
+| src/services/user\_manager.py          |       76 |        0 |       16 |        0 |     100% |           |
 | src/shared/\_\_init\_\_.py             |        0 |        0 |        0 |        0 |     100% |           |
 | src/shared/base\_route.py              |        2 |        0 |        0 |        0 |     100% |           |
 | src/shared/exceptions.py               |       62 |        0 |        0 |        0 |     100% |           |
@@ -42,7 +42,7 @@
 | src/shared/oidc.py                     |       13 |        0 |        0 |        0 |     100% |           |
 | src/shared/token.py                    |        5 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                     |        5 |        0 |        0 |        0 |     100% |           |
-|                              **TOTAL** |  **986** |    **0** |  **106** |    **0** | **100%** |           |
+|                              **TOTAL** | **1012** |    **0** |  **112** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
