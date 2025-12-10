@@ -15,12 +15,14 @@ class TestUserRecord:
         user = UserRecord(
             user_id="test_user_123",
             generation=5,
+            client_state="abc123def456",
             created_at=1234567890.0,
             updated_at=1234567900.0,
         )
 
         assert user.user_id == "test_user_123"
         assert user.generation == 5
+        assert user.client_state == "abc123def456"
         assert user.created_at == 1234567890.0
         assert user.updated_at == 1234567900.0
 
@@ -29,11 +31,13 @@ class TestUserRecord:
         user = UserRecord(
             user_id="new_user",
             generation=0,
+            client_state="",
             created_at=1234567890.0,
             updated_at=1234567890.0,
         )
 
         assert user.generation == 0
+        assert user.client_state == ""
         assert user.created_at == user.updated_at
 
     def test_to_json(self):
@@ -41,6 +45,7 @@ class TestUserRecord:
         user = UserRecord(
             user_id="test_user",
             generation=3,
+            client_state="deadbeef",
             created_at=1234567890.0,
             updated_at=1234567900.0,
         )
@@ -50,16 +55,18 @@ class TestUserRecord:
 
         assert data["user_id"] == "test_user"
         assert data["generation"] == 3
+        assert data["client_state"] == "deadbeef"
         assert data["created_at"] == 1234567890.0
         assert data["updated_at"] == 1234567900.0
 
     def test_from_json(self):
         """Test deserialization from JSON"""
-        json_str = '{"user_id": "test_user", "generation": 7, "created_at": 1234567890.0, "updated_at": 1234567950.0}'
+        json_str = '{"user_id": "test_user", "generation": 7, "client_state": "abc123", "created_at": 1234567890.0, "updated_at": 1234567950.0}'
         user = UserRecord.from_json(json_str)
 
         assert user.user_id == "test_user"
         assert user.generation == 7
+        assert user.client_state == "abc123"
         assert user.created_at == 1234567890.0
         assert user.updated_at == 1234567950.0
 
@@ -68,6 +75,7 @@ class TestUserRecord:
         original = UserRecord(
             user_id="round_trip_user",
             generation=10,
+            client_state="fedcba9876543210",
             created_at=1234567890.12,
             updated_at=1234567999.99,
         )
@@ -77,6 +85,7 @@ class TestUserRecord:
 
         assert restored.user_id == original.user_id
         assert restored.generation == original.generation
+        assert restored.client_state == original.client_state
         assert restored.created_at == original.created_at
         assert restored.updated_at == original.updated_at
 
@@ -85,6 +94,7 @@ class TestUserRecord:
         user = UserRecord(
             user_id="dict_user",
             generation=2,
+            client_state="0123456789abcdef",
             created_at=1234567890.0,
             updated_at=1234567900.0,
         )
@@ -94,6 +104,7 @@ class TestUserRecord:
         assert isinstance(data, dict)
         assert data["user_id"] == "dict_user"
         assert data["generation"] == 2
+        assert data["client_state"] == "0123456789abcdef"
         assert data["created_at"] == 1234567890.0
         assert data["updated_at"] == 1234567900.0
 
@@ -102,6 +113,7 @@ class TestUserRecord:
         data = {
             "user_id": "dict_user",
             "generation": 4,
+            "client_state": "aabbccdd",
             "created_at": 1234567890.0,
             "updated_at": 1234567920.0,
         }
@@ -110,6 +122,7 @@ class TestUserRecord:
 
         assert user.user_id == "dict_user"
         assert user.generation == 4
+        assert user.client_state == "aabbccdd"
         assert user.created_at == 1234567890.0
         assert user.updated_at == 1234567920.0
 
@@ -118,6 +131,7 @@ class TestUserRecord:
         user = UserRecord(
             user_id="test_user",
             generation=1,
+            client_state="",
             created_at=1234567890.0,
             updated_at=1234567990.0,
         )
@@ -129,6 +143,7 @@ class TestUserRecord:
         user1 = UserRecord(
             user_id="test_user",
             generation=5,
+            client_state="state1",
             created_at=1234567890.0,
             updated_at=1234567890.0,
         )
@@ -136,6 +151,7 @@ class TestUserRecord:
         user2 = UserRecord(
             user_id="test_user",
             generation=6,
+            client_state="state2",
             created_at=1234567890.0,
             updated_at=1234567900.0,
         )

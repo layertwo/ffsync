@@ -73,6 +73,7 @@ def mock_user_record():
     return UserRecord(
         user_id="user123",
         generation=0,
+        client_state="",
         created_at=1234567800.0,
         updated_at=1234567800.0,
     )
@@ -257,8 +258,8 @@ class TestRequestTokenRouteHandle:
             "valid-oidc-token"
         )
 
-        # Verify user manager was called with user_id from claims
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123")
+        # Verify user manager was called with user_id and client_state (empty string default)
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
 
         # Verify token generator was called with user_id and generation
         request_token_route.token_generator.generate_token.assert_called_once_with(
@@ -514,3 +515,254 @@ class TestBearerTokenPattern:
         assert not BEARER_TOKEN_PATTERN.match("token123")
         assert not BEARER_TOKEN_PATTERN.match("Bearer")  # No token
         assert not BEARER_TOKEN_PATTERN.match("")
+
+
+class TestXClientStateHeader:
+    """Test X-Client-State header handling"""
+
+    def test_valid_client_state_passed_to_user_manager(
+        self,
+        request_token_route,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test valid X-Client-State is passed to user manager"""
+        event = {
+            "httpMethod": "POST",
+            "path": "/1.0/sync/1.5",
+            "headers": {
+                "authorization": "Bearer valid-token",
+                "x-client-state": "abcdef123456",
+            },
+        }
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(event)
+
+        assert response.status_code == StatusCode.OK
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
+            "user123", "abcdef123456"
+        )
+
+    def test_client_state_case_insensitive_header(
+        self,
+        request_token_route,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test X-Client-State header lookup is case-insensitive"""
+        event = {
+            "httpMethod": "POST",
+            "path": "/1.0/sync/1.5",
+            "headers": {
+                "authorization": "Bearer valid-token",
+                "X-Client-State": "ABCDEF",
+            },
+        }
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(event)
+
+        assert response.status_code == StatusCode.OK
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
+            "user123", "ABCDEF"
+        )
+
+    def test_missing_client_state_defaults_to_empty_string(
+        self,
+        request_token_route,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test missing X-Client-State defaults to empty string"""
+        event = {
+            "httpMethod": "POST",
+            "path": "/1.0/sync/1.5",
+            "headers": {
+                "authorization": "Bearer valid-token",
+            },
+        }
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(event)
+
+        assert response.status_code == StatusCode.OK
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
+
+    def test_invalid_client_state_non_hex_returns_400(self, request_token_route):
+        """Test non-hexadecimal X-Client-State returns 400"""
+        event = {
+            "httpMethod": "POST",
+            "path": "/1.0/sync/1.5",
+            "headers": {
+                "authorization": "Bearer valid-token",
+                "x-client-state": "not-hex-value!",
+            },
+        }
+        response = request_token_route.handle(event)
+
+        assert response.status_code == StatusCode.BAD_REQUEST
+        body = json.loads(response.body)
+        assert body["status"] == "invalid-request"
+        assert body["errors"][0]["name"] == "X-Client-State"
+        assert "hexadecimal" in body["errors"][0]["description"].lower()
+
+    def test_invalid_client_state_too_long_returns_400(self, request_token_route):
+        """Test X-Client-State longer than 32 chars returns 400"""
+        event = {
+            "httpMethod": "POST",
+            "path": "/1.0/sync/1.5",
+            "headers": {
+                "authorization": "Bearer valid-token",
+                "x-client-state": "a" * 33,  # 33 hex chars, exceeds 32 limit
+            },
+        }
+        response = request_token_route.handle(event)
+
+        assert response.status_code == StatusCode.BAD_REQUEST
+        body = json.loads(response.body)
+        assert body["status"] == "invalid-request"
+        assert body["errors"][0]["name"] == "X-Client-State"
+
+    def test_valid_client_state_max_length(
+        self,
+        request_token_route,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test X-Client-State at max length (32 chars) is accepted"""
+        event = {
+            "httpMethod": "POST",
+            "path": "/1.0/sync/1.5",
+            "headers": {
+                "authorization": "Bearer valid-token",
+                "x-client-state": "a" * 32,  # Exactly 32 hex chars
+            },
+        }
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(event)
+
+        assert response.status_code == StatusCode.OK
+
+    def test_empty_client_state_is_valid(
+        self,
+        request_token_route,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test empty X-Client-State header value is valid"""
+        event = {
+            "httpMethod": "POST",
+            "path": "/1.0/sync/1.5",
+            "headers": {
+                "authorization": "Bearer valid-token",
+                "x-client-state": "",
+            },
+        }
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(event)
+
+        assert response.status_code == StatusCode.OK
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
+
+
+class TestXTimestampHeader:
+    """Test X-Timestamp header handling"""
+
+    def test_success_response_includes_timestamp_header(
+        self,
+        request_token_route,
+        valid_event,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test successful response includes X-Timestamp header"""
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == StatusCode.OK
+        assert "X-Timestamp" in response.headers
+        # Verify it's a valid integer timestamp
+        timestamp = int(response.headers["X-Timestamp"])
+        assert timestamp > 0
+
+    def test_error_response_includes_timestamp_header(self, request_token_route):
+        """Test error response includes X-Timestamp header"""
+        event = {
+            "httpMethod": "POST",
+            "path": "/1.0/sync/1.5",
+            "headers": {},
+        }
+        response = request_token_route.handle(event)
+
+        assert response.status_code == StatusCode.UNAUTHORIZED
+        assert "X-Timestamp" in response.headers
+        # Verify it's a valid integer timestamp
+        timestamp = int(response.headers["X-Timestamp"])
+        assert timestamp > 0
+
+    def test_timestamp_is_integer_format(
+        self,
+        request_token_route,
+        valid_event,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test X-Timestamp value is an integer (no decimal)"""
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(valid_event)
+
+        timestamp_str = response.headers["X-Timestamp"]
+        # Should be a string representation of an integer (no decimal point)
+        assert "." not in timestamp_str
+        assert timestamp_str.isdigit()
+
+    def test_validation_error_includes_timestamp_header(self, request_token_route):
+        """Test validation error (400) includes X-Timestamp header"""
+        event = {
+            "httpMethod": "POST",
+            "path": "/1.0/sync/1.5",
+            "headers": {
+                "authorization": "Basic invalid",
+            },
+        }
+        response = request_token_route.handle(event)
+
+        assert response.status_code == StatusCode.BAD_REQUEST
+        assert "X-Timestamp" in response.headers
+
+    def test_service_unavailable_includes_timestamp_header(self, request_token_route, valid_event):
+        """Test service unavailable (503) includes X-Timestamp header"""
+        request_token_route.oidc_validator.validate_token.side_effect = ServiceUnavailableError(
+            "OIDC provider unreachable"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == StatusCode.SERVICE_UNAVAILABLE
+        assert "X-Timestamp" in response.headers

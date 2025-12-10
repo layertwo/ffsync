@@ -14,11 +14,13 @@ class UserRecord:
     Attributes:
         user_id: Unique identifier from OIDC sub claim
         generation: Monotonic counter for token invalidation
+        client_state: X-Client-State header value (hex string, max 32 chars)
         created_at: Unix timestamp when user was created
         updated_at: Unix timestamp when user was last updated
     """
 
     user_id: str
     generation: int
+    client_state: str
     created_at: float
     updated_at: float

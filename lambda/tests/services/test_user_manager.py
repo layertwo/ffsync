@@ -48,6 +48,7 @@ class TestUserManager:
                     "PK": {"S": f"USER#{user_id}"},
                     "user_id": {"S": user_id},
                     "generation": {"N": "0"},
+                    "client_state": {"S": ""},
                     "created_at": {"N": str(mock_timestamp)},
                     "updated_at": {"N": str(mock_timestamp)},
                 },
@@ -59,6 +60,7 @@ class TestUserManager:
 
         assert user.user_id == user_id
         assert user.generation == 0
+        assert user.client_state == ""
         assert user.created_at == mock_timestamp
         assert user.updated_at == mock_timestamp
 
@@ -81,7 +83,7 @@ class TestUserManager:
             service_message="The conditional request failed",
         )
 
-        # Stub get_item to return existing user
+        # Stub get_item to return existing user (same client_state as default "")
         dynamodb_stubber.add_response(
             "get_item",
             {
@@ -89,6 +91,7 @@ class TestUserManager:
                     "PK": {"S": f"USER#{user_id}"},
                     "user_id": {"S": user_id},
                     "generation": {"N": "5"},
+                    "client_state": {"S": ""},
                     "created_at": {"N": str(existing_timestamp)},
                     "updated_at": {"N": str(mock_timestamp)},
                 }
@@ -103,6 +106,7 @@ class TestUserManager:
 
         assert user.user_id == user_id
         assert user.generation == 5
+        assert user.client_state == ""
         assert user.created_at == existing_timestamp
 
     def test_get_or_create_user_dynamodb_unavailable(
@@ -141,6 +145,7 @@ class TestUserManager:
                     "PK": {"S": f"USER#{user_id}"},
                     "user_id": {"S": user_id},
                     "generation": {"N": "6"},
+                    "client_state": {"S": "abc123"},
                     "created_at": {"N": "1234567800.00"},
                     "updated_at": {"N": str(mock_timestamp)},
                 }
@@ -196,6 +201,7 @@ class TestUserManager:
                     "PK": {"S": f"USER#{user_id}"},
                     "user_id": {"S": user_id},
                     "generation": {"N": str(current_generation)},
+                    "client_state": {"S": "abc123"},
                     "created_at": {"N": "1234567800.00"},
                     "updated_at": {"N": "1234567890.00"},
                 }
@@ -228,6 +234,7 @@ class TestUserManager:
                     "PK": {"S": f"USER#{user_id}"},
                     "user_id": {"S": user_id},
                     "generation": {"N": str(stored_generation)},
+                    "client_state": {"S": "abc123"},
                     "created_at": {"N": "1234567800.00"},
                     "updated_at": {"N": "1234567890.00"},
                 }
@@ -297,6 +304,7 @@ class TestUserManager:
                     "PK": {"S": f"USER#{user_id}"},
                     "user_id": {"S": user_id},
                     "generation": {"N": "3"},
+                    "client_state": {"S": "deadbeef"},
                     "created_at": {"N": "1234567800.00"},
                     "updated_at": {"N": "1234567890.00"},
                 }
@@ -312,6 +320,7 @@ class TestUserManager:
         assert user is not None
         assert user.user_id == user_id
         assert user.generation == 3
+        assert user.client_state == "deadbeef"
         assert user.created_at == 1234567800.00
         assert user.updated_at == 1234567890.00
 
@@ -393,5 +402,286 @@ class TestUserManager:
 
         with pytest.raises(ClientError) as exc_info:
             user_manager.increment_generation("user123")
+
+        assert exc_info.value.response["Error"]["Code"] == "ValidationException"
+
+    def test_get_or_create_user_new_user_with_client_state(
+        self,
+        user_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test creating a new user with client_state"""
+        user_id = "user123"
+        client_state = "abc123def456"
+
+        # Stub successful put_item (new user creation with client_state)
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Item": {
+                    "PK": {"S": f"USER#{user_id}"},
+                    "user_id": {"S": user_id},
+                    "generation": {"N": "0"},
+                    "client_state": {"S": client_state},
+                    "created_at": {"N": str(mock_timestamp)},
+                    "updated_at": {"N": str(mock_timestamp)},
+                },
+                "ConditionExpression": "attribute_not_exists(PK)",
+            },
+        )
+
+        user = user_manager.get_or_create_user(user_id, client_state=client_state)
+
+        assert user.user_id == user_id
+        assert user.generation == 0
+        assert user.client_state == client_state
+        assert user.created_at == mock_timestamp
+        assert user.updated_at == mock_timestamp
+
+    def test_get_or_create_user_existing_user_same_client_state(
+        self,
+        user_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test existing user with same client_state does not increment generation"""
+        user_id = "existing_user"
+        client_state = "abc123"
+        existing_timestamp = 1234567800.00
+
+        # Stub conditional check failure (user already exists)
+        dynamodb_stubber.add_client_error(
+            "put_item",
+            service_error_code="ConditionalCheckFailedException",
+            service_message="The conditional request failed",
+        )
+
+        # Stub get_item to return existing user with same client_state
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": f"USER#{user_id}"},
+                    "user_id": {"S": user_id},
+                    "generation": {"N": "5"},
+                    "client_state": {"S": client_state},
+                    "created_at": {"N": str(existing_timestamp)},
+                    "updated_at": {"N": str(mock_timestamp)},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": {"S": f"USER#{user_id}"}},
+            },
+        )
+
+        user = user_manager.get_or_create_user(user_id, client_state=client_state)
+
+        assert user.user_id == user_id
+        assert user.generation == 5  # Generation unchanged
+        assert user.client_state == client_state
+        assert user.created_at == existing_timestamp
+
+    def test_get_or_create_user_existing_user_different_client_state(
+        self,
+        user_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test existing user with different client_state increments generation"""
+        user_id = "existing_user"
+        old_client_state = "old_state"
+        new_client_state = "new_state"
+        existing_timestamp = 1234567800.00
+
+        # Stub conditional check failure (user already exists)
+        dynamodb_stubber.add_client_error(
+            "put_item",
+            service_error_code="ConditionalCheckFailedException",
+            service_message="The conditional request failed",
+        )
+
+        # Stub get_item to return existing user with different client_state
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": f"USER#{user_id}"},
+                    "user_id": {"S": user_id},
+                    "generation": {"N": "5"},
+                    "client_state": {"S": old_client_state},
+                    "created_at": {"N": str(existing_timestamp)},
+                    "updated_at": {"N": str(mock_timestamp)},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": {"S": f"USER#{user_id}"}},
+            },
+        )
+
+        # Stub update_item to increment generation and update client_state
+        dynamodb_stubber.add_response(
+            "update_item",
+            {
+                "Attributes": {
+                    "PK": {"S": f"USER#{user_id}"},
+                    "user_id": {"S": user_id},
+                    "generation": {"N": "6"},
+                    "client_state": {"S": new_client_state},
+                    "created_at": {"N": str(existing_timestamp)},
+                    "updated_at": {"N": str(mock_timestamp)},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": {"S": f"USER#{user_id}"}},
+                "UpdateExpression": (
+                    "SET generation = generation + :inc, "
+                    "client_state = :client_state, "
+                    "updated_at = :updated_at"
+                ),
+                "ExpressionAttributeValues": {
+                    ":inc": {"N": "1"},
+                    ":client_state": {"S": new_client_state},
+                    ":updated_at": {"N": str(mock_timestamp)},
+                },
+                "ReturnValues": "ALL_NEW",
+            },
+        )
+
+        user = user_manager.get_or_create_user(user_id, client_state=new_client_state)
+
+        assert user.user_id == user_id
+        assert user.generation == 6  # Generation incremented
+        assert user.client_state == new_client_state
+        assert user.created_at == existing_timestamp
+        assert user.updated_at == mock_timestamp
+
+    def test_get_or_create_user_client_state_change_dynamodb_unavailable(
+        self,
+        user_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test ServiceUnavailableError when DynamoDB fails during client_state update"""
+        user_id = "existing_user"
+        old_client_state = "old_state"
+        new_client_state = "new_state"
+        existing_timestamp = 1234567800.00
+
+        # Stub conditional check failure (user already exists)
+        dynamodb_stubber.add_client_error(
+            "put_item",
+            service_error_code="ConditionalCheckFailedException",
+            service_message="The conditional request failed",
+        )
+
+        # Stub get_item to return existing user with different client_state
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": f"USER#{user_id}"},
+                    "user_id": {"S": user_id},
+                    "generation": {"N": "5"},
+                    "client_state": {"S": old_client_state},
+                    "created_at": {"N": str(existing_timestamp)},
+                    "updated_at": {"N": str(mock_timestamp)},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": {"S": f"USER#{user_id}"}},
+            },
+        )
+
+        # Stub update_item to fail with DynamoDB error
+        dynamodb_stubber.add_client_error(
+            "update_item",
+            service_error_code="ProvisionedThroughputExceededException",
+            service_message="Throughput exceeded",
+        )
+
+        with pytest.raises(ServiceUnavailableError) as exc_info:
+            user_manager.get_or_create_user(user_id, client_state=new_client_state)
+
+        assert "DynamoDB unavailable" in str(exc_info.value.message)
+
+    def test_get_user_missing_client_state_defaults_to_empty(
+        self,
+        user_manager,
+        dynamodb_stubber,
+        storage_table_name,
+    ):
+        """Test _get_user returns empty string for missing client_state (legacy records)"""
+        user_id = "legacy_user"
+
+        # Stub get_item to return user without client_state field (legacy record)
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": f"USER#{user_id}"},
+                    "user_id": {"S": user_id},
+                    "generation": {"N": "3"},
+                    # No client_state field - simulating legacy record
+                    "created_at": {"N": "1234567800.00"},
+                    "updated_at": {"N": "1234567890.00"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": {"S": f"USER#{user_id}"}},
+            },
+        )
+
+        user = user_manager._get_user(user_id)
+
+        assert user is not None
+        assert user.user_id == user_id
+        assert user.client_state == ""  # Default to empty string
+
+    def test_update_client_state_and_increment_unexpected_error(
+        self,
+        user_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test unexpected ClientError is re-raised in _update_client_state_and_increment"""
+        from botocore.exceptions import ClientError
+
+        from src.shared.user import UserRecord
+
+        user_id = "user123"
+        existing_user = UserRecord(
+            user_id=user_id,
+            generation=5,
+            client_state="old_state",
+            created_at=1234567800.00,
+            updated_at=1234567890.00,
+        )
+
+        dynamodb_stubber.add_client_error(
+            "update_item",
+            service_error_code="ValidationException",
+            service_message="Unexpected validation error",
+        )
+
+        with pytest.raises(ClientError) as exc_info:
+            user_manager._update_client_state_and_increment(user_id, "new_state", existing_user)
 
         assert exc_info.value.response["Error"]["Code"] == "ValidationException"
