@@ -3,6 +3,8 @@
 import json
 from unittest.mock import MagicMock
 
+from aws_lambda_powertools.event_handler import APIGatewayRestResolver
+
 from src.routes.info.read_collections import ReadCollectionsInfoRoute
 from src.routes.info.read_counts import ReadCollectionCountsRoute
 from src.routes.info.read_quota import ReadQuotaInfoRoute
@@ -13,15 +15,23 @@ from src.shared.models import CollectionData
 class TestReadCollectionsInfoRoute:
     """Tests for ReadCollectionsInfoRoute"""
 
-    def test_bind_registers_route(self):
-        """Test that bind registers the GET route"""
-        mock_storage_manager = MagicMock()
+    def test_bind_registers_route(self, mock_storage_manager):
+        """Test that bind registers the GET route and handler works through resolver"""
+        mock_storage_manager.list_collections.return_value = []
         route = ReadCollectionsInfoRoute(mock_storage_manager)
-        mock_api = MagicMock()
+        app = APIGatewayRestResolver()
+        route.bind(app)
 
-        route.bind(mock_api)
-
-        mock_api.get.assert_called_once_with("/info/collections")
+        event = {
+            "httpMethod": "GET",
+            "path": "/info/collections",
+            "pathParameters": None,
+            "headers": {},
+            "body": None,
+            "requestContext": {},
+        }
+        result = app.resolve(event, MagicMock())
+        assert result["statusCode"] == 200
 
     def test_handle_success(self, mock_storage_manager):
         """Test successful retrieval of collections info"""
@@ -82,15 +92,23 @@ class TestReadCollectionsInfoRoute:
 class TestReadCollectionCountsRoute:
     """Tests for ReadCollectionCountsRoute"""
 
-    def test_bind_registers_route(self):
-        """Test that bind registers the GET route"""
-        mock_storage_manager = MagicMock()
+    def test_bind_registers_route(self, mock_storage_manager):
+        """Test that bind registers the GET route and handler works through resolver"""
+        mock_storage_manager.list_collections.return_value = []
         route = ReadCollectionCountsRoute(mock_storage_manager)
-        mock_api = MagicMock()
+        app = APIGatewayRestResolver()
+        route.bind(app)
 
-        route.bind(mock_api)
-
-        mock_api.get.assert_called_once_with("/info/collection_counts")
+        event = {
+            "httpMethod": "GET",
+            "path": "/info/collection_counts",
+            "pathParameters": None,
+            "headers": {},
+            "body": None,
+            "requestContext": {},
+        }
+        result = app.resolve(event, MagicMock())
+        assert result["statusCode"] == 200
 
     def test_handle_success(self, mock_storage_manager):
         """Test successful retrieval of collection counts"""
@@ -141,15 +159,23 @@ class TestReadCollectionCountsRoute:
 class TestReadCollectionUsageRoute:
     """Tests for ReadCollectionUsageRoute"""
 
-    def test_bind_registers_route(self):
-        """Test that bind registers the GET route"""
-        mock_storage_manager = MagicMock()
+    def test_bind_registers_route(self, mock_storage_manager):
+        """Test that bind registers the GET route and handler works through resolver"""
+        mock_storage_manager.list_collections.return_value = []
         route = ReadCollectionUsageRoute(mock_storage_manager)
-        mock_api = MagicMock()
+        app = APIGatewayRestResolver()
+        route.bind(app)
 
-        route.bind(mock_api)
-
-        mock_api.get.assert_called_once_with("/info/collection_usage")
+        event = {
+            "httpMethod": "GET",
+            "path": "/info/collection_usage",
+            "pathParameters": None,
+            "headers": {},
+            "body": None,
+            "requestContext": {},
+        }
+        result = app.resolve(event, MagicMock())
+        assert result["statusCode"] == 200
 
     def test_handle_success(self, mock_storage_manager):
         """Test successful retrieval of collection usage"""
@@ -200,15 +226,23 @@ class TestReadCollectionUsageRoute:
 class TestReadQuotaInfoRoute:
     """Tests for ReadQuotaInfoRoute"""
 
-    def test_bind_registers_route(self):
-        """Test that bind registers the GET route"""
-        mock_storage_manager = MagicMock()
+    def test_bind_registers_route(self, mock_storage_manager):
+        """Test that bind registers the GET route and handler works through resolver"""
+        mock_storage_manager.list_collections.return_value = []
         route = ReadQuotaInfoRoute(mock_storage_manager)
-        mock_api = MagicMock()
+        app = APIGatewayRestResolver()
+        route.bind(app)
 
-        route.bind(mock_api)
-
-        mock_api.get.assert_called_once_with("/info/quota")
+        event = {
+            "httpMethod": "GET",
+            "path": "/info/quota",
+            "pathParameters": None,
+            "headers": {},
+            "body": None,
+            "requestContext": {},
+        }
+        result = app.resolve(event, MagicMock())
+        assert result["statusCode"] == 200
 
     def test_handle_success(self, mock_storage_manager):
         """Test successful retrieval of quota information"""

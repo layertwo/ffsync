@@ -3,6 +3,8 @@
 import json
 from unittest.mock import MagicMock, patch
 
+from aws_lambda_powertools.event_handler import APIGatewayRestResolver
+
 from src.routes.storage.delete_all import DeleteAllStorageRoute
 
 
@@ -10,13 +12,21 @@ class TestDeleteAllStorageRoute:
     """Tests for DeleteAllStorageRoute"""
 
     def test_bind_registers_route(self):
-        """Test that bind registers the DELETE route"""
+        """Test that bind registers the DELETE route and handler works through resolver"""
         route = DeleteAllStorageRoute()
-        mock_api = MagicMock()
+        app = APIGatewayRestResolver()
+        route.bind(app)
 
-        route.bind(mock_api)
-
-        mock_api.delete.assert_called_once_with("/storage")
+        event = {
+            "httpMethod": "DELETE",
+            "path": "/storage",
+            "pathParameters": None,
+            "headers": {},
+            "body": None,
+            "requestContext": {},
+        }
+        result = app.resolve(event, MagicMock())
+        assert result["statusCode"] == 200
 
     def test_handle_success(self):
         """Test successful deletion of all storage"""

@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from aws_lambda_proxy import API, Response, StatusCode
+from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -19,34 +19,34 @@ class CreateCollectionRoute(BaseRoute):
     def __init__(self, storage_manager: StorageManager):
         self.storage_manager = storage_manager
 
-    def bind(self, api: API):
-        @api.post("/storage/{collectionName}")
-        @api.pass_event
-        def handle_with_event(event: dict) -> Response:
-            return self.handle(event)
+    def bind(self, app: APIGatewayRestResolver):
+        @app.post("/storage/<collectionName>")
+        def handle_request(collectionName: str):
+            return self.handle(app.current_event)
 
-    def handle(self, event: dict) -> Response:
+    def handle(self, event) -> Response:
         """Create a new collection or batch create/update objects"""
         try:
-            collection_name = event["pathParameters"]["collectionName"]
-            headers = event.get("headers", {})
+            path_params = event.path_parameters or {}
+            body = event.body
+            collection_name = path_params["collectionName"]
 
             # Check conditional headers
-            if_unmodified_since = headers.get("X-If-Unmodified-Since")
+            if_unmodified_since = event.headers.get("x-if-unmodified-since")
             if if_unmodified_since and not self._check_precondition(
                 collection_name, if_unmodified_since
             ):
                 return Response(
-                    status_code=StatusCode.PRECONDITION_FAILED,
+                    status_code=412,
                     content_type="application/json",
                     body=json.dumps({"error": "Precondition failed"}),
                 )
 
             # Parse objects from request body - support both direct array and wrapped object
             objects = []
-            if event.get("body"):
+            if body:
                 try:
-                    body_data = json.loads(event["body"])
+                    body_data = json.loads(body)
 
                     # Handle direct array of objects (Mozilla API format)
                     if isinstance(body_data, list):
@@ -90,33 +90,33 @@ class CreateCollectionRoute(BaseRoute):
             }
 
             return Response(
-                status_code=StatusCode.CREATED,
+                status_code=201,
                 content_type="application/json",
                 body=json.dumps(response_body),
             )
 
         except ValidationException as e:
             return Response(
-                status_code=StatusCode.BAD_REQUEST,
+                status_code=400,
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
             )
         except ConflictException as e:
             return Response(
-                status_code=StatusCode.CONFLICT,
+                status_code=409,
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
             )
         except PreconditionFailedException as e:  # pragma: nocover
             return Response(
-                status_code=StatusCode.PRECONDITION_FAILED,
+                status_code=412,
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
             )
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
-                status_code=StatusCode.INTERNAL_SERVER_ERROR,
+                status_code=500,
                 content_type="application/json",
                 body=json.dumps({"error": "Internal server error"}),
             )

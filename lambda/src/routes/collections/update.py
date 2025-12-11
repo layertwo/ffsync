@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from aws_lambda_proxy import API, Response, StatusCode
+from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -19,20 +19,21 @@ class UpdateCollectionRoute(BaseRoute):
     def __init__(self, storage_manager: StorageManager):
         self.storage_manager = storage_manager
 
-    def bind(self, api: API):
-        @api.put("/storage/{collectionName}")
-        @api.pass_event
-        def handle_with_event(event: dict) -> Response:
-            return self.handle(event)
+    def bind(self, app: APIGatewayRestResolver):
+        @app.put("/storage/<collectionName>")
+        def handle_request(collectionName: str):
+            return self.handle(app.current_event)
 
-    def handle(self, event: dict) -> Response:
+    def handle(self, event) -> Response:
         """Update collection with batch objects"""
         try:
-            collection_name = event["pathParameters"]["collectionName"]
+            path_params = event.path_parameters or {}
+            body = event.body
+            collection_name = path_params["collectionName"]
 
             # Parse objects from request body
             try:
-                body_data = json.loads(event["body"])
+                body_data = json.loads(body)
                 objects = [
                     BasicStorageObject(
                         id=obj["id"],
@@ -48,10 +49,10 @@ class UpdateCollectionRoute(BaseRoute):
 
             # Handle conditional update header
             if_unmodified_since = None
-            headers = event.get("headers", {})
-            if "X-If-Unmodified-Since" in headers:
+            if_unmodified_since_header = event.headers.get("x-if-unmodified-since")
+            if if_unmodified_since_header:
                 try:
-                    if_unmodified_since = int(headers["X-If-Unmodified-Since"])
+                    if_unmodified_since = int(if_unmodified_since_header)
                 except ValueError:
                     raise ValidationException("Invalid X-If-Unmodified-Since header")
 
@@ -76,33 +77,33 @@ class UpdateCollectionRoute(BaseRoute):
             }
 
             return Response(
-                status_code=StatusCode.OK,
+                status_code=200,
                 content_type="application/json",
                 body=json.dumps(response_body),
             )
 
         except ValidationException as e:
             return Response(
-                status_code=StatusCode.BAD_REQUEST,
+                status_code=400,
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
             )
         except CollectionNotFoundException as e:
             return Response(
-                status_code=StatusCode.NOT_FOUND,
+                status_code=404,
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
             )
         except PreconditionFailedException as e:
             return Response(
-                status_code=StatusCode.PRECONDITION_FAILED,
+                status_code=412,
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
             )
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
-                status_code=StatusCode.INTERNAL_SERVER_ERROR,
+                status_code=500,
                 content_type="application/json",
                 body=json.dumps({"error": "Internal server error"}),
             )

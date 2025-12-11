@@ -1,9 +1,9 @@
 """Tests for exception classes"""
 
 import json
+from http import HTTPStatus
 
 import pytest
-from aws_lambda_proxy import StatusCode
 
 from src.shared.exceptions import (
     AuthenticationException,
@@ -29,7 +29,7 @@ class TestSyncStorageException:
         exc = SyncStorageException()
 
         assert exc.message == "Internal server error"
-        assert exc.status_code == StatusCode.INTERNAL_SERVER_ERROR
+        assert exc.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
         assert exc.error_code == "InternalServerError"
         assert str(exc) == "Internal server error"
 
@@ -45,7 +45,7 @@ class TestSyncStorageException:
         exc = SyncStorageException("Test error")
         response = exc.to_response()
 
-        assert response.status_code == StatusCode.INTERNAL_SERVER_ERROR
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
         assert response.content_type == "application/json"
 
         body = json.loads(response.body)
@@ -61,7 +61,7 @@ class TestValidationException:
         exc = ValidationException()
 
         assert exc.message == "Invalid request parameters"
-        assert exc.status_code == StatusCode.BAD_REQUEST
+        assert exc.status_code == HTTPStatus.BAD_REQUEST
         assert exc.error_code == "ValidationException"
 
     def test_custom_message(self):
@@ -76,7 +76,7 @@ class TestValidationException:
         exc = ValidationException("Invalid input")
         response = exc.to_response()
 
-        assert response.status_code == StatusCode.BAD_REQUEST
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         body = json.loads(response.body)
         assert body["error"] == "ValidationException"
         assert body["message"] == "Invalid input"
@@ -90,7 +90,7 @@ class TestConflictException:
         exc = ConflictException()
 
         assert exc.message == "Resource conflict"
-        assert exc.status_code == StatusCode.CONFLICT
+        assert exc.status_code == HTTPStatus.CONFLICT
         assert exc.error_code == "ConflictException"
 
     def test_custom_message(self):
@@ -104,7 +104,7 @@ class TestConflictException:
         exc = ConflictException("Conflict detected")
         response = exc.to_response()
 
-        assert response.status_code == StatusCode.CONFLICT
+        assert response.status_code == HTTPStatus.CONFLICT
         body = json.loads(response.body)
         assert body["error"] == "ConflictException"
 
@@ -117,7 +117,7 @@ class TestPreconditionFailedException:
         exc = PreconditionFailedException()
 
         assert exc.message == "Precondition failed"
-        assert exc.status_code == StatusCode.PRECONDITION_FAILED
+        assert exc.status_code == HTTPStatus.PRECONDITION_FAILED
         assert exc.error_code == "PreconditionFailedException"
 
     def test_custom_message(self):
@@ -131,7 +131,7 @@ class TestPreconditionFailedException:
         exc = PreconditionFailedException("Precondition not met")
         response = exc.to_response()
 
-        assert response.status_code == StatusCode.PRECONDITION_FAILED
+        assert response.status_code == HTTPStatus.PRECONDITION_FAILED
         body = json.loads(response.body)
         assert body["error"] == "PreconditionFailedException"
 
@@ -144,7 +144,7 @@ class TestQuotaExceededException:
         exc = QuotaExceededException()
 
         assert exc.message == "Storage quota exceeded"
-        assert exc.status_code == StatusCode.INSUFFICIENT_STORAGE
+        assert exc.status_code == HTTPStatus.INSUFFICIENT_STORAGE
         assert exc.error_code == "QuotaExceededException"
 
     def test_custom_message(self):
@@ -158,7 +158,7 @@ class TestQuotaExceededException:
         exc = QuotaExceededException("Quota exceeded")
         response = exc.to_response()
 
-        assert response.status_code == StatusCode.INSUFFICIENT_STORAGE
+        assert response.status_code == HTTPStatus.INSUFFICIENT_STORAGE
         body = json.loads(response.body)
         assert body["error"] == "QuotaExceededException"
 
@@ -171,7 +171,7 @@ class TestCollectionNotFoundException:
         exc = CollectionNotFoundException()
 
         assert exc.message == "Collection not found"
-        assert exc.status_code == StatusCode.NOT_FOUND
+        assert exc.status_code == HTTPStatus.NOT_FOUND
         assert exc.error_code == "CollectionNotFoundException"
 
     def test_custom_message(self):
@@ -185,7 +185,7 @@ class TestCollectionNotFoundException:
         exc = CollectionNotFoundException("Not found")
         response = exc.to_response()
 
-        assert response.status_code == StatusCode.NOT_FOUND
+        assert response.status_code == HTTPStatus.NOT_FOUND
         body = json.loads(response.body)
         assert body["error"] == "CollectionNotFoundException"
 
@@ -198,7 +198,7 @@ class TestStorageObjectNotFoundException:
         exc = StorageObjectNotFoundException()
 
         assert exc.message == "Storage object not found"
-        assert exc.status_code == StatusCode.NOT_FOUND
+        assert exc.status_code == HTTPStatus.NOT_FOUND
         assert exc.error_code == "StorageObjectNotFoundException"
 
     def test_custom_message(self):
@@ -212,7 +212,7 @@ class TestStorageObjectNotFoundException:
         exc = StorageObjectNotFoundException("Object missing")
         response = exc.to_response()
 
-        assert response.status_code == StatusCode.NOT_FOUND
+        assert response.status_code == HTTPStatus.NOT_FOUND
         body = json.loads(response.body)
         assert body["error"] == "StorageObjectNotFoundException"
 
@@ -225,7 +225,7 @@ class TestAuthenticationException:
         exc = AuthenticationException()
 
         assert exc.message == "Authentication required"
-        assert exc.status_code == StatusCode.UNAUTHORIZED
+        assert exc.status_code == HTTPStatus.UNAUTHORIZED
         assert exc.error_code == "AuthenticationException"
 
     def test_custom_message(self):
@@ -239,7 +239,7 @@ class TestAuthenticationException:
         exc = AuthenticationException("Auth failed")
         response = exc.to_response()
 
-        assert response.status_code == StatusCode.UNAUTHORIZED
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
         body = json.loads(response.body)
         assert body["error"] == "AuthenticationException"
 
@@ -286,7 +286,7 @@ class TestInvalidTokenError:
         exc = InvalidTokenError()
 
         assert exc.message == "Invalid or expired token"
-        assert exc.status_code == StatusCode.UNAUTHORIZED
+        assert exc.status_code == HTTPStatus.UNAUTHORIZED
         assert exc.error_code == "InvalidTokenError"
         assert str(exc) == "Invalid or expired token"
 
@@ -302,7 +302,7 @@ class TestInvalidTokenError:
         exc = InvalidTokenError("Token expired")
         response = exc.to_response()
 
-        assert response.status_code == StatusCode.UNAUTHORIZED
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert response.content_type == "application/json"
 
         body = json.loads(response.body)
@@ -319,7 +319,7 @@ class TestInvalidCredentialsError:
         exc = InvalidCredentialsError()
 
         assert exc.message == "Invalid credentials"
-        assert exc.status_code == StatusCode.UNAUTHORIZED
+        assert exc.status_code == HTTPStatus.UNAUTHORIZED
         assert exc.error_code == "InvalidCredentialsError"
 
     def test_custom_message(self):
@@ -333,7 +333,7 @@ class TestInvalidCredentialsError:
         exc = InvalidCredentialsError("Bad credentials")
         response = exc.to_response()
 
-        assert response.status_code == StatusCode.UNAUTHORIZED
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
         body = json.loads(response.body)
         assert body["error"] == "InvalidCredentialsError"
 
@@ -347,7 +347,7 @@ class TestTokenValidationError:
         exc = TokenValidationError()
 
         assert exc.message == "Token validation failed"
-        assert exc.status_code == StatusCode.BAD_REQUEST
+        assert exc.status_code == HTTPStatus.BAD_REQUEST
         assert exc.error_code == "ValidationException"
 
     def test_custom_message(self):
@@ -368,7 +368,7 @@ class TestTokenValidationError:
         exc = TokenValidationError("Malformed token")
         response = exc.to_response()
 
-        assert response.status_code == StatusCode.BAD_REQUEST
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         body = json.loads(response.body)
         assert body["error"] == "ValidationException"
 
@@ -382,7 +382,7 @@ class TestServiceUnavailableError:
         exc = ServiceUnavailableError()
 
         assert exc.message == "Service temporarily unavailable"
-        assert exc.status_code == StatusCode.SERVICE_UNAVAILABLE
+        assert exc.status_code == HTTPStatus.SERVICE_UNAVAILABLE
         assert exc.error_code == "ServiceUnavailableError"
 
     def test_custom_message(self):
@@ -396,7 +396,7 @@ class TestServiceUnavailableError:
         exc = ServiceUnavailableError("Database connection failed")
         response = exc.to_response()
 
-        assert response.status_code == StatusCode.SERVICE_UNAVAILABLE
+        assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
         assert response.content_type == "application/json"
 
         body = json.loads(response.body)

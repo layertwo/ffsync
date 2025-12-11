@@ -3,6 +3,9 @@
 import json
 from unittest.mock import MagicMock
 
+from aws_lambda_powertools.event_handler import APIGatewayRestResolver
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
+
 from src.routes.bso.delete import DeleteBSORoute
 from src.routes.bso.read import ReadBSORoute
 from src.routes.bso.update import UpdateBSORoute
@@ -18,22 +21,31 @@ from src.shared.models import BasicStorageObject
 class TestReadBSORoute:
     """Tests for ReadBSORoute"""
 
-    def test_bind_registers_route(self):
-        """Test that bind registers the GET route"""
-        mock_storage_manager = MagicMock()
+    def test_bind_registers_route(self, mock_storage_manager):
+        """Test that bind registers the GET route and handler works through resolver"""
         route = ReadBSORoute(mock_storage_manager)
-        mock_api = MagicMock()
+        app = APIGatewayRestResolver()
+        route.bind(app)
 
-        route.bind(mock_api)
-
-        # Verify the route was registered with correct decorator chain
-        mock_api.get.assert_called_once_with("/storage/{collectionName}/{objectId}")
+        # Test through the resolver
+        event = {
+            "httpMethod": "GET",
+            "path": "/storage/bookmarks/item123",
+            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+            "headers": {},
+            "body": None,
+            "requestContext": {},
+        }
+        result = app.resolve(event, MagicMock())
+        assert result["statusCode"] == 200
 
     def test_handle_success(self, mock_storage_manager):
         """Test successful BSO retrieval"""
         route = ReadBSORoute(mock_storage_manager)
 
-        event = {"pathParameters": {"collectionName": "bookmarks", "objectId": "item123"}}
+        event = APIGatewayProxyEvent(
+            {"pathParameters": {"collectionName": "bookmarks", "objectId": "item123"}}
+        )
 
         bso = BasicStorageObject(
             id="item123",
@@ -61,7 +73,9 @@ class TestReadBSORoute:
         """Test BSO retrieval when sortindex and ttl are None"""
         route = ReadBSORoute(mock_storage_manager)
 
-        event = {"pathParameters": {"collectionName": "history", "objectId": "obj456"}}
+        event = APIGatewayProxyEvent(
+            {"pathParameters": {"collectionName": "history", "objectId": "obj456"}}
+        )
 
         bso = BasicStorageObject(
             id="obj456",
@@ -83,7 +97,9 @@ class TestReadBSORoute:
         """Test handling of ValidationException"""
         route = ReadBSORoute(mock_storage_manager)
 
-        event = {"pathParameters": {"collectionName": "invalid!@#", "objectId": "item"}}
+        event = APIGatewayProxyEvent(
+            {"pathParameters": {"collectionName": "invalid!@#", "objectId": "item"}}
+        )
 
         mock_storage_manager.get_storage_object.side_effect = ValidationException(
             "Invalid collection name"
@@ -99,7 +115,9 @@ class TestReadBSORoute:
         """Test handling of CollectionNotFoundException"""
         route = ReadBSORoute(mock_storage_manager)
 
-        event = {"pathParameters": {"collectionName": "nonexistent", "objectId": "item"}}
+        event = APIGatewayProxyEvent(
+            {"pathParameters": {"collectionName": "nonexistent", "objectId": "item"}}
+        )
 
         mock_storage_manager.get_storage_object.side_effect = CollectionNotFoundException(
             "Collection not found"
@@ -115,7 +133,9 @@ class TestReadBSORoute:
         """Test handling of StorageObjectNotFoundException"""
         route = ReadBSORoute(mock_storage_manager)
 
-        event = {"pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"}}
+        event = APIGatewayProxyEvent(
+            {"pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"}}
+        )
 
         mock_storage_manager.get_storage_object.side_effect = StorageObjectNotFoundException(
             "Object not found"
@@ -131,7 +151,9 @@ class TestReadBSORoute:
         """Test handling of generic exceptions"""
         route = ReadBSORoute(mock_storage_manager)
 
-        event = {"pathParameters": {"collectionName": "bookmarks", "objectId": "item"}}
+        event = APIGatewayProxyEvent(
+            {"pathParameters": {"collectionName": "bookmarks", "objectId": "item"}}
+        )
 
         mock_storage_manager.get_storage_object.side_effect = Exception("Database error")
 
@@ -145,34 +167,48 @@ class TestReadBSORoute:
 class TestUpdateBSORoute:
     """Tests for UpdateBSORoute"""
 
-    def test_bind_registers_route(self):
-        """Test that bind registers the PUT route"""
-        mock_storage_manager = MagicMock()
+    def test_bind_registers_route(self, mock_storage_manager):
+        """Test that bind registers the PUT route and handler works through resolver"""
+        updated_bso = BasicStorageObject(
+            id="item123", payload="data", modified=1234567890.12, sortindex=None, ttl=None
+        )
+        mock_storage_manager.update_storage_object.return_value = updated_bso
+
         route = UpdateBSORoute(mock_storage_manager)
-        mock_api = MagicMock()
+        app = APIGatewayRestResolver()
+        route.bind(app)
 
-        route.bind(mock_api)
-
-        mock_api.put.assert_called_once_with("/storage/{collectionName}/{objectId}")
+        event = {
+            "httpMethod": "PUT",
+            "path": "/storage/bookmarks/item123",
+            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+            "headers": {},
+            "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+            "requestContext": {},
+        }
+        result = app.resolve(event, MagicMock())
+        assert result["statusCode"] == 200
 
     def test_handle_success(self, mock_storage_manager):
         """Test successful BSO update"""
         route = UpdateBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
-            "body": json.dumps(
-                {
-                    "object": {
-                        "id": "item123",
-                        "payload": "updated_data",
-                        "sortindex": 200,
-                        "ttl": 7200,
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "body": json.dumps(
+                    {
+                        "object": {
+                            "id": "item123",
+                            "payload": "updated_data",
+                            "sortindex": 200,
+                            "ttl": 7200,
+                        }
                     }
-                }
-            ),
-            "headers": {},
-        }
+                ),
+                "headers": {},
+            }
+        )
 
         updated_bso = BasicStorageObject(
             id="item123",
@@ -194,11 +230,13 @@ class TestUpdateBSORoute:
         """Test handling of invalid JSON body"""
         route = UpdateBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
-            "body": "invalid json{",
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
+                "body": "invalid json{",
+                "headers": {},
+            }
+        )
 
         response = route.handle(event)
 
@@ -208,11 +246,13 @@ class TestUpdateBSORoute:
         """Test handling of missing 'object' key in body"""
         route = UpdateBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
-            "body": json.dumps({"payload": "data"}),
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
+                "body": json.dumps({"payload": "data"}),
+                "headers": {},
+            }
+        )
 
         response = route.handle(event)
 
@@ -222,11 +262,13 @@ class TestUpdateBSORoute:
         """Test validation when object ID doesn't match path"""
         route = UpdateBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
-            "body": json.dumps({"object": {"id": "different_id", "payload": "data"}}),
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "body": json.dumps({"object": {"id": "different_id", "payload": "data"}}),
+                "headers": {},
+            }
+        )
 
         response = route.handle(event)
 
@@ -236,11 +278,13 @@ class TestUpdateBSORoute:
         """Test with X-If-Unmodified-Since header"""
         route = UpdateBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
-            "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
-            "headers": {"X-If-Unmodified-Since": "1234567890"},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                "headers": {"X-If-Unmodified-Since": "1234567890"},
+            }
+        )
 
         updated_bso = BasicStorageObject(
             id="item123",
@@ -259,11 +303,13 @@ class TestUpdateBSORoute:
         """Test with invalid X-If-Unmodified-Since header"""
         route = UpdateBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
-            "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
-            "headers": {"X-If-Unmodified-Since": "invalid"},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                "headers": {"X-If-Unmodified-Since": "invalid"},
+            }
+        )
 
         response = route.handle(event)
 
@@ -273,11 +319,13 @@ class TestUpdateBSORoute:
         """Test handling of CollectionNotFoundException"""
         route = UpdateBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "nonexistent", "objectId": "item123"},
-            "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "nonexistent", "objectId": "item123"},
+                "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                "headers": {},
+            }
+        )
 
         mock_storage_manager.update_storage_object.side_effect = CollectionNotFoundException(
             "Not found"
@@ -291,14 +339,13 @@ class TestUpdateBSORoute:
         """Test handling of StorageObjectNotFoundException"""
         route = UpdateBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {
-                "collectionName": "bookmarks",
-                "objectId": "nonexistent",
-            },
-            "body": json.dumps({"object": {"id": "nonexistent", "payload": "data"}}),
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"},
+                "body": json.dumps({"object": {"id": "nonexistent", "payload": "data"}}),
+                "headers": {},
+            }
+        )
 
         mock_storage_manager.update_storage_object.side_effect = StorageObjectNotFoundException(
             "Not found"
@@ -312,11 +359,13 @@ class TestUpdateBSORoute:
         """Test handling of PreconditionFailedException"""
         route = UpdateBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
-            "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                "headers": {},
+            }
+        )
 
         mock_storage_manager.update_storage_object.side_effect = PreconditionFailedException(
             "Failed"
@@ -330,11 +379,13 @@ class TestUpdateBSORoute:
         """Test handling of ValidationException"""
         route = UpdateBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "invalid!", "objectId": "item123"},
-            "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "invalid!", "objectId": "item123"},
+                "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                "headers": {},
+            }
+        )
 
         mock_storage_manager.update_storage_object.side_effect = ValidationException("Invalid")
 
@@ -346,11 +397,13 @@ class TestUpdateBSORoute:
         """Test handling of generic exceptions"""
         route = UpdateBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
-            "body": json.dumps({"object": {"id": "item", "payload": "data"}}),
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
+                "body": json.dumps({"object": {"id": "item", "payload": "data"}}),
+                "headers": {},
+            }
+        )
 
         mock_storage_manager.update_storage_object.side_effect = Exception("Error")
 
@@ -362,24 +415,33 @@ class TestUpdateBSORoute:
 class TestDeleteBSORoute:
     """Tests for DeleteBSORoute"""
 
-    def test_bind_registers_route(self):
-        """Test that bind registers the DELETE route"""
-        mock_storage_manager = MagicMock()
+    def test_bind_registers_route(self, mock_storage_manager):
+        """Test that bind registers the DELETE route and handler works through resolver"""
+        mock_storage_manager.delete_storage_object.return_value = 1234567890.12
         route = DeleteBSORoute(mock_storage_manager)
-        mock_api = MagicMock()
+        app = APIGatewayRestResolver()
+        route.bind(app)
 
-        route.bind(mock_api)
-
-        mock_api.delete.assert_called_once_with("/storage/{collectionName}/{objectId}")
+        event = {
+            "httpMethod": "DELETE",
+            "path": "/storage/bookmarks/item123",
+            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+            "headers": {},
+            "body": None,
+            "requestContext": {},
+        }
+        result = app.resolve(event, MagicMock())
+        assert result["statusCode"] == 200
 
     def test_handle_success(self, mock_storage_manager):
         """Test successful BSO deletion"""
         route = DeleteBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+            }
+        )
 
         mock_storage_manager.delete_storage_object.return_value = 1234567892.00
 
@@ -394,10 +456,11 @@ class TestDeleteBSORoute:
         """Test handling of ValidationException"""
         route = DeleteBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "invalid!", "objectId": "item"},
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "invalid!", "objectId": "item"},
+            }
+        )
 
         mock_storage_manager.delete_storage_object.side_effect = ValidationException("Invalid")
 
@@ -409,10 +472,11 @@ class TestDeleteBSORoute:
         """Test handling of CollectionNotFoundException"""
         route = DeleteBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "nonexistent", "objectId": "item"},
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "nonexistent", "objectId": "item"},
+            }
+        )
 
         mock_storage_manager.delete_storage_object.side_effect = CollectionNotFoundException(
             "Not found"
@@ -426,13 +490,11 @@ class TestDeleteBSORoute:
         """Test handling of StorageObjectNotFoundException"""
         route = DeleteBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {
-                "collectionName": "bookmarks",
-                "objectId": "nonexistent",
-            },
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"},
+            }
+        )
 
         mock_storage_manager.delete_storage_object.side_effect = StorageObjectNotFoundException(
             "Not found"
@@ -446,10 +508,11 @@ class TestDeleteBSORoute:
         """Test handling of generic exceptions"""
         route = DeleteBSORoute(mock_storage_manager)
 
-        event = {
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
+            }
+        )
 
         mock_storage_manager.delete_storage_object.side_effect = Exception("Error")
 

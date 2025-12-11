@@ -1,10 +1,12 @@
-from aws_lambda_proxy import Response, StatusCode
+from http import HTTPStatus
+
+from aws_lambda_powertools.event_handler import Response
 
 
 class SyncStorageException(Exception):
     """Base exception for SyncStorage API"""
 
-    status_code = StatusCode.INTERNAL_SERVER_ERROR
+    status_code = HTTPStatus.INTERNAL_SERVER_ERROR
     error_code = "InternalServerError"
 
     def __init__(self, message: str = "Internal server error"):
@@ -22,7 +24,7 @@ class SyncStorageException(Exception):
 class ValidationException(SyncStorageException):
     """Validation error exception"""
 
-    status_code = StatusCode.BAD_REQUEST
+    status_code = HTTPStatus.BAD_REQUEST
     error_code = "ValidationException"
 
     def __init__(self, message: str = "Invalid request parameters"):
@@ -32,7 +34,7 @@ class ValidationException(SyncStorageException):
 class ConflictException(SyncStorageException):
     """Conflict error exception"""
 
-    status_code = StatusCode.CONFLICT
+    status_code = HTTPStatus.CONFLICT
     error_code = "ConflictException"
 
     def __init__(self, message: str = "Resource conflict"):
@@ -42,7 +44,7 @@ class ConflictException(SyncStorageException):
 class PreconditionFailedException(SyncStorageException):
     """Precondition failed exception"""
 
-    status_code = StatusCode.PRECONDITION_FAILED
+    status_code = HTTPStatus.PRECONDITION_FAILED
     error_code = "PreconditionFailedException"
 
     def __init__(self, message: str = "Precondition failed"):
@@ -52,7 +54,7 @@ class PreconditionFailedException(SyncStorageException):
 class QuotaExceededException(SyncStorageException):
     """Quota exceeded exception"""
 
-    status_code = StatusCode.INSUFFICIENT_STORAGE
+    status_code = HTTPStatus.INSUFFICIENT_STORAGE
     error_code = "QuotaExceededException"
 
     def __init__(self, message: str = "Storage quota exceeded"):
@@ -62,7 +64,7 @@ class QuotaExceededException(SyncStorageException):
 class CollectionNotFoundException(SyncStorageException):
     """Collection not found exception"""
 
-    status_code = StatusCode.NOT_FOUND
+    status_code = HTTPStatus.NOT_FOUND
     error_code = "CollectionNotFoundException"
 
     def __init__(self, message: str = "Collection not found"):
@@ -72,7 +74,7 @@ class CollectionNotFoundException(SyncStorageException):
 class StorageObjectNotFoundException(SyncStorageException):
     """Storage object not found exception"""
 
-    status_code = StatusCode.NOT_FOUND
+    status_code = HTTPStatus.NOT_FOUND
     error_code = "StorageObjectNotFoundException"
 
     def __init__(self, message: str = "Storage object not found"):
@@ -82,7 +84,7 @@ class StorageObjectNotFoundException(SyncStorageException):
 class AuthenticationException(SyncStorageException):
     """Authentication error exception"""
 
-    status_code = StatusCode.UNAUTHORIZED
+    status_code = HTTPStatus.UNAUTHORIZED
     error_code = "AuthenticationException"
 
     def __init__(self, message: str = "Authentication required"):
@@ -95,7 +97,7 @@ class AuthenticationException(SyncStorageException):
 class InvalidTokenError(SyncStorageException):
     """Raised when an OIDC token is invalid or cannot be validated"""
 
-    status_code = StatusCode.UNAUTHORIZED
+    status_code = HTTPStatus.UNAUTHORIZED
     error_code = "InvalidTokenError"
 
     def __init__(self, message: str = "Invalid or expired token"):
@@ -105,7 +107,7 @@ class InvalidTokenError(SyncStorageException):
 class InvalidCredentialsError(SyncStorageException):
     """Raised when authentication credentials are invalid"""
 
-    status_code = StatusCode.UNAUTHORIZED
+    status_code = HTTPStatus.UNAUTHORIZED
     error_code = "InvalidCredentialsError"
 
     def __init__(self, message: str = "Invalid credentials"):
@@ -122,7 +124,7 @@ class TokenValidationError(ValidationException):
 class ServiceUnavailableError(SyncStorageException):
     """Raised when external services (OIDC provider, DynamoDB) are unavailable"""
 
-    status_code = StatusCode.SERVICE_UNAVAILABLE
+    status_code = HTTPStatus.SERVICE_UNAVAILABLE
     error_code = "ServiceUnavailableError"
 
     def __init__(self, message: str = "Service temporarily unavailable"):
