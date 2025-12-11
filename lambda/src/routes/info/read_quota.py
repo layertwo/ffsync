@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from aws_lambda_proxy import API, Response, StatusCode
+from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -13,13 +13,12 @@ class ReadQuotaInfoRoute(BaseRoute):
     def __init__(self, storage_manager: StorageManager):
         self.storage_manager = storage_manager
 
-    def bind(self, api: API):
-        @api.get("/info/quota")
-        @api.pass_event
-        def handle_with_event(event: dict) -> Response:
-            return self.handle(event)
+    def bind(self, app: APIGatewayRestResolver):
+        @app.get("/info/quota")
+        def handle_request():
+            return self.handle(app.current_event)
 
-    def handle(self, event: dict) -> Response:
+    def handle(self, event) -> Response:
         """Get quota information for the authenticated user"""
         try:
             # Get collections using storage manager to calculate current usage
@@ -42,7 +41,7 @@ class ReadQuotaInfoRoute(BaseRoute):
             }
 
             return Response(
-                status_code=StatusCode.OK,
+                status_code=200,
                 content_type="application/json",
                 body=json.dumps(response_body),
             )
@@ -50,7 +49,7 @@ class ReadQuotaInfoRoute(BaseRoute):
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
-                status_code=StatusCode.INTERNAL_SERVER_ERROR,
+                status_code=500,
                 content_type="application/json",
                 body=json.dumps({"error": "Internal server error"}),
             )

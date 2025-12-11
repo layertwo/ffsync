@@ -7,8 +7,7 @@
 
 ## Backend (Python)
 - **Python 3.14** - Lambda runtime
-- **AWS Lambda Powertools** - Logging, typing utilities
-- **aws-lambda-proxy** - API routing
+- **AWS Lambda Powertools** - Logging, Event Handler (APIGatewayRestResolver)
 - **boto3** - AWS SDK
 - **dataclasses-json** - JSON serialization for models
 - **PyJWT** - JWT token handling

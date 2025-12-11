@@ -5,7 +5,7 @@ import re
 import time
 
 from aws_lambda_powertools import Logger
-from aws_lambda_proxy import API, Response, StatusCode
+from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.oidc_validator import OIDCValidator
 from src.services.token_generator import TokenGenerator
@@ -20,20 +20,12 @@ from src.shared.exceptions import (
 
 logger = Logger()
 
-# Bearer token regex pattern
 BEARER_TOKEN_PATTERN = re.compile(r"^Bearer\s+(.+)$", re.IGNORECASE)
-
-# X-Client-State validation pattern: hexadecimal string, max 32 characters
 CLIENT_STATE_PATTERN = re.compile(r"^[a-fA-F0-9]{0,32}$")
 
 
 class RequestTokenRoute(BaseRoute):
-    """
-    Route handler for RequestToken operation.
-
-    Handles POST /1.0/sync/1.5 requests to exchange OIDC tokens
-    for Firefox Sync HAWK credentials.
-    """
+    """Route handler for RequestToken operation."""
 
     def __init__(
         self,
@@ -41,65 +33,39 @@ class RequestTokenRoute(BaseRoute):
         user_manager: UserManager,
         token_generator: TokenGenerator,
     ):
-        """
-        Initialize CreateTokenRoute with dependencies.
-
-        Args:
-            oidc_validator: OIDC token validator
-            user_manager: User record manager
-            token_generator: HAWK credential generator
-        """
         self.oidc_validator = oidc_validator
         self.user_manager = user_manager
         self.token_generator = token_generator
 
-    def bind(self, api: API):
-        """Bind this route to the API with POST decorator"""
+    def bind(self, app: APIGatewayRestResolver):
+        @app.post("/1.0/sync/1.5")
+        def handle_request():
+            return self.handle(app.current_event)
 
-        @api.post("/1.0/sync/1.5")
-        @api.pass_event
-        def handle_with_event(event: dict, **kwargs) -> Response:
-            # kwargs may contain parsed body from the API framework, which we ignore
-            # since we handle body parsing ourselves via the event
-            return self.handle(event)
-
-    def handle(self, event: dict) -> Response:
-        """
-        Handle token creation request.
-
-        Orchestrates the token issuance flow:
-        1. Validate request (Content-Type if body present)
-        2. Extract and validate Authorization header
-        3. Validate OIDC token with provider
-        4. Get or create user record
-        5. Generate HAWK credentials
-        6. Return token response
-
-        Args:
-            event: API Gateway proxy event
-
-        Returns:
-            Response with token or error
-        """
+    def handle(self, event) -> Response:
+        """Handle token creation request."""
         try:
-            # Validate Content-Type if body is present
-            validation_error = self._validate_content_type(event)
+            body = event.body
+            request_path = event.path or "/1.0/sync/1.5"
+            http_method = event.http_method or "POST"
+
+            validation_error = self._validate_content_type(body, event)
             if validation_error:
                 return validation_error
 
-            # Extract request metadata for logging
-            request_path = event.get("path", "/1.0/sync/1.5")
-            http_method = event.get("httpMethod", "POST")
-            source_ip = (event.get("requestContext") or {}).get("identity", {}).get("sourceIp")
-            user_agent = (event.get("headers") or {}).get("user-agent") or (
-                event.get("headers") or {}
-            ).get("User-Agent")
+            try:
+                request_context = event.request_context
+                identity = request_context.identity if request_context else None
+                source_ip = identity.source_ip if identity else None
+            except (KeyError, AttributeError):
+                source_ip = None
+            headers = event.headers or {}
+            user_agent = headers.get("user-agent")
 
-            # Extract and validate Authorization header
-            auth_header = self._get_authorization_header(event)
+            auth_header = headers.get("authorization")
             if not auth_header:
                 return self._error_response(
-                    status_code=StatusCode.UNAUTHORIZED,
+                    status_code=401,
                     error_type="invalid-credentials",
                     location="header",
                     name="Authorization",
@@ -109,11 +75,10 @@ class RequestTokenRoute(BaseRoute):
                     source_ip=source_ip,
                 )
 
-            # Extract Bearer token
             token = self._extract_bearer_token(auth_header)
             if token is None:
                 return self._error_response(
-                    status_code=StatusCode.BAD_REQUEST,
+                    status_code=400,
                     error_type="invalid-request",
                     location="header",
                     name="Authorization",
@@ -123,11 +88,10 @@ class RequestTokenRoute(BaseRoute):
                     source_ip=source_ip,
                 )
 
-            # Extract and validate X-Client-State header
-            client_state = self._get_client_state_header(event)
+            client_state = headers.get("x-client-state")
             if client_state is not None and not self._is_valid_client_state(client_state):
                 return self._error_response(
-                    status_code=StatusCode.BAD_REQUEST,
+                    status_code=400,
                     error_type="invalid-request",
                     location="header",
                     name="X-Client-State",
@@ -138,7 +102,6 @@ class RequestTokenRoute(BaseRoute):
                     client_state=client_state,
                 )
 
-            # Default to empty string if header is absent
             client_state = client_state or ""
 
             logger.info(
@@ -152,7 +115,6 @@ class RequestTokenRoute(BaseRoute):
                 },
             )
 
-            # Validate OIDC token and extract user identifier
             claims = self.oidc_validator.validate_token(token)
             user_id = claims.sub
             logger.info(
@@ -164,7 +126,6 @@ class RequestTokenRoute(BaseRoute):
                 },
             )
 
-            # Get or create user record (with client_state for key rotation tracking)
             user_record = self.user_manager.get_or_create_user(user_id, client_state)
             logger.info(
                 "User record retrieved",
@@ -179,7 +140,6 @@ class RequestTokenRoute(BaseRoute):
                 },
             )
 
-            # Generate token response
             token_response = self.token_generator.generate_token(
                 user_id=user_id,
                 generation=user_record.generation,
@@ -195,7 +155,7 @@ class RequestTokenRoute(BaseRoute):
             )
 
             return Response(
-                status_code=StatusCode.OK,
+                status_code=200,
                 content_type="application/json",
                 body=token_response.to_json(),
                 headers={"X-Timestamp": str(int(time.time()))},
@@ -203,7 +163,7 @@ class RequestTokenRoute(BaseRoute):
 
         except InvalidCredentialsError as e:
             return self._error_response(
-                status_code=StatusCode.UNAUTHORIZED,
+                status_code=401,
                 error_type="invalid-credentials",
                 location="header",
                 name="Authorization",
@@ -212,7 +172,7 @@ class RequestTokenRoute(BaseRoute):
 
         except InvalidTokenError as e:
             return self._error_response(
-                status_code=StatusCode.UNAUTHORIZED,
+                status_code=401,
                 error_type="invalid-credentials",
                 location="header",
                 name="Authorization",
@@ -221,7 +181,7 @@ class RequestTokenRoute(BaseRoute):
 
         except ValidationException as e:
             return self._error_response(
-                status_code=StatusCode.BAD_REQUEST,
+                status_code=400,
                 error_type="invalid-request",
                 location="body",
                 name="request",
@@ -230,7 +190,7 @@ class RequestTokenRoute(BaseRoute):
 
         except ServiceUnavailableError as e:
             return self._error_response(
-                status_code=StatusCode.SERVICE_UNAVAILABLE,
+                status_code=503,
                 error_type="service-unavailable",
                 location="server",
                 name="service",
@@ -240,7 +200,7 @@ class RequestTokenRoute(BaseRoute):
 
         except Exception as e:
             return self._error_response(
-                status_code=StatusCode.INTERNAL_SERVER_ERROR,
+                status_code=500,
                 error_type="internal-error",
                 location="server",
                 name="service",
@@ -249,25 +209,15 @@ class RequestTokenRoute(BaseRoute):
                 exception_type=type(e).__name__,
             )
 
-    def _validate_content_type(self, event: dict) -> Response | None:
-        """
-        Validate Content-Type header if body is present.
-
-        Args:
-            event: API Gateway proxy event
-
-        Returns:
-            Error Response if Content-Type is invalid, None if valid
-        """
-        body = event.get("body")
+    def _validate_content_type(self, body, event) -> Response | None:
         if not body:
             return None
-
-        content_type = self._get_content_type(event)
+        headers = event.headers or {}
+        content_type = headers.get("content-type")
         if content_type and not self._is_valid_content_type(content_type):
             logger.warning("Invalid Content-Type", extra={"content_type": content_type})
             return self._error_response(
-                status_code=StatusCode.UNSUPPORTED_MEDIA_TYPE,
+                status_code=415,
                 error_type="unsupported-media-type",
                 location="header",
                 name="Content-Type",
@@ -275,97 +225,23 @@ class RequestTokenRoute(BaseRoute):
             )
         return None
 
-    def _get_content_type(self, event: dict) -> str | None:
-        """
-        Extract Content-Type header from event.
-
-        Args:
-            event: API Gateway proxy event
-
-        Returns:
-            Content-Type header value or None
-        """
-        headers = event.get("headers") or {}
-        return headers.get("content-type") or headers.get("Content-Type")
-
     def _is_valid_content_type(self, content_type: str) -> bool:
-        """
-        Check if Content-Type is valid for token requests.
-
-        Args:
-            content_type: Content-Type header value
-
-        Returns:
-            True if valid, False otherwise
-        """
         valid_types = ["application/json", "application/x-www-form-urlencoded", "text/plain"]
         content_type_lower = content_type.lower().split(";")[0].strip()
         return content_type_lower in valid_types
 
-    def _get_authorization_header(self, event: dict) -> str | None:
-        """
-        Extract Authorization header from event.
-
-        Handles case-insensitive header lookup.
-
-        Args:
-            event: API Gateway proxy event
-
-        Returns:
-            Authorization header value or None
-        """
-        headers = event.get("headers") or {}
-        # API Gateway normalizes headers to lowercase
-        return headers.get("authorization") or headers.get("Authorization")
-
     def _extract_bearer_token(self, auth_header: str) -> str | None:
-        """
-        Extract Bearer token from Authorization header.
-
-        Args:
-            auth_header: Authorization header value
-
-        Returns:
-            Bearer token string or None if format is invalid
-        """
         match = BEARER_TOKEN_PATTERN.match(auth_header)
         if not match:
             return None
         return match.group(1)
 
-    def _get_client_state_header(self, event: dict) -> str | None:
-        """
-        Extract X-Client-State header from event.
-
-        Handles case-insensitive header lookup.
-
-        Args:
-            event: API Gateway proxy event
-
-        Returns:
-            X-Client-State header value or None if not present
-        """
-        headers = event.get("headers") or {}
-        # API Gateway normalizes headers to lowercase
-        return headers.get("x-client-state") or headers.get("X-Client-State")
-
     def _is_valid_client_state(self, client_state: str) -> bool:
-        """
-        Validate X-Client-State format.
-
-        Must be a hexadecimal string of up to 32 characters.
-
-        Args:
-            client_state: X-Client-State header value
-
-        Returns:
-            True if valid, False otherwise
-        """
         return bool(CLIENT_STATE_PATTERN.match(client_state))
 
     def _error_response(
         self,
-        status_code: StatusCode,
+        status_code: int,
         error_type: str,
         location: str,
         name: str,
@@ -373,24 +249,8 @@ class RequestTokenRoute(BaseRoute):
         log_level: str = "warning",
         **extra_log_fields,
     ) -> Response:
-        """
-        Build error response in Firefox Sync format and log the error.
-
-        Args:
-            status_code: HTTP status code
-            error_type: Error type identifier
-            location: Error location (header, body, query, request, server)
-            name: Field name that caused the error
-            description: Human-readable error description
-            log_level: Log level to use ("warning", "error", or "exception")
-            **extra_log_fields: Additional fields to include in log output
-
-        Returns:
-            Response with error body and X-Timestamp header
-        """
-        # Build log context
         log_extra = {
-            "status_code": status_code.value,
+            "status_code": status_code,
             "error_type": error_type,
             "location": location,
             "field": name,
@@ -398,7 +258,6 @@ class RequestTokenRoute(BaseRoute):
             **extra_log_fields,
         }
 
-        # Log at appropriate level
         log_message = f"Token request failed: {description}"
         if log_level == "error":
             logger.error(log_message, extra=log_extra)
@@ -409,13 +268,7 @@ class RequestTokenRoute(BaseRoute):
 
         body = {
             "status": error_type,
-            "errors": [
-                {
-                    "location": location,
-                    "name": name,
-                    "description": description,
-                }
-            ],
+            "errors": [{"location": location, "name": name, "description": description}],
         }
         return Response(
             status_code=status_code,

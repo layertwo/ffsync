@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from aws_lambda_proxy import API, Response, StatusCode
+from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -14,16 +14,16 @@ class DeleteCollectionRoute(BaseRoute):
     def __init__(self, dynamodb_service: StorageManager):
         self.dynamodb_service = dynamodb_service
 
-    def bind(self, api: API):
-        @api.delete("/storage/{collectionName}")
-        @api.pass_event
-        def handle_with_event(event: dict) -> Response:
-            return self.handle(event)
+    def bind(self, app: APIGatewayRestResolver):
+        @app.delete("/storage/<collectionName>")
+        def handle_request(collectionName: str):
+            return self.handle(app.current_event)
 
-    def handle(self, event: dict) -> Response:
+    def handle(self, event) -> Response:
         """Delete an entire collection"""
         try:
-            collection_name = event["pathParameters"]["collectionName"]
+            path_params = event.path_parameters or {}
+            collection_name = path_params["collectionName"]
 
             # Delete collection using DynamoDB service
             modified_timestamp = self.dynamodb_service.delete_collection(collection_name)
@@ -31,27 +31,27 @@ class DeleteCollectionRoute(BaseRoute):
             response_body = {"modified": modified_timestamp}
 
             return Response(
-                status_code=StatusCode.OK,
+                status_code=200,
                 content_type="application/json",
                 body=json.dumps(response_body),
             )
 
         except ValidationException as e:
             return Response(
-                status_code=StatusCode.BAD_REQUEST,
+                status_code=400,
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
             )
         except CollectionNotFoundException as e:
             return Response(
-                status_code=StatusCode.NOT_FOUND,
+                status_code=404,
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
             )
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
-                status_code=StatusCode.INTERNAL_SERVER_ERROR,
+                status_code=500,
                 content_type="application/json",
                 body=json.dumps({"error": "Internal server error"}),
             )

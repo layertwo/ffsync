@@ -1,10 +1,11 @@
 """Unit tests for RequestTokenRoute"""
 
 import json
+from http import HTTPStatus
 from unittest.mock import MagicMock
 
 import pytest
-from aws_lambda_proxy import StatusCode
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.routes.token.request import BEARER_TOKEN_PATTERN, RequestTokenRoute
 from src.shared.exceptions import (
@@ -45,15 +46,17 @@ def request_token_route(mock_oidc_validator, mock_user_manager, mock_token_gener
 @pytest.fixture
 def valid_event():
     """Valid POST request to token endpoint"""
-    return {
-        "httpMethod": "POST",
-        "path": "/1.0/sync/1.5",
-        "headers": {
-            "authorization": "Bearer valid-oidc-token",
-            "content-type": "application/json",
-        },
-        "body": None,
-    }
+    return APIGatewayProxyEvent(
+        {
+            "httpMethod": "POST",
+            "path": "/1.0/sync/1.5",
+            "headers": {
+                "authorization": "Bearer valid-oidc-token",
+                "content-type": "application/json",
+            },
+            "body": None,
+        }
+    )
 
 
 @pytest.fixture
@@ -140,7 +143,7 @@ class TestRequestTokenRouteHandle:
 
         response = request_token_route.handle(valid_event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
         assert response.content_type == "application/json"
         body = json.loads(response.body)
         assert body["id"] == mock_token_response.id
@@ -152,28 +155,32 @@ class TestRequestTokenRouteHandle:
 
     def test_handle_missing_auth_header(self, request_token_route):
         """Test missing Authorization header returns 401"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {},
+            }
+        )
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.UNAUTHORIZED
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
         body = json.loads(response.body)
         assert body["status"] == "invalid-credentials"
         assert "Missing Authorization header" in body["errors"][0]["description"]
 
     def test_handle_malformed_auth_header(self, request_token_route):
         """Test malformed Authorization header returns 400"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {"authorization": "Basic dXNlcjpwYXNz"},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {"authorization": "Basic dXNlcjpwYXNz"},
+            }
+        )
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.BAD_REQUEST
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         body = json.loads(response.body)
         assert body["status"] == "invalid-request"
         assert "Malformed Authorization header" in body["errors"][0]["description"]
@@ -186,7 +193,7 @@ class TestRequestTokenRouteHandle:
 
         response = request_token_route.handle(valid_event)
 
-        assert response.status_code == StatusCode.UNAUTHORIZED
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
         body = json.loads(response.body)
         assert body["status"] == "invalid-credentials"
 
@@ -198,7 +205,7 @@ class TestRequestTokenRouteHandle:
 
         response = request_token_route.handle(valid_event)
 
-        assert response.status_code == StatusCode.UNAUTHORIZED
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
         body = json.loads(response.body)
         assert body["status"] == "invalid-credentials"
 
@@ -210,7 +217,7 @@ class TestRequestTokenRouteHandle:
 
         response = request_token_route.handle(valid_event)
 
-        assert response.status_code == StatusCode.SERVICE_UNAVAILABLE
+        assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
         body = json.loads(response.body)
         assert body["status"] == "service-unavailable"
 
@@ -222,7 +229,7 @@ class TestRequestTokenRouteHandle:
 
         response = request_token_route.handle(valid_event)
 
-        assert response.status_code == StatusCode.BAD_REQUEST
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         body = json.loads(response.body)
         assert body["status"] == "invalid-request"
 
@@ -234,7 +241,7 @@ class TestRequestTokenRouteHandle:
 
         response = request_token_route.handle(valid_event)
 
-        assert response.status_code == StatusCode.INTERNAL_SERVER_ERROR
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
         body = json.loads(response.body)
         assert body["status"] == "internal-error"
 
@@ -269,14 +276,40 @@ class TestRequestTokenRouteHandle:
 
     def test_handle_null_headers(self, request_token_route):
         """Test handling of null headers"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": None,
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": None,
+            }
+        )
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.UNAUTHORIZED
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_handle_request_context_identity_missing(
+        self,
+        request_token_route,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test handling when requestContext.identity raises KeyError"""
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {"authorization": "Bearer valid-token"},
+                "requestContext": {},  # Empty requestContext triggers KeyError on identity access
+            }
+        )
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(event)
+
+        assert response.status_code == HTTPStatus.OK
 
     def test_handle_case_insensitive_auth_header(
         self,
@@ -286,18 +319,20 @@ class TestRequestTokenRouteHandle:
         mock_token_response,
     ):
         """Test that Authorization header lookup is case-insensitive"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {"Authorization": "Bearer valid-token"},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {"Authorization": "Bearer valid-token"},
+            }
+        )
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
 
 
 class TestExtractBearerToken:
@@ -334,14 +369,14 @@ class TestErrorResponse:
     def test_error_response_structure(self, request_token_route):
         """Test error response has correct structure"""
         response = request_token_route._error_response(
-            status_code=StatusCode.UNAUTHORIZED,
+            status_code=HTTPStatus.UNAUTHORIZED,
             error_type="invalid-credentials",
             location="header",
             name="Authorization",
             description="Missing token",
         )
 
-        assert response.status_code == StatusCode.UNAUTHORIZED
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert response.content_type == "application/json"
 
         body = json.loads(response.body)
@@ -357,18 +392,20 @@ class TestContentTypeValidation:
 
     def test_handle_invalid_content_type_returns_415(self, request_token_route):
         """Test invalid Content-Type returns 415"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-                "content-type": "application/xml",
-            },
-            "body": '{"some": "data"}',
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "content-type": "application/xml",
+                },
+                "body": '{"some": "data"}',
+            }
+        )
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.UNSUPPORTED_MEDIA_TYPE
+        assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
         body = json.loads(response.body)
         assert body["status"] == "unsupported-media-type"
         assert "Content-Type" in body["errors"][0]["name"]
@@ -381,22 +418,24 @@ class TestContentTypeValidation:
         mock_token_response,
     ):
         """Test application/json Content-Type is accepted"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-                "content-type": "application/json",
-            },
-            "body": '{"some": "data"}',
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "content-type": "application/json",
+                },
+                "body": '{"some": "data"}',
+            }
+        )
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
 
     def test_handle_valid_content_type_form(
         self,
@@ -406,22 +445,24 @@ class TestContentTypeValidation:
         mock_token_response,
     ):
         """Test application/x-www-form-urlencoded Content-Type is accepted"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-                "content-type": "application/x-www-form-urlencoded",
-            },
-            "body": "key=value",
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "content-type": "application/x-www-form-urlencoded",
+                },
+                "body": "key=value",
+            }
+        )
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
 
     def test_handle_content_type_with_charset(
         self,
@@ -431,22 +472,24 @@ class TestContentTypeValidation:
         mock_token_response,
     ):
         """Test Content-Type with charset parameter is accepted"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-                "content-type": "application/json; charset=utf-8",
-            },
-            "body": '{"some": "data"}',
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "content-type": "application/json; charset=utf-8",
+                },
+                "body": '{"some": "data"}',
+            }
+        )
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
 
     def test_handle_no_body_skips_content_type_validation(
         self,
@@ -456,22 +499,24 @@ class TestContentTypeValidation:
         mock_token_response,
     ):
         """Test Content-Type validation is skipped when no body"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-                "content-type": "application/xml",  # Invalid but should be ignored
-            },
-            "body": None,
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "content-type": "application/xml",  # Invalid but should be ignored
+                },
+                "body": None,
+            }
+        )
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
 
     def test_handle_empty_body_skips_content_type_validation(
         self,
@@ -481,22 +526,24 @@ class TestContentTypeValidation:
         mock_token_response,
     ):
         """Test Content-Type validation is skipped when body is empty string"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-                "content-type": "application/xml",  # Invalid but should be ignored
-            },
-            "body": "",
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "content-type": "application/xml",  # Invalid but should be ignored
+                },
+                "body": "",
+            }
+        )
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
 
 
 class TestBearerTokenPattern:
@@ -528,21 +575,23 @@ class TestXClientStateHeader:
         mock_token_response,
     ):
         """Test valid X-Client-State is passed to user manager"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-                "x-client-state": "abcdef123456",
-            },
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "x-client-state": "abcdef123456",
+                },
+            }
+        )
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
         request_token_route.user_manager.get_or_create_user.assert_called_once_with(
             "user123", "abcdef123456"
         )
@@ -555,21 +604,23 @@ class TestXClientStateHeader:
         mock_token_response,
     ):
         """Test X-Client-State header lookup is case-insensitive"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-                "X-Client-State": "ABCDEF",
-            },
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "X-Client-State": "ABCDEF",
+                },
+            }
+        )
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
         request_token_route.user_manager.get_or_create_user.assert_called_once_with(
             "user123", "ABCDEF"
         )
@@ -582,35 +633,39 @@ class TestXClientStateHeader:
         mock_token_response,
     ):
         """Test missing X-Client-State defaults to empty string"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-            },
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                },
+            }
+        )
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
         request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
 
     def test_invalid_client_state_non_hex_returns_400(self, request_token_route):
         """Test non-hexadecimal X-Client-State returns 400"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-                "x-client-state": "not-hex-value!",
-            },
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "x-client-state": "not-hex-value!",
+                },
+            }
+        )
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.BAD_REQUEST
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         body = json.loads(response.body)
         assert body["status"] == "invalid-request"
         assert body["errors"][0]["name"] == "X-Client-State"
@@ -618,17 +673,19 @@ class TestXClientStateHeader:
 
     def test_invalid_client_state_too_long_returns_400(self, request_token_route):
         """Test X-Client-State longer than 32 chars returns 400"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-                "x-client-state": "a" * 33,  # 33 hex chars, exceeds 32 limit
-            },
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "x-client-state": "a" * 33,  # 33 hex chars, exceeds 32 limit
+                },
+            }
+        )
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.BAD_REQUEST
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         body = json.loads(response.body)
         assert body["status"] == "invalid-request"
         assert body["errors"][0]["name"] == "X-Client-State"
@@ -641,21 +698,23 @@ class TestXClientStateHeader:
         mock_token_response,
     ):
         """Test X-Client-State at max length (32 chars) is accepted"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-                "x-client-state": "a" * 32,  # Exactly 32 hex chars
-            },
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "x-client-state": "a" * 32,  # Exactly 32 hex chars
+                },
+            }
+        )
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
 
     def test_empty_client_state_is_valid(
         self,
@@ -665,21 +724,23 @@ class TestXClientStateHeader:
         mock_token_response,
     ):
         """Test empty X-Client-State header value is valid"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Bearer valid-token",
-                "x-client-state": "",
-            },
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "x-client-state": "",
+                },
+            }
+        )
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
         request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
 
 
@@ -701,7 +762,7 @@ class TestXTimestampHeader:
 
         response = request_token_route.handle(valid_event)
 
-        assert response.status_code == StatusCode.OK
+        assert response.status_code == HTTPStatus.OK
         assert "X-Timestamp" in response.headers
         # Verify it's a valid integer timestamp
         timestamp = int(response.headers["X-Timestamp"])
@@ -709,14 +770,16 @@ class TestXTimestampHeader:
 
     def test_error_response_includes_timestamp_header(self, request_token_route):
         """Test error response includes X-Timestamp header"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {},
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {},
+            }
+        )
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.UNAUTHORIZED
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert "X-Timestamp" in response.headers
         # Verify it's a valid integer timestamp
         timestamp = int(response.headers["X-Timestamp"])
@@ -744,16 +807,18 @@ class TestXTimestampHeader:
 
     def test_validation_error_includes_timestamp_header(self, request_token_route):
         """Test validation error (400) includes X-Timestamp header"""
-        event = {
-            "httpMethod": "POST",
-            "path": "/1.0/sync/1.5",
-            "headers": {
-                "authorization": "Basic invalid",
-            },
-        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Basic invalid",
+                },
+            }
+        )
         response = request_token_route.handle(event)
 
-        assert response.status_code == StatusCode.BAD_REQUEST
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         assert "X-Timestamp" in response.headers
 
     def test_service_unavailable_includes_timestamp_header(self, request_token_route, valid_event):
@@ -764,5 +829,5 @@ class TestXTimestampHeader:
 
         response = request_token_route.handle(valid_event)
 
-        assert response.status_code == StatusCode.SERVICE_UNAVAILABLE
+        assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
         assert "X-Timestamp" in response.headers

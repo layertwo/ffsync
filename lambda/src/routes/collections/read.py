@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from aws_lambda_proxy import API, Response, StatusCode
+from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -14,17 +14,17 @@ class ReadCollectionRoute(BaseRoute):
     def __init__(self, storage_manager: StorageManager):
         self.storage_manager = storage_manager
 
-    def bind(self, api: API):
-        @api.get("/storage/{collectionName}")
-        @api.pass_event
-        def handle_with_event(event: dict) -> Response:
-            return self.handle(event)
+    def bind(self, app: APIGatewayRestResolver):
+        @app.get("/storage/<collectionName>")
+        def handle_request(collectionName: str):
+            return self.handle(app.current_event)
 
-    def handle(self, event: dict) -> Response:
+    def handle(self, event) -> Response:
         """Get collection metadata or retrieve objects with filtering"""
         try:
-            collection_name = event["pathParameters"]["collectionName"]
-            query_params = event.get("queryStringParameters") or {}
+            path_params = event.path_parameters or {}
+            query_params = event.query_string_parameters or {}
+            collection_name = path_params["collectionName"]
 
             # Check if this is a request for objects or just metadata
             has_object_filters = any(
@@ -62,7 +62,7 @@ class ReadCollectionRoute(BaseRoute):
                     response_body["next_offset"] = objects["next_offset"]
 
                 return Response(
-                    status_code=StatusCode.OK,
+                    status_code=200,
                     content_type="application/json",
                     body=json.dumps(response_body),
                     headers={"X-Last-Modified": str(objects.get("last_modified", 0))},
@@ -81,7 +81,7 @@ class ReadCollectionRoute(BaseRoute):
                 }
 
                 return Response(
-                    status_code=StatusCode.OK,
+                    status_code=200,
                     content_type="application/json",
                     body=json.dumps(response_body),
                     headers={"X-Last-Modified": str(collection_data.modified)},
@@ -89,20 +89,20 @@ class ReadCollectionRoute(BaseRoute):
 
         except ValidationException as e:
             return Response(
-                status_code=StatusCode.BAD_REQUEST,
+                status_code=400,
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
             )
         except CollectionNotFoundException as e:
             return Response(
-                status_code=StatusCode.NOT_FOUND,
+                status_code=404,
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
             )
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
-                status_code=StatusCode.INTERNAL_SERVER_ERROR,
+                status_code=500,
                 content_type="application/json",
                 body=json.dumps({"error": "Internal server error"}),
             )
