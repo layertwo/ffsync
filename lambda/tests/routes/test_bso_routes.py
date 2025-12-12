@@ -61,6 +61,7 @@ class TestReadBSORoute:
         mock_storage_manager.get_storage_object.assert_called_once_with("bookmarks", "item123")
         assert response.status_code == 200
 
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["object"]["id"] == "item123"
         assert body["object"]["payload"] == "bookmark_data"
@@ -89,6 +90,7 @@ class TestReadBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert "sortindex" not in body["object"]
         assert "ttl" not in body["object"]
@@ -108,6 +110,7 @@ class TestReadBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 400
+        assert response.body is not None
         body = json.loads(response.body)
         assert "error" in body
 
@@ -126,6 +129,7 @@ class TestReadBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 404
+        assert response.body is not None
         body = json.loads(response.body)
         assert "error" in body
 
@@ -144,6 +148,7 @@ class TestReadBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 404
+        assert response.body is not None
         body = json.loads(response.body)
         assert "error" in body
 
@@ -160,6 +165,7 @@ class TestReadBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 500
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "Internal server error"
 
@@ -222,6 +228,7 @@ class TestUpdateBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["object"]["id"] == "item123"
         assert body["object"]["payload"] == "updated_data"
@@ -449,6 +456,7 @@ class TestDeleteBSORoute:
 
         mock_storage_manager.delete_storage_object.assert_called_once_with("bookmarks", "item123")
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["modified"] == 1234567892.00
 

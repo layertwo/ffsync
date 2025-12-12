@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from src.shared.token import TokenResponse
 
 
@@ -80,7 +78,7 @@ class TestTokenResponse:
             hashalg="sha256",
         )
 
-        json_str = token.to_json()
+        json_str = token.to_json()  # type: ignore[attr-defined]
         data = json.loads(json_str)
 
         assert data["id"] == "json_test_id"
@@ -93,7 +91,7 @@ class TestTokenResponse:
     def test_from_json(self):
         """Test deserialization from JSON"""
         json_str = '{"id": "from_json_id", "key": "from_json_key", "api_endpoint": "https://sync.example.com/1.5/fromjson", "uid": 111, "duration": 300, "hashalg": "sha256"}'
-        token = TokenResponse.from_json(json_str)
+        token = TokenResponse.from_json(json_str)  # type: ignore[attr-defined]
 
         assert token.id == "from_json_id"
         assert token.key == "from_json_key"
@@ -113,8 +111,8 @@ class TestTokenResponse:
             hashalg="sha256",
         )
 
-        json_str = original.to_json()
-        restored = TokenResponse.from_json(json_str)
+        json_str = original.to_json()  # type: ignore[attr-defined]
+        restored = TokenResponse.from_json(json_str)  # type: ignore[attr-defined]
 
         assert restored.id == original.id
         assert restored.key == original.key
@@ -134,7 +132,7 @@ class TestTokenResponse:
             hashalg="sha256",
         )
 
-        data = token.to_dict()
+        data = token.to_dict()  # type: ignore[attr-defined]
 
         assert isinstance(data, dict)
         assert data["id"] == "dict_id"
@@ -155,7 +153,7 @@ class TestTokenResponse:
             "hashalg": "sha256",
         }
 
-        token = TokenResponse.from_dict(data)
+        token = TokenResponse.from_dict(data)  # type: ignore[attr-defined]
 
         assert token.id == "fromdict_id"
         assert token.key == "fromdict_key"

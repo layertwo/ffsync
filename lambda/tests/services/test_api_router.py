@@ -15,7 +15,7 @@ def test_api_router_initialization():
         mock_resolver_instance = MagicMock()
         mock_resolver_class.return_value = mock_resolver_instance
 
-        router = ApiRouter(routes=routes)
+        router = ApiRouter(routes=routes)  # type: ignore[arg-type]
 
         # Verify resolver was created
         mock_resolver_class.assert_called_once()

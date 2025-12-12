@@ -113,7 +113,7 @@ class TestDiscoverProviderConfig:
 
     def test_discover_provider_config_timeout(self, validator):
         """Test ServiceUnavailableError on timeout"""
-        import requests
+        import requests  # type: ignore[import-untyped]
 
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_get.side_effect = requests.exceptions.Timeout()
@@ -125,7 +125,7 @@ class TestDiscoverProviderConfig:
 
     def test_discover_provider_config_connection_error(self, validator):
         """Test ServiceUnavailableError on connection error"""
-        import requests
+        import requests  # type: ignore[import-untyped]
 
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_get.side_effect = requests.exceptions.ConnectionError()
@@ -137,7 +137,7 @@ class TestDiscoverProviderConfig:
 
     def test_discover_provider_config_http_error(self, validator):
         """Test ServiceUnavailableError on HTTP error"""
-        import requests
+        import requests  # type: ignore[import-untyped]
 
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -266,13 +266,6 @@ class TestValidateToken:
 
     def test_validate_token_missing_sub_claim(self, validator, mock_provider_config):
         """Test InvalidCredentialsError when sub claim is missing"""
-        mock_claims = {
-            "iss": "https://auth.example.com",
-            "aud": "test-client-id",
-            "exp": int(time.time()) + 3600,
-            "iat": int(time.time()),
-        }
-
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
             mock_response.json.return_value = mock_provider_config
@@ -362,14 +355,6 @@ class TestValidateToken:
 
     def test_validate_token_empty_sub_claim(self, validator, mock_provider_config):
         """Test InvalidCredentialsError when sub claim is empty string"""
-        mock_claims = {
-            "sub": "",  # Empty string
-            "iss": "https://auth.example.com",
-            "aud": "test-client-id",
-            "exp": int(time.time()) + 3600,
-            "iat": int(time.time()),
-        }
-
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
             mock_response.json.return_value = mock_provider_config
@@ -382,7 +367,13 @@ class TestValidateToken:
                 mock_jwk.return_value.get_signing_key_from_jwt.return_value = mock_signing_key
 
                 with patch("src.services.oidc_validator.jwt.decode") as mock_decode:
-                    mock_decode.return_value = mock_claims
+                    mock_decode.return_value = {
+                        "sub": "",  # Empty string
+                        "iss": "https://auth.example.com",
+                        "aud": "test-client-id",
+                        "exp": int(time.time()) + 3600,
+                        "iat": int(time.time()),
+                    }
 
                     with pytest.raises(InvalidCredentialsError) as exc_info:
                         validator.validate_token("empty-sub-token")

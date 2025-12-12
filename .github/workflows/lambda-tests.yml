@@ -44,6 +44,16 @@ jobs:
           cd lambda
           isort --check-only --diff src/ tests/
 
+      - name: Run flake8 linting
+        run: |
+          cd lambda
+          flake8 src/ tests/
+
+      - name: Run mypy type checking
+        run: |
+          cd lambda
+          mypy
+
       - name: Run tests with coverage
         run: |
           cd lambda

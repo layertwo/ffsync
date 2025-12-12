@@ -363,7 +363,7 @@ class TestStorageManager:
             },
         )
 
-        objects = [BasicStorageObject(id="obj1", payload="payload", modified=mock_timestamp)]
+        objects = [BasicStorageObject(id="obj1", payload="payload", modified=1234567890.12)]
 
         with pytest.raises(CollectionNotFoundException):
             storage_manager.update_collection("nonexistent", objects)

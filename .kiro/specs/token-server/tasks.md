@@ -63,7 +63,7 @@
   - Implement validate_generation() to check current value
   - Update updated_at timestamp on all modifications
   - Handle DynamoDB exceptions (ClientError, etc.)
-  - _Requirements: 3.1, 3.2, 3.4, 3.5, 7.1, 7.2, 7.3, 7.4, 7.5_
+  - _Requirements: 3.1, 3.2, 3.4, 3.5, 3.7, 7.1, 7.2, 7.3, 7.4, 7.5_
 
 - [ ]* 4.1 Write property test for new user generation number
   - **Property 9: Default generation number**
@@ -72,6 +72,10 @@
 - [ ]* 4.2 Write property test for generation number monotonicity
   - **Property 10: Generation number monotonicity**
   - **Validates: Requirements 3.5**
+
+- [ ]* 4.2a Write property test for administrative generation increment
+  - **Property 10a: Administrative generation increment**
+  - **Validates: Requirements 3.7**
 
 - [ ]* 4.3 Write property test for generation-based invalidation
   - **Property 7: Generation-based token invalidation**

@@ -7,7 +7,6 @@ import pytest
 from src.entrypoint import token_api_handler
 from src.services.api_router import ApiRouter
 from src.services.oidc_validator import OIDCValidator
-from src.services.token_generator import TokenGenerator
 
 
 @pytest.fixture

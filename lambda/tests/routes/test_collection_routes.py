@@ -1,6 +1,7 @@
 """Tests for collection route handlers"""
 
 import json
+from typing import Any
 from unittest.mock import MagicMock
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
@@ -29,7 +30,7 @@ class TestCreateCollectionRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event = {
+        event: dict[str, Any] = {
             "httpMethod": "POST",
             "path": "/storage/bookmarks",
             "pathParameters": {"collectionName": "bookmarks"},
@@ -71,6 +72,7 @@ class TestCreateCollectionRoute:
         response = route.handle(event)
 
         assert response.status_code == 201
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["collection"]["name"] == "bookmarks"
         assert body["batchResult"]["success"] == ["obj1", "obj2"]
@@ -288,6 +290,7 @@ class TestReadCollectionRoute:
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["collection"]["name"] == "bookmarks"
         assert body["collection"]["count"] == 5
@@ -325,6 +328,7 @@ class TestReadCollectionRoute:
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert len(body["objects"]) == 1
         assert body["more"] is False
@@ -360,6 +364,7 @@ class TestReadCollectionRoute:
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["more"] is True
         assert body["next_offset"] == 15
@@ -392,6 +397,7 @@ class TestReadCollectionRoute:
 
         response = route.handle(event)
 
+        assert response.body is not None
         body = json.loads(response.body)
         assert "sortindex" not in body["objects"][0]
         assert "ttl" not in body["objects"][0]
@@ -680,6 +686,7 @@ class TestDeleteCollectionRoute:
 
         mock_storage_manager.delete_collection.assert_called_once_with("bookmarks")
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["modified"] == 1234567892.00
 
@@ -732,7 +739,7 @@ class TestListCollectionsRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event = {
+        event: dict[str, Any] = {
             "httpMethod": "GET",
             "path": "/storage",
             "pathParameters": None,
@@ -759,6 +766,7 @@ class TestListCollectionsRoute:
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert len(body["collections"]) == 2
         assert body["collections"][0]["name"] == "bookmarks"

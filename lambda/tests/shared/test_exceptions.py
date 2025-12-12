@@ -48,6 +48,7 @@ class TestSyncStorageException:
         assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
         assert response.content_type == "application/json"
 
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "InternalServerError"
         assert body["message"] == "Test error"
@@ -77,6 +78,7 @@ class TestValidationException:
         response = exc.to_response()
 
         assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "ValidationException"
         assert body["message"] == "Invalid input"
@@ -105,6 +107,7 @@ class TestConflictException:
         response = exc.to_response()
 
         assert response.status_code == HTTPStatus.CONFLICT
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "ConflictException"
 
@@ -132,6 +135,7 @@ class TestPreconditionFailedException:
         response = exc.to_response()
 
         assert response.status_code == HTTPStatus.PRECONDITION_FAILED
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "PreconditionFailedException"
 
@@ -159,6 +163,7 @@ class TestQuotaExceededException:
         response = exc.to_response()
 
         assert response.status_code == HTTPStatus.INSUFFICIENT_STORAGE
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "QuotaExceededException"
 
@@ -186,6 +191,7 @@ class TestCollectionNotFoundException:
         response = exc.to_response()
 
         assert response.status_code == HTTPStatus.NOT_FOUND
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "CollectionNotFoundException"
 
@@ -213,6 +219,7 @@ class TestStorageObjectNotFoundException:
         response = exc.to_response()
 
         assert response.status_code == HTTPStatus.NOT_FOUND
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "StorageObjectNotFoundException"
 
@@ -240,6 +247,7 @@ class TestAuthenticationException:
         response = exc.to_response()
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "AuthenticationException"
 
@@ -305,6 +313,7 @@ class TestInvalidTokenError:
         assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert response.content_type == "application/json"
 
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "InvalidTokenError"
         assert body["message"] == "Token expired"
@@ -334,6 +343,7 @@ class TestInvalidCredentialsError:
         response = exc.to_response()
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "InvalidCredentialsError"
 
@@ -369,6 +379,7 @@ class TestTokenValidationError:
         response = exc.to_response()
 
         assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "ValidationException"
 
@@ -399,6 +410,7 @@ class TestServiceUnavailableError:
         assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
         assert response.content_type == "application/json"
 
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "ServiceUnavailableError"
         assert body["message"] == "Database connection failed"

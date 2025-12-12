@@ -68,7 +68,7 @@ class TestBasicStorageObject:
             ttl=7200,
         )
 
-        bso_dict = bso.to_dict()
+        bso_dict = bso.to_dict()  # type: ignore[attr-defined]
 
         assert bso_dict["id"] == "test_id"
         assert bso_dict["payload"] == "test_payload"
@@ -86,7 +86,7 @@ class TestBasicStorageObject:
             "ttl": 1800,
         }
 
-        bso = BasicStorageObject.from_dict(data)
+        bso = BasicStorageObject.from_dict(data)  # type: ignore[attr-defined]
 
         assert bso.id == "test_id"
         assert bso.payload == "test_payload"
@@ -110,7 +110,7 @@ class TestCollectionData:
         """Test converting collection to dictionary"""
         collection = CollectionData(name="history", modified=1234567880.00, count=100, usage=10240)
 
-        collection_dict = collection.to_dict()
+        collection_dict = collection.to_dict()  # type: ignore[attr-defined]
 
         assert collection_dict["name"] == "history"
         assert collection_dict["modified"] == 1234567880.00
@@ -121,7 +121,7 @@ class TestCollectionData:
         """Test creating collection from dictionary"""
         data = {"name": "tabs", "modified": 1234567870.00, "count": 5, "usage": 512}
 
-        collection = CollectionData.from_dict(data)
+        collection = CollectionData.from_dict(data)  # type: ignore[attr-defined]
 
         assert collection.name == "tabs"
         assert collection.modified == 1234567870.00
@@ -170,7 +170,7 @@ class TestBatchResult:
         """Test converting batch result to dictionary"""
         result = BatchResult(success=["obj1"], failed={"obj2": ["error"]}, modified=1234567890.12)
 
-        result_dict = result.to_dict()
+        result_dict = result.to_dict()  # type: ignore[attr-defined]
 
         assert result_dict["success"] == ["obj1"]
         assert result_dict["failed"] == {"obj2": ["error"]}
@@ -184,7 +184,7 @@ class TestBatchResult:
             "modified": 1234567890.12,
         }
 
-        result = BatchResult.from_dict(data)
+        result = BatchResult.from_dict(data)  # type: ignore[attr-defined]
 
         assert result.success == ["obj1", "obj2"]
         assert result.failed == {"obj3": ["validation error"]}
@@ -299,11 +299,11 @@ class TestValidateTimestamp:
 
     def test_invalid_non_numeric_types(self):
         """Test rejection of non-numeric types"""
-        assert validate_timestamp("1234567890") is False
-        assert validate_timestamp("1234567890.12") is False
-        assert validate_timestamp(None) is False
-        assert validate_timestamp([]) is False
-        assert validate_timestamp({}) is False
+        assert validate_timestamp("1234567890") is False  # type: ignore[arg-type]
+        assert validate_timestamp("1234567890.12") is False  # type: ignore[arg-type]
+        assert validate_timestamp(None) is False  # type: ignore[arg-type]
+        assert validate_timestamp([]) is False  # type: ignore[arg-type]
+        assert validate_timestamp({}) is False  # type: ignore[arg-type]
 
     def test_edge_case_zero(self):
         """Test edge case of zero timestamp"""

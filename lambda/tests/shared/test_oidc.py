@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from src.shared.oidc import ErrorDetail, OIDCProviderConfig, OIDCTokenClaims
 
 
@@ -52,7 +50,7 @@ class TestOIDCTokenClaims:
             email="user789@example.com",
         )
 
-        json_str = claims.to_json()
+        json_str = claims.to_json()  # type: ignore[attr-defined]
         data = json.loads(json_str)
 
         assert data["sub"] == "user789"
@@ -65,7 +63,7 @@ class TestOIDCTokenClaims:
     def test_from_json(self):
         """Test deserialization from JSON"""
         json_str = '{"sub": "user999", "iss": "https://auth.example.com", "aud": "client-id", "exp": 1234567890, "iat": 1234567800, "email": "user999@example.com"}'
-        claims = OIDCTokenClaims.from_json(json_str)
+        claims = OIDCTokenClaims.from_json(json_str)  # type: ignore[attr-defined]
 
         assert claims.sub == "user999"
         assert claims.iss == "https://auth.example.com"
@@ -82,8 +80,8 @@ class TestOIDCTokenClaims:
             email="roundtrip@example.com",
         )
 
-        json_str = original.to_json()
-        restored = OIDCTokenClaims.from_json(json_str)
+        json_str = original.to_json()  # type: ignore[attr-defined]
+        restored = OIDCTokenClaims.from_json(json_str)  # type: ignore[attr-defined]
 
         assert restored.sub == original.sub
         assert restored.iss == original.iss
@@ -114,7 +112,7 @@ class TestOIDCTokenClaims:
             iat=1234567800,
         )
 
-        data = claims.to_dict()
+        data = claims.to_dict()  # type: ignore[attr-defined]
 
         assert isinstance(data, dict)
         assert data["sub"] == "dictuser"
@@ -150,7 +148,7 @@ class TestOIDCProviderConfig:
             userinfo_endpoint="https://auth.example.com/userinfo",
         )
 
-        json_str = config.to_json()
+        json_str = config.to_json()  # type: ignore[attr-defined]
         data = json.loads(json_str)
 
         assert data["issuer"] == "https://auth.example.com"
@@ -160,7 +158,7 @@ class TestOIDCProviderConfig:
     def test_from_json(self):
         """Test deserialization from JSON"""
         json_str = '{"issuer": "https://auth.example.com", "jwks_uri": "https://auth.example.com/jwks", "authorization_endpoint": "https://auth.example.com/authorize", "token_endpoint": "https://auth.example.com/token", "userinfo_endpoint": "https://auth.example.com/userinfo"}'
-        config = OIDCProviderConfig.from_json(json_str)
+        config = OIDCProviderConfig.from_json(json_str)  # type: ignore[attr-defined]
 
         assert config.issuer == "https://auth.example.com"
         assert config.jwks_uri == "https://auth.example.com/jwks"
@@ -175,8 +173,8 @@ class TestOIDCProviderConfig:
             userinfo_endpoint="https://auth.example.com/userinfo",
         )
 
-        json_str = original.to_json()
-        restored = OIDCProviderConfig.from_json(json_str)
+        json_str = original.to_json()  # type: ignore[attr-defined]
+        restored = OIDCProviderConfig.from_json(json_str)  # type: ignore[attr-defined]
 
         assert restored.issuer == original.issuer
         assert restored.jwks_uri == original.jwks_uri
@@ -194,7 +192,7 @@ class TestOIDCProviderConfig:
             "userinfo_endpoint": "https://auth.example.com/userinfo",
         }
 
-        config = OIDCProviderConfig.from_dict(data)
+        config = OIDCProviderConfig.from_dict(data)  # type: ignore[attr-defined]
 
         assert config.issuer == "https://auth.example.com"
         assert config.jwks_uri == "https://auth.example.com/jwks"
@@ -236,7 +234,7 @@ class TestErrorDetail:
             description="Invalid content type",
         )
 
-        json_str = error.to_json()
+        json_str = error.to_json()  # type: ignore[attr-defined]
         data = json.loads(json_str)
 
         assert data["location"] == "header"
@@ -246,7 +244,7 @@ class TestErrorDetail:
     def test_from_json(self):
         """Test deserialization from JSON"""
         json_str = '{"location": "body", "name": "password", "description": "Password too short"}'
-        error = ErrorDetail.from_json(json_str)
+        error = ErrorDetail.from_json(json_str)  # type: ignore[attr-defined]
 
         assert error.location == "body"
         assert error.name == "password"
@@ -260,8 +258,8 @@ class TestErrorDetail:
             description="Page number must be an integer",
         )
 
-        json_str = original.to_json()
-        restored = ErrorDetail.from_json(json_str)
+        json_str = original.to_json()  # type: ignore[attr-defined]
+        restored = ErrorDetail.from_json(json_str)  # type: ignore[attr-defined]
 
         assert restored.location == original.location
         assert restored.name == original.name
@@ -271,7 +269,7 @@ class TestErrorDetail:
         """Test conversion to dictionary"""
         error = ErrorDetail(location="header", name="Accept", description="Unsupported media type")
 
-        data = error.to_dict()
+        data = error.to_dict()  # type: ignore[attr-defined]
 
         assert isinstance(data, dict)
         assert data["location"] == "header"
@@ -286,7 +284,7 @@ class TestErrorDetail:
             "description": "Username already exists",
         }
 
-        error = ErrorDetail.from_dict(data)
+        error = ErrorDetail.from_dict(data)  # type: ignore[attr-defined]
 
         assert error.location == "body"
         assert error.name == "username"
