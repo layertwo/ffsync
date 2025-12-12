@@ -1,6 +1,7 @@
 """Tests for info route handlers"""
 
 import json
+from typing import Any
 from unittest.mock import MagicMock
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
@@ -22,7 +23,7 @@ class TestReadCollectionsInfoRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event = {
+        event: dict[str, Any] = {
             "httpMethod": "GET",
             "path": "/info/collections",
             "pathParameters": None,
@@ -37,7 +38,7 @@ class TestReadCollectionsInfoRoute:
         """Test successful retrieval of collections info"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         collections = [
             CollectionData(name="bookmarks", modified=1234567890.12, count=5, usage=1024),
@@ -51,6 +52,7 @@ class TestReadCollectionsInfoRoute:
         mock_storage_manager.list_collections.assert_called_once()
         assert response.status_code == 200
 
+        assert response.body is not None
         body = json.loads(response.body)
         assert "collections" in body
         assert "bookmarks" in body["collections"]
@@ -64,13 +66,14 @@ class TestReadCollectionsInfoRoute:
         """Test handling when no collections exist"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         mock_storage_manager.list_collections.return_value = []
 
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["collections"] == {}
 
@@ -78,13 +81,14 @@ class TestReadCollectionsInfoRoute:
         """Test handling of generic exceptions"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         mock_storage_manager.list_collections.side_effect = Exception("Database error")
 
         response = route.handle(event)
 
         assert response.status_code == 500
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "Internal server error"
 
@@ -99,7 +103,7 @@ class TestReadCollectionCountsRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event = {
+        event: dict[str, Any] = {
             "httpMethod": "GET",
             "path": "/info/collection_counts",
             "pathParameters": None,
@@ -114,7 +118,7 @@ class TestReadCollectionCountsRoute:
         """Test successful retrieval of collection counts"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         collections = [
             CollectionData(name="bookmarks", modified=1234567890.12, count=15, usage=1024),
@@ -126,6 +130,7 @@ class TestReadCollectionCountsRoute:
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["counts"] == {"bookmarks": 15, "history": 100, "tabs": 7}
 
@@ -133,13 +138,14 @@ class TestReadCollectionCountsRoute:
         """Test handling when no collections exist"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         mock_storage_manager.list_collections.return_value = []
 
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["counts"] == {}
 
@@ -147,7 +153,7 @@ class TestReadCollectionCountsRoute:
         """Test handling of generic exceptions"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
@@ -166,7 +172,7 @@ class TestReadCollectionUsageRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event = {
+        event: dict[str, Any] = {
             "httpMethod": "GET",
             "path": "/info/collection_usage",
             "pathParameters": None,
@@ -181,7 +187,7 @@ class TestReadCollectionUsageRoute:
         """Test successful retrieval of collection usage"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         collections = [
             CollectionData(name="bookmarks", modified=1234567890.12, count=5, usage=1024),
@@ -193,6 +199,7 @@ class TestReadCollectionUsageRoute:
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["usage"] == {"bookmarks": 1024, "history": 4096, "tabs": 512}
 
@@ -200,13 +207,14 @@ class TestReadCollectionUsageRoute:
         """Test handling when no collections exist"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         mock_storage_manager.list_collections.return_value = []
 
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["usage"] == {}
 
@@ -214,7 +222,7 @@ class TestReadCollectionUsageRoute:
         """Test handling of generic exceptions"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
@@ -233,7 +241,7 @@ class TestReadQuotaInfoRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event = {
+        event: dict[str, Any] = {
             "httpMethod": "GET",
             "path": "/info/quota",
             "pathParameters": None,
@@ -248,7 +256,7 @@ class TestReadQuotaInfoRoute:
         """Test successful retrieval of quota information"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         collections = [
             CollectionData(name="bookmarks", modified=1234567890.12, count=5, usage=1024),
@@ -260,6 +268,7 @@ class TestReadQuotaInfoRoute:
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
 
         quota = body["quota"]
@@ -272,13 +281,14 @@ class TestReadQuotaInfoRoute:
         """Test quota info when no collections exist"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         mock_storage_manager.list_collections.return_value = []
 
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
 
         quota = body["quota"]
@@ -289,7 +299,7 @@ class TestReadQuotaInfoRoute:
         """Test quota info with single collection"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         collections = [
             CollectionData(name="bookmarks", modified=1234567890.12, count=25, usage=5000)
@@ -299,6 +309,7 @@ class TestReadQuotaInfoRoute:
         response = route.handle(event)
 
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
 
         quota = body["quota"]
@@ -309,7 +320,7 @@ class TestReadQuotaInfoRoute:
         """Test handling of generic exceptions"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
-        event = {}
+        event: dict[str, Any] = {}
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 

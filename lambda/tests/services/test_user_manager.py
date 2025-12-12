@@ -294,7 +294,7 @@ class TestUserManager:
         dynamodb_stubber,
         storage_table_name,
     ):
-        """Test successful user retrieval via _get_user"""
+        """Test successful user retrieval via get_user"""
         user_id = "user123"
 
         dynamodb_stubber.add_response(
@@ -315,7 +315,7 @@ class TestUserManager:
             },
         )
 
-        user = user_manager._get_user(user_id)
+        user = user_manager.get_user(user_id)
 
         assert user is not None
         assert user.user_id == user_id
@@ -330,7 +330,7 @@ class TestUserManager:
         dynamodb_stubber,
         storage_table_name,
     ):
-        """Test _get_user returns None when user doesn't exist"""
+        """Test get_user returns None when user doesn't exist"""
         user_id = "nonexistent"
 
         dynamodb_stubber.add_response(
@@ -342,7 +342,7 @@ class TestUserManager:
             },
         )
 
-        user = user_manager._get_user(user_id)
+        user = user_manager.get_user(user_id)
 
         assert user is None
 
@@ -371,7 +371,7 @@ class TestUserManager:
         user_manager,
         dynamodb_stubber,
     ):
-        """Test that unexpected ClientErrors are re-raised in _get_user"""
+        """Test that unexpected ClientErrors are re-raised in get_user"""
         from botocore.exceptions import ClientError
 
         dynamodb_stubber.add_client_error(
@@ -381,7 +381,7 @@ class TestUserManager:
         )
 
         with pytest.raises(ClientError) as exc_info:
-            user_manager._get_user("user123")
+            user_manager.get_user("user123")
 
         assert exc_info.value.response["Error"]["Code"] == "ValidationException"
 
@@ -625,7 +625,7 @@ class TestUserManager:
         dynamodb_stubber,
         storage_table_name,
     ):
-        """Test _get_user returns empty string for missing client_state (legacy records)"""
+        """Test get_user returns empty string for missing client_state (legacy records)"""
         user_id = "legacy_user"
 
         # Stub get_item to return user without client_state field (legacy record)
@@ -647,13 +647,13 @@ class TestUserManager:
             },
         )
 
-        user = user_manager._get_user(user_id)
+        user = user_manager.get_user(user_id)
 
         assert user is not None
         assert user.user_id == user_id
         assert user.client_state == ""  # Default to empty string
 
-    def test_update_client_state_and_increment_unexpected_error(
+    def test_update_user_client_state_unexpected_error(
         self,
         user_manager,
         dynamodb_stubber,
@@ -661,19 +661,10 @@ class TestUserManager:
         mock_timestamp,
         mock_get_current_timestamp,
     ):
-        """Test unexpected ClientError is re-raised in _update_client_state_and_increment"""
+        """Test unexpected ClientError is re-raised in update_user_client_state"""
         from botocore.exceptions import ClientError
 
-        from src.shared.user import UserRecord
-
         user_id = "user123"
-        existing_user = UserRecord(
-            user_id=user_id,
-            generation=5,
-            client_state="old_state",
-            created_at=1234567800.00,
-            updated_at=1234567890.00,
-        )
 
         dynamodb_stubber.add_client_error(
             "update_item",
@@ -682,6 +673,39 @@ class TestUserManager:
         )
 
         with pytest.raises(ClientError) as exc_info:
-            user_manager._update_client_state_and_increment(user_id, "new_state", existing_user)
+            user_manager.update_user_client_state(user_id, "new_state")
 
         assert exc_info.value.response["Error"]["Code"] == "ValidationException"
+
+    def test_get_or_create_user_exists_but_cannot_retrieve(
+        self,
+        user_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test ServiceUnavailableError when user exists but cannot be retrieved"""
+        user_id = "user123"
+
+        # Stub conditional check failure (user already exists)
+        dynamodb_stubber.add_client_error(
+            "put_item",
+            service_error_code="ConditionalCheckFailedException",
+            service_message="The conditional request failed",
+        )
+
+        # Stub get_item to return empty response (user not found, which should be impossible)
+        dynamodb_stubber.add_response(
+            "get_item",
+            {},  # Empty response - no Item
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": {"S": f"USER#{user_id}"}},
+            },
+        )
+
+        with pytest.raises(ServiceUnavailableError) as exc_info:
+            user_manager.get_or_create_user(user_id)
+
+        assert "User exists but could not be retrieved" in str(exc_info.value.message)

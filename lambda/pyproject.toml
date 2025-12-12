@@ -76,3 +76,16 @@ select = [
     "F",   # pyflakes
     "C90", # mccabe complexity
 ]
+
+[tool.mypy]
+check_untyped_defs = true
+show_error_codes = true
+pretty = true
+ignore_missing_imports = true
+files = ["src/", "tests/"]
+exclude = [
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    "htmlcov",
+]

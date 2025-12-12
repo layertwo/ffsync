@@ -52,7 +52,7 @@ class UpdateCollectionRoute(BaseRoute):
             if_unmodified_since_header = event.headers.get("x-if-unmodified-since")
             if if_unmodified_since_header:
                 try:
-                    if_unmodified_since = int(if_unmodified_since_header)
+                    if_unmodified_since = int(if_unmodified_since_header)  # noqa: F841
                 except ValueError:
                     raise ValidationException("Invalid X-If-Unmodified-Since header")
 

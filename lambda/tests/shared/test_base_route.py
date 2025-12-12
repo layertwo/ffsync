@@ -11,7 +11,7 @@ class TestBaseRoute:
     def test_cannot_instantiate_directly(self):
         """Test that BaseRoute cannot be instantiated directly"""
         with pytest.raises(TypeError) as exc_info:
-            BaseRoute()
+            BaseRoute()  # type: ignore[abstract]
 
         assert "abstract" in str(exc_info.value).lower()
 
@@ -23,7 +23,7 @@ class TestBaseRoute:
                 pass
 
         with pytest.raises(TypeError) as exc_info:
-            IncompleteRoute()
+            IncompleteRoute()  # type: ignore[abstract]
 
         assert "abstract" in str(exc_info.value).lower()
 
@@ -35,7 +35,7 @@ class TestBaseRoute:
                 pass
 
         with pytest.raises(TypeError) as exc_info:
-            IncompleteRoute()
+            IncompleteRoute()  # type: ignore[abstract]
 
         assert "abstract" in str(exc_info.value).lower()
 

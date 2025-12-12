@@ -1,5 +1,6 @@
 """AWS service fixtures with botocore stubbing"""
 
+from typing import Generator
 from unittest.mock import patch
 
 import boto3
@@ -135,7 +136,7 @@ def boto_session_patch(boto_session):
 @pytest.fixture(autouse=True)
 def boto_resource_patch(
     boto_session, boto_session_patch, dynamodb_client, dynamodb_resource, secretsmanager_client
-) -> None:
+) -> Generator:
     def client(service, *args, **kwargs):
         if service == "dynamodb":
             return dynamodb_client
@@ -151,7 +152,7 @@ def boto_resource_patch(
         raise ValueError(f"resource for {service} not recognized")
 
     with (
-        patch.object(boto_session, "resource", resource) as m1,
-        patch.object(boto_session, "client", client) as m2,  # noqa: F841
+        patch.object(boto_session, "resource", resource),
+        patch.object(boto_session, "client", client) as m2,
     ):
         yield m2

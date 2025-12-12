@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from src.shared.user import UserRecord
 
 
@@ -50,7 +48,7 @@ class TestUserRecord:
             updated_at=1234567900.0,
         )
 
-        json_str = user.to_json()
+        json_str = user.to_json()  # type: ignore[attr-defined]
         data = json.loads(json_str)
 
         assert data["user_id"] == "test_user"
@@ -62,7 +60,7 @@ class TestUserRecord:
     def test_from_json(self):
         """Test deserialization from JSON"""
         json_str = '{"user_id": "test_user", "generation": 7, "client_state": "abc123", "created_at": 1234567890.0, "updated_at": 1234567950.0}'
-        user = UserRecord.from_json(json_str)
+        user = UserRecord.from_json(json_str)  # type: ignore[attr-defined]
 
         assert user.user_id == "test_user"
         assert user.generation == 7
@@ -80,8 +78,8 @@ class TestUserRecord:
             updated_at=1234567999.99,
         )
 
-        json_str = original.to_json()
-        restored = UserRecord.from_json(json_str)
+        json_str = original.to_json()  # type: ignore[attr-defined]
+        restored = UserRecord.from_json(json_str)  # type: ignore[attr-defined]
 
         assert restored.user_id == original.user_id
         assert restored.generation == original.generation
@@ -99,7 +97,7 @@ class TestUserRecord:
             updated_at=1234567900.0,
         )
 
-        data = user.to_dict()
+        data = user.to_dict()  # type: ignore[attr-defined]
 
         assert isinstance(data, dict)
         assert data["user_id"] == "dict_user"
@@ -118,7 +116,7 @@ class TestUserRecord:
             "updated_at": 1234567920.0,
         }
 
-        user = UserRecord.from_dict(data)
+        user = UserRecord.from_dict(data)  # type: ignore[attr-defined]
 
         assert user.user_id == "dict_user"
         assert user.generation == 4

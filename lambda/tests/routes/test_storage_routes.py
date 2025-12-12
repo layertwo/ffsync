@@ -1,6 +1,7 @@
 """Tests for storage route handlers"""
 
 import json
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
@@ -17,7 +18,7 @@ class TestDeleteAllStorageRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event = {
+        event: dict[str, Any] = {
             "httpMethod": "DELETE",
             "path": "/storage",
             "pathParameters": None,
@@ -32,7 +33,7 @@ class TestDeleteAllStorageRoute:
         """Test successful deletion of all storage"""
         route = DeleteAllStorageRoute()
 
-        event = {}
+        event: dict[str, Any] = {}
 
         with patch("src.routes.storage.delete_all.get_current_timestamp") as mock_timestamp:
             mock_timestamp.return_value = 1234567890.12
@@ -42,6 +43,7 @@ class TestDeleteAllStorageRoute:
             mock_timestamp.assert_called_once()
             assert response.status_code == 200
 
+            assert response.body is not None
             body = json.loads(response.body)
             assert body["modified"] == 1234567890.12
 
@@ -49,7 +51,7 @@ class TestDeleteAllStorageRoute:
         """Test that different timestamps are returned"""
         route = DeleteAllStorageRoute()
 
-        event = {}
+        event: dict[str, Any] = {}
 
         timestamps = [1234567890.12, 1234567891.50, 1234567892.75]
 
@@ -59,6 +61,7 @@ class TestDeleteAllStorageRoute:
 
                 response = route.handle(event)
 
+                assert response.body is not None
                 body = json.loads(response.body)
                 assert body["modified"] == expected_timestamp
 
@@ -66,7 +69,7 @@ class TestDeleteAllStorageRoute:
         """Test handling of generic exceptions"""
         route = DeleteAllStorageRoute()
 
-        event = {}
+        event: dict[str, Any] = {}
 
         with patch("src.routes.storage.delete_all.get_current_timestamp") as mock_timestamp:
             mock_timestamp.side_effect = Exception("Timestamp error")
@@ -74,6 +77,7 @@ class TestDeleteAllStorageRoute:
             response = route.handle(event)
 
             assert response.status_code == 500
+            assert response.body is not None
             body = json.loads(response.body)
             assert body["error"] == "Internal server error"
 
@@ -81,7 +85,7 @@ class TestDeleteAllStorageRoute:
         """Test that response has correct content type"""
         route = DeleteAllStorageRoute()
 
-        event = {}
+        event: dict[str, Any] = {}
 
         with patch("src.routes.storage.delete_all.get_current_timestamp") as mock_timestamp:
             mock_timestamp.return_value = 1234567890.12

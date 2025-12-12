@@ -1,11 +1,10 @@
 """OIDC Validator for token validation against configured OIDC providers"""
 
 import time
-from functools import lru_cache
 from typing import Optional
 
 import jwt
-import requests
+import requests  # type: ignore[import-untyped]
 from jwt import PyJWKClient, PyJWKClientError
 
 from src.shared.exceptions import (

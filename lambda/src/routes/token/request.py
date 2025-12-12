@@ -3,6 +3,7 @@
 import json
 import re
 import time
+from dataclasses import asdict
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -157,7 +158,7 @@ class RequestTokenRoute(BaseRoute):
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=token_response.to_json(),
+                body=json.dumps(asdict(token_response)),
                 headers={"X-Timestamp": str(int(time.time()))},
             )
 

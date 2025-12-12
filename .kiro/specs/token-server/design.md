@@ -288,6 +288,14 @@ Attributes:
 - updated_at: Number (timestamp)
 ```
 
+**Administrative Generation Increment**:
+The `increment_generation()` method provides a mechanism for administrators to invalidate all tokens for a user during security events such as password resets or key rotation. This method can be invoked through:
+- Direct DynamoDB update (for emergency scenarios)
+- Administrative API endpoint (future enhancement)
+- Automated security event handlers (e.g., triggered by identity provider webhooks)
+
+When invoked, all previously issued tokens for the affected user become invalid immediately, as the Storage API validates the generation number embedded in the HAWK ID against the current value in DynamoDB.
+
 **Node Assignment Strategy**:
 - Node assignment is computed dynamically, not stored
 - Format: `https://{base_url}/1.5/{user_id}`
@@ -578,6 +586,10 @@ This consolidation reduces redundancy and complexity while maintaining comprehen
 **Property 10: Generation number monotonicity**
 *For any* generation number update, the new value SHALL be greater than the previous value.
 **Validates: Requirements 3.5**
+
+**Property 10a: Administrative generation increment**
+*For any* administrative action (password reset, key rotation), when the generation number is incremented, all previously issued tokens for that user SHALL be rejected.
+**Validates: Requirements 3.7**
 
 **Property 11: HAWK ID format**
 *For any* generated HAWK credentials, the `id` SHALL be a valid URL-safe base64-encoded string.

@@ -57,28 +57,27 @@ class UserManager:
         """
         return {k: self._serializer.serialize(v) for k, v in data.items() if v is not None}
 
-    def get_or_create_user(self, user_id: str, client_state: str = "") -> UserRecord:
-        """Get existing user or create new record with generation 0
+    def create_user(self, user_id: str, client_state: str = "") -> UserRecord:
+        """Create a new user record with generation 0
 
-        Uses conditional writes to ensure atomicity when creating new users.
-        If the user already exists, returns the existing record.
-        If client_state differs from stored value, increments generation number.
+        Uses conditional write to ensure atomicity. Raises ConditionalCheckFailedException
+        if the user already exists.
 
         Args:
             user_id: Unique user identifier from OIDC sub claim
             client_state: X-Client-State header value (hex string, max 32 chars)
 
         Returns:
-            UserRecord with current generation number
+            UserRecord with generation 0
 
         Raises:
+            ClientError: If user already exists (ConditionalCheckFailedException)
             ServiceUnavailableError: If DynamoDB is unavailable
         """
         pk = self._user_pk(user_id)
         current_time = get_current_timestamp()
 
         try:
-            # Try to create new user with conditional write
             user_data = {
                 "PK": pk,
                 "user_id": user_id,
@@ -103,19 +102,7 @@ class UserManager:
             )
 
         except ClientError as e:
-            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                # User already exists, fetch existing record
-                existing_user = self._get_user(user_id)
-
-                # Check if client_state has changed
-                if existing_user.client_state != client_state:
-                    # Client state changed, increment generation and update client_state
-                    return self._update_client_state_and_increment(
-                        user_id, client_state, existing_user
-                    )
-
-                return existing_user
-            elif e.response["Error"]["Code"] in (
+            if e.response["Error"]["Code"] in (
                 "ResourceNotFoundException",
                 "ProvisionedThroughputExceededException",
                 "RequestLimitExceeded",
@@ -126,15 +113,67 @@ class UserManager:
                 )
             raise
 
-    def _update_client_state_and_increment(
-        self, user_id: str, client_state: str, existing_user: UserRecord
-    ) -> UserRecord:
+    def get_user(self, user_id: str) -> Optional[UserRecord]:
+        """Get user record from DynamoDB
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            UserRecord if found, None otherwise
+
+        Raises:
+            ServiceUnavailableError: If DynamoDB is unavailable
+        """
+        pk = self._user_pk(user_id)
+
+        try:
+            response = self.table.get_item(
+                Key={"PK": {"S": pk}},
+            )
+
+            if "Item" not in response:
+                return None
+
+            item = self._deserialize_item(response["Item"])
+            return UserRecord(
+                user_id=item["user_id"],
+                generation=(
+                    int(item["generation"])
+                    if isinstance(item["generation"], Decimal)
+                    else item["generation"]
+                ),
+                client_state=item.get("client_state", ""),
+                created_at=(
+                    float(item["created_at"])
+                    if isinstance(item["created_at"], Decimal)
+                    else item["created_at"]
+                ),
+                updated_at=(
+                    float(item["updated_at"])
+                    if isinstance(item["updated_at"], Decimal)
+                    else item["updated_at"]
+                ),
+            )
+
+        except ClientError as e:
+            if e.response["Error"]["Code"] in (
+                "ResourceNotFoundException",
+                "ProvisionedThroughputExceededException",
+                "RequestLimitExceeded",
+                "InternalServerError",
+            ):
+                raise ServiceUnavailableError(
+                    f"DynamoDB unavailable: {e.response['Error']['Code']}"
+                )
+            raise
+
+    def update_user_client_state(self, user_id: str, client_state: str) -> UserRecord:
         """Update client state and increment generation atomically
 
         Args:
             user_id: User identifier
             client_state: New X-Client-State value
-            existing_user: Existing user record for reference
 
         Returns:
             Updated UserRecord with new generation and client_state
@@ -192,59 +231,43 @@ class UserManager:
                 )
             raise
 
-    def _get_user(self, user_id: str) -> Optional[UserRecord]:
-        """Get user record from DynamoDB
+    def get_or_create_user(self, user_id: str, client_state: str = "") -> UserRecord:
+        """Get existing user or create new record with generation 0
+
+        Orchestrates user creation, retrieval, and client state management.
+        If the user already exists, returns the existing record.
+        If client_state differs from stored value, increments generation number.
 
         Args:
-            user_id: User identifier
+            user_id: Unique user identifier from OIDC sub claim
+            client_state: X-Client-State header value (hex string, max 32 chars)
 
         Returns:
-            UserRecord if found, None otherwise
+            UserRecord with current generation number
 
         Raises:
             ServiceUnavailableError: If DynamoDB is unavailable
         """
-        pk = self._user_pk(user_id)
-
         try:
-            response = self.table.get_item(
-                Key={"PK": {"S": pk}},
-            )
-
-            if "Item" not in response:
-                return None
-
-            item = self._deserialize_item(response["Item"])
-            return UserRecord(
-                user_id=item["user_id"],
-                generation=(
-                    int(item["generation"])
-                    if isinstance(item["generation"], Decimal)
-                    else item["generation"]
-                ),
-                client_state=item.get("client_state", ""),
-                created_at=(
-                    float(item["created_at"])
-                    if isinstance(item["created_at"], Decimal)
-                    else item["created_at"]
-                ),
-                updated_at=(
-                    float(item["updated_at"])
-                    if isinstance(item["updated_at"], Decimal)
-                    else item["updated_at"]
-                ),
-            )
+            # Try to create new user
+            return self.create_user(user_id, client_state)
 
         except ClientError as e:
-            if e.response["Error"]["Code"] in (
-                "ResourceNotFoundException",
-                "ProvisionedThroughputExceededException",
-                "RequestLimitExceeded",
-                "InternalServerError",
-            ):
-                raise ServiceUnavailableError(
-                    f"DynamoDB unavailable: {e.response['Error']['Code']}"
-                )
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                # User already exists, fetch existing record
+                existing_user = self.get_user(user_id)
+
+                # This should never be None after a ConditionalCheckFailedException,
+                # but we guard for type safety
+                if existing_user is None:
+                    raise ServiceUnavailableError("User exists but could not be retrieved")
+
+                # Check if client_state has changed
+                if existing_user.client_state != client_state:
+                    # Client state changed, increment generation and update client_state
+                    return self.update_user_client_state(user_id, client_state)
+
+                return existing_user
             raise
 
     def increment_generation(self, user_id: str) -> int:
@@ -308,7 +331,7 @@ class UserManager:
         Raises:
             ServiceUnavailableError: If DynamoDB is unavailable
         """
-        user = self._get_user(user_id)
+        user = self.get_user(user_id)
 
         if user is None:
             return False

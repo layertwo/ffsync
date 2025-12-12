@@ -3,7 +3,6 @@
 from decimal import Decimal
 from typing import Dict, List, Optional
 
-import boto3
 from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 from botocore.exceptions import ClientError
 

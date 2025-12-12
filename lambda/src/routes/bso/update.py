@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -57,16 +58,20 @@ class UpdateBSORoute(BaseRoute):
             if_unmodified_since_header = event.headers.get("x-if-unmodified-since")
             if if_unmodified_since_header:
                 try:
-                    if_unmodified_since = int(if_unmodified_since_header)
+                    if_unmodified_since = int(if_unmodified_since_header)  # noqa: F841
                 except ValueError:
                     raise ValidationException("Invalid X-If-Unmodified-Since header")
 
             # Update storage object using storage manager
             updated_object = self.storage_manager.update_storage_object(
-                collection_name, object_id, storage_object, if_unmodified_since
+                collection_name,
+                object_id,
+                payload=storage_object.payload,
+                sortindex=storage_object.sortindex,
+                ttl=storage_object.ttl,
             )
 
-            response_body = {
+            response_body: dict[str, Any] = {
                 "object": {
                     "id": updated_object.id,
                     "payload": updated_object.payload,
