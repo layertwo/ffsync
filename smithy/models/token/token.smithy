@@ -4,11 +4,11 @@ namespace layertwo.ffsync
 
 use smithy.framework#ValidationException
 
-@http(method: "POST", uri: "/1.0/sync/1.5")
+@http(method: "GET", uri: "/1.0/sync/1.5")
 @documentation("Exchange OIDC credentials for a Firefox Sync bearer token with HAWK credentials")
-operation RequestToken {
-    input: RequestTokenInput
-    output: RequestTokenOutput
+operation GetToken {
+    input: GetTokenInput
+    output: GetTokenOutput
     errors: [
         AuthenticationException
         ValidationException
@@ -16,15 +16,15 @@ operation RequestToken {
 }
 
 @input
-@documentation("Input for RequestToken operation. The Authorization header with Bearer token is passed via API Gateway event headers and extracted by the Lambda function.")
-structure RequestTokenInput {
+@documentation("Input for GetToken operation. The Authorization header with Bearer token is passed via API Gateway event headers and extracted by the Lambda function.")
+structure GetTokenInput {
     @httpHeader("X-Client-State")
     @documentation("Client encryption key state for key rotation tracking (hexadecimal string, max 32 chars)")
     clientState: ClientState
 }
 
 @output
-structure RequestTokenOutput {
+structure GetTokenOutput {
     @required
     @documentation("HAWK identifier for authentication")
     id: String

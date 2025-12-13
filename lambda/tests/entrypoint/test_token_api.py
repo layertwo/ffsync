@@ -13,7 +13,7 @@ from src.services.oidc_validator import OIDCValidator
 def token_request_event():
     """Sample token request event"""
     return {
-        "httpMethod": "POST",
+        "httpMethod": "GET",
         "path": "/1.0/sync/1.5",
         "headers": {
             "authorization": "Bearer valid-oidc-token",
@@ -42,7 +42,7 @@ class TestTokenApiAuthErrors:
             {"SecretId": oidc_secret_arn},
         )
         event = {
-            "httpMethod": "POST",
+            "httpMethod": "GET",
             "path": "/1.0/sync/1.5",
             "headers": {},
             "body": None,
@@ -66,7 +66,7 @@ class TestTokenApiAuthErrors:
             {"SecretId": oidc_secret_arn},
         )
         event = {
-            "httpMethod": "POST",
+            "httpMethod": "GET",
             "path": "/1.0/sync/1.5",
             "headers": {},
             "body": None,
@@ -94,7 +94,7 @@ class TestTokenApiAuthErrors:
             {"SecretId": oidc_secret_arn},
         )
         event = {
-            "httpMethod": "POST",
+            "httpMethod": "GET",
             "path": "/1.0/sync/1.5",
             "headers": {"authorization": "InvalidFormat token"},
             "body": None,
@@ -118,7 +118,7 @@ class TestTokenApiAuthErrors:
             {"SecretId": oidc_secret_arn},
         )
         event = {
-            "httpMethod": "POST",
+            "httpMethod": "GET",
             "path": "/1.0/sync/1.5",
             "headers": {"authorization": "InvalidFormat token"},
             "body": None,
@@ -147,7 +147,7 @@ class TestTokenApiValidationErrors:
             {"SecretId": oidc_secret_arn},
         )
         event = {
-            "httpMethod": "POST",
+            "httpMethod": "GET",
             "path": "/1.0/sync/1.5",
             "headers": {
                 "authorization": "Bearer valid-token",
@@ -174,7 +174,7 @@ class TestTokenApiValidationErrors:
             {"SecretId": oidc_secret_arn},
         )
         event = {
-            "httpMethod": "POST",
+            "httpMethod": "GET",
             "path": "/1.0/sync/1.5",
             "headers": {
                 "authorization": "Bearer valid-token",

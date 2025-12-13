@@ -50,15 +50,15 @@
 
 ## Phase 2: Mozilla Spec Compliance Updates
 
-- [ ] 17. Change HTTP method from POST to GET
-  - [ ] 17.1 Update Smithy model to use GET instead of POST
+- [x] 17. Change HTTP method from POST to GET
+  - [x] 17.1 Update Smithy model to use GET instead of POST
     - Modify smithy/models/token/token.smithy to change @http(method: "POST") to @http(method: "GET")
     - Rebuild Smithy models with `smithy build`
     - _Requirements: 1.1_
-  - [ ] 17.2 Update Request Handler for GET method
+  - [x] 17.2 Update Request Handler for GET method
     - Modify lambda/src/routes/token/request.py to use @app.get() instead of @app.post()
     - _Requirements: 1.1_
-  - [ ] 17.3 Update unit tests for GET method
+  - [x] 17.3 Update unit tests for GET method
     - Update all tests in lambda/tests/routes/token/test_request.py to use GET instead of POST
     - _Requirements: 1.1_
 

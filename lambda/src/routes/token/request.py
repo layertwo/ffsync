@@ -39,7 +39,7 @@ class RequestTokenRoute(BaseRoute):
         self.token_generator = token_generator
 
     def bind(self, app: APIGatewayRestResolver):
-        @app.post("/1.0/sync/1.5")
+        @app.get("/1.0/sync/1.5")
         def handle_request():
             return self.handle(app.current_event)
 
@@ -48,7 +48,7 @@ class RequestTokenRoute(BaseRoute):
         try:
             body = event.body
             request_path = event.path or "/1.0/sync/1.5"
-            http_method = event.http_method or "POST"
+            http_method = event.http_method or "GET"
 
             validation_error = self._validate_content_type(body, event)
             if validation_error:
