@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This document specifies the requirements for implementing a Firefox Sync Token Server as a serverless AWS Lambda function. The Token Server is responsible for authenticating users, issuing time-limited authentication tokens, and providing node assignment information that directs clients to the appropriate storage endpoint. The implementation will integrate with AWS services (API Gateway, DynamoDB, Lambda) and follow the Mozilla Token Server protocol specification.
+This document specifies the requirements for implementing a Firefox Sync Token Server as a serverless AWS Lambda function. The Token Server is responsible for authenticating users, issuing time-limited authentication tokens, and providing node assignment information that directs clients to the appropriate storage endpoint. The implementation will integrate with AWS services (API Gateway, DynamoDB, Lambda) and follow the Mozilla Token Server API v1.0 specification.
 
 ## Glossary
 
@@ -21,6 +21,8 @@ This document specifies the requirements for implementing a Firefox Sync Token S
 - **User Identifier**: A unique identifier for a user derived from their authentication credentials
 - **Generation Number**: A monotonically increasing counter used to invalidate old tokens
 - **HAWK Authentication**: HTTP authentication scheme using HMAC for request signing
+- **Client State History**: A server-side list of previously-seen X-Client-State values for each user
+- **Urlsafe-Base64 Alphabet**: Characters allowed in URL-safe base64 encoding: alphanumeric (a-z, A-Z, 0-9), underscore (_), hyphen (-), and period (.)
 
 ## Requirements
 
@@ -30,8 +32,8 @@ This document specifies the requirements for implementing a Firefox Sync Token S
 
 #### Acceptance Criteria
 
-1. WHEN a client sends a POST request to `/1.0/sync/1.5` with valid OIDC credentials, THE Token Server SHALL return a JSON response containing a bearer token, API endpoint, duration, and user identifier
-2. WHEN a client sends a request with an OIDC token in the Authorization header, THE Token Server SHALL validate the token with the configured OIDC provider
+1. WHEN a client sends a GET request to `/1.0/sync/1.5` with valid OIDC credentials in the Authorization header, THE Token Server SHALL return a JSON response containing id, key, uid, api_endpoint, and duration fields
+2. WHEN a client sends a request with an OIDC token in the Authorization header using Bearer scheme, THE Token Server SHALL validate the token with the configured OIDC provider
 3. WHEN a client sends a request with invalid credentials, THE Token Server SHALL return a 401 status code with an error message
 4. WHEN a client sends a request with a malformed Authorization header, THE Token Server SHALL return a 400 status code with a validation error
 5. WHEN the Token Server issues a bearer token, THE bearer token SHALL be valid for 300 seconds
@@ -44,8 +46,8 @@ This document specifies the requirements for implementing a Firefox Sync Token S
 
 1. WHEN a user requests a token, THE Token Server SHALL compute the storage node URL dynamically based on the user identifier
 2. WHEN a user requests a token multiple times, THE Token Server SHALL return the same node assignment for the same user identifier
-3. WHEN the Token Server computes a node URL, THE node URL SHALL follow the format `https://{base_url}/1.5/{user_id}`
-4. WHEN a user's generation number changes, THE Token Server SHALL maintain the same node assignment
+3. WHEN the Token Server computes a node URL, THE node URL SHALL follow the format `https://{base_url}/1.5/{uid}`
+4. WHEN a user's X-Client-State changes, THE Token Server SHALL reset the node allocation by generating a new uid and api_endpoint
 5. WHEN the Token Server returns a token response, THE response SHALL include the `api_endpoint` field containing the full storage URL
 
 ### Requirement 3
@@ -56,7 +58,7 @@ This document specifies the requirements for implementing a Firefox Sync Token S
 
 1. WHEN a user's generation number is incremented, THE Token Server SHALL invalidate all previously issued tokens for that user
 2. WHEN the Token Server validates a bearer token, THE Token Server SHALL verify the token's generation number matches the current user generation
-3. WHEN a bearer token has an outdated generation number, THE Token Server SHALL reject the token with a 401 status code
+3. WHEN a bearer token has an outdated generation number, THE Token Server SHALL reject the token with a 401 status code and "invalid-generation" status
 4. WHEN the Token Server stores user data, THE Token Server SHALL include a generation number field with a default value of 0
 5. WHEN a generation number is updated, THE Token Server SHALL ensure the new value is greater than the previous value
 6. WHEN a client's X-Client-State changes from a previously stored value, THE Token Server SHALL increment the generation number
@@ -83,7 +85,7 @@ This document specifies the requirements for implementing a Firefox Sync Token S
 1. WHEN a client sends a request without an Authorization header, THE Token Server SHALL return a 401 status code
 2. WHEN a client sends a request to an invalid endpoint path, THE Token Server SHALL return a 404 status code
 3. WHEN a client sends a request with an unsupported HTTP method, THE Token Server SHALL return a 405 status code
-4. WHEN a client sends a request with an invalid Content-Type, THE Token Server SHALL return a 415 status code
+4. WHEN a client sends a request with an unacceptable Accept header, THE Token Server SHALL return a 406 status code
 5. WHEN the Token Server encounters a validation error, THE response SHALL include a descriptive error message
 
 ### Requirement 6
@@ -92,11 +94,15 @@ This document specifies the requirements for implementing a Firefox Sync Token S
 
 #### Acceptance Criteria
 
-1. WHEN the Token Server returns an error response, THE response SHALL be valid JSON
+1. WHEN the Token Server returns an error response, THE response SHALL be valid JSON with Content-Type application/json
 2. WHEN the Token Server returns an error response, THE JSON SHALL contain a `status` field with the error type
 3. WHEN the Token Server returns an error response, THE JSON SHALL contain an `errors` array with error details
-4. WHEN a 401 error occurs, THE `status` field SHALL contain the value "invalid-credentials"
+4. WHEN a 401 error occurs due to invalid credentials, THE `status` field SHALL contain "invalid-credentials"
 5. WHEN a validation error occurs, THE `errors` array SHALL contain objects with `location`, `name`, and `description` fields
+6. WHEN a 401 error occurs due to timestamp skew, THE `status` field SHALL contain "invalid-timestamp"
+7. WHEN a 401 error occurs due to outdated generation, THE `status` field SHALL contain "invalid-generation"
+8. WHEN a 401 error occurs due to invalid client state transition, THE `status` field SHALL contain "invalid-client-state"
+9. WHEN a 401 error occurs because new users are disabled, THE `status` field SHALL contain "new-users-disabled"
 
 ### Requirement 7
 
@@ -105,10 +111,11 @@ This document specifies the requirements for implementing a Firefox Sync Token S
 #### Acceptance Criteria
 
 1. WHEN the Token Server creates a user record, THE Token Server SHALL store the record in a DynamoDB table with a partition key of `user_id`
-2. WHEN the Token Server stores user data, THE Token Server SHALL include fields for `user_id`, `generation`, `client_state`, `created_at`, and `updated_at`
+2. WHEN the Token Server stores user data, THE Token Server SHALL include fields for `user_id`, `generation`, `client_state`, `client_state_history`, `created_at`, and `updated_at`
 3. WHEN the Token Server queries user data, THE Token Server SHALL use the `user_id` as the partition key for efficient lookups
 4. WHEN a user record does not exist, THE Token Server SHALL create a new record with generation 0 and empty client_state
 5. WHEN the Token Server updates a user record, THE Token Server SHALL update the `updated_at` timestamp
+6. WHEN the Token Server stores client_state_history, THE Token Server SHALL maintain a list of all previously-seen X-Client-State values for the user
 
 ### Requirement 8
 
@@ -177,10 +184,13 @@ This document specifies the requirements for implementing a Firefox Sync Token S
 #### Acceptance Criteria
 
 1. WHEN a client sends a request with an X-Client-State header, THE Token Server SHALL store the client state value with the user record
-2. WHEN a client sends a request with a different X-Client-State than previously stored, THE Token Server SHALL increment the user's generation number
+2. WHEN a client sends a request with a different X-Client-State than previously stored, THE Token Server SHALL increment the user's generation number and reset node allocation
 3. WHEN a client sends a request without an X-Client-State header, THE Token Server SHALL accept the request and use an empty string as the default value
-4. WHEN the Token Server stores client state, THE client state value SHALL be a hexadecimal string of up to 32 characters
+4. WHEN the Token Server validates X-Client-State, THE value SHALL contain only characters from the urlsafe-base64 alphabet (alphanumeric, underscore, hyphen) and period, up to 32 characters
 5. WHEN a client sends an invalid X-Client-State format, THE Token Server SHALL return a 400 status code with a validation error
+6. WHEN a client sends an X-Client-State that matches a previously-seen value in the user's history, THE Token Server SHALL return a 401 status code with "invalid-client-state" status
+7. WHEN a client sends an empty X-Client-State but the server has previously seen a non-empty value, THE Token Server SHALL return a 401 status code with "invalid-client-state" status
+8. WHEN the Token Server accepts a new X-Client-State, THE Token Server SHALL add the previous value to the client_state_history list
 
 ### Requirement 14
 
@@ -188,6 +198,50 @@ This document specifies the requirements for implementing a Firefox Sync Token S
 
 #### Acceptance Criteria
 
-1. WHEN the Token Server returns a successful response, THE response SHALL include an X-Timestamp header with the current server time in seconds since epoch
-2. WHEN the Token Server returns an error response, THE response SHALL include an X-Timestamp header with the current server time
-3. WHEN the X-Timestamp header is generated, THE value SHALL be an integer representing Unix epoch seconds
+1. WHEN the Token Server returns a 200 successful response, THE response SHALL include an X-Timestamp header with the current server time in seconds since epoch
+2. WHEN the Token Server returns a 401 error response, THE response SHALL include an X-Timestamp header with the current server time
+3. WHEN the X-Timestamp header is generated, THE value SHALL be an integer representing Unix epoch seconds (POSIX timestamp)
+
+### Requirement 15
+
+**User Story:** As a Firefox Sync client, I want the Token Server to communicate server load and maintenance status, so that I can adjust my request behavior appropriately.
+
+#### Acceptance Criteria
+
+1. WHEN the Token Server returns a 503 status code, THE response SHALL include a Retry-After header with the number of seconds to wait before retrying
+2. WHEN the Token Server is under heavy load but still operational, THE response MAY include an X-Backoff header with the number of seconds to avoid unnecessary requests
+3. WHEN an X-Backoff header is included, THE header MAY be included with any response type including 200 OK
+4. WHEN a client receives a Retry-After header, THE client SHALL NOT attempt further requests until the specified time has elapsed
+5. WHEN a client receives an X-Backoff header, THE client SHOULD avoid pre-emptively refreshing tokens for the specified duration
+
+### Requirement 16
+
+**User Story:** As a Firefox Sync client, I want the Token Server to provide authentication challenge information, so that I can understand supported authentication schemes.
+
+#### Acceptance Criteria
+
+1. WHEN the Token Server returns a 401 status code, THE response SHALL include one or more WWW-Authenticate headers
+2. WHEN the Token Server includes WWW-Authenticate headers, THE headers SHALL indicate supported authentication schemes
+3. WHEN Bearer authentication is supported, THE WWW-Authenticate header SHALL include "Bearer" scheme
+
+### Requirement 17
+
+**User Story:** As a system administrator, I want to control whether new users can register, so that I can manage server capacity.
+
+#### Acceptance Criteria
+
+1. WHEN new user registration is disabled in configuration, THE Token Server SHALL reject requests from unknown users
+2. WHEN a new user is rejected due to disabled registration, THE Token Server SHALL return a 401 status code with "new-users-disabled" status
+3. WHEN new user registration is enabled, THE Token Server SHALL create records for previously unseen users
+4. WHEN the Token Server is deployed, THE Token Server SHALL read the new users enabled setting from configuration
+
+### Requirement 18
+
+**User Story:** As a Firefox Sync client, I want the Token Server to validate timestamp in my authentication, so that replay attacks are prevented.
+
+#### Acceptance Criteria
+
+1. WHEN the Token Server validates an OIDC token, THE Token Server SHALL check the token's issued-at (iat) claim
+2. WHEN the token's timestamp differs significantly from server time, THE Token Server SHALL return a 401 status code with "invalid-timestamp" status
+3. WHEN timestamp validation fails, THE response SHALL include X-Timestamp header to help client adjust clock
+4. WHEN the Token Server validates timestamps, THE Token Server SHALL allow a reasonable clock skew tolerance (configurable, default 5 minutes)

@@ -1,331 +1,319 @@
 # Implementation Plan
 
+## Phase 1: Previously Completed Tasks (Reference)
+
 - [x] 1. Set up Token Server dependencies and directory structure
-  - Add PyJWT>=2.8.0 to lambda/requirements.txt for OIDC token validation
-  - Add hypothesis>=6.0.0 to lambda/requirements-dev.txt for property-based testing
-  - Add python-jose[cryptography]>=3.3.0 to lambda/requirements.txt for JWKS support
-  - Add requests>=2.31.0 to lambda/requirements.txt for OIDC provider HTTP calls
   - _Requirements: All_
 
 - [x] 2. Implement core data models
-  - Create lambda/src/shared/user.py with UserRecord dataclass (user_id, generation, client_state, created_at, updated_at)
-  - Create lambda/src/shared/oidc.py with OIDCTokenClaims (sub, iss, aud, exp, iat) and OIDCProviderConfig (issuer, jwks_uri, etc.) dataclasses
-  - Create lambda/src/shared/token.py with TokenResponse dataclass (id, key, api_endpoint, uid, duration, hashalg)
-  - Create lambda/src/shared/exceptions.py with custom exception classes (InvalidTokenError, InvalidCredentialsError, etc.) and ErrorDetail dataclass
   - _Requirements: 1.1, 4.1, 4.2, 7.2, 9.2, 11.1, 13.1_
 
 - [x] 3. Implement OIDC Validator component
-  - Create lambda/src/services/oidc_validator.py with OIDCValidator class
-  - Implement discover_provider_config() to fetch .well-known/openid-configuration
-  - Implement JWKS fetching and caching (1-hour TTL using functools.lru_cache)
-  - Implement validate_token() with signature verification using PyJWT
-  - Implement issuer validation against configured provider
-  - Implement audience validation against configured client_id
-  - Implement expiry validation using exp claim
-  - Extract user identifier from sub claim
-  - Add TTL-based cache invalidation for provider configuration (refresh before expiry)
   - _Requirements: 1.2, 9.2, 9.3, 9.4, 9.5, 10.4, 11.1, 11.2_
 
-- [ ]* 3.1 Write property test for OIDC token validation
-  - **Property 2: OIDC token validation**
-  - **Validates: Requirements 1.2**
-
-- [ ]* 3.2 Write property test for invalid token rejection
-  - **Property 3: Invalid credentials rejection**
-  - **Validates: Requirements 1.3**
-
-- [ ]* 3.3 Write property test for issuer validation
-  - **Property 25: OIDC issuer validation**
-  - **Validates: Requirements 9.4**
-
-- [ ]* 3.4 Write property test for audience validation
-  - **Property 26: OIDC audience validation**
-  - **Validates: Requirements 9.5**
-
-- [ ]* 3.5 Write property test for token expiry validation
-  - **Property 29: Token expiry validation**
-  - **Validates: Requirements 11.2, 11.3**
-
-- [ ]* 3.6 Write property test for missing sub claim rejection
-  - **Property 30: Missing user identifier rejection**
-  - **Validates: Requirements 11.4**
-
-- [ ]* 3.7 Write property test for OIDC signature verification
-  - **Property 24: OIDC signature verification**
-  - **Validates: Requirements 9.3**
-
 - [x] 4. Implement User Manager component
-  - Create lambda/src/services/user_manager.py with UserManager class
-  - Initialize with DynamoDB table resource (similar to StorageManager pattern)
-  - Implement get_or_create_user() with conditional writes
-  - Set default generation to 0 for new users
-  - Implement increment_generation() with atomic counter update using UpdateExpression
-  - Implement validate_generation() to check current value
-  - Update updated_at timestamp on all modifications
-  - Handle DynamoDB exceptions (ClientError, etc.)
   - _Requirements: 3.1, 3.2, 3.4, 3.5, 3.7, 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ]* 4.1 Write property test for new user generation number
-  - **Property 9: Default generation number**
-  - **Validates: Requirements 3.4, 7.4**
-
-- [ ]* 4.2 Write property test for generation number monotonicity
-  - **Property 10: Generation number monotonicity**
-  - **Validates: Requirements 3.5**
-
-- [ ]* 4.2a Write property test for administrative generation increment
-  - **Property 10a: Administrative generation increment**
-  - **Validates: Requirements 3.7**
-
-- [ ]* 4.3 Write property test for generation-based invalidation
-  - **Property 7: Generation-based token invalidation**
-  - **Validates: Requirements 3.1, 3.3**
-
-- [ ]* 4.4 Write property test for updated timestamp modification
-  - **Property 23: Updated timestamp modification**
-  - **Validates: Requirements 7.5**
-
 - [x] 5. Implement Token Generator component
-  - Create lambda/src/services/token_generator.py with TokenGenerator class
-  - Implement generate_hawk_id() encoding user_id:generation:expiry as base64
-  - Implement generate_hawk_key() using secrets.token_bytes(32) and hex encoding
-  - Implement generate_token() to construct complete TokenResponse
-  - Compute api_endpoint dynamically as {base_url}/1.5/{user_id}
-  - Set duration to 300 seconds
-  - Set hashalg to "sha256"
-  - Generate uid as hash of user_id (using hashlib)
   - _Requirements: 1.1, 1.5, 2.1, 2.2, 2.3, 2.5, 4.1, 4.2, 4.3, 4.4_
 
-- [ ]* 5.1 Write property test for complete token response structure
-  - **Property 1: Complete token response structure**
-  - **Validates: Requirements 1.1, 2.5, 4.1, 4.2**
-
-- [ ]* 5.2 Write property test for token duration consistency
-  - **Property 5: Token duration consistency**
-  - **Validates: Requirements 1.5**
-
-- [ ]* 5.3 Write property test for node URL format
-  - **Property 6: Node URL format**
-  - **Validates: Requirements 2.1, 2.2, 2.3, 2.4**
-
-- [ ]* 5.4 Write property test for HAWK ID format
-  - **Property 11: HAWK ID format**
-  - **Validates: Requirements 4.3**
-
-- [ ]* 5.5 Write property test for HAWK key format and randomness
-  - **Property 12: HAWK key format and randomness**
-  - **Validates: Requirements 4.4**
-
-- [ ]* 5.6 Write property test for user identifier consistency
-  - **Property 31: User identifier consistency**
-  - **Validates: Requirements 11.5**
-
 - [x] 6. Implement Token Request Handler
-  - Create lambda/src/routes/token/request.py with RequestTokenRoute class
-  - Implement handle() method that orchestrates the token issuance flow
-  - Implement validate_request() for HTTP method, path, headers
-  - Parse Authorization header and extract Bearer token
-  - Validate HTTP method is POST
-  - Validate path matches /1.0/sync/1.5
-  - Coordinate between OIDCValidator, UserManager, and TokenGenerator
-  - Return API Gateway proxy response dict with JSON body
-  - Format success response with id, key, api_endpoint, uid, duration, hashalg fields
-  - Format error responses in Firefox Sync protocol format (status, errors array)
   - _Requirements: 1.1, 1.3, 1.4, 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ]* 6.1 Write property test for malformed header rejection
-  - **Property 4: Malformed header rejection**
-  - **Validates: Requirements 1.4**
-
-- [ ]* 6.2 Write property test for invalid path rejection
-  - **Property 13: Invalid path rejection**
-  - **Validates: Requirements 5.2**
-
-- [ ]* 6.3 Write property test for unsupported method rejection
-  - **Property 14: Unsupported method rejection**
-  - **Validates: Requirements 5.3**
-
-- [ ]* 6.4 Write property test for invalid content type rejection
-  - **Property 15: Invalid content type rejection**
-  - **Validates: Requirements 5.4**
-
-- [ ]* 6.5 Write property test for error message presence
-  - **Property 16: Error message presence**
-  - **Validates: Requirements 5.5**
-
-- [ ]* 6.6 Write property test for error response JSON validity
-  - **Property 17: Error response JSON validity**
-  - **Validates: Requirements 6.1**
-
-- [ ]* 6.7 Write property test for error response structure
-  - **Property 18: Error response structure**
-  - **Validates: Requirements 6.2, 6.3**
-
-- [ ]* 6.8 Write property test for 401 error status value
-  - **Property 19: 401 error status value**
-  - **Validates: Requirements 6.4**
-
-- [ ]* 6.9 Write property test for validation error structure
-  - **Property 20: Validation error structure**
-  - **Validates: Requirements 6.5**
-
 - [x] 7. Wire Token Server entrypoint and ServiceProvider
-  - Update lambda/src/entrypoint/token_api.py to route requests through RequestTokenRoute
-  - Add OIDC configuration properties to ServiceProvider (oidc_validator, token_generator for token API)
-  - Fetch OIDC config from Secrets Manager using OIDC_SECRET_ARN environment variable
-  - Use cached_property pattern for lazy initialization (like existing ServiceProvider)
-  - Add token_api_router property that creates ApiRouter with RequestTokenRoute
-  - Implement request flow: validate → authenticate → get/create user → generate token → respond
-  - Add error handling with appropriate HTTP status codes
   - _Requirements: 1.1, 1.2, 1.3, 10.1, 10.2, 10.3, 10.5_
 
-- [ ]* 7.1 Write property test for OIDC provider unreachable error
-  - **Property 27: OIDC provider unreachable error**
-  - **Validates: Requirements 10.5**
-
-- [ ]* 7.2 Write property test for user identifier extraction
-  - **Property 28: User identifier extraction**
-  - **Validates: Requirements 11.1**
-
 - [x] 8. Add X-Client-State support to User Manager
-  - Update lambda/src/shared/user.py to add `client_state: str` field to UserRecord dataclass
-  - Update lambda/src/services/user_manager.py get_or_create_user() to accept client_state parameter
-  - Implement client state comparison logic in get_or_create_user()
-  - When client_state differs from stored value, increment generation number
-  - Store client_state with user record in DynamoDB
-  - Default client_state to empty string for new users and missing headers
-  - Update existing unit tests to include client_state field
   - _Requirements: 13.1, 13.2, 13.3, 3.6_
 
-- [ ]* 8.1 Write property test for X-Client-State storage
-  - **Property 37: X-Client-State storage**
-  - **Validates: Requirements 13.1**
-
-- [ ]* 8.2 Write property test for X-Client-State change triggers generation increment
-  - **Property 38: X-Client-State change triggers generation increment**
-  - **Validates: Requirements 13.2, 3.6**
-
-- [ ]* 8.3 Write property test for X-Client-State default value
-  - **Property 39: X-Client-State default value**
-  - **Validates: Requirements 13.3**
-
 - [x] 9. Add X-Client-State and X-Timestamp headers
-
-- [x] 9.0 Update Smithy model for Token Server headers
-  - Add ClientState type to smithy/models/common.smithy with @pattern("^[a-fA-F0-9]*$") and @length(min: 0, max: 32)
-  - Add @httpHeader("X-Client-State") clientState field to RequestTokenInput structure
-  - Add @httpHeader("X-Timestamp") timestamp field to RequestTokenOutput structure
-  - Rebuild Smithy models with `smithy build` to regenerate OpenAPI specs
-  - _Requirements: 13.4, 14.3_
-
-- [x] 9.1 Update Request Handler for X-Client-State parsing
-  - Update lambda/src/routes/token/request.py to parse X-Client-State header from event
-  - Validate X-Client-State format in Python: hexadecimal string, max 32 characters
-  - Return 400 error with ValidationException for invalid X-Client-State format
-  - Pass client_state to UserManager.get_or_create_user()
-  - Default to empty string when header is absent
-  - _Requirements: 13.4, 13.5_
-
-- [x] 9.2 Add X-Timestamp header to responses
-  - Add X-Timestamp header to success responses in RequestTokenRoute
-  - Add X-Timestamp header to error responses (all error paths)
-  - X-Timestamp value is current Unix epoch seconds as integer (int(time.time()))
-  - _Requirements: 14.1, 14.2, 14.3_
-
-- [x] 9.3 Update unit tests for header handling
-  - Add tests for valid X-Client-State header parsing
-  - Add tests for invalid X-Client-State format rejection (non-hex, too long)
-  - Add tests for missing X-Client-State header (defaults to empty string)
-  - Add tests verifying X-Timestamp header presence on success responses
-  - Add tests verifying X-Timestamp header presence on error responses
-  - Add tests verifying X-Timestamp format is integer
   - _Requirements: 13.4, 13.5, 14.1, 14.2, 14.3_
 
-- [ ]* 9.4 Write property test for X-Client-State format validation
-  - **Property 40: X-Client-State format validation**
-  - **Validates: Requirements 13.4**
-
-- [ ]* 9.5 Write property test for invalid X-Client-State rejection
-  - **Property 41: Invalid X-Client-State rejection**
-  - **Validates: Requirements 13.5**
-
-- [ ]* 9.6 Write property test for X-Timestamp header on all responses
-  - **Property 42/43: X-Timestamp header presence**
-  - **Validates: Requirements 14.1, 14.2**
-
-- [ ]* 9.7 Write property test for X-Timestamp format
-  - **Property 44: X-Timestamp format**
-  - **Validates: Requirements 14.3**
-
 - [x] 10. Checkpoint - Ensure all tests pass
-  - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 11. Create Smithy model for Token Server
-  - Create smithy/models/token/token.smithy with TokenService definition
-  - Define GetToken operation with POST /1.0/sync/1.5 endpoint
-  - Define GetTokenInput structure with Authorization header
-  - Define GetTokenOutput structure with id, key, api_endpoint, uid, duration, hashalg fields
-  - Define error structures: InvalidCredentialsError, ValidationError, ServiceUnavailableError
-  - Add @restJson1 protocol and AWS API Gateway integration traits
   - _Requirements: 1.1, 1.3, 5.1, 5.2, 6.1, 6.2_
 
 - [x] 12. Update Smithy build configuration
-  - Modify smithy/smithy-build.json to use projections
-  - Create "storage" projection for existing StorageService
-  - Create "token" projection for new TokenService
-  - Both projections use openapi plugin with respective service references
-  - Verify build generates: build/smithy/storage/openapi/ and build/smithy/token/openapi/
   - _Requirements: All_
 
 - [x] 13. Create DynamoDB table for Token Users in CDK
-  - Add buildTokenUsersTable() method to ServiceStack
-  - Set partition key as PK (String) to match existing table patterns
-  - Configure on-demand billing mode
-  - Enable encryption at rest (AWS_MANAGED)
-  - Enable point-in-time recovery
-  - Follow existing table naming pattern: ffsync-token-users-{stage}
   - _Requirements: 7.1, 7.2_
 
 - [x] 14. Update Token Server Lambda environment variables in CDK
-  - Add environment variables to buildTokenApiHandler(): OIDC_SECRET_ARN (Secrets Manager secret containing provider_url and client_id), BASE_DOMAIN, TOKEN_USERS_TABLE_NAME
-  - Reference Secrets Manager secret `ffsync-oidc-config-{stage}` for OIDC configuration
-  - Grant Secrets Manager read permissions to Lambda via `oidcSecret.grantRead(fn)`
-  - Grant DynamoDB read/write permissions to TokenUsersTable
   - _Requirements: 10.1, 10.2, 10.3_
 
 - [x] 15. Token Server API Gateway (already implemented)
-  - Token API Gateway created in buildApi() method using Service.TOKEN
-  - OpenAPI spec loaded from build/smithy/token/openapi/TokenService.openapi.json
-  - Custom domain: token.{stage}.{BASE_DOMAIN}
-  - Certificate and DNS records configured
-  - CloudWatch logging enabled with MethodLoggingLevel.INFO
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
 - [x] 16. Storage API configuration (already implemented)
-  - Storage API uses build/smithy/storage/openapi/ path
-  - Storage API uses sync.{stage}.{BASE_DOMAIN} domain
-  - Both APIs coexist with separate domains via Service enum
-  - _Requirements: N/A (infrastructure maintenance)_
 
-- [ ] 17. Write integration tests
+## Phase 2: Mozilla Spec Compliance Updates
 
-- [ ]* 17.1 Write integration test for end-to-end token issuance
-  - Test complete flow from API Gateway event to token response
-  - Use mocked OIDC provider and mocked DynamoDB using botocore Stubber
-  - Verify token structure and validity
-  - _Requirements: 1.1, 1.2_
+- [ ] 17. Change HTTP method from POST to GET
+  - [ ] 17.1 Update Smithy model to use GET instead of POST
+    - Modify smithy/models/token/token.smithy to change @http(method: "POST") to @http(method: "GET")
+    - Rebuild Smithy models with `smithy build`
+    - _Requirements: 1.1_
+  - [ ] 17.2 Update Request Handler for GET method
+    - Modify lambda/src/routes/token/request.py to use @app.get() instead of @app.post()
+    - _Requirements: 1.1_
+  - [ ] 17.3 Update unit tests for GET method
+    - Update all tests in lambda/tests/routes/token/test_request.py to use GET instead of POST
+    - _Requirements: 1.1_
 
-- [ ]* 17.2 Write integration test for token invalidation flow
-  - Issue token, increment generation, verify rejection
-  - _Requirements: 3.1, 3.2, 3.3_
+- [ ] 18. Add 405 Method Not Allowed response
+  - [ ] 18.1 Add method validation to Request Handler
+    - Add explicit rejection of POST, PUT, DELETE with 405 status code
+    - _Requirements: 5.3_
+  - [ ] 18.2 Add unit tests for unsupported methods
+    - Test POST, PUT, DELETE return 405
+    - _Requirements: 5.3_
 
-- [ ]* 17.3 Write integration test for first-time user flow
-  - No existing record → create user → assign node → issue token
-  - _Requirements: 2.1, 3.4, 7.4_
+- [ ]* 18.3 Write property test for unsupported method rejection
+  - **Property 17: Unsupported method rejection**
+  - **Validates: Requirements 5.3**
 
-- [ ]* 17.4 Write integration test for returning user flow
-  - Existing record → same node → issue token
-  - _Requirements: 2.2, 2.4_
+- [ ] 19. Update X-Client-State validation to urlsafe-base64 + period
+  - [ ] 19.1 Update validation regex pattern in Request Handler
+    - Change CLIENT_STATE_PATTERN from `^[a-fA-F0-9]{0,32}$` to `^[a-zA-Z0-9_.-]{0,32}$`
+    - Update error message to reflect new allowed characters (urlsafe-base64 + period)
+    - _Requirements: 13.4_
+  - [ ] 19.2 Update Smithy model pattern
+    - Change @pattern in smithy/models/common.smithy from `^[a-fA-F0-9]*$` to `^[a-zA-Z0-9_.-]*$`
+    - Rebuild Smithy models
+    - _Requirements: 13.4_
+  - [ ] 19.3 Update unit tests for new validation
+    - Add tests for valid urlsafe-base64 characters (alphanumeric, underscore, hyphen, period)
+    - Update invalid format tests
+    - _Requirements: 13.4_
 
-- [ ] 18. Final Checkpoint - Ensure all tests pass
+- [ ]* 19.4 Write property test for X-Client-State format validation
+  - **Property 42: X-Client-State format validation**
+  - **Validates: Requirements 13.4**
+
+- [ ] 20. Add client_state_history tracking
+  - [ ] 20.1 Update UserRecord dataclass
+    - Add client_state_history: List[str] field to lambda/src/shared/user.py
+    - Default to empty list for new users
+    - _Requirements: 7.2, 7.6_
+  - [ ] 20.2 Update DynamoDB schema handling in UserManager
+    - Update create_user() to initialize client_state_history as empty list
+    - Update get_user() to read client_state_history from DynamoDB
+    - Handle migration for existing records (default to empty list if missing)
+    - _Requirements: 7.2, 7.6_
+  - [ ] 20.3 Implement history validation in UserManager
+    - Add validate_client_state() method
+    - Reject if new client_state matches any value in history
+    - Reject if new client_state is empty but history contains non-empty values
+    - _Requirements: 13.6, 13.7_
+  - [ ] 20.4 Update get_or_create_user() for history tracking
+    - Call validate_client_state() before accepting new state
+    - Add previous client_state to history when state changes
+    - _Requirements: 13.8_
+  - [ ] 20.5 Add unit tests for history validation
+    - Test rejection of previously-seen client state
+    - Test rejection of empty state when history exists
+    - Test history is updated on state change
+    - _Requirements: 13.6, 13.7, 13.8_
+
+- [ ]* 20.6 Write property test for previously-seen client state rejection
+  - **Property 44: Previously-seen client state rejection**
+  - **Validates: Requirements 13.6**
+
+- [ ]* 20.7 Write property test for empty client state with history rejection
+  - **Property 45: Empty client state with history rejection**
+  - **Validates: Requirements 13.7**
+
+- [ ]* 20.8 Write property test for client state history tracking
+  - **Property 29: Client state history tracking**
+  - **Validates: Requirements 7.6, 13.8**
+
+- [ ] 21. Add new error exception classes
+  - [ ] 21.1 Add InvalidTimestampError exception
+    - Create exception class in lambda/src/shared/exceptions.py
+    - Map to 401 status with "invalid-timestamp" status
+    - _Requirements: 6.6, 18.2_
+  - [ ] 21.2 Add InvalidGenerationError exception
+    - Create exception class in lambda/src/shared/exceptions.py
+    - Map to 401 status with "invalid-generation" status
+    - _Requirements: 3.3, 6.7_
+  - [ ] 21.3 Add InvalidClientStateError exception
+    - Create exception class in lambda/src/shared/exceptions.py
+    - Map to 401 status with "invalid-client-state" status
+    - _Requirements: 6.8, 13.6, 13.7_
+  - [ ] 21.4 Add NewUsersDisabledError exception
+    - Create exception class in lambda/src/shared/exceptions.py
+    - Map to 401 status with "new-users-disabled" status
+    - _Requirements: 6.9, 17.2_
+  - [ ] 21.5 Update Request Handler error mapping
+    - Add exception handlers for new error types
+    - Return correct status codes and status field values
+    - _Requirements: 6.6, 6.7, 6.8, 6.9_
+  - [ ] 21.6 Add unit tests for new error statuses
+    - Test each new error type returns correct status code and status field
+    - _Requirements: 6.6, 6.7, 6.8, 6.9_
+
+- [ ]* 21.7 Write property test for invalid-timestamp status
+  - **Property 23: Timestamp skew rejection**
+  - **Validates: Requirements 6.6, 18.2**
+
+- [ ]* 21.8 Write property test for invalid-generation status
+  - **Property 9: Generation-based token invalidation**
+  - **Validates: Requirements 3.3, 6.7**
+
+- [ ]* 21.9 Write property test for invalid-client-state status
+  - **Property 24: Invalid client state status**
+  - **Validates: Requirements 6.8**
+
+- [ ]* 21.10 Write property test for new-users-disabled status
+  - **Property 25: New users disabled status**
+  - **Validates: Requirements 6.9, 17.2**
+
+- [ ] 22. Add timestamp validation for OIDC tokens
+  - [ ] 22.1 Add clock_skew_tolerance configuration
+    - Add CLOCK_SKEW_TOLERANCE environment variable (default 300 seconds)
+    - Add to ServiceProvider configuration
+    - _Requirements: 18.4_
+  - [ ] 22.2 Update OIDCValidator for timestamp validation
+    - Add clock_skew_tolerance parameter to __init__()
+    - Add server_time parameter to validate_token()
+    - Validate iat claim against server time with tolerance
+    - Raise InvalidTimestampError if skew exceeds tolerance
+    - _Requirements: 18.1, 18.2_
+  - [ ] 22.3 Update Request Handler to pass server time
+    - Pass current server time to OIDCValidator.validate_token()
+    - Include X-Timestamp in response on timestamp validation failure
+    - _Requirements: 18.3_
+  - [ ] 22.4 Add unit tests for timestamp validation
+    - Test valid timestamps within tolerance
+    - Test rejection of timestamps outside tolerance
+    - Test X-Timestamp header included on failure
+    - _Requirements: 18.1, 18.2, 18.3, 18.4_
+
+- [ ]* 22.5 Write property test for timestamp validation
+  - **Property 53: Timestamp validation with tolerance**
+  - **Validates: Requirements 18.1, 18.4**
+
+- [ ]* 22.6 Write property test for timestamp failure includes X-Timestamp
+  - **Property 54: Timestamp validation includes X-Timestamp**
+  - **Validates: Requirements 18.3**
+
+- [ ] 23. Add Retry-After header on 503 responses
+  - [ ] 23.1 Add RETRY_AFTER_SECONDS configuration
+    - Add environment variable (default 30 seconds)
+    - Add to ServiceProvider configuration
+    - _Requirements: 15.1_
+  - [ ] 23.2 Update error response for 503 status
+    - Add Retry-After header to all 503 responses in _error_response()
+    - _Requirements: 15.1_
+  - [ ] 23.3 Add unit tests for Retry-After header
+    - Test 503 responses include Retry-After header
+    - Test header value is correct
+    - _Requirements: 15.1_
+
+- [ ]* 23.4 Write property test for Retry-After on 503
+  - **Property 49: Retry-After header on 503**
+  - **Validates: Requirements 15.1**
+
+- [ ] 24. Add WWW-Authenticate header on 401 responses
+  - [ ] 24.1 Update error response for 401 status
+    - Add WWW-Authenticate header with "Bearer" scheme to all 401 responses
+    - Include realm and error description
+    - _Requirements: 16.1, 16.2, 16.3_
+  - [ ] 24.2 Add unit tests for WWW-Authenticate header
+    - Test all 401 responses include WWW-Authenticate header
+    - Test header format is correct (Bearer scheme)
+    - _Requirements: 16.1, 16.2, 16.3_
+
+- [ ]* 24.3 Write property test for WWW-Authenticate on 401
+  - **Property 51: WWW-Authenticate header on 401**
+  - **Validates: Requirements 16.1, 16.2, 16.3**
+
+- [ ] 25. Add 406 Not Acceptable response
+  - [ ] 25.1 Add Accept header validation
+    - Validate Accept header in Request Handler
+    - Return 406 if Accept header is not acceptable (not application/json or */*)
+    - _Requirements: 5.4_
+  - [ ] 25.2 Add unit tests for Accept header validation
+    - Test valid Accept headers (application/json, */*, missing)
+    - Test invalid Accept headers return 406
+    - _Requirements: 5.4_
+
+- [ ]* 25.3 Write property test for unacceptable Accept header rejection
+  - **Property 18: Unacceptable Accept header rejection**
+  - **Validates: Requirements 5.4**
+
+- [ ] 26. Add new-users-disabled feature
+  - [ ] 26.1 Add NEW_USERS_ENABLED configuration
+    - Add environment variable (default true)
+    - Add to ServiceProvider configuration
+    - _Requirements: 17.4_
+  - [ ] 26.2 Update UserManager for new users check
+    - Add new_users_enabled parameter to constructor
+    - Check if user exists before creating
+    - Raise NewUsersDisabledError if new users disabled and user doesn't exist
+    - _Requirements: 17.1, 17.2_
+  - [ ] 26.3 Add unit tests for new users disabled
+    - Test new user rejected when disabled
+    - Test existing user allowed when disabled
+    - Test new user allowed when enabled
+    - _Requirements: 17.1, 17.2, 17.3_
+
+- [ ]* 26.4 Write property test for new users disabled
+  - **Property 52: New users disabled configuration**
+  - **Validates: Requirements 17.1**
+
+- [ ] 27. Update uid generation for node reset
+  - [ ] 27.1 Update TokenGenerator.generate_uid()
+    - Include generation number in uid calculation
+    - uid = hash(user_id + generation) so it changes on node reset
+    - _Requirements: 2.4_
+  - [ ] 27.2 Update generate_token() to pass generation to generate_uid()
+    - Ensure uid changes when generation changes
+    - _Requirements: 2.4_
+  - [ ] 27.3 Add unit tests for uid generation
+    - Test uid changes when generation changes
+    - Test same user_id + generation produces same uid
+    - _Requirements: 2.4_
+
+- [ ]* 27.4 Write property test for node reset on client state change
+  - **Property 8: Node reset on client state change**
+  - **Validates: Requirements 2.4**
+
+- [ ] 28. Checkpoint - Ensure all Mozilla spec compliance tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+## Phase 3: Integration Tests
+
+- [ ]* 29.1 Write integration test for GET method token issuance
+  - Test complete flow using GET method
+  - Verify response structure matches Mozilla spec
+  - _Requirements: 1.1_
+
+- [ ]* 29.2 Write integration test for client state history
+  - Test client state change flow
+  - Test rejection of previously-seen client state
+  - Test rejection of empty state when history exists
+  - _Requirements: 13.6, 13.7, 13.8_
+
+- [ ]* 29.3 Write integration test for new error statuses
+  - Test invalid-timestamp response
+  - Test invalid-generation response
+  - Test invalid-client-state response
+  - Test new-users-disabled response
+  - _Requirements: 6.6, 6.7, 6.8, 6.9_
+
+- [ ]* 29.4 Write integration test for response headers
+  - Test X-Timestamp on 200 and 401
+  - Test Retry-After on 503
+  - Test WWW-Authenticate on 401
+  - _Requirements: 14.1, 14.2, 15.1, 16.1_
+
+- [ ]* 29.5 Write integration test for node reset
+  - Test uid changes when client state changes
+  - Test api_endpoint changes when client state changes
+  - _Requirements: 2.4_
+
+- [ ] 30. Final Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
