@@ -45,14 +45,13 @@ def request_token_route(mock_oidc_validator, mock_user_manager, mock_token_gener
 
 @pytest.fixture
 def valid_event():
-    """Valid POST request to token endpoint"""
+    """Valid GET request to token endpoint"""
     return APIGatewayProxyEvent(
         {
-            "httpMethod": "POST",
+            "httpMethod": "GET",
             "path": "/1.0/sync/1.5",
             "headers": {
                 "authorization": "Bearer valid-oidc-token",
-                "content-type": "application/json",
             },
             "body": None,
         }
@@ -114,15 +113,15 @@ class TestRequestTokenRouteInit:
 class TestRequestTokenRouteBind:
     """Test bind method"""
 
-    def test_bind_registers_post_route(self, request_token_route):
-        """Test that bind registers POST route"""
+    def test_bind_registers_get_route(self, request_token_route):
+        """Test that bind registers GET route"""
         mock_api = MagicMock()
-        mock_api.post = MagicMock(return_value=lambda f: f)
+        mock_api.get = MagicMock(return_value=lambda f: f)
         mock_api.pass_event = MagicMock(return_value=lambda f: f)
 
         request_token_route.bind(mock_api)
 
-        mock_api.post.assert_called_once_with("/1.0/sync/1.5")
+        mock_api.get.assert_called_once_with("/1.0/sync/1.5")
 
 
 class TestRequestTokenRouteHandle:
@@ -157,7 +156,7 @@ class TestRequestTokenRouteHandle:
         """Test missing Authorization header returns 401"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {},
             }
@@ -173,7 +172,7 @@ class TestRequestTokenRouteHandle:
         """Test malformed Authorization header returns 400"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {"authorization": "Basic dXNlcjpwYXNz"},
             }
@@ -278,7 +277,7 @@ class TestRequestTokenRouteHandle:
         """Test handling of null headers"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": None,
             }
@@ -297,7 +296,7 @@ class TestRequestTokenRouteHandle:
         """Test handling when requestContext.identity raises KeyError"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {"authorization": "Bearer valid-token"},
                 "requestContext": {},  # Empty requestContext triggers KeyError on identity access
@@ -321,7 +320,7 @@ class TestRequestTokenRouteHandle:
         """Test that Authorization header lookup is case-insensitive"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {"Authorization": "Bearer valid-token"},
             }
@@ -394,7 +393,7 @@ class TestContentTypeValidation:
         """Test invalid Content-Type returns 415"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -420,7 +419,7 @@ class TestContentTypeValidation:
         """Test application/json Content-Type is accepted"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -447,7 +446,7 @@ class TestContentTypeValidation:
         """Test application/x-www-form-urlencoded Content-Type is accepted"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -474,7 +473,7 @@ class TestContentTypeValidation:
         """Test Content-Type with charset parameter is accepted"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -501,7 +500,7 @@ class TestContentTypeValidation:
         """Test Content-Type validation is skipped when no body"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -528,7 +527,7 @@ class TestContentTypeValidation:
         """Test Content-Type validation is skipped when body is empty string"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -577,7 +576,7 @@ class TestXClientStateHeader:
         """Test valid X-Client-State is passed to user manager"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -606,7 +605,7 @@ class TestXClientStateHeader:
         """Test X-Client-State header lookup is case-insensitive"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -635,7 +634,7 @@ class TestXClientStateHeader:
         """Test missing X-Client-State defaults to empty string"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -655,7 +654,7 @@ class TestXClientStateHeader:
         """Test non-hexadecimal X-Client-State returns 400"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -675,7 +674,7 @@ class TestXClientStateHeader:
         """Test X-Client-State longer than 32 chars returns 400"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -700,7 +699,7 @@ class TestXClientStateHeader:
         """Test X-Client-State at max length (32 chars) is accepted"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -726,7 +725,7 @@ class TestXClientStateHeader:
         """Test empty X-Client-State header value is valid"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
@@ -772,7 +771,7 @@ class TestXTimestampHeader:
         """Test error response includes X-Timestamp header"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {},
             }
@@ -809,7 +808,7 @@ class TestXTimestampHeader:
         """Test validation error (400) includes X-Timestamp header"""
         event = APIGatewayProxyEvent(
             {
-                "httpMethod": "POST",
+                "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Basic invalid",
