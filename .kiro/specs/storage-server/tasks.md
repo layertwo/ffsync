@@ -3,110 +3,132 @@
 - [x] 1. Set up project structure and shared components
   - [x] 1.1 Create storage-specific exception classes in `shared/exceptions.py`
     - Add `SyncStorageException`, `CollectionNotFoundException`, `StorageObjectNotFoundException`, `PreconditionFailedException`, `QuotaExceededException`, `ValidationException`, `ConflictException`, `AuthenticationException`
-    - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 15.5-15.9_
+    - _Requirements: 13.1-13.8, 16.6-16.14_
   - [x] 1.2 Create BSO and collection data models in `shared/models.py`
-    - Add `BasicStorageObject` dataclass with id, payload, modified, sortindex, ttl
+    - Add `BasicStorageObject` dataclass with id, payload, modified, sortindex, ttl (ttl is write-only)
     - Add `CollectionData` dataclass with name, modified, count, usage
-    - Add `BatchResult` dataclass with success, failed, modified
-    - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 14.1, 14.2, 14.3_
-  - [ ] 1.3 Add `RequestTooLargeException` to `shared/exceptions.py`
-    - HTTP 413 status code for oversized requests
-    - _Requirements: 3.5, 3.6, 15.9_
-  - [ ] 1.4 Add payload size validation helper in `shared/models.py`
-    - Validate payload size (max 256 KB in bytes) - Smithy validates character count, not bytes
-    - Validate sortindex range (-2147483648 to 2147483647)
-    - Validate TTL is non-negative
-    - Note: BSO ID and collection name format/length validated by API Gateway via Smithy
-    - _Requirements: 9.1, 9.4, 9.5_
-  - [ ]* 1.5 Write property test for BSO payload/field validation
-    - **Property 19: BSO Validation Completeness** (payload size, sortindex range, TTL non-negative)
-    - **Validates: Requirements 9.1, 9.4, 9.5**
-  - [ ]* 1.6 Write unit tests for exception classes and data models
-    - _Requirements: 12.1, 12.2_
+    - Add `BatchResult` dataclass with success, failed (string values), modified
+    - _Requirements: 10.1-10.5, 15.1-15.3_
+  - [ ] 1.3 Add missing exception classes to `shared/exceptions.py`
+    - Add `RequestTooLargeException` (HTTP 413)
+    - Add `MethodNotAllowedException` (HTTP 405)
+    - Add `UnsupportedMediaTypeException` (HTTP 415)
+    - Add `ServerLimitExceededException` (HTTP 400, code 17)
+    - _Requirements: 3.4-3.6, 16.9, 16.12, 16.13_
+  - [ ] 1.4 Add Mozilla response code constants in `shared/exceptions.py`
+    - CODE_JSON_PARSE_FAILURE = 6
+    - CODE_INVALID_BSO = 8
+    - CODE_INVALID_COLLECTION = 13
+    - CODE_QUOTA_EXCEEDED = 14
+    - CODE_INCOMPATIBLE_CLIENT = 16
+    - CODE_SERVER_LIMIT_EXCEEDED = 17
+    - _Requirements: 13.2-13.7_
+  - [ ] 1.5 Add payload size validation helper in `shared/models.py`
+    - Validate payload size (max 256 KB in bytes)
+    - Validate sortindex range (max 9 digits)
+    - Validate TTL is positive integer (max 9 digits)
+    - _Requirements: 10.1, 10.4, 10.5_
+  - [ ] 1.6 Update collection name validation for urlsafe-base64 + period
+    - Allow alphanumeric (a-z, A-Z, 0-9), underscore, hyphen, period
+    - Max 32 characters
+    - _Requirements: 15.1, 15.2, 15.3_
+  - [ ]* 1.7 Write property test for BSO payload/field validation
+    - **Property 24: BSO Validation Completeness**
+    - **Validates: Requirements 10.1, 10.2, 10.4, 10.5**
+  - [ ]* 1.8 Write property test for collection name validation
+    - **Property 23: Collection Name Validation**
+    - **Validates: Requirements 15.1, 15.2, 15.3**
+  - [ ]* 1.9 Write unit tests for exception classes and data models
+    - _Requirements: 13.1-13.8_
 
 - [x] 2. Implement StorageManager service core operations
   - [x] 2.1 Create `StorageManager` class in `services/storage_manager.py`
-    - Initialize with DynamoDB table
+    - Initialize with DynamoDB table and user_id
     - Implement DynamoDB key generation (PK/SK pattern)
-    - _Requirements: 11.5_
+    - _Requirements: 12.5_
   - [x] 2.2 Implement single BSO operations
-    - `get_storage_object(collection_name, object_id)` - retrieve BSO
-    - `update_storage_object(collection_name, object_id, **kwargs)` - create/update BSO
-    - `delete_storage_object(collection_name, object_id)` - delete BSO
-    - _Requirements: 1.1, 1.2, 1.3, 1.4_
+    - `get_storage_object` - retrieve BSO (without TTL in response)
+    - `update_storage_object` - create/update BSO
+    - `delete_storage_object` - delete BSO
+    - _Requirements: 1.1-1.7_
   - [x] 2.3 Implement collection query operations
-    - `get_collection_objects(collection_name, **filters)` - list BSOs with filtering
-    - Support filters: ids, newer, older, sort, limit, offset, full
-    - Return next_offset when more results available
-    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11_
+    - `get_collection_objects` - list BSOs with filtering
+    - Support filters: ids, newer, older, sort, limit, offset (opaque token), full
+    - Return empty list for non-existent collections
+    - _Requirements: 2.1-2.14_
   - [x] 2.4 Implement batch operations
-    - `create_or_update_collection(collection_name, objects)` - batch create/update
-    - Return BatchResult with success/failed arrays
+    - `create_or_update_collection` - batch create/update
+    - Return BatchResult with success/failed
     - _Requirements: 3.1, 3.2, 3.3_
   - [x] 2.5 Implement delete operations (partial)
-    - `delete_collection(collection_name)` - delete all BSOs in collection
-    - _Requirements: 4.2_
+    - `delete_collection` - delete all BSOs in collection
+    - _Requirements: 4.3_
   - [x] 2.6 Implement metadata operations
-    - `list_collections()` - return collection timestamps
-    - _Requirements: 6.1, 6.2, 6.3_
+    - `list_collections` - return collection timestamps
+    - _Requirements: 7.1, 7.2, 7.3_
 
 - [ ] 3. Complete StorageManager missing functionality
   - [ ] 3.1 Add user_id scoping to StorageManager
-    - Update constructor to accept user_id parameter
-    - Update PK pattern to include user_id: `USER#{user_id}#COLLECTION#{collection_name}`
+    - Update PK pattern: `USER#{user_id}#COLLECTION#{collection_name}`
     - Ensure all operations are scoped to authenticated user
-    - _Requirements: 11.5_
-  - [ ] 3.2 Implement `delete_collection_objects(collection_name, ids)` for selective deletion
-    - Delete only specified BSO IDs from collection
-    - Return deletion timestamp
-    - _Requirements: 4.1_
-  - [ ] 3.3 Implement `delete_all_storage()` for complete user data deletion
+    - _Requirements: 12.5_
+  - [ ] 3.2 Implement `delete_collection_objects` for selective deletion
+    - Delete only specified BSO IDs (max 100)
+    - Update collection's last-modified time
+    - Return JSON object with `modified` timestamp
+    - _Requirements: 4.1, 4.2, 4.5_
+  - [ ] 3.3 Implement `delete_all_storage` for complete user data deletion
     - Delete all collections and BSOs for user
     - Return deletion timestamp
-    - _Requirements: 4.3, 4.4_
-  - [ ] 3.4 Add TTL expiry calculation for DynamoDB TTL attribute
-    - Calculate `expiry` attribute as current_time + ttl
-    - Store in DynamoDB for automatic deletion
-    - _Requirements: 10.1, 10.2, 10.3_
-  - [ ] 3.5 Add batch limit validation
-    - Validate max_post_records (100 BSOs per batch)
-    - Validate max_post_bytes (2 MB total payload)
-    - Raise appropriate exceptions on violation
-    - _Requirements: 3.4, 3.5, 3.6_
-  - [ ] 3.6 Implement optimistic concurrency control
-    - Add `if_unmodified_since` parameter to write operations
-    - Compare against collection's last modification timestamp
-    - Raise `PreconditionFailedException` on conflict
-    - _Requirements: 5.1, 5.2_
-  - [ ]* 3.7 Write property test for BSO round-trip
+    - _Requirements: 4.6, 4.7, 4.8_
+  - [ ] 3.4 Implement `get_quota` for quota information
+    - Return tuple of (usage_kb, quota_kb or None)
+    - _Requirements: 7.4_
+  - [ ] 3.5 Add TTL expiry calculation for DynamoDB TTL attribute
+    - Calculate `expiry` as current_time + ttl
+    - Ensure TTL is NOT returned in GET responses
+    - _Requirements: 11.1-11.4_
+  - [ ] 3.6 Add batch limit validation
+    - Validate max_post_records (100 BSOs)
+    - Validate max_post_bytes (2 MB)
+    - Validate max_ids_per_request (100 IDs)
+    - _Requirements: 3.4, 3.5, 3.7, 3.8, 4.2_
+  - [ ] 3.7 Implement optimistic concurrency control
+    - Add `if_unmodified_since` parameter
+    - Support `if_unmodified_since=0` for create-only
+    - _Requirements: 5.1, 5.2, 5.3_
+  - [ ] 3.8 Implement conflict detection
+    - Detect conflicting concurrent changes
+    - Raise `ConflictException` with optional Retry-After
+    - _Requirements: 5.6, 5.7_
+  - [ ]* 3.9 Write property test for BSO round-trip
     - **Property 1: BSO Round-Trip Consistency**
     - **Validates: Requirements 1.1, 1.2**
-  - [ ]* 3.8 Write property test for BSO deletion
+  - [ ]* 3.10 Write property test for BSO deletion
     - **Property 2: BSO Deletion Removes Object**
-    - **Validates: Requirements 1.3, 1.4**
-  - [ ]* 3.9 Write property test for TTL expiration
-    - **Property 16: TTL Expiration Behavior**
-    - **Validates: Requirements 10.1, 10.2, 10.3**
-  - [ ]* 3.10 Write property tests for collection filtering
-    - **Property 4: Collection Listing Completeness**
-    - **Property 5: ID Filtering Correctness**
-    - **Property 6: Timestamp Filtering Correctness**
-    - **Property 7: Sort Order Correctness**
-    - **Property 8: Pagination Correctness**
-    - **Validates: Requirements 2.1-2.11**
-  - [ ]* 3.11 Write property test for batch operations
-    - **Property 9: Batch Operation Atomicity**
-    - **Validates: Requirements 3.1, 3.2, 3.3**
-  - [ ]* 3.12 Write property tests for deletion
-    - **Property 10: Selective Deletion Correctness**
-    - **Property 11: Collection Deletion Completeness**
-    - **Validates: Requirements 4.1, 4.2, 4.3, 4.4**
-  - [ ]* 3.13 Write property test for collection metadata
-    - **Property 13: Collection Metadata Accuracy**
-    - **Validates: Requirements 6.1, 6.2, 6.3**
-  - [ ]* 3.14 Write property test for concurrency control
-    - **Property 12: Optimistic Concurrency Control**
-    - **Validates: Requirements 5.1, 5.2**
+    - **Validates: Requirements 1.5, 1.6**
+  - [ ]* 3.11 Write property test for empty collection
+    - **Property 5: Empty Collection Returns Empty List**
+    - **Validates: Requirements 2.2**
+  - [ ]* 3.12 Write property tests for TTL
+    - **Property 20: TTL Expiration Behavior**
+    - **Property 21: TTL Write-Only**
+    - **Validates: Requirements 11.1-11.4**
+  - [ ]* 3.13 Write property tests for collection filtering
+    - **Property 4, 6, 7, 8, 9: Collection filtering properties**
+    - **Validates: Requirements 2.1-2.14**
+  - [ ]* 3.14 Write property test for batch operations
+    - **Property 10: Batch Operation Atomicity**
+    - **Validates: Requirements 3.1-3.3**
+  - [ ]* 3.15 Write property tests for deletion
+    - **Property 11, 12: Deletion properties**
+    - **Validates: Requirements 4.1-4.8**
+  - [ ]* 3.16 Write property test for metadata
+    - **Property 16: Collection Metadata Accuracy**
+    - **Validates: Requirements 7.1-7.4**
+  - [ ]* 3.17 Write property tests for concurrency
+    - **Property 13, 14: Concurrency properties**
+    - **Validates: Requirements 5.1-5.3**
 
 - [ ] 4. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
@@ -114,131 +136,139 @@
 - [x] 5. Implement BSO route handlers
   - [x] 5.1 Create `ReadBSORoute` in `routes/bso/read.py`
     - GET `/storage/{collection}/{id}`
-    - Return BSO with X-Last-Modified header
-    - Handle 404 for missing BSO
-    - _Requirements: 1.1, 1.4, 1.5_
+    - Return BSO without TTL, with X-Last-Modified header
+    - _Requirements: 1.1, 1.6, 1.7_
   - [x] 5.2 Create `UpdateBSORoute` in `routes/bso/update.py`
     - PUT `/storage/{collection}/{id}`
-    - Validate BSO payload, return modification timestamp
-    - _Requirements: 1.2, 5.1, 5.2, 5.3_
+    - Support partial updates and null resets
+    - _Requirements: 1.2-1.4, 5.1-5.4_
   - [x] 5.3 Create `DeleteBSORoute` in `routes/bso/delete.py`
     - DELETE `/storage/{collection}/{id}`
-    - Return deletion timestamp
-    - _Requirements: 1.3_
-  - [ ] 5.4 Add BSO business validation to routes
-    - Validate payload size (max 256 KB in bytes) - not covered by Smithy
-    - Note: ID format/length, sortindex type, TTL type validated by API Gateway via Smithy
-    - _Requirements: 9.1_
-  - [ ]* 5.5 Write property test for X-Last-Modified header
+    - _Requirements: 1.5_
+  - [ ] 5.4 Update ReadBSORoute to exclude TTL from response
+    - TTL is write-only per Mozilla spec
+    - _Requirements: 11.4_
+  - [ ] 5.5 Add BSO business validation to UpdateBSORoute
+    - Validate payload size (max 256 KB)
+    - Validate BSO ID (max 64 chars, printable ASCII)
+    - _Requirements: 10.1, 10.2, 10.3_
+  - [ ] 5.6 Add conditional GET support to ReadBSORoute
+    - Support X-If-Modified-Since header
+    - Return 304 Not Modified when unchanged
+    - _Requirements: 6.1-6.4_
+  - [ ]* 5.7 Write property tests for BSO routes
     - **Property 3: X-Last-Modified Header Consistency**
-    - **Validates: Requirements 1.5, 5.3, 5.4**
+    - **Property 15: Conditional GET Correctness**
+    - **Validates: Requirements 1.7, 5.4, 5.5, 6.1, 6.2**
 
 - [x] 6. Implement collection route handlers
   - [x] 6.1 Create `ReadCollectionRoute` in `routes/collections/read.py`
-    - GET `/storage/{collection}`
-    - Support query params: full, ids, newer, older, sort, limit, offset
-    - Return X-Weave-Next-Offset header when paginated
-    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11_
+    - GET `/storage/{collection}` with filtering
+    - Return empty list for non-existent collections
+    - _Requirements: 2.1-2.14_
   - [x] 6.2 Create `CreateCollectionRoute` in `routes/collections/create.py`
     - POST `/storage/{collection}`
-    - Accept JSON array of BSOs, return BatchResult
-    - _Requirements: 3.1, 3.2, 3.3_
+    - _Requirements: 3.1-3.3_
   - [x] 6.3 Create `DeleteCollectionRoute` in `routes/collections/delete.py`
     - DELETE `/storage/{collection}`
-    - Return deletion timestamp
-    - _Requirements: 4.2, 4.4_
-  - [ ] 6.4 Update `DeleteCollectionRoute` to support selective deletion
-    - Support `ids` query param for selective deletion
-    - _Requirements: 4.1_
-  - [ ] 6.5 Add batch limit validation to `CreateCollectionRoute`
-    - Validate max_post_records (100 BSOs)
-    - Validate max_post_bytes (2 MB)
-    - Return 400 for record limit, 413 for size limit
-    - _Requirements: 3.4, 3.5, 3.6_
-  - Note: Collection name validation (format, length) handled by API Gateway via Smithy model
+    - _Requirements: 4.3, 4.4_
+  - [ ] 6.4 Update ReadCollectionRoute to return empty list for non-existent collections
+    - Currently returns 404, should return empty array
+    - _Requirements: 2.2_
+  - [ ] 6.5 Update `DeleteCollectionRoute` for selective deletion
+    - Support `ids` query param (max 100)
+    - Return `{"modified": timestamp}`
+    - _Requirements: 4.1, 4.2, 4.5_
+  - [ ] 6.6 Add batch limit validation to CreateCollectionRoute
+    - Support X-Weave-Records and X-Weave-Bytes headers
+    - Return 400 with code 17 for violations
+    - _Requirements: 3.4, 3.5, 3.7, 3.8_
+  - [ ] 6.7 Add conditional GET support to ReadCollectionRoute
+    - _Requirements: 6.1, 6.2_
+  - [ ] 6.8 Add X-Weave-Records response header
+    - _Requirements: 2.14_
 
 - [x] 7. Implement info route handlers (partial)
-  - [x] 7.1 Create `ReadCollectionsInfoRoute` in `routes/info/read_collections.py`
-    - GET `/info/collections`
-    - Return JSON object mapping collection names to timestamps
-    - _Requirements: 6.1_
-  - [x] 7.2 Create `ReadCollectionCountsRoute` in `routes/info/read_counts.py`
-    - GET `/info/collection_counts`
-    - Return JSON object mapping collection names to BSO counts
-    - _Requirements: 6.2_
-  - [x] 7.3 Create `ReadCollectionUsageRoute` in `routes/info/read_usage.py`
-    - GET `/info/collection_usage`
-    - Return JSON object mapping collection names to storage usage in KB
-    - _Requirements: 6.3_
-  - [ ] 7.4 Create `ReadConfigurationRoute` in `routes/info/read_configuration.py`
-    - GET `/info/configuration`
-    - Return server limits: max_request_bytes, max_post_records, max_post_bytes, max_record_payload_bytes, max_total_records, max_total_bytes
-    - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7_
-  - [ ]* 7.5 Write property test for configuration response
-    - **Property 20: Configuration Response Completeness**
-    - **Validates: Requirements 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7**
+  - [x] 7.1 Create `ReadCollectionsInfoRoute`
+    - _Requirements: 7.1_
+  - [x] 7.2 Create `ReadCollectionCountsRoute`
+    - _Requirements: 7.2_
+  - [x] 7.3 Create `ReadCollectionUsageRoute`
+    - _Requirements: 7.3_
+  - [ ] 7.4 Update `ReadQuotaInfoRoute` to return Mozilla format
+    - Return [usage_kb, quota_kb or null] as two-item list
+    - _Requirements: 7.4_
+  - [ ] 7.5 Create `ReadConfigurationRoute` in `routes/info/read_configuration.py`
+    - Return max_request_bytes, max_post_records, max_post_bytes, max_record_payload_bytes
+    - _Requirements: 8.1-8.7_
+  - [ ] 7.6 Update `ReadCollectionsInfoRoute` to return Mozilla format
+    - Return object mapping collection names to timestamps (not full metadata)
+    - _Requirements: 7.1_
+  - [ ]* 7.7 Write property test for configuration
+    - **Property 25: Configuration Response Completeness**
+    - **Validates: Requirements 8.1-8.7**
 
-- [ ] 8. Complete storage-level route handler
-  - [ ] 8.1 Update `DeleteAllStorageRoute` in `routes/storage/delete_all.py`
-    - Wire up to StorageManager.delete_all_storage()
-    - Delete all collections and BSOs for user
-    - Return deletion timestamp
-    - _Requirements: 4.3, 4.4_
+- [ ] 8. Complete storage-level route handlers
+  - [ ] 8.1 Update `DeleteAllStorageRoute` to actually delete all data
+    - DELETE `/storage` - currently returns placeholder
+    - _Requirements: 4.6, 4.8_
+  - [ ] 8.2 Create `DeleteAllRootRoute` in `routes/storage/delete_root.py`
+    - DELETE `/`
+    - _Requirements: 4.7, 4.8_
+  - [ ] 8.3 Register new routes in ServiceProvider
+    - Add ReadConfigurationRoute, DeleteAllRootRoute
+    - _Requirements: 4.7, 8.1-8.7_
 
 - [ ] 9. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 10. Implement response headers and middleware
   - [ ] 10.1 Create X-Weave-Timestamp header middleware
-    - Generate current server time in seconds since epoch with 2 decimal places
-    - Add to all responses via middleware or base route
-    - _Requirements: 8.1, 8.2_
-  - [ ]* 10.2 Write property test for X-Weave-Timestamp header
-    - **Property 14: X-Weave-Timestamp Header Presence**
-    - **Validates: Requirements 8.1, 8.2**
-  - [ ] 10.3 Verify error response formatting
-    - Ensure all error responses are valid JSON with error and message fields
-    - Map exceptions to appropriate HTTP status codes
-    - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
-  - [ ]* 10.4 Write property test for error response format
-    - **Property 17: Error Response Format**
-    - **Validates: Requirements 12.1, 12.2**
-  - [ ]* 10.5 Write property test for HTTP status codes
-    - **Property 22: HTTP Status Code Correctness**
-    - **Validates: Requirements 15.1-15.9**
+    - Add to all responses
+    - Ensure equals X-Last-Modified on writes
+    - _Requirements: 9.1-9.4_
+  - [ ]* 10.2 Write property tests for timestamps
+    - **Property 17, 18: Timestamp properties**
+    - **Validates: Requirements 9.1-9.4**
+  - [ ] 10.3 Update error response formatting to use Mozilla response codes
+    - Return integer response code in JSON body
+    - _Requirements: 13.1-13.8_
+  - [ ]* 10.4 Write property tests for errors
+    - **Property 22, 27: Error and status code properties**
+    - **Validates: Requirements 13.1-13.7, 16.1-16.14**
+  - [ ] 10.5 Add optional response headers
+    - X-Weave-Backoff, X-Weave-Quota-Remaining, X-Weave-Alert, Retry-After
+    - _Requirements: 5.7, 18.1-18.4_
 
-- [ ] 11. Update ServiceProvider and API Router integration
-  - [ ] 11.1 Update `ServiceProvider` to pass user_id to `StorageManager`
+- [ ] 11. Implement content-type handling
+  - [ ] 11.1 Add content-type parsing for POST
+    - application/json, application/newlines, text/plain
+    - _Requirements: 17.1-17.3, 16.13_
+  - [ ] 11.2 Add Accept header handling for GET
+    - _Requirements: 17.4, 17.5_
+  - [ ]* 11.3 Write property test for content-type
+    - **Property 28: Content-Type Handling**
+    - **Validates: Requirements 17.1-17.5**
+
+- [ ] 12. Update ServiceProvider and API Router
+  - [ ] 12.1 Update `ServiceProvider` to pass user_id to StorageManager
     - Extract user_id from request context (set by Lambda Authorizer)
-    - Pass user_id to StorageManager constructor
-    - _Requirements: 11.5_
-  - [ ] 11.2 Register `ReadConfigurationRoute` with `ApiRouter`
-    - Add to storage_api_router routes list
-    - _Requirements: 7.1-7.7_
-  - [ ] 11.3 Update `storage_api.py` entrypoint for structured logging
-    - Log request method, path, and user ID
-    - Use JSON format logging
-    - Do not log BSO payloads or sensitive data
-    - _Requirements: 13.1, 13.2, 13.3, 13.4_
+    - _Requirements: 12.5_
+  - [ ] 12.2 Update structured logging
+    - Log request method, path, user_id
+    - Never log BSO payloads
+    - _Requirements: 14.1-14.4_
 
-- [ ] 12. Checkpoint - Ensure all tests pass
+- [ ] 13. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 13. Final integration and validation
-  - [ ] 13.1 Create integration test fixtures
-    - Mock DynamoDB table with moto
-    - Create sample BSOs and collections
+- [ ] 14. Final integration and validation
+  - [ ] 14.1 Create integration test fixtures
     - _Requirements: All_
-  - [ ]* 13.2 Write integration tests for complete request flows
-    - Test BSO CRUD operations end-to-end
-    - Test collection operations with filtering
-    - Test batch operations
-    - Test error scenarios
+  - [ ]* 14.2 Write integration tests
     - _Requirements: All_
-  - [ ] 13.3 Verify test coverage
-    - Run pytest with coverage report
-    - Address any uncovered code paths
+  - [ ] 14.3 Verify test coverage meets 100% requirement
     - _Requirements: All_
 
-- [ ] 14. Final Checkpoint - Ensure all tests pass
+- [ ] 15. Final Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
