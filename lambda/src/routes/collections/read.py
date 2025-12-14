@@ -1,11 +1,10 @@
-import json
-
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import CollectionNotFoundException, ValidationException
+from src.shared.utils import json_dumps
 
 logger = Logger()
 
@@ -64,47 +63,43 @@ class ReadCollectionRoute(BaseRoute):
                 return Response(
                     status_code=200,
                     content_type="application/json",
-                    body=json.dumps(response_body),
+                    body=json_dumps(response_body),
                     headers={"X-Last-Modified": str(objects.get("last_modified", 0))},
                 )
             else:
                 # Return collection metadata only
                 collection_data = self.storage_manager.get_collection(collection_name)
 
-                response_body = {
-                    "collection": {
-                        "name": collection_data.name,
-                        "modified": collection_data.modified,
-                        "count": collection_data.count,
-                        "usage": collection_data.usage,
-                    }
-                }
+                # Convert to dict using dataclass serialization
+                collection_dict = collection_data.to_dict()
+
+                response_body = {"collection": collection_dict}
 
                 return Response(
                     status_code=200,
                     content_type="application/json",
-                    body=json.dumps(response_body),
-                    headers={"X-Last-Modified": str(collection_data.modified)},
+                    body=json_dumps(response_body),
+                    headers={"X-Last-Modified": str(collection_dict["modified"])},
                 )
 
         except ValidationException as e:
             return Response(
                 status_code=400,
                 content_type="application/json",
-                body=json.dumps({"error": str(e)}),
+                body=json_dumps({"error": str(e)}),
             )
         except CollectionNotFoundException as e:
             return Response(
                 status_code=404,
                 content_type="application/json",
-                body=json.dumps({"error": str(e)}),
+                body=json_dumps({"error": str(e)}),
             )
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json.dumps({"error": "Internal server error"}),
+                body=json_dumps({"error": "Internal server error"}),
             )
 
     def _parse_timestamp(self, value):
@@ -133,13 +128,13 @@ class ReadCollectionRoute(BaseRoute):
 
     def _format_object(self, obj):
         """Format storage object for response"""
-        result = {
-            "id": obj.id,
-            "payload": obj.payload,
-            "modified": obj.modified,
-        }
-        if obj.sortindex is not None:
-            result["sortindex"] = obj.sortindex
-        if obj.ttl is not None:
-            result["ttl"] = obj.ttl
-        return result
+        # Convert to dict using dataclass serialization
+        obj_dict = obj.to_dict()
+
+        # Remove None values
+        if obj_dict.get("sortindex") is None:
+            del obj_dict["sortindex"]
+        if obj_dict.get("ttl") is None:
+            del obj_dict["ttl"]
+
+        return obj_dict

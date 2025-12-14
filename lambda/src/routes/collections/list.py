@@ -1,10 +1,9 @@
-import json
-
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
+from src.shared.utils import json_dumps
 
 logger = Logger()
 
@@ -24,22 +23,12 @@ class ListCollectionsRoute(BaseRoute):
             # Get collections using storage manager
             collections = self.storage_manager.list_collections()
 
-            response_body = {
-                "collections": [
-                    {
-                        "name": collection.name,
-                        "modified": collection.modified,
-                        "count": collection.count,
-                        "usage": collection.usage,
-                    }
-                    for collection in collections
-                ]
-            }
+            response_body = {"collections": [collection.to_dict() for collection in collections]}
 
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json.dumps(response_body),
+                body=json_dumps(response_body),
             )
 
         except Exception as e:
@@ -47,5 +36,5 @@ class ListCollectionsRoute(BaseRoute):
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json.dumps({"error": "Internal server error"}),
+                body=json_dumps({"error": "Internal server error"}),
             )

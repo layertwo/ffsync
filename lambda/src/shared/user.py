@@ -1,13 +1,15 @@
 """User record data model"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 
-from dataclasses_json import dataclass_json
+from dataclasses_json import DataClassJsonMixin, config
+
+from src.shared.utils import datetime_decoder, datetime_encoder
 
 
-@dataclass_json
 @dataclass
-class UserRecord:
+class UserRecord(DataClassJsonMixin):
     """
     User record stored in DynamoDB
 
@@ -15,12 +17,16 @@ class UserRecord:
         user_id: Unique identifier from OIDC sub claim
         generation: Monotonic counter for token invalidation
         client_state: X-Client-State header value (hex string, max 32 chars)
-        created_at: Unix timestamp when user was created
-        updated_at: Unix timestamp when user was last updated
+        created_at: Datetime when user was created
+        updated_at: Datetime when user was last updated
     """
 
     user_id: str
     generation: int
     client_state: str
-    created_at: float
-    updated_at: float
+    created_at: datetime = field(
+        metadata=config(encoder=datetime_encoder, decoder=datetime_decoder)
+    )
+    updated_at: datetime = field(
+        metadata=config(encoder=datetime_encoder, decoder=datetime_decoder)
+    )

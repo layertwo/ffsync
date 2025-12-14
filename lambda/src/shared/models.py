@@ -1,8 +1,10 @@
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
-from dataclasses_json import dataclass_json
+from dataclasses_json import DataClassJsonMixin, config
+
+from src.shared.utils import datetime_decoder, datetime_encoder
 
 
 class ValidationError(Exception):
@@ -11,65 +13,36 @@ class ValidationError(Exception):
     pass
 
 
-@dataclass_json
 @dataclass
-class BasicStorageObject:
+class BasicStorageObject(DataClassJsonMixin):
     """Basic Storage Object model"""
 
     id: str
     payload: str
-    modified: float
+    modified: datetime = field(metadata=config(encoder=datetime_encoder, decoder=datetime_decoder))
     sortindex: Optional[int] = None
     ttl: Optional[int] = None
 
 
-@dataclass_json
 @dataclass
-class CollectionData:
+class CollectionData(DataClassJsonMixin):
     """Collection metadata model"""
 
     name: str
-    modified: float
+    modified: datetime = field(metadata=config(encoder=datetime_encoder, decoder=datetime_decoder))
     count: int
     usage: int
 
 
-@dataclass_json
 @dataclass
-class BatchResult:
+class BatchResult(DataClassJsonMixin):
     """Batch operation result model"""
 
     success: List[str]
     failed: Dict[str, List[str]]
-    modified: float
+    modified: datetime = field(metadata=config(encoder=datetime_encoder, decoder=datetime_decoder))
 
 
 def get_current_timestamp() -> float:
     """Get current timestamp in seconds since epoch with 2 decimal places precision"""
-    return round(datetime.now().timestamp(), 2)
-
-
-def validate_timestamp(timestamp: float) -> bool:
-    """
-    Validate that a timestamp is a valid float with proper precision.
-
-    Args:
-        timestamp: The timestamp to validate (seconds since epoch)
-
-    Returns:
-        True if the timestamp is valid, False otherwise
-    """
-    if not isinstance(timestamp, (int, float)):
-        return False
-
-    # Check if timestamp is positive (after epoch)
-    if timestamp < 0:
-        return False
-
-    # Check if timestamp has at most 2 decimal places
-    # Round to 2 decimal places and compare - if they're equal, it has at most 2 decimal places
-    rounded = round(timestamp, 2)
-    if abs(timestamp - rounded) > 1e-10:  # Small epsilon for floating point comparison
-        return False
-
-    return True
+    return round(datetime.now(tz=timezone.utc).timestamp(), 2)

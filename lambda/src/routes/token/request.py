@@ -1,6 +1,5 @@
 """RequestToken route for Firefox Sync Token Server"""
 
-import json
 import re
 import time
 from dataclasses import asdict
@@ -18,6 +17,7 @@ from src.shared.exceptions import (
     ServiceUnavailableError,
     ValidationException,
 )
+from src.shared.utils import json_dumps
 
 logger = Logger()
 
@@ -158,7 +158,7 @@ class RequestTokenRoute(BaseRoute):
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json.dumps(asdict(token_response)),
+                body=json_dumps(asdict(token_response)),
                 headers={"X-Timestamp": str(int(time.time()))},
             )
 
@@ -274,6 +274,6 @@ class RequestTokenRoute(BaseRoute):
         return Response(
             status_code=status_code,
             content_type="application/json",
-            body=json.dumps(body),
+            body=json_dumps(body),
             headers={"X-Timestamp": str(int(time.time()))},
         )

@@ -44,8 +44,8 @@ def dynamodb_resource(boto_session):
 
 
 @pytest.fixture
-def dynamodb_stubber(dynamodb_client):
-    with Stubber(dynamodb_client) as stubber:
+def dynamodb_stubber(dynamodb_resource):
+    with Stubber(dynamodb_resource.meta.client) as stubber:
         yield stubber
 
 
