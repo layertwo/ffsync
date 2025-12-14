@@ -1,10 +1,9 @@
-import json
-
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
+from src.shared.utils import json_dumps
 
 logger = Logger()
 
@@ -32,7 +31,7 @@ class ReadCollectionCountsRoute(BaseRoute):
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json.dumps(response_body),
+                body=json_dumps(response_body),
             )
 
         except Exception as e:
@@ -40,5 +39,5 @@ class ReadCollectionCountsRoute(BaseRoute):
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json.dumps({"error": "Internal server error"}),
+                body=json_dumps({"error": "Internal server error"}),
             )

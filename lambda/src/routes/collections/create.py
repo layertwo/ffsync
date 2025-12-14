@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -11,6 +12,7 @@ from src.shared.exceptions import (
     ValidationException,
 )
 from src.shared.models import BasicStorageObject
+from src.shared.utils import json_dumps
 
 logger = Logger()
 
@@ -39,7 +41,7 @@ class CreateCollectionRoute(BaseRoute):
                 return Response(
                     status_code=412,
                     content_type="application/json",
-                    body=json.dumps({"error": "Precondition failed"}),
+                    body=json_dumps({"error": "Precondition failed"}),
                 )
 
             # Parse objects from request body - support both direct array and wrapped object
@@ -63,7 +65,9 @@ class CreateCollectionRoute(BaseRoute):
                             payload=obj["payload"],
                             sortindex=obj.get("sortindex"),
                             ttl=obj.get("ttl"),
-                            modified=0,  # Will be set by storage manager
+                            modified=datetime.fromtimestamp(
+                                0, tz=timezone.utc
+                            ),  # Will be set by storage manager
                         )
                         for obj in objects_data
                     ]
@@ -75,50 +79,45 @@ class CreateCollectionRoute(BaseRoute):
                 collection_name, objects if objects else None
             )
 
+            # Convert to dict using dataclass serialization
+            collection_dict = collection_data.to_dict()
+            batch_dict = batch_result.to_dict()
+
             response_body = {
-                "collection": {
-                    "name": collection_data.name,
-                    "modified": collection_data.modified,
-                    "count": collection_data.count,
-                    "usage": collection_data.usage,
-                },
-                "batchResult": {
-                    "success": batch_result.success,
-                    "failed": batch_result.failed,
-                    "modified": batch_result.modified,
-                },
+                "collection": collection_dict,
+                "batchResult": batch_dict,
             }
 
             return Response(
                 status_code=201,
                 content_type="application/json",
-                body=json.dumps(response_body),
+                body=json_dumps(response_body),
             )
 
         except ValidationException as e:
             return Response(
                 status_code=400,
                 content_type="application/json",
-                body=json.dumps({"error": str(e)}),
+                body=json_dumps({"error": str(e)}),
             )
         except ConflictException as e:
             return Response(
                 status_code=409,
                 content_type="application/json",
-                body=json.dumps({"error": str(e)}),
+                body=json_dumps({"error": str(e)}),
             )
         except PreconditionFailedException as e:  # pragma: nocover
             return Response(
                 status_code=412,
                 content_type="application/json",
-                body=json.dumps({"error": str(e)}),
+                body=json_dumps({"error": str(e)}),
             )
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json.dumps({"error": "Internal server error"}),
+                body=json_dumps({"error": "Internal server error"}),
             )
 
     def _check_precondition(self, collection_name, if_unmodified_since):
@@ -126,6 +125,6 @@ class CreateCollectionRoute(BaseRoute):
         try:
             timestamp = float(if_unmodified_since)
             collection = self.storage_manager.get_collection(collection_name)
-            return collection.modified <= timestamp
+            return collection.modified <= datetime.fromtimestamp(timestamp, tz=timezone.utc)
         except (ValueError, Exception):  # pragma: nocover
             return True  # If we can't check, allow the operation

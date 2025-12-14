@@ -1,10 +1,9 @@
-import json
-
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.shared.base_route import BaseRoute
 from src.shared.models import get_current_timestamp
+from src.shared.utils import json_dumps
 
 logger = Logger()
 
@@ -28,7 +27,7 @@ class DeleteAllStorageRoute(BaseRoute):
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json.dumps({"modified": timestamp}),
+                body=json_dumps({"modified": timestamp}),
             )
 
         except Exception as e:
@@ -36,5 +35,5 @@ class DeleteAllStorageRoute(BaseRoute):
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json.dumps({"error": "Internal server error"}),
+                body=json_dumps({"error": "Internal server error"}),
             )

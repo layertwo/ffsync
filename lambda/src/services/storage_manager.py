@@ -1,9 +1,8 @@
 """Storage manager for DynamoDB operations"""
 
-from decimal import Decimal
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
-from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 from botocore.exceptions import ClientError
 
 from src.shared.exceptions import (
@@ -17,6 +16,9 @@ from src.shared.models import (
     get_current_timestamp,
 )
 
+_PK = "PK"
+_SK = "SK"
+
 
 class StorageManager:
     """Manages storage operations with DynamoDB"""
@@ -28,8 +30,6 @@ class StorageManager:
             table: DynamoDB Table resource
         """
         self.table = table
-        self._serializer = TypeSerializer()
-        self._deserializer = TypeDeserializer()
 
     def _collection_pk(self, collection_name: str) -> str:
         """Generate partition key for collection"""
@@ -43,13 +43,19 @@ class StorageManager:
         """Generate sort key for storage object"""
         return f"OBJECT#{object_id}"
 
-    def _deserialize_item(self, item: Dict) -> Dict:
-        """Convert DynamoDB item to Python dict"""
-        return {k: self._deserializer.deserialize(v) for k, v in item.items()}
+    def _encode_basic_storage_object(self, collection_name: str, obj: BasicStorageObject) -> dict:
+        """Encode BasicStorageObject to DynamoDB format"""
+        obj_data = obj.to_dict()
+        obj_data[_PK] = self._collection_pk(collection_name)
+        obj_data[_SK] = self._object_sk(obj.id)
+        return obj_data
 
-    def _serialize_item(self, data: Dict) -> Dict:
-        """Convert Python dict to DynamoDB item format, skipping None values"""
-        return {k: self._serializer.serialize(v) for k, v in data.items() if v is not None}
+    def _encode_collection_data(self, collection_data: CollectionData) -> dict:
+        """Encode CollectionData to DynamoDB format"""
+        col_data = collection_data.to_dict()
+        col_data[_PK] = self._collection_pk(collection_data.name)
+        col_data[_SK] = self._metadata_sk()
+        return col_data
 
     def get_collection(self, collection_name: str) -> CollectionData:
         """Get collection metadata
@@ -74,17 +80,8 @@ class StorageManager:
             if "Item" not in response:
                 raise CollectionNotFoundException(f"Collection '{collection_name}' not found")
 
-            item = self._deserialize_item(response["Item"])
-            return CollectionData(
-                name=item["name"],
-                modified=(
-                    float(item["modified"])
-                    if isinstance(item["modified"], Decimal)
-                    else item["modified"]
-                ),
-                count=(int(item["count"]) if isinstance(item["count"], Decimal) else item["count"]),
-                usage=(int(item["usage"]) if isinstance(item["usage"], Decimal) else item["usage"]),
-            )
+            item = response["Item"]
+            return CollectionData.from_dict(item)
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 raise CollectionNotFoundException(f"Collection '{collection_name}' not found")
@@ -116,22 +113,8 @@ class StorageManager:
                     f"Object '{object_id}' not found in collection '{collection_name}'"
                 )
 
-            item = self._deserialize_item(response["Item"])
-            return BasicStorageObject(
-                id=item["id"],
-                payload=item["payload"],
-                modified=(
-                    float(item["modified"])
-                    if isinstance(item["modified"], Decimal)
-                    else item["modified"]
-                ),
-                sortindex=(
-                    int(item["sortindex"])
-                    if isinstance(item.get("sortindex"), Decimal)
-                    else item.get("sortindex")
-                ),
-                ttl=(int(item["ttl"]) if isinstance(item.get("ttl"), Decimal) else item.get("ttl")),
-            )
+            item = response["Item"]
+            return BasicStorageObject.from_dict(item)
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 raise StorageObjectNotFoundException(f"Object '{object_id}' not found")
@@ -149,7 +132,8 @@ class StorageManager:
         Returns:
             Tuple of (CollectionData, BatchResult)
         """
-        modified = get_current_timestamp()
+        modified_timestamp = get_current_timestamp()
+        modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
         objects = objects or []
 
         # Calculate usage
@@ -157,15 +141,10 @@ class StorageManager:
         count = len(objects)
 
         # Create/update collection metadata
-        metadata_data = {
-            "PK": self._collection_pk(collection_name),
-            "SK": self._metadata_sk(),
-            "name": collection_name,
-            "modified": Decimal(str(modified)),
-            "count": count,
-            "usage": usage,
-        }
-        metadata_item = self._serialize_item(metadata_data)
+        collection_data = CollectionData(
+            name=collection_name, modified=modified, count=count, usage=usage
+        )
+        metadata_item = self._encode_collection_data(collection_data)
 
         self.table.put_item(Item=metadata_item)
 
@@ -176,25 +155,20 @@ class StorageManager:
         if objects:
             for obj in objects:
                 try:
-                    obj_data = {
-                        "PK": self._collection_pk(collection_name),
-                        "SK": self._object_sk(obj.id),
-                        "id": obj.id,
-                        "payload": obj.payload,
-                        "modified": Decimal(str(modified)),
-                        "sortindex": obj.sortindex,
-                        "ttl": obj.ttl,
-                    }
-                    obj_item = self._serialize_item(obj_data)
+                    # Create object with updated timestamp
+                    updated_obj = BasicStorageObject(
+                        id=obj.id,
+                        payload=obj.payload,
+                        modified=modified,
+                        sortindex=obj.sortindex,
+                        ttl=obj.ttl,
+                    )
+                    obj_item = self._encode_basic_storage_object(collection_name, updated_obj)
 
                     self.table.put_item(Item=obj_item)
                     success.append(obj.id)
                 except Exception as e:
                     failed[obj.id] = [str(e)]
-
-        collection_data = CollectionData(
-            name=collection_name, modified=modified, count=count, usage=usage
-        )
 
         batch_result = BatchResult(success=success, failed=failed, modified=modified)
 
@@ -215,7 +189,8 @@ class StorageManager:
         Returns:
             Tuple of (CollectionData, BatchResult)
         """
-        modified = get_current_timestamp()
+        modified_timestamp = get_current_timestamp()
+        modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
 
         # Get current collection metadata
         try:
@@ -229,16 +204,15 @@ class StorageManager:
 
         for obj in objects:
             try:
-                obj_data = {
-                    "PK": self._collection_pk(collection_name),
-                    "SK": self._object_sk(obj.id),
-                    "id": obj.id,
-                    "payload": obj.payload,
-                    "modified": Decimal(str(modified)),
-                    "sortindex": obj.sortindex,
-                    "ttl": obj.ttl,
-                }
-                obj_item = self._serialize_item(obj_data)
+                # Create object with updated timestamp
+                updated_obj = BasicStorageObject(
+                    id=obj.id,
+                    payload=obj.payload,
+                    modified=modified,
+                    sortindex=obj.sortindex,
+                    ttl=obj.ttl,
+                )
+                obj_item = self._encode_basic_storage_object(collection_name, updated_obj)
 
                 self.table.put_item(Item=obj_item)
                 success.append(obj.id)
@@ -250,21 +224,12 @@ class StorageManager:
         new_usage = collection.usage + usage_delta
         new_count = collection.count + len(success)
 
-        metadata_data = {
-            "PK": self._collection_pk(collection_name),
-            "SK": self._metadata_sk(),
-            "name": collection_name,
-            "modified": Decimal(str(modified)),
-            "count": new_count,
-            "usage": new_usage,
-        }
-        metadata_item = self._serialize_item(metadata_data)
-
-        self.table.put_item(Item=metadata_item)
-
         collection_data = CollectionData(
             name=collection_name, modified=modified, count=new_count, usage=new_usage
         )
+        metadata_item = self._encode_collection_data(collection_data)
+
+        self.table.put_item(Item=metadata_item)
 
         batch_result = BatchResult(success=success, failed=failed, modified=modified)
 
@@ -317,23 +282,8 @@ class StorageManager:
         )
 
         for item in response.get("Items", []):
-            data = self._deserialize_item(item)
-            collections.append(
-                CollectionData(
-                    name=data["name"],
-                    modified=(
-                        float(data["modified"])
-                        if isinstance(data["modified"], Decimal)
-                        else data["modified"]
-                    ),
-                    count=(
-                        int(data["count"]) if isinstance(data["count"], Decimal) else data["count"]
-                    ),
-                    usage=(
-                        int(data["usage"]) if isinstance(data["usage"], Decimal) else data["usage"]
-                    ),
-                )
-            )
+            collection = CollectionData.from_dict(item)
+            collections.append(collection)
 
         return collections
 
@@ -376,22 +326,7 @@ class StorageManager:
 
         items = []
         for item in response.get("Items", []):
-            data = self._deserialize_item(item)
-            obj = BasicStorageObject(
-                id=data["id"],
-                payload=data["payload"],
-                modified=(
-                    float(data["modified"])
-                    if isinstance(data["modified"], Decimal)
-                    else data["modified"]
-                ),
-                sortindex=(
-                    int(data["sortindex"])
-                    if isinstance(data.get("sortindex"), Decimal)
-                    else data.get("sortindex")
-                ),
-                ttl=(int(data["ttl"]) if isinstance(data.get("ttl"), Decimal) else data.get("ttl")),
-            )
+            obj = BasicStorageObject.from_dict(item)
             items.append(obj)
 
         # Filter by IDs if specified
@@ -399,11 +334,13 @@ class StorageManager:
             id_list = [id.strip() for id in ids.split(",")]
             items = [obj for obj in items if obj.id in id_list]
 
-        # Filter by timestamp
+        # Filter by timestamp - convert float timestamps to datetime for comparison
         if newer is not None:
-            items = [obj for obj in items if obj.modified > newer]
+            newer_dt = datetime.fromtimestamp(newer, tz=timezone.utc)
+            items = [obj for obj in items if obj.modified > newer_dt]
         if older is not None:
-            items = [obj for obj in items if obj.modified < older]
+            older_dt = datetime.fromtimestamp(older, tz=timezone.utc)
+            items = [obj for obj in items if obj.modified < older_dt]
 
         # Sort items
         if sort == "newest":
@@ -413,8 +350,11 @@ class StorageManager:
         elif sort == "index":
             items.sort(key=lambda x: (x.sortindex or 0, x.modified), reverse=True)
 
-        # Get last modified
-        last_modified = max((obj.modified for obj in items), default=0.0)
+        # Get last modified - return as datetime
+        if items:
+            last_modified = max(obj.modified for obj in items)
+        else:
+            last_modified = datetime.fromtimestamp(0.0, tz=timezone.utc)
 
         # Apply pagination
         total_items = len(items)
@@ -450,34 +390,25 @@ class StorageManager:
         # Get existing object to verify it exists
         existing_obj = self.get_storage_object(collection_name, object_id)
 
-        modified = get_current_timestamp()
+        modified_timestamp = get_current_timestamp()
+        modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
 
         # Update provided fields
         payload = kwargs.get("payload", existing_obj.payload)
         sortindex = kwargs.get("sortindex", existing_obj.sortindex)
         ttl = kwargs.get("ttl", existing_obj.ttl)
 
-        # Build update item data
-        obj_data = {
-            "PK": self._collection_pk(collection_name),
-            "SK": self._object_sk(object_id),
-            "id": object_id,
-            "payload": payload,
-            "modified": Decimal(str(modified)),
-            "sortindex": sortindex,
-            "ttl": ttl,
-        }
-        obj_item = self._serialize_item(obj_data)
-
-        self.table.put_item(Item=obj_item)
-
-        return BasicStorageObject(
+        obj = BasicStorageObject(
             id=object_id,
             payload=payload,
             modified=modified,
             sortindex=sortindex,
             ttl=ttl,
         )
+        self.table.put_item(
+            Item=self._encode_basic_storage_object(collection_name=collection_name, obj=obj)
+        )
+        return obj
 
     def delete_storage_object(self, collection_name: str, object_id: str) -> float:
         """Delete a storage object

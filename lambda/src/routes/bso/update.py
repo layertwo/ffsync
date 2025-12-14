@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from typing import Any
 
 from aws_lambda_powertools import Logger
@@ -13,6 +14,7 @@ from src.shared.exceptions import (
     ValidationException,
 )
 from src.shared.models import BasicStorageObject
+from src.shared.utils import json_dumps
 
 logger = Logger()
 
@@ -43,7 +45,9 @@ class UpdateBSORoute(BaseRoute):
                     payload=obj_data["payload"],
                     sortindex=obj_data.get("sortindex"),
                     ttl=obj_data.get("ttl"),
-                    modified=0,  # Will be set by DynamoDB service
+                    modified=datetime.fromtimestamp(
+                        0, tz=timezone.utc
+                    ),  # Will be set by DynamoDB service
                 )
 
                 # Validate that object ID in body matches path parameter
@@ -71,57 +75,54 @@ class UpdateBSORoute(BaseRoute):
                 ttl=storage_object.ttl,
             )
 
-            response_body: dict[str, Any] = {
-                "object": {
-                    "id": updated_object.id,
-                    "payload": updated_object.payload,
-                    "modified": updated_object.modified,
-                    "sortindex": updated_object.sortindex,
-                    "ttl": updated_object.ttl,
-                },
-                "modified": updated_object.modified,
-            }
+            # Convert to dict using dataclass serialization
+            obj_dict = updated_object.to_dict()
 
             # Remove None values
-            if response_body["object"]["sortindex"] is None:
-                del response_body["object"]["sortindex"]
-            if response_body["object"]["ttl"] is None:
-                del response_body["object"]["ttl"]
+            if obj_dict.get("sortindex") is None:
+                del obj_dict["sortindex"]
+            if obj_dict.get("ttl") is None:
+                del obj_dict["ttl"]
+
+            response_body: dict[str, Any] = {
+                "object": obj_dict,
+                "modified": obj_dict["modified"],
+            }
 
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json.dumps(response_body),
+                body=json_dumps(response_body),
             )
 
         except ValidationException as e:
             return Response(
                 status_code=400,
                 content_type="application/json",
-                body=json.dumps({"error": str(e)}),
+                body=json_dumps({"error": str(e)}),
             )
         except CollectionNotFoundException as e:
             return Response(
                 status_code=404,
                 content_type="application/json",
-                body=json.dumps({"error": str(e)}),
+                body=json_dumps({"error": str(e)}),
             )
         except StorageObjectNotFoundException as e:
             return Response(
                 status_code=404,
                 content_type="application/json",
-                body=json.dumps({"error": str(e)}),
+                body=json_dumps({"error": str(e)}),
             )
         except PreconditionFailedException as e:
             return Response(
                 status_code=412,
                 content_type="application/json",
-                body=json.dumps({"error": str(e)}),
+                body=json_dumps({"error": str(e)}),
             )
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json.dumps({"error": "Internal server error"}),
+                body=json_dumps({"error": "Internal server error"}),
             )

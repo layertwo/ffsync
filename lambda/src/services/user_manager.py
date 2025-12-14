@@ -1,14 +1,16 @@
 """User manager for DynamoDB operations on token server users"""
 
-from decimal import Decimal
+from datetime import datetime, timezone
 from typing import Optional
 
-from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 from botocore.exceptions import ClientError
 
 from src.shared.exceptions import ServiceUnavailableError
-from src.shared.models import get_current_timestamp
 from src.shared.user import UserRecord
+from src.shared.utils import float_to_decimal
+
+_PK = "PK"
+PK_PREFIX = "USER"
 
 
 class UserManager:
@@ -18,11 +20,9 @@ class UserManager:
         """Initialize UserManager
 
         Args:
-            table: DynamoDB Table resource (low-level client)
+            table: DynamoDB Table resource
         """
         self.table = table
-        self._serializer = TypeSerializer()
-        self._deserializer = TypeDeserializer()
 
     def _user_pk(self, user_id: str) -> str:
         """Generate partition key for user record
@@ -33,29 +33,12 @@ class UserManager:
         Returns:
             Partition key string
         """
-        return f"USER#{user_id}"
+        return f"{PK_PREFIX}#{user_id}"
 
-    def _deserialize_item(self, item: dict) -> dict:
-        """Convert DynamoDB item to Python dict
-
-        Args:
-            item: DynamoDB item with type descriptors
-
-        Returns:
-            Python dict with native types
-        """
-        return {k: self._deserializer.deserialize(v) for k, v in item.items()}
-
-    def _serialize_item(self, data: dict) -> dict:
-        """Convert Python dict to DynamoDB item format, skipping None values
-
-        Args:
-            data: Python dict with native types
-
-        Returns:
-            DynamoDB item with type descriptors
-        """
-        return {k: self._serializer.serialize(v) for k, v in data.items() if v is not None}
+    def _encode_user_record(self, user_record: UserRecord) -> dict:
+        encoded = user_record.to_dict()
+        encoded[_PK] = f"{PK_PREFIX}#{user_record.user_id}"
+        return encoded
 
     def create_user(self, user_id: str, client_state: str = "") -> UserRecord:
         """Create a new user record with generation 0
@@ -74,32 +57,24 @@ class UserManager:
             ClientError: If user already exists (ConditionalCheckFailedException)
             ServiceUnavailableError: If DynamoDB is unavailable
         """
-        pk = self._user_pk(user_id)
-        current_time = get_current_timestamp()
+        current_time = datetime.now(tz=timezone.utc)
 
         try:
-            user_data = {
-                "PK": pk,
-                "user_id": user_id,
-                "generation": 0,
-                "client_state": client_state,
-                "created_at": Decimal(str(current_time)),
-                "updated_at": Decimal(str(current_time)),
-            }
-            user_item = self._serialize_item(user_data)
 
-            self.table.put_item(
-                Item=user_item,
-                ConditionExpression="attribute_not_exists(PK)",
-            )
-
-            return UserRecord(
+            user_record = UserRecord(
                 user_id=user_id,
                 generation=0,
                 client_state=client_state,
                 created_at=current_time,
                 updated_at=current_time,
             )
+
+            self.table.put_item(
+                Item=self._encode_user_record(user_record=user_record),
+                ConditionExpression="attribute_not_exists(PK)",
+            )
+
+            return user_record
 
         except ClientError as e:
             if e.response["Error"]["Code"] in (
@@ -129,32 +104,17 @@ class UserManager:
 
         try:
             response = self.table.get_item(
-                Key={"PK": {"S": pk}},
+                Key={_PK: pk},
             )
 
             if "Item" not in response:
                 return None
 
-            item = self._deserialize_item(response["Item"])
-            return UserRecord(
-                user_id=item["user_id"],
-                generation=(
-                    int(item["generation"])
-                    if isinstance(item["generation"], Decimal)
-                    else item["generation"]
-                ),
-                client_state=item.get("client_state", ""),
-                created_at=(
-                    float(item["created_at"])
-                    if isinstance(item["created_at"], Decimal)
-                    else item["created_at"]
-                ),
-                updated_at=(
-                    float(item["updated_at"])
-                    if isinstance(item["updated_at"], Decimal)
-                    else item["updated_at"]
-                ),
-            )
+            item = response["Item"]
+            # Provide default for missing client_state (legacy records)
+            if "client_state" not in item:
+                item["client_state"] = ""
+            return UserRecord.from_dict(item)
 
         except ClientError as e:
             if e.response["Error"]["Code"] in (
@@ -182,42 +142,28 @@ class UserManager:
             ServiceUnavailableError: If DynamoDB is unavailable
         """
         pk = self._user_pk(user_id)
-        current_time = get_current_timestamp()
+        current_time = datetime.now(tz=timezone.utc)
 
         try:
             response = self.table.update_item(
-                Key={"PK": {"S": pk}},
+                Key={_PK: pk},
                 UpdateExpression=(
                     "SET generation = generation + :inc, "
                     "client_state = :client_state, "
                     "updated_at = :updated_at"
                 ),
                 ExpressionAttributeValues={
-                    ":inc": {"N": "1"},
-                    ":client_state": {"S": client_state},
-                    ":updated_at": {"N": str(current_time)},
+                    ":inc": 1,
+                    ":client_state": client_state,
+                    ":updated_at": float_to_decimal(current_time.timestamp()),
                 },
                 ReturnValues="ALL_NEW",
             )
 
-            updated_item = self._deserialize_item(response["Attributes"])
-            generation = updated_item["generation"]
-
-            return UserRecord(
-                user_id=user_id,
-                generation=int(generation) if isinstance(generation, Decimal) else generation,
-                client_state=updated_item["client_state"],
-                created_at=(
-                    float(updated_item["created_at"])
-                    if isinstance(updated_item["created_at"], Decimal)
-                    else updated_item["created_at"]
-                ),
-                updated_at=(
-                    float(updated_item["updated_at"])
-                    if isinstance(updated_item["updated_at"], Decimal)
-                    else updated_item["updated_at"]
-                ),
-            )
+            updated_item = response["Attributes"]
+            # Add user_id to the dict since DynamoDB stores it in PK
+            updated_item["user_id"] = user_id
+            return UserRecord.from_dict(updated_item)
 
         except ClientError as e:
             if e.response["Error"]["Code"] in (
@@ -286,22 +232,21 @@ class UserManager:
             ServiceUnavailableError: If DynamoDB is unavailable
         """
         pk = self._user_pk(user_id)
-        current_time = get_current_timestamp()
+        current_time = datetime.now(tz=timezone.utc)
 
         try:
             response = self.table.update_item(
-                Key={"PK": {"S": pk}},
+                Key={_PK: pk},
                 UpdateExpression="SET generation = generation + :inc, updated_at = :updated_at",
                 ExpressionAttributeValues={
-                    ":inc": {"N": "1"},
-                    ":updated_at": {"N": str(current_time)},
+                    ":inc": 1,
+                    ":updated_at": float_to_decimal(current_time.timestamp()),
                 },
                 ReturnValues="ALL_NEW",
             )
 
-            updated_item = self._deserialize_item(response["Attributes"])
-            generation = updated_item["generation"]
-            return int(generation) if isinstance(generation, Decimal) else generation
+            updated_item = response["Attributes"]
+            return updated_item["generation"]
 
         except ClientError as e:
             if e.response["Error"]["Code"] in (

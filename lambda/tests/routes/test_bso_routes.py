@@ -1,6 +1,7 @@
 """Tests for BSO route handlers"""
 
 import json
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
@@ -50,7 +51,7 @@ class TestReadBSORoute:
         bso = BasicStorageObject(
             id="item123",
             payload="bookmark_data",
-            modified=1234567890.12,
+            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
             sortindex=100,
             ttl=3600,
         )
@@ -81,7 +82,7 @@ class TestReadBSORoute:
         bso = BasicStorageObject(
             id="obj456",
             payload="history_data",
-            modified=1234567890.12,
+            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
             sortindex=None,
             ttl=None,
         )
@@ -176,7 +177,11 @@ class TestUpdateBSORoute:
     def test_bind_registers_route(self, mock_storage_manager):
         """Test that bind registers the PUT route and handler works through resolver"""
         updated_bso = BasicStorageObject(
-            id="item123", payload="data", modified=1234567890.12, sortindex=None, ttl=None
+            id="item123",
+            payload="data",
+            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            sortindex=None,
+            ttl=None,
         )
         mock_storage_manager.update_storage_object.return_value = updated_bso
 
@@ -219,7 +224,7 @@ class TestUpdateBSORoute:
         updated_bso = BasicStorageObject(
             id="item123",
             payload="updated_data",
-            modified=1234567891.00,
+            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
             sortindex=200,
             ttl=7200,
         )
@@ -296,7 +301,7 @@ class TestUpdateBSORoute:
         updated_bso = BasicStorageObject(
             id="item123",
             payload="data",
-            modified=1234567891.00,
+            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
             sortindex=None,
             ttl=None,
         )

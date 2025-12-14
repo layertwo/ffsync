@@ -1,6 +1,7 @@
 """Unit tests for StorageManager with DynamoDB stubber"""
 
-from unittest.mock import patch
+from datetime import datetime, timezone
+from decimal import Decimal
 
 import pytest
 
@@ -10,17 +11,6 @@ from src.shared.exceptions import (
     StorageObjectNotFoundException,
 )
 from src.shared.models import BasicStorageObject
-
-
-@pytest.fixture
-def mock_timestamp():
-    return 1234567890.12
-
-
-@pytest.fixture
-def mock_get_current_timestamp(mock_timestamp):
-    with patch("src.services.storage_manager.get_current_timestamp", return_value=mock_timestamp):
-        yield
 
 
 class TestStorageManager:
@@ -57,7 +47,7 @@ class TestStorageManager:
         collection = storage_manager.get_collection("bookmarks")
 
         assert collection.name == "bookmarks"
-        assert collection.modified == 1234567890.12
+        assert collection.modified == datetime.fromtimestamp(1234567890.12, tz=timezone.utc)
         assert collection.count == 5
         assert collection.usage == 1024
 
@@ -108,7 +98,7 @@ class TestStorageManager:
 
         assert obj.id == "obj123"
         assert obj.payload == "test_payload"
-        assert obj.modified == 1234567890.12
+        assert obj.modified == datetime.fromtimestamp(1234567890.12, tz=timezone.utc)
         assert obj.sortindex == 100
         assert obj.ttl == 3600
 
@@ -159,7 +149,7 @@ class TestStorageManager:
 
         assert obj.id == "obj123"
         assert obj.payload == "test_payload"
-        assert obj.modified == 1234567890.12
+        assert obj.modified == datetime.fromtimestamp(1234567890.12, tz=timezone.utc)
         assert obj.sortindex is None
         assert obj.ttl is None
 
@@ -169,6 +159,7 @@ class TestStorageManager:
         dynamodb_stubber,
         storage_table_name,
         mock_timestamp,
+        mock_timestamp_datetime,
         mock_get_current_timestamp,
     ):
         """Test creating collection without objects"""
@@ -178,12 +169,12 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
-                    "name": {"S": "bookmarks"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "count": {"N": "0"},
-                    "usage": {"N": "0"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                    "name": "bookmarks",
+                    "modified": Decimal(mock_timestamp),
+                    "count": 0,
+                    "usage": 0,
                 },
             },
         )
@@ -191,7 +182,7 @@ class TestStorageManager:
         collection, batch_result = storage_manager.create_or_update_collection("bookmarks")
 
         assert collection.name == "bookmarks"
-        assert collection.modified == mock_timestamp
+        assert collection.modified == mock_timestamp_datetime
         assert collection.count == 0
         assert collection.usage == 0
         assert batch_result.success == []
@@ -210,11 +201,15 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload="payload1",
-                modified=mock_timestamp,
+                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
                 sortindex=100,
                 ttl=3600,
             ),
-            BasicStorageObject(id="obj2", payload="payload2", modified=mock_timestamp),
+            BasicStorageObject(
+                id="obj2",
+                payload="payload2",
+                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+            ),
         ]
 
         # Stub metadata put
@@ -224,12 +219,12 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
-                    "name": {"S": "bookmarks"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "count": {"N": "2"},
-                    "usage": {"N": str(len("payload1") + len("payload2"))},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                    "name": "bookmarks",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "count": 2,
+                    "usage": len("payload1") + len("payload2"),
                 },
             },
         )
@@ -241,13 +236,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj1"},
-                    "id": {"S": "obj1"},
-                    "payload": {"S": "payload1"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "sortindex": {"N": "100"},
-                    "ttl": {"N": "3600"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                    "id": "obj1",
+                    "payload": "payload1",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": 100,
+                    "ttl": 3600,
                 },
             },
         )
@@ -259,11 +254,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj2"},
-                    "id": {"S": "obj2"},
-                    "payload": {"S": "payload2"},
-                    "modified": {"N": str(mock_timestamp)},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj2",
+                    "id": "obj2",
+                    "payload": "payload2",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": None,
+                    "ttl": None,
                 },
             },
         )
@@ -306,7 +303,13 @@ class TestStorageManager:
             },
         )
 
-        objects = [BasicStorageObject(id="obj1", payload="newpayload", modified=mock_timestamp)]
+        objects = [
+            BasicStorageObject(
+                id="obj1",
+                payload="newpayload",
+                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+            )
+        ]
 
         # Stub object put
         dynamodb_stubber.add_response(
@@ -315,11 +318,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj1"},
-                    "id": {"S": "obj1"},
-                    "payload": {"S": "newpayload"},
-                    "modified": {"N": str(mock_timestamp)},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                    "id": "obj1",
+                    "payload": "newpayload",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": None,
+                    "ttl": None,
                 },
             },
         )
@@ -331,12 +336,12 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
-                    "name": {"S": "bookmarks"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "count": {"N": "2"},
-                    "usage": {"N": str(100 + len("newpayload"))},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                    "name": "bookmarks",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "count": 2,
+                    "usage": 100 + len("newpayload"),
                 },
             },
         )
@@ -363,7 +368,13 @@ class TestStorageManager:
             },
         )
 
-        objects = [BasicStorageObject(id="obj1", payload="payload", modified=1234567890.12)]
+        objects = [
+            BasicStorageObject(
+                id="obj1",
+                payload="payload",
+                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            )
+        ]
 
         with pytest.raises(CollectionNotFoundException):
             storage_manager.update_collection("nonexistent", objects)
@@ -429,8 +440,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -442,8 +453,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj1"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
                 },
             },
         )
@@ -544,7 +555,7 @@ class TestStorageManager:
         assert result["items"][0].id == "obj1"  # sorted by newest first
         assert result["items"][1].id == "obj2"
         assert result["more"] is False
-        assert result["last_modified"] == 1234567891.00
+        assert result["last_modified"] == datetime.fromtimestamp(1234567891.00, tz=timezone.utc)
 
     def test_get_collection_objects_with_filters(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -671,12 +682,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
-                    "id": {"S": "obj123"},
-                    "payload": {"S": "new_payload"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "sortindex": {"N": "100"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
+                    "id": "obj123",
+                    "payload": "new_payload",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": 100,
+                    "ttl": None,
                 },
             },
         )
@@ -687,7 +699,7 @@ class TestStorageManager:
 
         assert updated_obj.id == "obj123"
         assert updated_obj.payload == "new_payload"
-        assert updated_obj.modified == mock_timestamp
+        assert updated_obj.modified == datetime.fromtimestamp(mock_timestamp, tz=timezone.utc)
         assert updated_obj.sortindex == 100
 
     def test_update_storage_object_not_found(
@@ -810,7 +822,13 @@ class TestStorageManager:
         mock_get_current_timestamp,
     ):
         """Test creating collection when some objects fail"""
-        objects = [BasicStorageObject(id="obj1", payload="payload1", modified=mock_timestamp)]
+        objects = [
+            BasicStorageObject(
+                id="obj1",
+                payload="payload1",
+                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+            )
+        ]
 
         # Stub metadata put
         dynamodb_stubber.add_response(
@@ -819,12 +837,12 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
-                    "name": {"S": "bookmarks"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "count": {"N": "1"},
-                    "usage": {"N": str(len("payload1"))},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                    "name": "bookmarks",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "count": 1,
+                    "usage": len("payload1"),
                 },
             },
         )
@@ -874,7 +892,13 @@ class TestStorageManager:
             },
         )
 
-        objects = [BasicStorageObject(id="obj1", payload="newpayload", modified=mock_timestamp)]
+        objects = [
+            BasicStorageObject(
+                id="obj1",
+                payload="newpayload",
+                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+            )
+        ]
 
         # Stub object put with error
         dynamodb_stubber.add_client_error(
@@ -890,12 +914,12 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
-                    "name": {"S": "bookmarks"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "count": {"N": "0"},
-                    "usage": {"N": "0"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                    "name": "bookmarks",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "count": 0,
+                    "usage": 0,
                 },
             },
         )
@@ -1100,13 +1124,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
-                    "id": {"S": "obj123"},
-                    "payload": {"S": "new_payload"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "sortindex": {"N": "150"},
-                    "ttl": {"N": "7200"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
+                    "id": "obj123",
+                    "payload": "new_payload",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": 150,
+                    "ttl": 7200,
                 },
             },
         )
@@ -1166,7 +1190,7 @@ class TestStorageManager:
 
         assert len(result["items"]) == 0
         assert result["more"] is False
-        assert result["last_modified"] == 0.0
+        assert result["last_modified"] == datetime.fromtimestamp(0.0, tz=timezone.utc)
 
     def test_update_collection_with_mixed_success_fail(
         self,
@@ -1200,8 +1224,16 @@ class TestStorageManager:
         )
 
         objects = [
-            BasicStorageObject(id="obj1", payload="payload1", modified=mock_timestamp),
-            BasicStorageObject(id="obj2", payload="payload2", modified=mock_timestamp),
+            BasicStorageObject(
+                id="obj1",
+                payload="payload1",
+                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+            ),
+            BasicStorageObject(
+                id="obj2",
+                payload="payload2",
+                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+            ),
         ]
 
         # Stub object 1 put (success)
@@ -1211,11 +1243,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj1"},
-                    "id": {"S": "obj1"},
-                    "payload": {"S": "payload1"},
-                    "modified": {"N": str(mock_timestamp)},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                    "id": "obj1",
+                    "payload": "payload1",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": None,
+                    "ttl": None,
                 },
             },
         )
@@ -1234,12 +1268,12 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
-                    "name": {"S": "bookmarks"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "count": {"N": "1"},
-                    "usage": {"N": str(len("payload1"))},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                    "name": "bookmarks",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "count": 1,
+                    "usage": len("payload1"),
                 },
             },
         )
@@ -1286,7 +1320,7 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload="payload1",
-                modified=mock_timestamp,
+                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
                 sortindex=150,
                 ttl=7200,
             )
@@ -1299,13 +1333,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj1"},
-                    "id": {"S": "obj1"},
-                    "payload": {"S": "payload1"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "sortindex": {"N": "150"},
-                    "ttl": {"N": "7200"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                    "id": "obj1",
+                    "payload": "payload1",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": 150,
+                    "ttl": 7200,
                 },
             },
         )
@@ -1317,12 +1351,12 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
-                    "name": {"S": "bookmarks"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "count": {"N": "1"},
-                    "usage": {"N": str(len("payload1"))},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                    "name": "bookmarks",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "count": 1,
+                    "usage": len("payload1"),
                 },
             },
         )
@@ -1369,12 +1403,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
-                    "id": {"S": "obj123"},
-                    "payload": {"S": "old_payload"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "ttl": {"N": "3600"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
+                    "id": "obj123",
+                    "payload": "old_payload",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": None,
+                    "ttl": 3600,
                 },
             },
         )
@@ -1421,12 +1456,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
-                    "id": {"S": "obj123"},
-                    "payload": {"S": "old_payload"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "ttl": {"N": "3600"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
+                    "id": "obj123",
+                    "payload": "old_payload",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": None,
+                    "ttl": 3600,
                 },
             },
         )
@@ -1435,20 +1471,6 @@ class TestStorageManager:
 
         assert updated_obj.sortindex is None
         assert updated_obj.ttl == 3600
-
-    def test_serialize_item_method(self, storage_manager):
-        """Test _serialize_item helper method"""
-        data = {
-            "name": "test",
-            "count": 5,
-            "none_value": None,
-        }
-
-        result = storage_manager._serialize_item(data)
-
-        assert "name" in result
-        assert "count" in result
-        assert "none_value" not in result  # None values are skipped
 
     def test_get_collection_objects_invalid_sort(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -1487,7 +1509,7 @@ class TestStorageManager:
         result = storage_manager.get_collection_objects("bookmarks", sort="invalid")
 
         assert len(result["items"]) == 2
-        assert result["last_modified"] == 1234567891.00
+        assert result["last_modified"] == datetime.fromtimestamp(1234567891.00, tz=timezone.utc)
 
     def test_update_storage_object_with_only_sortindex(
         self,
@@ -1526,12 +1548,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
-                    "id": {"S": "obj123"},
-                    "payload": {"S": "old_payload"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "sortindex": {"N": "200"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
+                    "id": "obj123",
+                    "payload": "old_payload",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": 200,
+                    "ttl": None,
                 },
             },
         )
@@ -1580,13 +1603,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
-                    "id": {"S": "obj123"},
-                    "payload": {"S": "updated_payload"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "sortindex": {"N": "100"},
-                    "ttl": {"N": "3600"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
+                    "id": "obj123",
+                    "payload": "updated_payload",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": 100,
+                    "ttl": 3600,
                 },
             },
         )
@@ -1636,12 +1659,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
-                    "id": {"S": "obj123"},
-                    "payload": {"S": "old_payload"},
-                    "modified": {"N": str(mock_timestamp)},
-                    "sortindex": {"N": "100"},
+                    "PK": "COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
+                    "id": "obj123",
+                    "payload": "old_payload",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": 100,
+                    "ttl": None,
                 },
             },
         )

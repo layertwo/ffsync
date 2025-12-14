@@ -1,6 +1,7 @@
 """Unit tests for RequestTokenRoute"""
 
 import json
+from datetime import datetime
 from http import HTTPStatus
 from unittest.mock import MagicMock
 
@@ -76,8 +77,8 @@ def mock_user_record():
         user_id="user123",
         generation=0,
         client_state="",
-        created_at=1234567800.0,
-        updated_at=1234567800.0,
+        created_at=datetime.fromtimestamp(1234567800.0),
+        updated_at=datetime.fromtimestamp(1234567800.0),
     )
 
 

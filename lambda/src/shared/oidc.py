@@ -3,12 +3,11 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from dataclasses_json import dataclass_json
+from dataclasses_json import DataClassJsonMixin
 
 
-@dataclass_json
 @dataclass
-class OIDCTokenClaims:
+class OIDCTokenClaims(DataClassJsonMixin):
     """
     OIDC token claims extracted from validated token
 
@@ -29,9 +28,8 @@ class OIDCTokenClaims:
     email: Optional[str] = None
 
 
-@dataclass_json
 @dataclass
-class OIDCProviderConfig:
+class OIDCProviderConfig(DataClassJsonMixin):
     """
     OIDC provider configuration from .well-known/openid-configuration
 
@@ -50,9 +48,8 @@ class OIDCProviderConfig:
     userinfo_endpoint: str
 
 
-@dataclass_json
 @dataclass
-class ErrorDetail:
+class ErrorDetail(DataClassJsonMixin):
     """
     Error detail for Firefox Sync protocol error responses
 
