@@ -74,7 +74,7 @@ def mock_oidc_claims():
 @pytest.fixture
 def mock_user_record():
     return UserRecord(
-        user_id="user123",
+        uid=7351813628096158130,  # Hash of "user123"
         generation=0,
         client_state="",
         created_at=datetime.fromtimestamp(1234567800.0),
@@ -258,6 +258,10 @@ class TestRequestTokenRouteHandle:
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
+        # Configure generate_uid to return a known value
+        expected_uid = 7351813628096158130
+        request_token_route.token_generator.generate_uid.return_value = expected_uid
+
         request_token_route.handle(valid_event)
 
         # Verify OIDC validator was called with the token
@@ -265,12 +269,17 @@ class TestRequestTokenRouteHandle:
             "valid-oidc-token"
         )
 
-        # Verify user manager was called with user_id and client_state (empty string default)
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
+        # Verify generate_uid was called with user_id from OIDC claims
+        request_token_route.token_generator.generate_uid.assert_called_once_with("user123")
 
-        # Verify token generator was called with user_id and generation
+        # Verify user manager was called with uid and client_state (empty string default)
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
+            expected_uid, ""
+        )
+
+        # Verify token generator was called with uid and generation
         request_token_route.token_generator.generate_token.assert_called_once_with(
-            user_id="user123",
+            uid=expected_uid,
             generation=0,
         )
 
@@ -585,15 +594,17 @@ class TestXClientStateHeader:
                 },
             }
         )
+        expected_uid = 7351813628096158130
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_uid.return_value = expected_uid
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
         request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            "user123", "abcdef123456"
+            expected_uid, "abcdef123456"
         )
 
     def test_client_state_case_insensitive_header(
@@ -614,15 +625,17 @@ class TestXClientStateHeader:
                 },
             }
         )
+        expected_uid = 7351813628096158130
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_uid.return_value = expected_uid
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
         request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            "user123", "ABCDEF"
+            expected_uid, "ABCDEF"
         )
 
     def test_missing_client_state_defaults_to_empty_string(
@@ -642,14 +655,18 @@ class TestXClientStateHeader:
                 },
             }
         )
+        expected_uid = 7351813628096158130
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_uid.return_value = expected_uid
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
+            expected_uid, ""
+        )
 
     def test_invalid_client_state_non_hex_returns_400(self, request_token_route):
         """Test non-hexadecimal X-Client-State returns 400"""
@@ -734,14 +751,18 @@ class TestXClientStateHeader:
                 },
             }
         )
+        expected_uid = 7351813628096158130
         request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
         request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_uid.return_value = expected_uid
         request_token_route.token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
+            expected_uid, ""
+        )
 
 
 class TestXTimestampHeader:
