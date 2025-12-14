@@ -101,32 +101,35 @@
     - Detect conflicting concurrent changes
     - Raise `ConflictException` with optional Retry-After
     - _Requirements: 5.6, 5.7_
-  - [ ]* 3.9 Write property test for BSO round-trip
+  - [ ] 3.9 Update `get_collection_objects` to return empty list for non-existent collections
+    - Currently raises CollectionNotFoundException, should return empty list
+    - _Requirements: 2.2_
+  - [ ]* 3.10 Write property test for BSO round-trip
     - **Property 1: BSO Round-Trip Consistency**
     - **Validates: Requirements 1.1, 1.2**
-  - [ ]* 3.10 Write property test for BSO deletion
+  - [ ]* 3.11 Write property test for BSO deletion
     - **Property 2: BSO Deletion Removes Object**
     - **Validates: Requirements 1.5, 1.6**
-  - [ ]* 3.11 Write property test for empty collection
+  - [ ]* 3.12 Write property test for empty collection
     - **Property 5: Empty Collection Returns Empty List**
     - **Validates: Requirements 2.2**
-  - [ ]* 3.12 Write property tests for TTL
+  - [ ]* 3.13 Write property tests for TTL
     - **Property 20: TTL Expiration Behavior**
     - **Property 21: TTL Write-Only**
     - **Validates: Requirements 11.1-11.4**
-  - [ ]* 3.13 Write property tests for collection filtering
+  - [ ]* 3.14 Write property tests for collection filtering
     - **Property 4, 6, 7, 8, 9: Collection filtering properties**
     - **Validates: Requirements 2.1-2.14**
-  - [ ]* 3.14 Write property test for batch operations
+  - [ ]* 3.15 Write property test for batch operations
     - **Property 10: Batch Operation Atomicity**
     - **Validates: Requirements 3.1-3.3**
-  - [ ]* 3.15 Write property tests for deletion
+  - [ ]* 3.16 Write property tests for deletion
     - **Property 11, 12: Deletion properties**
     - **Validates: Requirements 4.1-4.8**
-  - [ ]* 3.16 Write property test for metadata
+  - [ ]* 3.17 Write property test for metadata
     - **Property 16: Collection Metadata Accuracy**
     - **Validates: Requirements 7.1-7.4**
-  - [ ]* 3.17 Write property tests for concurrency
+  - [ ]* 3.18 Write property tests for concurrency
     - **Property 13, 14: Concurrency properties**
     - **Validates: Requirements 5.1-5.3**
 
@@ -146,7 +149,7 @@
     - DELETE `/storage/{collection}/{id}`
     - _Requirements: 1.5_
   - [ ] 5.4 Update ReadBSORoute to exclude TTL from response
-    - TTL is write-only per Mozilla spec
+    - TTL is write-only per Mozilla spec (currently TTL is included when present)
     - _Requirements: 11.4_
   - [ ] 5.5 Add BSO business validation to UpdateBSORoute
     - Validate payload size (max 256 KB)
@@ -156,7 +159,10 @@
     - Support X-If-Modified-Since header
     - Return 304 Not Modified when unchanged
     - _Requirements: 6.1-6.4_
-  - [ ]* 5.7 Write property tests for BSO routes
+  - [ ] 5.7 Update UpdateBSORoute to implement optimistic concurrency
+    - Currently parses X-If-Unmodified-Since but doesn't use it
+    - _Requirements: 5.1-5.3_
+  - [ ]* 5.8 Write property tests for BSO routes
     - **Property 3: X-Last-Modified Header Consistency**
     - **Property 15: Conditional GET Correctness**
     - **Validates: Requirements 1.7, 5.4, 5.5, 6.1, 6.2**
@@ -173,7 +179,7 @@
     - DELETE `/storage/{collection}`
     - _Requirements: 4.3, 4.4_
   - [ ] 6.4 Update ReadCollectionRoute to return empty list for non-existent collections
-    - Currently returns 404, should return empty array
+    - Currently returns 404, should return empty array per Mozilla spec
     - _Requirements: 2.2_
   - [ ] 6.5 Update `DeleteCollectionRoute` for selective deletion
     - Support `ids` query param (max 100)
@@ -187,6 +193,10 @@
     - _Requirements: 6.1, 6.2_
   - [ ] 6.8 Add X-Weave-Records response header
     - _Requirements: 2.14_
+  - [ ] 6.9 Update CreateCollectionRoute to return Mozilla-compliant response
+    - Return `{"modified": timestamp, "success": [...], "failed": {...}}` format
+    - Currently returns wrapped `{"collection": ..., "batchResult": ...}` format
+    - _Requirements: 3.2_
 
 - [x] 7. Implement info route handlers (partial)
   - [x] 7.1 Create `ReadCollectionsInfoRoute`
@@ -197,14 +207,22 @@
     - _Requirements: 7.3_
   - [ ] 7.4 Update `ReadQuotaInfoRoute` to return Mozilla format
     - Return [usage_kb, quota_kb or null] as two-item list
+    - Currently returns wrapped object format
     - _Requirements: 7.4_
   - [ ] 7.5 Create `ReadConfigurationRoute` in `routes/info/read_configuration.py`
     - Return max_request_bytes, max_post_records, max_post_bytes, max_record_payload_bytes
     - _Requirements: 8.1-8.7_
   - [ ] 7.6 Update `ReadCollectionsInfoRoute` to return Mozilla format
     - Return object mapping collection names to timestamps (not full metadata)
+    - Currently returns full CollectionData objects
     - _Requirements: 7.1_
-  - [ ]* 7.7 Write property test for configuration
+  - [ ] 7.7 Update `ReadCollectionCountsRoute` to return Mozilla format
+    - Return object mapping collection names to counts directly (not wrapped)
+    - _Requirements: 7.2_
+  - [ ] 7.8 Update `ReadCollectionUsageRoute` to return Mozilla format
+    - Return object mapping collection names to usage in KB (not bytes, not wrapped)
+    - _Requirements: 7.3_
+  - [ ]* 7.9 Write property test for configuration
     - **Property 25: Configuration Response Completeness**
     - **Validates: Requirements 8.1-8.7**
 

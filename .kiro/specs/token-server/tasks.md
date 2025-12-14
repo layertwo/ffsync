@@ -48,31 +48,56 @@
 
 - [x] 16. Storage API configuration (already implemented)
 
-## Phase 2: Mozilla Spec Compliance Updates
-
 - [x] 17. Change HTTP method from POST to GET
   - [x] 17.1 Update Smithy model to use GET instead of POST
-    - Modify smithy/models/token/token.smithy to change @http(method: "POST") to @http(method: "GET")
-    - Rebuild Smithy models with `smithy build`
     - _Requirements: 1.1_
   - [x] 17.2 Update Request Handler for GET method
-    - Modify lambda/src/routes/token/request.py to use @app.get() instead of @app.post()
     - _Requirements: 1.1_
   - [x] 17.3 Update unit tests for GET method
-    - Update all tests in lambda/tests/routes/token/test_request.py to use GET instead of POST
     - _Requirements: 1.1_
 
-- [ ] 18. Add 405 Method Not Allowed response
-  - [ ] 18.1 Add method validation to Request Handler
-    - Add explicit rejection of POST, PUT, DELETE with 405 status code
-    - _Requirements: 5.3_
-  - [ ] 18.2 Add unit tests for unsupported methods
-    - Test POST, PUT, DELETE return 405
-    - _Requirements: 5.3_
+## Phase 2: Mozilla Spec Compliance Updates
 
-- [ ]* 18.3 Write property test for unsupported method rejection
-  - **Property 17: Unsupported method rejection**
-  - **Validates: Requirements 5.3**
+- [ ] 18. Add new error exception classes
+  - [ ] 18.1 Add InvalidTimestampError exception
+    - Create exception class in lambda/src/shared/exceptions.py
+    - Map to 401 status with "invalid-timestamp" status
+    - _Requirements: 6.6, 18.2_
+  - [ ] 18.2 Add InvalidGenerationError exception
+    - Create exception class in lambda/src/shared/exceptions.py
+    - Map to 401 status with "invalid-generation" status
+    - _Requirements: 3.3, 6.7_
+  - [ ] 18.3 Add InvalidClientStateError exception
+    - Create exception class in lambda/src/shared/exceptions.py
+    - Map to 401 status with "invalid-client-state" status
+    - _Requirements: 6.8, 13.6, 13.7_
+  - [ ] 18.4 Add NewUsersDisabledError exception
+    - Create exception class in lambda/src/shared/exceptions.py
+    - Map to 401 status with "new-users-disabled" status
+    - _Requirements: 6.9, 17.2_
+  - [ ] 18.5 Update Request Handler error mapping
+    - Add exception handlers for new error types
+    - Return correct status codes and status field values
+    - _Requirements: 6.6, 6.7, 6.8, 6.9_
+  - [ ] 18.6 Add unit tests for new error statuses
+    - Test each new error type returns correct status code and status field
+    - _Requirements: 6.6, 6.7, 6.8, 6.9_
+
+- [ ]* 18.7 Write property test for invalid-timestamp status
+  - **Property 23: Timestamp skew rejection**
+  - **Validates: Requirements 6.6, 18.2**
+
+- [ ]* 18.8 Write property test for invalid-generation status
+  - **Property 9: Generation-based token invalidation**
+  - **Validates: Requirements 3.3, 6.7**
+
+- [ ]* 18.9 Write property test for invalid-client-state status
+  - **Property 24: Invalid client state status**
+  - **Validates: Requirements 6.8**
+
+- [ ]* 18.10 Write property test for new-users-disabled status
+  - **Property 25: New users disabled status**
+  - **Validates: Requirements 6.9, 17.2**
 
 - [ ] 19. Update X-Client-State validation to urlsafe-base64 + period
   - [ ] 19.1 Update validation regex pattern in Request Handler
@@ -129,191 +154,150 @@
   - **Property 29: Client state history tracking**
   - **Validates: Requirements 7.6, 13.8**
 
-- [ ] 21. Add new error exception classes
-  - [ ] 21.1 Add InvalidTimestampError exception
-    - Create exception class in lambda/src/shared/exceptions.py
-    - Map to 401 status with "invalid-timestamp" status
-    - _Requirements: 6.6, 18.2_
-  - [ ] 21.2 Add InvalidGenerationError exception
-    - Create exception class in lambda/src/shared/exceptions.py
-    - Map to 401 status with "invalid-generation" status
-    - _Requirements: 3.3, 6.7_
-  - [ ] 21.3 Add InvalidClientStateError exception
-    - Create exception class in lambda/src/shared/exceptions.py
-    - Map to 401 status with "invalid-client-state" status
-    - _Requirements: 6.8, 13.6, 13.7_
-  - [ ] 21.4 Add NewUsersDisabledError exception
-    - Create exception class in lambda/src/shared/exceptions.py
-    - Map to 401 status with "new-users-disabled" status
-    - _Requirements: 6.9, 17.2_
-  - [ ] 21.5 Update Request Handler error mapping
-    - Add exception handlers for new error types
-    - Return correct status codes and status field values
-    - _Requirements: 6.6, 6.7, 6.8, 6.9_
-  - [ ] 21.6 Add unit tests for new error statuses
-    - Test each new error type returns correct status code and status field
-    - _Requirements: 6.6, 6.7, 6.8, 6.9_
-
-- [ ]* 21.7 Write property test for invalid-timestamp status
-  - **Property 23: Timestamp skew rejection**
-  - **Validates: Requirements 6.6, 18.2**
-
-- [ ]* 21.8 Write property test for invalid-generation status
-  - **Property 9: Generation-based token invalidation**
-  - **Validates: Requirements 3.3, 6.7**
-
-- [ ]* 21.9 Write property test for invalid-client-state status
-  - **Property 24: Invalid client state status**
-  - **Validates: Requirements 6.8**
-
-- [ ]* 21.10 Write property test for new-users-disabled status
-  - **Property 25: New users disabled status**
-  - **Validates: Requirements 6.9, 17.2**
-
-- [ ] 22. Add timestamp validation for OIDC tokens
-  - [ ] 22.1 Add clock_skew_tolerance configuration
+- [ ] 21. Add timestamp validation for OIDC tokens
+  - [ ] 21.1 Add clock_skew_tolerance configuration
     - Add CLOCK_SKEW_TOLERANCE environment variable (default 300 seconds)
     - Add to ServiceProvider configuration
     - _Requirements: 18.4_
-  - [ ] 22.2 Update OIDCValidator for timestamp validation
+  - [ ] 21.2 Update OIDCValidator for timestamp validation
     - Add clock_skew_tolerance parameter to __init__()
     - Add server_time parameter to validate_token()
     - Validate iat claim against server time with tolerance
     - Raise InvalidTimestampError if skew exceeds tolerance
     - _Requirements: 18.1, 18.2_
-  - [ ] 22.3 Update Request Handler to pass server time
+  - [ ] 21.3 Update Request Handler to pass server time
     - Pass current server time to OIDCValidator.validate_token()
     - Include X-Timestamp in response on timestamp validation failure
     - _Requirements: 18.3_
-  - [ ] 22.4 Add unit tests for timestamp validation
+  - [ ] 21.4 Add unit tests for timestamp validation
     - Test valid timestamps within tolerance
     - Test rejection of timestamps outside tolerance
     - Test X-Timestamp header included on failure
     - _Requirements: 18.1, 18.2, 18.3, 18.4_
 
-- [ ]* 22.5 Write property test for timestamp validation
+- [ ]* 21.5 Write property test for timestamp validation
   - **Property 53: Timestamp validation with tolerance**
   - **Validates: Requirements 18.1, 18.4**
 
-- [ ]* 22.6 Write property test for timestamp failure includes X-Timestamp
+- [ ]* 21.6 Write property test for timestamp failure includes X-Timestamp
   - **Property 54: Timestamp validation includes X-Timestamp**
   - **Validates: Requirements 18.3**
 
-- [ ] 23. Add Retry-After header on 503 responses
-  - [ ] 23.1 Add RETRY_AFTER_SECONDS configuration
+- [ ] 22. Add Retry-After header on 503 responses
+  - [ ] 22.1 Add RETRY_AFTER_SECONDS configuration
     - Add environment variable (default 30 seconds)
     - Add to ServiceProvider configuration
     - _Requirements: 15.1_
-  - [ ] 23.2 Update error response for 503 status
+  - [ ] 22.2 Update error response for 503 status
     - Add Retry-After header to all 503 responses in _error_response()
     - _Requirements: 15.1_
-  - [ ] 23.3 Add unit tests for Retry-After header
+  - [ ] 22.3 Add unit tests for Retry-After header
     - Test 503 responses include Retry-After header
     - Test header value is correct
     - _Requirements: 15.1_
 
-- [ ]* 23.4 Write property test for Retry-After on 503
+- [ ]* 22.4 Write property test for Retry-After on 503
   - **Property 49: Retry-After header on 503**
   - **Validates: Requirements 15.1**
 
-- [ ] 24. Add WWW-Authenticate header on 401 responses
-  - [ ] 24.1 Update error response for 401 status
+- [ ] 23. Add WWW-Authenticate header on 401 responses
+  - [ ] 23.1 Update error response for 401 status
     - Add WWW-Authenticate header with "Bearer" scheme to all 401 responses
     - Include realm and error description
     - _Requirements: 16.1, 16.2, 16.3_
-  - [ ] 24.2 Add unit tests for WWW-Authenticate header
+  - [ ] 23.2 Add unit tests for WWW-Authenticate header
     - Test all 401 responses include WWW-Authenticate header
     - Test header format is correct (Bearer scheme)
     - _Requirements: 16.1, 16.2, 16.3_
 
-- [ ]* 24.3 Write property test for WWW-Authenticate on 401
+- [ ]* 23.3 Write property test for WWW-Authenticate on 401
   - **Property 51: WWW-Authenticate header on 401**
   - **Validates: Requirements 16.1, 16.2, 16.3**
 
-- [ ] 25. Add 406 Not Acceptable response
-  - [ ] 25.1 Add Accept header validation
+- [ ] 24. Add 406 Not Acceptable response
+  - [ ] 24.1 Add Accept header validation
     - Validate Accept header in Request Handler
     - Return 406 if Accept header is not acceptable (not application/json or */*)
     - _Requirements: 5.4_
-  - [ ] 25.2 Add unit tests for Accept header validation
+  - [ ] 24.2 Add unit tests for Accept header validation
     - Test valid Accept headers (application/json, */*, missing)
     - Test invalid Accept headers return 406
     - _Requirements: 5.4_
 
-- [ ]* 25.3 Write property test for unacceptable Accept header rejection
+- [ ]* 24.3 Write property test for unacceptable Accept header rejection
   - **Property 18: Unacceptable Accept header rejection**
   - **Validates: Requirements 5.4**
 
-- [ ] 26. Add new-users-disabled feature
-  - [ ] 26.1 Add NEW_USERS_ENABLED configuration
+- [ ] 25. Add new-users-disabled feature
+  - [ ] 25.1 Add NEW_USERS_ENABLED configuration
     - Add environment variable (default true)
     - Add to ServiceProvider configuration
     - _Requirements: 17.4_
-  - [ ] 26.2 Update UserManager for new users check
+  - [ ] 25.2 Update UserManager for new users check
     - Add new_users_enabled parameter to constructor
     - Check if user exists before creating
     - Raise NewUsersDisabledError if new users disabled and user doesn't exist
     - _Requirements: 17.1, 17.2_
-  - [ ] 26.3 Add unit tests for new users disabled
+  - [ ] 25.3 Add unit tests for new users disabled
     - Test new user rejected when disabled
     - Test existing user allowed when disabled
     - Test new user allowed when enabled
     - _Requirements: 17.1, 17.2, 17.3_
 
-- [ ]* 26.4 Write property test for new users disabled
+- [ ]* 25.4 Write property test for new users disabled
   - **Property 52: New users disabled configuration**
   - **Validates: Requirements 17.1**
 
-- [ ] 27. Update uid generation for node reset
-  - [ ] 27.1 Update TokenGenerator.generate_uid()
+- [ ] 26. Update uid generation for node reset
+  - [ ] 26.1 Update TokenGenerator.generate_uid()
     - Include generation number in uid calculation
     - uid = hash(user_id + generation) so it changes on node reset
     - _Requirements: 2.4_
-  - [ ] 27.2 Update generate_token() to pass generation to generate_uid()
+  - [ ] 26.2 Update generate_token() to pass generation to generate_uid()
     - Ensure uid changes when generation changes
     - _Requirements: 2.4_
-  - [ ] 27.3 Add unit tests for uid generation
+  - [ ] 26.3 Add unit tests for uid generation
     - Test uid changes when generation changes
     - Test same user_id + generation produces same uid
     - _Requirements: 2.4_
 
-- [ ]* 27.4 Write property test for node reset on client state change
+- [ ]* 26.4 Write property test for node reset on client state change
   - **Property 8: Node reset on client state change**
   - **Validates: Requirements 2.4**
 
-- [ ] 28. Checkpoint - Ensure all Mozilla spec compliance tests pass
+- [ ] 27. Checkpoint - Ensure all Mozilla spec compliance tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Phase 3: Integration Tests
 
-- [ ]* 29.1 Write integration test for GET method token issuance
+- [ ]* 28.1 Write integration test for GET method token issuance
   - Test complete flow using GET method
   - Verify response structure matches Mozilla spec
   - _Requirements: 1.1_
 
-- [ ]* 29.2 Write integration test for client state history
+- [ ]* 28.2 Write integration test for client state history
   - Test client state change flow
   - Test rejection of previously-seen client state
   - Test rejection of empty state when history exists
   - _Requirements: 13.6, 13.7, 13.8_
 
-- [ ]* 29.3 Write integration test for new error statuses
+- [ ]* 28.3 Write integration test for new error statuses
   - Test invalid-timestamp response
   - Test invalid-generation response
   - Test invalid-client-state response
   - Test new-users-disabled response
   - _Requirements: 6.6, 6.7, 6.8, 6.9_
 
-- [ ]* 29.4 Write integration test for response headers
+- [ ]* 28.4 Write integration test for response headers
   - Test X-Timestamp on 200 and 401
   - Test Retry-After on 503
   - Test WWW-Authenticate on 401
   - _Requirements: 14.1, 14.2, 15.1, 16.1_
 
-- [ ]* 29.5 Write integration test for node reset
+- [ ]* 28.5 Write integration test for node reset
   - Test uid changes when client state changes
   - Test api_endpoint changes when client state changes
   - _Requirements: 2.4_
 
-- [ ] 30. Final Checkpoint - Ensure all tests pass
+- [ ] 29. Final Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.

@@ -1,51 +1,92 @@
-# Tech Stack
+---
+inclusion: always
+---
+
+# Tech Stack & Development Guidelines
 
 ## Infrastructure (TypeScript)
-- **AWS CDK** (v2.231+) - Infrastructure as Code
-- **CDK Monitoring Constructs** - Observability
-- **TypeScript** (~5.9) with strict mode enabled
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| AWS CDK | 2.231+ | Infrastructure as Code |
+| CDK Monitoring Constructs | 9.16+ | Observability dashboards/alarms |
+| TypeScript | ~5.9 | Strict mode enabled |
+
+### TypeScript Rules
+- Target: ES2020, Module: node20
+- Strict null checks and implicit any checks enabled
+- Use `noImplicitReturns: true` - all code paths must return
 
 ## Backend (Python)
-- **Python 3.14** - Lambda runtime
-- **AWS Lambda Powertools** - Logging, Event Handler (APIGatewayRestResolver)
-- **boto3** - AWS SDK
-- **dataclasses-json** - JSON serialization for models
-- **PyJWT** - JWT token handling
-- **requests** - HTTP client for OIDC
 
-## API Design
-- **Smithy** (v1.64) - API modeling language
-- Generates OpenAPI specs for API Gateway REST APIs
-- Two services: `StorageService` and `TokenService`
+| Technology | Purpose |
+|------------|---------|
+| Python 3.14 | Lambda runtime |
+| AWS Lambda Powertools | Logging, APIGatewayRestResolver |
+| boto3 | AWS SDK |
+| dataclasses-json | Model serialization |
+| PyJWT | JWT token handling |
+| requests | HTTP client for OIDC |
+
+### Python Rules
+- Line length: 100 characters (Black + isort)
+- Type hints required on function signatures
+- Use `@dataclass` with `dataclasses-json` for models
+- Logger: `from aws_lambda_powertools import Logger`
+
+## API Design (Smithy)
+- Smithy v1.64 generates OpenAPI specs
+- Two services: `StorageService`, `TokenService`
+- Run `smithy build` from `smithy/` directory after model changes
 
 ## AWS Services
-- API Gateway (REST, edge-optimized)
-- Lambda (ARM64 architecture)
-- DynamoDB (PAY_PER_REQUEST billing)
-- Secrets Manager (OIDC configuration)
-- Route 53 (DNS)
-- ACM (TLS certificates)
+- API Gateway: REST, edge-optimized
+- Lambda: ARM64 architecture
+- DynamoDB: PAY_PER_REQUEST billing mode
+- Secrets Manager: OIDC configuration storage
 
-## Common Commands
+## Commands
 
 ```bash
-# CDK/Infrastructure
+# Infrastructure (from project root)
 npm run build          # Compile TypeScript
 npm run cdk synth      # Synthesize CloudFormation
-npm run cdk deploy     # Deploy stacks
-npm run format         # Run ESLint with auto-fix
+npm run format         # ESLint + Prettier auto-fix
 
-# Python/Lambda (run from lambda/ directory)
-pytest                 # Run tests with coverage (100% required)
+# Lambda (from lambda/ directory)
+pytest                 # Run tests (100% coverage required)
 pytest -k <pattern>    # Run specific tests
+pytest -n auto         # Parallel execution (default)
 
-# Smithy (requires smithy-cli)
-smithy build           # Generate OpenAPI specs from models
+# API Models (from smithy/ directory)
+smithy build           # Generate OpenAPI specs
 ```
 
-## Code Quality
-- **ESLint + Prettier** for TypeScript
-- **Black** (line-length 100) for Python formatting
-- **isort** for Python imports
-- **pytest** with 100% coverage requirement
-- **flake8** for Python linting
+## Code Quality Requirements
+
+### Python (lambda/)
+- **100% test coverage** - enforced via `--cov-fail-under=100`
+- Black formatter (line-length 100, target py314)
+- isort with black profile
+- flake8 for linting (E, W, F, C90 rules)
+- mypy for type checking
+- Use `# pragma: nocover` sparingly for unreachable paths
+
+### TypeScript (lib/)
+- ESLint + Prettier enforced
+- Prettier plugin sorts imports automatically
+- Run `npm run format` before committing
+
+## Testing Conventions
+
+### Python Tests
+- Tests mirror source structure: `tests/routes/bso/test_read.py` ↔ `src/routes/bso/read.py`
+- Use fixtures from `conftest.py`: `mock_service_provider`, `mock_storage_manager`
+- Parallel execution enabled by default (`-n auto`)
+
+### Coverage Exclusions
+Automatically excluded from coverage:
+- `pragma: nocover` comments
+- `__repr__` methods
+- `TYPE_CHECKING` blocks
+- Abstract methods
