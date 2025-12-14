@@ -250,3 +250,18 @@ def mock_get_current_timestamp(mock_timestamp):
     """Mock get_current_timestamp() for storage_manager tests"""
     with patch("src.services.storage_manager.get_current_timestamp", return_value=mock_timestamp):
         yield
+
+
+@pytest.fixture
+def base_url():
+    return "sync.example.com"
+
+
+@pytest.fixture
+def storage_domain(base_url):
+    return f"storage.{base_url}"
+
+
+@pytest.fixture
+def storage_url(storage_domain):
+    return f"https://{storage_domain}"

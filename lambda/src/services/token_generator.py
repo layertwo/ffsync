@@ -20,13 +20,13 @@ class TokenGenerator:
     # HAWK key size in bytes
     HAWK_KEY_SIZE = 32
 
-    def __init__(self, base_url: str):
+    def __init__(self, storage_domain: str):
         """Initialize TokenGenerator
 
         Args:
-            base_url: Base URL for the storage API (e.g., "https://sync.example.com")
+            storage_domain: domain for the storage API (e.g., "storage.sync.example.com")
         """
-        self.base_url = base_url.rstrip("/")
+        self._storage_domain = storage_domain
 
     def generate_hawk_id(self, user_id: str, generation: int, expiry: int) -> str:
         """Generate HAWK identifier as URL-safe base64-encoded string
@@ -101,7 +101,7 @@ class TokenGenerator:
         hawk_key = self.generate_hawk_key()
 
         # Compute api_endpoint dynamically
-        api_endpoint = f"{self.base_url}/1.5/{user_id}"
+        api_endpoint = f"https://{self._storage_domain}/1.5/{user_id}"
 
         # Generate numeric UID
         uid = self.generate_uid(user_id)

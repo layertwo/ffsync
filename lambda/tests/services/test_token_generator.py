@@ -15,11 +15,19 @@ class TestTokenGenerator:
 
     @pytest.fixture
     def base_url(self):
-        return "https://sync.example.com"
+        return "sync.example.com"
 
     @pytest.fixture
-    def token_generator(self, base_url):
-        return TokenGenerator(base_url=base_url)
+    def storage_domain(self, base_url):
+        return f"storage.{base_url}"
+
+    @pytest.fixture
+    def storage_url(self, storage_domain):
+        return f"https://{storage_domain}"
+
+    @pytest.fixture
+    def token_generator(self, storage_domain):
+        return TokenGenerator(storage_domain=storage_domain)
 
     @pytest.fixture
     def mock_time(self):
@@ -29,11 +37,6 @@ class TestTokenGenerator:
     def mock_hawk_key(self):
         # 32 bytes = 64 hex characters
         return "a" * 64
-
-    def test_init_strips_trailing_slash(self):
-        """Test that base_url trailing slash is stripped"""
-        generator = TokenGenerator(base_url="https://sync.example.com/")
-        assert generator.base_url == "https://sync.example.com"
 
     def test_generate_hawk_id_format(self, token_generator):
         """Test HAWK ID is URL-safe base64 encoded"""
@@ -117,14 +120,14 @@ class TestTokenGenerator:
         assert token.duration == 300
         assert token.hashalg == "sha256"
 
-    def test_generate_token_api_endpoint_format(self, token_generator, base_url, mock_time):
+    def test_generate_token_api_endpoint_format(self, token_generator, storage_url, mock_time):
         """Test api_endpoint follows correct format"""
         user_id = "user123"
 
         with patch("src.services.token_generator.time.time", return_value=mock_time):
             token = token_generator.generate_token(user_id, 0)
 
-        assert token.api_endpoint == f"{base_url}/1.5/{user_id}"
+        assert token.api_endpoint == f"{storage_url}/1.5/{user_id}"
 
     def test_generate_token_duration(self, token_generator, mock_time):
         """Test token duration is 300 seconds"""

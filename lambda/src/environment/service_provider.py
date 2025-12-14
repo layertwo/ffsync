@@ -93,6 +93,10 @@ class ServiceProvider:
         return os.environ.get("BASE_DOMAIN")
 
     @cached_property
+    def storage_domain(self) -> str:
+        return f"storage.{self.base_domain}"
+
+    @cached_property
     def secretsmanager_client(self):  # pragma: nocover
         """Create Secrets Manager client"""
         return self.session.client("secretsmanager")
@@ -119,9 +123,7 @@ class ServiceProvider:
     @cached_property
     def token_generator(self) -> TokenGenerator:
         """Create token generator with base URL from environment"""
-        # Construct base URL from BASE_DOMAIN
-        base_url = f"https://{self.base_domain}"
-        return TokenGenerator(base_url=base_url)
+        return TokenGenerator(storage_domain=self.storage_domain)
 
     @cached_property
     def token_api_router(self):
