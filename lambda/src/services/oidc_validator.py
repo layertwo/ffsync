@@ -9,6 +9,7 @@ from jwt import PyJWKClient, PyJWKClientError
 
 from src.shared.exceptions import (
     InvalidCredentialsError,
+    InvalidTimestampError,
     InvalidTokenError,
     ServiceUnavailableError,
 )
@@ -30,16 +31,18 @@ class OIDCValidator:
     - User identifier extraction from sub claim
     """
 
-    def __init__(self, provider_url: str, client_id: str):
+    def __init__(self, provider_url: str, client_id: str, clock_skew_tolerance: int = 300):
         """
         Initialize OIDC validator with provider configuration.
 
         Args:
             provider_url: Base URL of OIDC provider (e.g., https://auth.example.com)
             client_id: Expected audience claim value (OAuth client ID)
+            clock_skew_tolerance: Maximum allowed clock skew in seconds (default 300 / 5 minutes)
         """
         self.provider_url = provider_url.rstrip("/")
         self.client_id = client_id
+        self.clock_skew_tolerance = clock_skew_tolerance
         self._provider_config: Optional[OIDCProviderConfig] = None
         self._provider_config_timestamp: float = 0
         self._jwk_client: Optional[PyJWKClient] = None
@@ -127,7 +130,8 @@ class OIDCValidator:
         3. Validates issuer matches configured provider
         4. Validates audience matches configured client_id
         5. Verifies token has not expired
-        6. Extracts user identifier from sub claim
+        6. Validates token timestamp (iat) against server time with tolerance
+        7. Extracts user identifier from sub claim
 
         Args:
             token: Raw OIDC token string (JWT)
@@ -138,6 +142,7 @@ class OIDCValidator:
         Raises:
             InvalidTokenError: If token signature is invalid
             InvalidCredentialsError: If token is expired or claims are invalid
+            InvalidTimestampError: If token timestamp differs too much from server time
             ServiceUnavailableError: If OIDC provider is unreachable
         """
         try:
@@ -179,6 +184,18 @@ class OIDCValidator:
             except jwt.InvalidTokenError as e:
                 raise InvalidTokenError(f"Invalid token: {e}")
 
+            # Validate timestamp (iat claim) against server time
+            server_time = int(time.time())
+
+            iat = claims.get("iat")
+            if iat is not None:
+                time_diff = abs(server_time - iat)
+                if time_diff > self.clock_skew_tolerance:
+                    raise InvalidTimestampError(
+                        f"Token timestamp differs from server time by {time_diff} seconds "
+                        f"(tolerance: {self.clock_skew_tolerance} seconds)"
+                    )
+
             # Extract and validate sub claim
             sub = claims.get("sub")
             if not sub:
@@ -194,11 +211,11 @@ class OIDCValidator:
                 iss=claims["iss"],
                 aud=aud,
                 exp=claims["exp"],
-                iat=claims["iat"],
+                iat=claims.get("iat", 0),  # Default to 0 if iat is missing
                 email=claims.get("email"),
             )
 
-        except (InvalidTokenError, InvalidCredentialsError):
+        except (InvalidTokenError, InvalidCredentialsError, InvalidTimestampError):
             # Re-raise our custom exceptions
             raise
         except ServiceUnavailableError:

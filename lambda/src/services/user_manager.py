@@ -5,7 +5,7 @@ from typing import Optional
 
 from botocore.exceptions import ClientError
 
-from src.shared.exceptions import ServiceUnavailableError
+from src.shared.exceptions import InvalidClientStateError, ServiceUnavailableError
 from src.shared.user import UserRecord
 from src.shared.utils import float_to_decimal
 
@@ -48,10 +48,10 @@ class UserManager:
 
         Args:
             uid: Numeric user identifier (hash of OIDC sub claim)
-            client_state: X-Client-State header value (hex string, max 32 chars)
+            client_state: X-Client-State header value (urlsafe-base64 + period, max 32 chars)
 
         Returns:
-            UserRecord with generation 0
+            UserRecord with generation 0 and empty client_state_history
 
         Raises:
             ClientError: If user already exists (ConditionalCheckFailedException)
@@ -65,6 +65,7 @@ class UserManager:
                 uid=uid,
                 generation=0,
                 client_state=client_state,
+                client_state_history=[],
                 created_at=current_time,
                 updated_at=current_time,
             )
@@ -111,9 +112,11 @@ class UserManager:
                 return None
 
             item = response["Item"]
-            # Provide default for missing client_state (legacy records)
+            # Provide defaults for missing fields (legacy records migration)
             if "client_state" not in item:
                 item["client_state"] = ""
+            if "client_state_history" not in item:
+                item["client_state_history"] = []
             return UserRecord.from_dict(item)
 
         except ClientError as e:
@@ -128,15 +131,44 @@ class UserManager:
                 )
             raise
 
-    def update_user_client_state(self, uid: int, client_state: str) -> UserRecord:
-        """Update client state and increment generation atomically
+    def validate_client_state(self, user_record: UserRecord, client_state: str) -> None:
+        """Validate client state against history.
+
+        Per Mozilla spec, the following client state transitions are rejected:
+        1. New client_state matches any value in client_state_history
+        2. New client_state is empty but client_state_history contains non-empty values
+
+        Args:
+            user_record: Existing user record with client_state_history
+            client_state: New X-Client-State value to validate
+
+        Raises:
+            InvalidClientStateError: If client state transition is invalid
+        """
+        # Check if new client_state matches any previously-seen value
+        if client_state in user_record.client_state_history:
+            raise InvalidClientStateError(
+                "Client state has been previously used and cannot be reused"
+            )
+
+        # Check if new client_state is empty but history contains non-empty values
+        if client_state == "" and any(state != "" for state in user_record.client_state_history):
+            raise InvalidClientStateError(
+                "Cannot revert to empty client state after using non-empty values"
+            )
+
+    def update_user_client_state(
+        self, uid: int, client_state: str, previous_client_state: str
+    ) -> UserRecord:
+        """Update client state, add previous to history, and increment generation atomically
 
         Args:
             uid: Numeric user identifier
             client_state: New X-Client-State value
+            previous_client_state: Previous X-Client-State value to add to history
 
         Returns:
-            Updated UserRecord with new generation and client_state
+            Updated UserRecord with new generation, client_state, and updated history
 
         Raises:
             ServiceUnavailableError: If DynamoDB is unavailable
@@ -150,11 +182,15 @@ class UserManager:
                 UpdateExpression=(
                     "SET generation = generation + :inc, "
                     "client_state = :client_state, "
+                    "client_state_history = list_append("
+                    "if_not_exists(client_state_history, :empty_list), :prev_state_list), "
                     "updated_at = :updated_at"
                 ),
                 ExpressionAttributeValues={
                     ":inc": 1,
                     ":client_state": client_state,
+                    ":prev_state_list": [previous_client_state],
+                    ":empty_list": [],
                     ":updated_at": float_to_decimal(current_time.timestamp()),
                 },
                 ReturnValues="ALL_NEW",
@@ -163,6 +199,9 @@ class UserManager:
             updated_item = response["Attributes"]
             # Add uid to the dict since DynamoDB stores it in PK
             updated_item["uid"] = uid
+            # Ensure client_state_history is present (for legacy records)
+            if "client_state_history" not in updated_item:  # pragma: nocover
+                updated_item["client_state_history"] = []
             return UserRecord.from_dict(updated_item)
 
         except ClientError as e:
@@ -182,16 +221,18 @@ class UserManager:
 
         Orchestrates user creation, retrieval, and client state management.
         If the user already exists, returns the existing record.
-        If client_state differs from stored value, increments generation number.
+        If client_state differs from stored value, validates against history
+        and increments generation number.
 
         Args:
             uid: Numeric user identifier (hash of OIDC sub claim)
-            client_state: X-Client-State header value (hex string, max 32 chars)
+            client_state: X-Client-State header value (urlsafe-base64 + period, max 32 chars)
 
         Returns:
             UserRecord with current generation number
 
         Raises:
+            InvalidClientStateError: If client state transition is invalid
             ServiceUnavailableError: If DynamoDB is unavailable
         """
         try:
@@ -210,8 +251,14 @@ class UserManager:
 
                 # Check if client_state has changed
                 if existing_user.client_state != client_state:
-                    # Client state changed, increment generation and update client_state
-                    return self.update_user_client_state(uid, client_state)
+                    # Validate client state against history before accepting
+                    self.validate_client_state(existing_user, client_state)
+
+                    # Client state changed, increment generation, update client_state,
+                    # and add previous state to history
+                    return self.update_user_client_state(
+                        uid, client_state, existing_user.client_state
+                    )
 
                 return existing_user
             raise
