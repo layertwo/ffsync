@@ -9,7 +9,7 @@
 | src/entrypoint/storage\_api.py         |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/token\_api.py           |        5 |        0 |        0 |        0 |     100% |           |
 | src/environment/\_\_init\_\_.py        |        0 |        0 |        0 |        0 |     100% |           |
-| src/environment/service\_provider.py   |       69 |        0 |        0 |        0 |     100% |           |
+| src/environment/service\_provider.py   |       72 |        0 |        0 |        0 |     100% |           |
 | src/routes/\_\_init\_\_.py             |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/delete.py               |       31 |        0 |        0 |        0 |     100% |           |
@@ -31,19 +31,19 @@
 | src/routes/token/\_\_init\_\_.py       |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/token/request.py            |      107 |        0 |       18 |        0 |     100% |           |
 | src/services/api\_router.py            |       15 |        0 |        2 |        0 |     100% |           |
-| src/services/oidc\_validator.py        |       81 |        0 |       10 |        0 |     100% |           |
+| src/services/oidc\_validator.py        |       88 |        0 |       14 |        0 |     100% |           |
 | src/services/storage\_manager.py       |      155 |        0 |       34 |        0 |     100% |           |
 | src/services/token\_generator.py       |       28 |        0 |        0 |        0 |     100% |           |
-| src/services/user\_manager.py          |       81 |        0 |       20 |        0 |     100% |           |
+| src/services/user\_manager.py          |       89 |        0 |       26 |        0 |     100% |           |
 | src/shared/\_\_init\_\_.py             |        0 |        0 |        0 |        0 |     100% |           |
 | src/shared/base\_route.py              |        3 |        0 |        0 |        0 |     100% |           |
 | src/shared/exceptions.py               |       87 |        0 |        0 |        0 |     100% |           |
 | src/shared/models.py                   |       19 |        0 |        0 |        0 |     100% |           |
 | src/shared/oidc.py                     |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/token.py                    |        4 |        0 |        0 |        0 |     100% |           |
-| src/shared/user.py                     |        8 |        0 |        0 |        0 |     100% |           |
+| src/shared/user.py                     |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                    |       19 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                              | **1139** |    **0** |  **118** |    **0** | **100%** |           |
+| **TOTAL**                              | **1159** |    **0** |  **128** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
