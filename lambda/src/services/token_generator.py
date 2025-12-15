@@ -28,21 +28,21 @@ class TokenGenerator:
         """
         self._storage_domain = storage_domain
 
-    def generate_hawk_id(self, user_id: str, generation: int, expiry: int) -> str:
+    def generate_hawk_id(self, uid: int, generation: int, expiry: int) -> str:
         """Generate HAWK identifier as URL-safe base64-encoded string
 
-        The HAWK ID encodes user_id:generation:expiry to enable stateless
+        The HAWK ID encodes uid:generation:expiry to enable stateless
         validation by the Storage API.
 
         Args:
-            user_id: User identifier from OIDC sub claim
+            uid: Numeric user identifier
             generation: Current generation number for token invalidation
             expiry: Token expiry timestamp (Unix epoch seconds)
 
         Returns:
-            URL-safe base64-encoded string containing user_id:generation:expiry
+            URL-safe base64-encoded string containing uid:generation:expiry
         """
-        payload = f"{user_id}:{generation}:{expiry}"
+        payload = f"{uid}:{generation}:{expiry}"
         encoded = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("utf-8")
         # Remove padding for cleaner URLs
         return encoded.rstrip("=")
@@ -74,19 +74,19 @@ class TokenGenerator:
         uid = int.from_bytes(hash_bytes[:8], byteorder="big") & 0x7FFFFFFFFFFFFFFF
         return uid
 
-    def generate_token(self, user_id: str, generation: int) -> TokenResponse:
+    def generate_token(self, uid: int, generation: int) -> TokenResponse:
         """Generate complete token response with HAWK credentials
 
         Constructs a TokenResponse with all required fields for Firefox Sync:
-        - id: HAWK identifier (base64-encoded user_id:generation:expiry)
+        - id: HAWK identifier (base64-encoded uid:generation:expiry)
         - key: HAWK shared secret (hex-encoded random bytes)
         - api_endpoint: Full storage API URL
-        - uid: Numeric user ID (hash of user_id)
+        - uid: Numeric user ID
         - duration: Token validity in seconds (300)
         - hashalg: Hash algorithm for HAWK ("sha256")
 
         Args:
-            user_id: User identifier from OIDC sub claim
+            uid: Numeric user identifier
             generation: Current generation number
 
         Returns:
@@ -97,14 +97,11 @@ class TokenGenerator:
         expiry = current_time + self.TOKEN_DURATION
 
         # Generate HAWK credentials
-        hawk_id = self.generate_hawk_id(user_id, generation, expiry)
+        hawk_id = self.generate_hawk_id(uid, generation, expiry)
         hawk_key = self.generate_hawk_key()
 
         # Compute api_endpoint dynamically
-        api_endpoint = f"https://{self._storage_domain}/1.5/{user_id}"
-
-        # Generate numeric UID
-        uid = self.generate_uid(user_id)
+        api_endpoint = f"https://{self._storage_domain}/1.5/{uid}"
 
         return TokenResponse(
             id=hawk_id,

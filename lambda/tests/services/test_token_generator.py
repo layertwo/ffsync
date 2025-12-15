@@ -14,18 +14,6 @@ class TestTokenGenerator:
     """Test TokenGenerator functionality"""
 
     @pytest.fixture
-    def base_url(self):
-        return "sync.example.com"
-
-    @pytest.fixture
-    def storage_domain(self, base_url):
-        return f"storage.{base_url}"
-
-    @pytest.fixture
-    def storage_url(self, storage_domain):
-        return f"https://{storage_domain}"
-
-    @pytest.fixture
     def token_generator(self, storage_domain):
         return TokenGenerator(storage_domain=storage_domain)
 
@@ -40,11 +28,11 @@ class TestTokenGenerator:
 
     def test_generate_hawk_id_format(self, token_generator):
         """Test HAWK ID is URL-safe base64 encoded"""
-        user_id = "user123"
+        uid = 123456789
         generation = 5
         expiry = 1702345978
 
-        hawk_id = token_generator.generate_hawk_id(user_id, generation, expiry)
+        hawk_id = token_generator.generate_hawk_id(uid, generation, expiry)
 
         # Should be URL-safe base64 (no +, /, or = padding)
         assert "+" not in hawk_id
@@ -52,11 +40,11 @@ class TestTokenGenerator:
         # Padding is stripped
         assert not hawk_id.endswith("=")
 
-        # Should decode to user_id:generation:expiry
+        # Should decode to uid:generation:expiry
         # Add padding back for decoding
         padded = hawk_id + "=" * (4 - len(hawk_id) % 4) if len(hawk_id) % 4 else hawk_id
         decoded = base64.urlsafe_b64decode(padded).decode("utf-8")
-        assert decoded == f"{user_id}:{generation}:{expiry}"
+        assert decoded == f"{uid}:{generation}:{expiry}"
 
     def test_generate_hawk_id_different_inputs(self, token_generator):
         """Test HAWK ID varies with different inputs"""
@@ -122,35 +110,35 @@ class TestTokenGenerator:
 
     def test_generate_token_api_endpoint_format(self, token_generator, storage_url, mock_time):
         """Test api_endpoint follows correct format"""
-        user_id = "user123"
+        uid = 123456789
 
         with patch("src.services.token_generator.time.time", return_value=mock_time):
-            token = token_generator.generate_token(user_id, 0)
+            token = token_generator.generate_token(uid, 0)
 
-        assert token.api_endpoint == f"{storage_url}/1.5/{user_id}"
+        assert token.api_endpoint == f"{storage_url}/1.5/{uid}"
 
     def test_generate_token_duration(self, token_generator, mock_time):
         """Test token duration is 300 seconds"""
         with patch("src.services.token_generator.time.time", return_value=mock_time):
-            token = token_generator.generate_token("user123", 0)
+            token = token_generator.generate_token(123456789, 0)
 
         assert token.duration == 300
 
     def test_generate_token_hashalg(self, token_generator, mock_time):
         """Test hash algorithm is sha256"""
         with patch("src.services.token_generator.time.time", return_value=mock_time):
-            token = token_generator.generate_token("user123", 0)
+            token = token_generator.generate_token(123456789, 0)
 
         assert token.hashalg == "sha256"
 
     def test_generate_token_hawk_id_contains_expiry(self, token_generator, mock_time):
         """Test HAWK ID contains correct expiry timestamp"""
-        user_id = "user123"
+        uid = 123456789
         generation = 5
         expected_expiry = mock_time + 300
 
         with patch("src.services.token_generator.time.time", return_value=mock_time):
-            token = token_generator.generate_token(user_id, generation)
+            token = token_generator.generate_token(uid, generation)
 
         # Decode HAWK ID to verify expiry
         hawk_id = token.id
@@ -159,24 +147,24 @@ class TestTokenGenerator:
         parts = decoded.split(":")
 
         assert len(parts) == 3
-        assert parts[0] == user_id
+        assert parts[0] == str(uid)
         assert parts[1] == str(generation)
         assert parts[2] == str(expected_expiry)
 
-    def test_generate_token_uid_matches_generate_uid(self, token_generator, mock_time):
-        """Test token UID matches generate_uid output"""
-        user_id = "user123"
+    def test_generate_token_uid_matches_input(self, token_generator, mock_time):
+        """Test token UID matches input uid"""
+        uid = 123456789
 
         with patch("src.services.token_generator.time.time", return_value=mock_time):
-            token = token_generator.generate_token(user_id, 0)
+            token = token_generator.generate_token(uid, 0)
 
-        expected_uid = token_generator.generate_uid(user_id)
-        assert token.uid == expected_uid
+        assert token.uid == uid
 
     def test_generate_token_unique_keys(self, token_generator, mock_time):
         """Test each token generation produces unique key"""
+        uid = 123456789
         with patch("src.services.token_generator.time.time", return_value=mock_time):
-            tokens = [token_generator.generate_token("user123", 0) for _ in range(10)]
+            tokens = [token_generator.generate_token(uid, 0) for _ in range(10)]
 
         keys = [t.key for t in tokens]
         assert len(set(keys)) == 10  # All unique

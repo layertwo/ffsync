@@ -24,30 +24,30 @@ class UserManager:
         """
         self.table = table
 
-    def _user_pk(self, user_id: str) -> str:
+    def _user_pk(self, uid: int) -> str:
         """Generate partition key for user record
 
         Args:
-            user_id: User identifier from OIDC sub claim
+            uid: Numeric user identifier
 
         Returns:
             Partition key string
         """
-        return f"{PK_PREFIX}#{user_id}"
+        return f"{PK_PREFIX}#{uid}"
 
     def _encode_user_record(self, user_record: UserRecord) -> dict:
         encoded = user_record.to_dict()
-        encoded[_PK] = f"{PK_PREFIX}#{user_record.user_id}"
+        encoded[_PK] = f"{PK_PREFIX}#{user_record.uid}"
         return encoded
 
-    def create_user(self, user_id: str, client_state: str = "") -> UserRecord:
+    def create_user(self, uid: int, client_state: str = "") -> UserRecord:
         """Create a new user record with generation 0
 
         Uses conditional write to ensure atomicity. Raises ConditionalCheckFailedException
         if the user already exists.
 
         Args:
-            user_id: Unique user identifier from OIDC sub claim
+            uid: Numeric user identifier (hash of OIDC sub claim)
             client_state: X-Client-State header value (hex string, max 32 chars)
 
         Returns:
@@ -62,7 +62,7 @@ class UserManager:
         try:
 
             user_record = UserRecord(
-                user_id=user_id,
+                uid=uid,
                 generation=0,
                 client_state=client_state,
                 created_at=current_time,
@@ -88,11 +88,11 @@ class UserManager:
                 )
             raise
 
-    def get_user(self, user_id: str) -> Optional[UserRecord]:
+    def get_user(self, uid: int) -> Optional[UserRecord]:
         """Get user record from DynamoDB
 
         Args:
-            user_id: User identifier
+            uid: Numeric user identifier
 
         Returns:
             UserRecord if found, None otherwise
@@ -100,7 +100,7 @@ class UserManager:
         Raises:
             ServiceUnavailableError: If DynamoDB is unavailable
         """
-        pk = self._user_pk(user_id)
+        pk = self._user_pk(uid)
 
         try:
             response = self.table.get_item(
@@ -128,11 +128,11 @@ class UserManager:
                 )
             raise
 
-    def update_user_client_state(self, user_id: str, client_state: str) -> UserRecord:
+    def update_user_client_state(self, uid: int, client_state: str) -> UserRecord:
         """Update client state and increment generation atomically
 
         Args:
-            user_id: User identifier
+            uid: Numeric user identifier
             client_state: New X-Client-State value
 
         Returns:
@@ -141,7 +141,7 @@ class UserManager:
         Raises:
             ServiceUnavailableError: If DynamoDB is unavailable
         """
-        pk = self._user_pk(user_id)
+        pk = self._user_pk(uid)
         current_time = datetime.now(tz=timezone.utc)
 
         try:
@@ -161,8 +161,8 @@ class UserManager:
             )
 
             updated_item = response["Attributes"]
-            # Add user_id to the dict since DynamoDB stores it in PK
-            updated_item["user_id"] = user_id
+            # Add uid to the dict since DynamoDB stores it in PK
+            updated_item["uid"] = uid
             return UserRecord.from_dict(updated_item)
 
         except ClientError as e:
@@ -177,7 +177,7 @@ class UserManager:
                 )
             raise
 
-    def get_or_create_user(self, user_id: str, client_state: str = "") -> UserRecord:
+    def get_or_create_user(self, uid: int, client_state: str = "") -> UserRecord:
         """Get existing user or create new record with generation 0
 
         Orchestrates user creation, retrieval, and client state management.
@@ -185,7 +185,7 @@ class UserManager:
         If client_state differs from stored value, increments generation number.
 
         Args:
-            user_id: Unique user identifier from OIDC sub claim
+            uid: Numeric user identifier (hash of OIDC sub claim)
             client_state: X-Client-State header value (hex string, max 32 chars)
 
         Returns:
@@ -196,12 +196,12 @@ class UserManager:
         """
         try:
             # Try to create new user
-            return self.create_user(user_id, client_state)
+            return self.create_user(uid, client_state)
 
         except ClientError as e:
             if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
                 # User already exists, fetch existing record
-                existing_user = self.get_user(user_id)
+                existing_user = self.get_user(uid)
 
                 # This should never be None after a ConditionalCheckFailedException,
                 # but we guard for type safety
@@ -211,19 +211,19 @@ class UserManager:
                 # Check if client_state has changed
                 if existing_user.client_state != client_state:
                     # Client state changed, increment generation and update client_state
-                    return self.update_user_client_state(user_id, client_state)
+                    return self.update_user_client_state(uid, client_state)
 
                 return existing_user
             raise
 
-    def increment_generation(self, user_id: str) -> int:
+    def increment_generation(self, uid: int) -> int:
         """Increment user's generation number atomically
 
         Uses DynamoDB UpdateExpression with ADD to ensure atomic increment.
         This invalidates all previously issued tokens for the user.
 
         Args:
-            user_id: User identifier
+            uid: Numeric user identifier
 
         Returns:
             New generation number after increment
@@ -231,7 +231,7 @@ class UserManager:
         Raises:
             ServiceUnavailableError: If DynamoDB is unavailable
         """
-        pk = self._user_pk(user_id)
+        pk = self._user_pk(uid)
         current_time = datetime.now(tz=timezone.utc)
 
         try:
@@ -260,14 +260,14 @@ class UserManager:
                 )
             raise
 
-    def validate_generation(self, user_id: str, generation: int) -> bool:
+    def validate_generation(self, uid: int, generation: int) -> bool:
         """Verify generation number matches current value
 
         Used to validate that a token's generation number is still current.
         If the stored generation is higher, the token has been invalidated.
 
         Args:
-            user_id: User identifier
+            uid: Numeric user identifier
             generation: Generation number to validate
 
         Returns:
@@ -276,7 +276,7 @@ class UserManager:
         Raises:
             ServiceUnavailableError: If DynamoDB is unavailable
         """
-        user = self.get_user(user_id)
+        user = self.get_user(uid)
 
         if user is None:
             return False

@@ -14,14 +14,14 @@ class UserRecord(DataClassJsonMixin):
     User record stored in DynamoDB
 
     Attributes:
-        user_id: Unique identifier from OIDC sub claim
+        uid: Numeric user identifier (hash of OIDC sub claim)
         generation: Monotonic counter for token invalidation
         client_state: X-Client-State header value (hex string, max 32 chars)
         created_at: Datetime when user was created
         updated_at: Datetime when user was last updated
     """
 
-    user_id: str
+    uid: int
     generation: int
     client_state: str
     created_at: datetime = field(
