@@ -26,7 +26,7 @@ from src.shared.utils import json_dumps
 logger = Logger()
 
 BEARER_TOKEN_PATTERN = re.compile(r"^Bearer\s+(.+)$", re.IGNORECASE)
-CLIENT_STATE_PATTERN = re.compile(r"^[a-fA-F0-9]{0,32}$")
+CLIENT_STATE_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]{0,32}$")
 
 
 class RequestTokenRoute(BaseRoute):
@@ -100,7 +100,7 @@ class RequestTokenRoute(BaseRoute):
                     error_type="invalid-request",
                     location="header",
                     name="X-Client-State",
-                    description="Invalid X-Client-State format. Must be hexadecimal, max 32 chars",
+                    description="Invalid X-Client-State format. Must be urlsafe-base64 characters (alphanumeric, underscore, hyphen, period), max 32 chars",
                     path=request_path,
                     http_method=http_method,
                     source_ip=source_ip,

@@ -99,16 +99,16 @@
   - **Property 25: New users disabled status**
   - **Validates: Requirements 6.9, 17.2**
 
-- [ ] 19. Update X-Client-State validation to urlsafe-base64 + period
-  - [ ] 19.1 Update validation regex pattern in Request Handler
+- [x] 19. Update X-Client-State validation to urlsafe-base64 + period
+  - [x] 19.1 Update validation regex pattern in Request Handler
     - Change CLIENT_STATE_PATTERN from `^[a-fA-F0-9]{0,32}$` to `^[a-zA-Z0-9_.-]{0,32}$`
     - Update error message to reflect new allowed characters (urlsafe-base64 + period)
     - _Requirements: 13.4_
-  - [ ] 19.2 Update Smithy model pattern
+  - [x] 19.2 Update Smithy model pattern
     - Change @pattern in smithy/models/common.smithy from `^[a-fA-F0-9]*$` to `^[a-zA-Z0-9_.-]*$`
     - Rebuild Smithy models
     - _Requirements: 13.4_
-  - [ ] 19.3 Update unit tests for new validation
+  - [x] 19.3 Update unit tests for new validation
     - Add tests for valid urlsafe-base64 characters (alphanumeric, underscore, hyphen, period)
     - Update invalid format tests
     - _Requirements: 13.4_
