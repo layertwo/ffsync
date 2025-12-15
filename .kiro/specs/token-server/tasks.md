@@ -154,22 +154,22 @@
   - **Property 29: Client state history tracking**
   - **Validates: Requirements 7.6, 13.8**
 
-- [ ] 21. Add timestamp validation for OIDC tokens
-  - [ ] 21.1 Add clock_skew_tolerance configuration
+- [x] 21. Add timestamp validation for OIDC tokens
+  - [x] 21.1 Add clock_skew_tolerance configuration
     - Add CLOCK_SKEW_TOLERANCE environment variable (default 300 seconds)
     - Add to ServiceProvider configuration
     - _Requirements: 18.4_
-  - [ ] 21.2 Update OIDCValidator for timestamp validation
+  - [x] 21.2 Update OIDCValidator for timestamp validation
     - Add clock_skew_tolerance parameter to __init__()
     - Add server_time parameter to validate_token()
     - Validate iat claim against server time with tolerance
     - Raise InvalidTimestampError if skew exceeds tolerance
     - _Requirements: 18.1, 18.2_
-  - [ ] 21.3 Update Request Handler to pass server time
+  - [x] 21.3 Update Request Handler to pass server time
     - Pass current server time to OIDCValidator.validate_token()
     - Include X-Timestamp in response on timestamp validation failure
     - _Requirements: 18.3_
-  - [ ] 21.4 Add unit tests for timestamp validation
+  - [x] 21.4 Add unit tests for timestamp validation
     - Test valid timestamps within tolerance
     - Test rejection of timestamps outside tolerance
     - Test X-Timestamp header included on failure

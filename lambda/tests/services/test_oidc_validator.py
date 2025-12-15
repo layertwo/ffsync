@@ -54,6 +54,16 @@ class TestOIDCValidatorInit:
         validator = OIDCValidator(provider_url, client_id)
         assert validator.client_id == client_id
 
+    def test_init_default_clock_skew_tolerance(self, provider_url, client_id):
+        """Test that default clock_skew_tolerance is 300 seconds"""
+        validator = OIDCValidator(provider_url, client_id)
+        assert validator.clock_skew_tolerance == 300
+
+    def test_init_custom_clock_skew_tolerance(self, provider_url, client_id):
+        """Test that custom clock_skew_tolerance is stored correctly"""
+        validator = OIDCValidator(provider_url, client_id, clock_skew_tolerance=600)
+        assert validator.clock_skew_tolerance == 600
+
 
 class TestDiscoverProviderConfig:
     """Test discover_provider_config method"""
@@ -440,6 +450,191 @@ class TestValidateToken:
                 validator.validate_token("test-token")
 
             assert "Provider unreachable" in str(exc_info.value.message)
+
+    def test_validate_token_timestamp_within_tolerance(self, validator, mock_provider_config):
+        """Test successful validation when timestamp is within tolerance"""
+        current_time = int(time.time())
+        mock_claims = {
+            "sub": "user123",
+            "iss": "https://auth.example.com",
+            "aud": "test-client-id",
+            "exp": current_time + 3600,
+            "iat": current_time - 100,  # 100 seconds ago, within default 300s tolerance
+        }
+
+        with patch("src.services.oidc_validator.requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.json.return_value = mock_provider_config
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            with patch.object(validator, "_get_jwk_client") as mock_jwk:
+                mock_signing_key = MagicMock()
+                mock_signing_key.key = "test-key"
+                mock_jwk.return_value.get_signing_key_from_jwt.return_value = mock_signing_key
+
+                with patch("src.services.oidc_validator.jwt.decode") as mock_decode:
+                    mock_decode.return_value = mock_claims
+
+                    claims = validator.validate_token("test-token")
+
+                    assert claims.sub == "user123"
+                    assert claims.iat == current_time - 100
+
+    def test_validate_token_timestamp_exceeds_tolerance(self, validator, mock_provider_config):
+        """Test InvalidTimestampError when timestamp exceeds tolerance"""
+        from src.shared.exceptions import InvalidTimestampError
+
+        current_time = int(time.time())
+        mock_claims = {
+            "sub": "user123",
+            "iss": "https://auth.example.com",
+            "aud": "test-client-id",
+            "exp": current_time + 3600,
+            "iat": current_time - 400,  # 400 seconds ago, exceeds default 300s tolerance
+        }
+
+        with patch("src.services.oidc_validator.requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.json.return_value = mock_provider_config
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            with patch.object(validator, "_get_jwk_client") as mock_jwk:
+                mock_signing_key = MagicMock()
+                mock_signing_key.key = "test-key"
+                mock_jwk.return_value.get_signing_key_from_jwt.return_value = mock_signing_key
+
+                with patch("src.services.oidc_validator.jwt.decode") as mock_decode:
+                    mock_decode.return_value = mock_claims
+
+                    with pytest.raises(InvalidTimestampError) as exc_info:
+                        validator.validate_token("test-token")
+
+                    assert "400 seconds" in str(exc_info.value.message)
+                    assert "300 seconds" in str(exc_info.value.message)
+
+    def test_validate_token_timestamp_future_exceeds_tolerance(
+        self, validator, mock_provider_config
+    ):
+        """Test InvalidTimestampError when future timestamp exceeds tolerance"""
+        from src.shared.exceptions import InvalidTimestampError
+
+        current_time = int(time.time())
+        mock_claims = {
+            "sub": "user123",
+            "iss": "https://auth.example.com",
+            "aud": "test-client-id",
+            "exp": current_time + 3600,
+            "iat": current_time + 400,  # 400 seconds in future, exceeds default 300s tolerance
+        }
+
+        with patch("src.services.oidc_validator.requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.json.return_value = mock_provider_config
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            with patch.object(validator, "_get_jwk_client") as mock_jwk:
+                mock_signing_key = MagicMock()
+                mock_signing_key.key = "test-key"
+                mock_jwk.return_value.get_signing_key_from_jwt.return_value = mock_signing_key
+
+                with patch("src.services.oidc_validator.jwt.decode") as mock_decode:
+                    mock_decode.return_value = mock_claims
+
+                    with pytest.raises(InvalidTimestampError) as exc_info:
+                        validator.validate_token("test-token")
+
+                    assert "400 seconds" in str(exc_info.value.message)
+
+    def test_validate_token_custom_tolerance(self, provider_url, client_id, mock_provider_config):
+        """Test timestamp validation with custom tolerance"""
+        validator = OIDCValidator(provider_url, client_id, clock_skew_tolerance=600)
+        current_time = int(time.time())
+        mock_claims = {
+            "sub": "user123",
+            "iss": "https://auth.example.com",
+            "aud": "test-client-id",
+            "exp": current_time + 3600,
+            "iat": current_time - 500,  # 500 seconds ago, within 600s tolerance
+        }
+
+        with patch("src.services.oidc_validator.requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.json.return_value = mock_provider_config
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            with patch.object(validator, "_get_jwk_client") as mock_jwk:
+                mock_signing_key = MagicMock()
+                mock_signing_key.key = "test-key"
+                mock_jwk.return_value.get_signing_key_from_jwt.return_value = mock_signing_key
+
+                with patch("src.services.oidc_validator.jwt.decode") as mock_decode:
+                    mock_decode.return_value = mock_claims
+
+                    claims = validator.validate_token("test-token")
+
+                    assert claims.sub == "user123"
+
+    def test_validate_token_no_iat_claim(self, validator, mock_provider_config):
+        """Test validation succeeds when iat claim is missing (optional validation)"""
+        current_time = int(time.time())
+        mock_claims = {
+            "sub": "user123",
+            "iss": "https://auth.example.com",
+            "aud": "test-client-id",
+            "exp": current_time + 3600,
+            # No iat claim
+        }
+
+        with patch("src.services.oidc_validator.requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.json.return_value = mock_provider_config
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            with patch.object(validator, "_get_jwk_client") as mock_jwk:
+                mock_signing_key = MagicMock()
+                mock_signing_key.key = "test-key"
+                mock_jwk.return_value.get_signing_key_from_jwt.return_value = mock_signing_key
+
+                with patch("src.services.oidc_validator.jwt.decode") as mock_decode:
+                    mock_decode.return_value = mock_claims
+
+                    # Should not raise InvalidTimestampError when iat is missing
+                    claims = validator.validate_token("test-token")
+
+                    assert claims.sub == "user123"
+
+    def test_validate_token_uses_current_time(self, validator, mock_provider_config):
+        """Test that validation uses current time internally"""
+        mock_claims = {
+            "sub": "user123",
+            "iss": "https://auth.example.com",
+            "aud": "test-client-id",
+            "exp": int(time.time()) + 3600,
+            "iat": int(time.time()) - 100,  # Recent timestamp
+        }
+
+        with patch("src.services.oidc_validator.requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.json.return_value = mock_provider_config
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            with patch.object(validator, "_get_jwk_client") as mock_jwk:
+                mock_signing_key = MagicMock()
+                mock_signing_key.key = "test-key"
+                mock_jwk.return_value.get_signing_key_from_jwt.return_value = mock_signing_key
+
+                with patch("src.services.oidc_validator.jwt.decode") as mock_decode:
+                    mock_decode.return_value = mock_claims
+
+                    claims = validator.validate_token("test-token")
+
+                    assert claims.sub == "user123"
 
 
 class TestGetJwkClient:

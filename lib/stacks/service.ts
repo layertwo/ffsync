@@ -162,6 +162,7 @@ export class ServiceStack extends Stack {
                 BASE_DOMAIN: this.stageBaseDomain,
                 OIDC_SECRET_ARN: oidcSecret.secretArn,
                 TOKEN_USERS_TABLE_NAME: this.tokenUsersTable.tableName,
+                CLOCK_SKEW_TOLERANCE: "300",
             },
         });
 

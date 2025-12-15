@@ -113,11 +113,17 @@ class ServiceProvider:
         return json.loads(response["SecretString"])
 
     @cached_property
+    def clock_skew_tolerance(self) -> int:
+        """Get clock skew tolerance in seconds"""
+        return int(os.environ["CLOCK_SKEW_TOLERANCE"])
+
+    @cached_property
     def oidc_validator(self) -> OIDCValidator:
         """Create OIDC validator with configuration from Secrets Manager"""
         return OIDCValidator(
             provider_url=self.oidc_config["provider_url"],
             client_id=self.oidc_config["client_id"],
+            clock_skew_tolerance=self.clock_skew_tolerance,
         )
 
     @cached_property

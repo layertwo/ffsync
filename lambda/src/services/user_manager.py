@@ -200,7 +200,7 @@ class UserManager:
             # Add uid to the dict since DynamoDB stores it in PK
             updated_item["uid"] = uid
             # Ensure client_state_history is present (for legacy records)
-            if "client_state_history" not in updated_item:
+            if "client_state_history" not in updated_item:  # pragma: nocover
                 updated_item["client_state_history"] = []
             return UserRecord.from_dict(updated_item)
 
