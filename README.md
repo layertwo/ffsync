@@ -29,11 +29,11 @@
 | src/routes/storage/\_\_init\_\_.py     |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/storage/delete\_all.py      |       18 |        0 |        0 |        0 |     100% |           |
 | src/routes/token/\_\_init\_\_.py       |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/token/request.py            |       98 |        0 |       18 |        0 |     100% |           |
+| src/routes/token/request.py            |       99 |        0 |       18 |        0 |     100% |           |
 | src/services/api\_router.py            |       15 |        0 |        2 |        0 |     100% |           |
 | src/services/oidc\_validator.py        |       81 |        0 |       10 |        0 |     100% |           |
 | src/services/storage\_manager.py       |      155 |        0 |       34 |        0 |     100% |           |
-| src/services/token\_generator.py       |       29 |        0 |        0 |        0 |     100% |           |
+| src/services/token\_generator.py       |       28 |        0 |        0 |        0 |     100% |           |
 | src/services/user\_manager.py          |       81 |        0 |       20 |        0 |     100% |           |
 | src/shared/\_\_init\_\_.py             |        0 |        0 |        0 |        0 |     100% |           |
 | src/shared/base\_route.py              |        3 |        0 |        0 |        0 |     100% |           |
@@ -43,7 +43,7 @@
 | src/shared/token.py                    |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                     |        8 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                    |       19 |        0 |        2 |        0 |     100% |           |
-|                              **TOTAL** | **1107** |    **0** |  **118** |    **0** | **100%** |           |
+| **TOTAL**                              | **1107** |    **0** |  **118** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
