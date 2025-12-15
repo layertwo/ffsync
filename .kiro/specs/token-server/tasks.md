@@ -58,28 +58,28 @@
 
 ## Phase 2: Mozilla Spec Compliance Updates
 
-- [ ] 18. Add new error exception classes
-  - [ ] 18.1 Add InvalidTimestampError exception
+- [x] 18. Add new error exception classes
+  - [x] 18.1 Add InvalidTimestampError exception
     - Create exception class in lambda/src/shared/exceptions.py
     - Map to 401 status with "invalid-timestamp" status
     - _Requirements: 6.6, 18.2_
-  - [ ] 18.2 Add InvalidGenerationError exception
+  - [x] 18.2 Add InvalidGenerationError exception
     - Create exception class in lambda/src/shared/exceptions.py
     - Map to 401 status with "invalid-generation" status
     - _Requirements: 3.3, 6.7_
-  - [ ] 18.3 Add InvalidClientStateError exception
+  - [x] 18.3 Add InvalidClientStateError exception
     - Create exception class in lambda/src/shared/exceptions.py
     - Map to 401 status with "invalid-client-state" status
     - _Requirements: 6.8, 13.6, 13.7_
-  - [ ] 18.4 Add NewUsersDisabledError exception
+  - [x] 18.4 Add NewUsersDisabledError exception
     - Create exception class in lambda/src/shared/exceptions.py
     - Map to 401 status with "new-users-disabled" status
     - _Requirements: 6.9, 17.2_
-  - [ ] 18.5 Update Request Handler error mapping
+  - [x] 18.5 Update Request Handler error mapping
     - Add exception handlers for new error types
     - Return correct status codes and status field values
     - _Requirements: 6.6, 6.7, 6.8, 6.9_
-  - [ ] 18.6 Add unit tests for new error statuses
+  - [x] 18.6 Add unit tests for new error statuses
     - Test each new error type returns correct status code and status field
     - _Requirements: 6.6, 6.7, 6.8, 6.9_
 

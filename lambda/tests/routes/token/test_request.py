@@ -10,8 +10,12 @@ from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.routes.token.request import BEARER_TOKEN_PATTERN, RequestTokenRoute
 from src.shared.exceptions import (
+    InvalidClientStateError,
     InvalidCredentialsError,
+    InvalidGenerationError,
+    InvalidTimestampError,
     InvalidTokenError,
+    NewUsersDisabledError,
     ServiceUnavailableError,
     ValidationException,
 )
@@ -851,4 +855,114 @@ class TestXTimestampHeader:
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+        assert "X-Timestamp" in response.headers
+
+
+class TestNewErrorStatuses:
+    """Test new error status types per Mozilla spec"""
+
+    def test_handle_invalid_timestamp_error(self, request_token_route, valid_event):
+        """Test InvalidTimestampError returns 401 with invalid-timestamp status"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidTimestampError(
+            "Token timestamp differs significantly from server time"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        body = json.loads(response.body)
+        assert body["status"] == "invalid-timestamp"
+        assert body["errors"][0]["location"] == "header"
+        assert body["errors"][0]["name"] == "Authorization"
+        assert "timestamp" in body["errors"][0]["description"].lower()
+
+    def test_handle_invalid_generation_error(self, request_token_route, valid_event):
+        """Test InvalidGenerationError returns 401 with invalid-generation status"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidGenerationError(
+            "Token generation number is outdated"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        body = json.loads(response.body)
+        assert body["status"] == "invalid-generation"
+        assert body["errors"][0]["location"] == "header"
+        assert body["errors"][0]["name"] == "Authorization"
+        assert "generation" in body["errors"][0]["description"].lower()
+
+    def test_handle_invalid_client_state_error(self, request_token_route, valid_event):
+        """Test InvalidClientStateError returns 401 with invalid-client-state status"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidClientStateError(
+            "Client state has been seen before"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        body = json.loads(response.body)
+        assert body["status"] == "invalid-client-state"
+        assert body["errors"][0]["location"] == "header"
+        assert body["errors"][0]["name"] == "X-Client-State"
+
+    def test_handle_new_users_disabled_error(self, request_token_route, valid_event):
+        """Test NewUsersDisabledError returns 401 with new-users-disabled status"""
+        request_token_route.oidc_validator.validate_token.side_effect = NewUsersDisabledError(
+            "New user registration is disabled"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        body = json.loads(response.body)
+        assert body["status"] == "new-users-disabled"
+        assert body["errors"][0]["location"] == "server"
+        assert body["errors"][0]["name"] == "registration"
+
+    def test_invalid_timestamp_includes_x_timestamp_header(self, request_token_route, valid_event):
+        """Test InvalidTimestampError response includes X-Timestamp header"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidTimestampError(
+            "Token timestamp differs significantly from server time"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "X-Timestamp" in response.headers
+        timestamp = int(response.headers["X-Timestamp"])
+        assert timestamp > 0
+
+    def test_invalid_generation_includes_x_timestamp_header(self, request_token_route, valid_event):
+        """Test InvalidGenerationError response includes X-Timestamp header"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidGenerationError(
+            "Token generation number is outdated"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "X-Timestamp" in response.headers
+
+    def test_invalid_client_state_includes_x_timestamp_header(
+        self, request_token_route, valid_event
+    ):
+        """Test InvalidClientStateError response includes X-Timestamp header"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidClientStateError(
+            "Client state has been seen before"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "X-Timestamp" in response.headers
+
+    def test_new_users_disabled_includes_x_timestamp_header(self, request_token_route, valid_event):
+        """Test NewUsersDisabledError response includes X-Timestamp header"""
+        request_token_route.oidc_validator.validate_token.side_effect = NewUsersDisabledError(
+            "New user registration is disabled"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert "X-Timestamp" in response.headers
