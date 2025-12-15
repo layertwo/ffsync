@@ -12,8 +12,12 @@ from src.services.token_generator import TokenGenerator
 from src.services.user_manager import UserManager
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import (
+    InvalidClientStateError,
     InvalidCredentialsError,
+    InvalidGenerationError,
+    InvalidTimestampError,
     InvalidTokenError,
+    NewUsersDisabledError,
     ServiceUnavailableError,
     ValidationException,
 )
@@ -22,7 +26,7 @@ from src.shared.utils import json_dumps
 logger = Logger()
 
 BEARER_TOKEN_PATTERN = re.compile(r"^Bearer\s+(.+)$", re.IGNORECASE)
-CLIENT_STATE_PATTERN = re.compile(r"^[a-fA-F0-9]{0,32}$")
+CLIENT_STATE_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]{0,32}$")
 
 
 class RequestTokenRoute(BaseRoute):
@@ -96,7 +100,7 @@ class RequestTokenRoute(BaseRoute):
                     error_type="invalid-request",
                     location="header",
                     name="X-Client-State",
-                    description="Invalid X-Client-State format. Must be hexadecimal, max 32 chars",
+                    description="Invalid X-Client-State format. Must be urlsafe-base64 characters (alphanumeric, underscore, hyphen, period), max 32 chars",
                     path=request_path,
                     http_method=http_method,
                     source_ip=source_ip,
@@ -165,6 +169,42 @@ class RequestTokenRoute(BaseRoute):
                 content_type="application/json",
                 body=json_dumps(asdict(token_response)),
                 headers={"X-Timestamp": str(int(time.time()))},
+            )
+
+        except InvalidTimestampError as e:
+            return self._error_response(
+                status_code=401,
+                error_type="invalid-timestamp",
+                location="header",
+                name="Authorization",
+                description=str(e),
+            )
+
+        except InvalidGenerationError as e:
+            return self._error_response(
+                status_code=401,
+                error_type="invalid-generation",
+                location="header",
+                name="Authorization",
+                description=str(e),
+            )
+
+        except InvalidClientStateError as e:
+            return self._error_response(
+                status_code=401,
+                error_type="invalid-client-state",
+                location="header",
+                name="X-Client-State",
+                description=str(e),
+            )
+
+        except NewUsersDisabledError as e:
+            return self._error_response(
+                status_code=401,
+                error_type="new-users-disabled",
+                location="server",
+                name="registration",
+                description=str(e),
             )
 
         except InvalidCredentialsError as e:

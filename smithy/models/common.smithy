@@ -12,7 +12,7 @@ string CollectionName
 @length(min: 1, max: 64)
 string ObjectId
 
-/// Client state for key rotation tracking (hexadecimal string)
-@pattern("^[a-fA-F0-9]*$")
+/// Client state for key rotation tracking (urlsafe-base64 + period)
+@pattern("^[a-zA-Z0-9_.-]*$")
 @length(min: 0, max: 32)
 string ClientState

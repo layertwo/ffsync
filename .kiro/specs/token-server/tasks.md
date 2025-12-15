@@ -58,28 +58,28 @@
 
 ## Phase 2: Mozilla Spec Compliance Updates
 
-- [ ] 18. Add new error exception classes
-  - [ ] 18.1 Add InvalidTimestampError exception
+- [x] 18. Add new error exception classes
+  - [x] 18.1 Add InvalidTimestampError exception
     - Create exception class in lambda/src/shared/exceptions.py
     - Map to 401 status with "invalid-timestamp" status
     - _Requirements: 6.6, 18.2_
-  - [ ] 18.2 Add InvalidGenerationError exception
+  - [x] 18.2 Add InvalidGenerationError exception
     - Create exception class in lambda/src/shared/exceptions.py
     - Map to 401 status with "invalid-generation" status
     - _Requirements: 3.3, 6.7_
-  - [ ] 18.3 Add InvalidClientStateError exception
+  - [x] 18.3 Add InvalidClientStateError exception
     - Create exception class in lambda/src/shared/exceptions.py
     - Map to 401 status with "invalid-client-state" status
     - _Requirements: 6.8, 13.6, 13.7_
-  - [ ] 18.4 Add NewUsersDisabledError exception
+  - [x] 18.4 Add NewUsersDisabledError exception
     - Create exception class in lambda/src/shared/exceptions.py
     - Map to 401 status with "new-users-disabled" status
     - _Requirements: 6.9, 17.2_
-  - [ ] 18.5 Update Request Handler error mapping
+  - [x] 18.5 Update Request Handler error mapping
     - Add exception handlers for new error types
     - Return correct status codes and status field values
     - _Requirements: 6.6, 6.7, 6.8, 6.9_
-  - [ ] 18.6 Add unit tests for new error statuses
+  - [x] 18.6 Add unit tests for new error statuses
     - Test each new error type returns correct status code and status field
     - _Requirements: 6.6, 6.7, 6.8, 6.9_
 
@@ -99,16 +99,16 @@
   - **Property 25: New users disabled status**
   - **Validates: Requirements 6.9, 17.2**
 
-- [ ] 19. Update X-Client-State validation to urlsafe-base64 + period
-  - [ ] 19.1 Update validation regex pattern in Request Handler
+- [x] 19. Update X-Client-State validation to urlsafe-base64 + period
+  - [x] 19.1 Update validation regex pattern in Request Handler
     - Change CLIENT_STATE_PATTERN from `^[a-fA-F0-9]{0,32}$` to `^[a-zA-Z0-9_.-]{0,32}$`
     - Update error message to reflect new allowed characters (urlsafe-base64 + period)
     - _Requirements: 13.4_
-  - [ ] 19.2 Update Smithy model pattern
+  - [x] 19.2 Update Smithy model pattern
     - Change @pattern in smithy/models/common.smithy from `^[a-fA-F0-9]*$` to `^[a-zA-Z0-9_.-]*$`
     - Rebuild Smithy models
     - _Requirements: 13.4_
-  - [ ] 19.3 Update unit tests for new validation
+  - [x] 19.3 Update unit tests for new validation
     - Add tests for valid urlsafe-base64 characters (alphanumeric, underscore, hyphen, period)
     - Update invalid format tests
     - _Requirements: 13.4_

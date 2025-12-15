@@ -129,3 +129,47 @@ class ServiceUnavailableError(SyncStorageException):
 
     def __init__(self, message: str = "Service temporarily unavailable"):
         super().__init__(message)
+
+
+class InvalidTimestampError(SyncStorageException):
+    """Raised when OIDC token timestamp differs significantly from server time"""
+
+    status_code = HTTPStatus.UNAUTHORIZED
+    error_code = "InvalidTimestampError"
+    status_field = "invalid-timestamp"
+
+    def __init__(self, message: str = "Token timestamp differs significantly from server time"):
+        super().__init__(message)
+
+
+class InvalidGenerationError(SyncStorageException):
+    """Raised when bearer token has an outdated generation number"""
+
+    status_code = HTTPStatus.UNAUTHORIZED
+    error_code = "InvalidGenerationError"
+    status_field = "invalid-generation"
+
+    def __init__(self, message: str = "Token generation number is outdated"):
+        super().__init__(message)
+
+
+class InvalidClientStateError(SyncStorageException):
+    """Raised when client state transition is invalid (e.g., previously-seen state)"""
+
+    status_code = HTTPStatus.UNAUTHORIZED
+    error_code = "InvalidClientStateError"
+    status_field = "invalid-client-state"
+
+    def __init__(self, message: str = "Invalid client state transition"):
+        super().__init__(message)
+
+
+class NewUsersDisabledError(SyncStorageException):
+    """Raised when new user registration is disabled and user doesn't exist"""
+
+    status_code = HTTPStatus.UNAUTHORIZED
+    error_code = "NewUsersDisabledError"
+    status_field = "new-users-disabled"
+
+    def __init__(self, message: str = "New user registration is disabled"):
+        super().__init__(message)

@@ -10,8 +10,12 @@ from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.routes.token.request import BEARER_TOKEN_PATTERN, RequestTokenRoute
 from src.shared.exceptions import (
+    InvalidClientStateError,
     InvalidCredentialsError,
+    InvalidGenerationError,
+    InvalidTimestampError,
     InvalidTokenError,
+    NewUsersDisabledError,
     ServiceUnavailableError,
     ValidationException,
 )
@@ -668,15 +672,15 @@ class TestXClientStateHeader:
             expected_uid, ""
         )
 
-    def test_invalid_client_state_non_hex_returns_400(self, request_token_route):
-        """Test non-hexadecimal X-Client-State returns 400"""
+    def test_invalid_client_state_special_chars_returns_400(self, request_token_route):
+        """Test X-Client-State with invalid special characters returns 400"""
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "GET",
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
-                    "x-client-state": "not-hex-value!",
+                    "x-client-state": "invalid!@#$%",
                 },
             }
         )
@@ -686,7 +690,7 @@ class TestXClientStateHeader:
         body = json.loads(response.body)
         assert body["status"] == "invalid-request"
         assert body["errors"][0]["name"] == "X-Client-State"
-        assert "hexadecimal" in body["errors"][0]["description"].lower()
+        assert "urlsafe-base64" in body["errors"][0]["description"].lower()
 
     def test_invalid_client_state_too_long_returns_400(self, request_token_route):
         """Test X-Client-State longer than 32 chars returns 400"""
@@ -721,7 +725,7 @@ class TestXClientStateHeader:
                 "path": "/1.0/sync/1.5",
                 "headers": {
                     "authorization": "Bearer valid-token",
-                    "x-client-state": "a" * 32,  # Exactly 32 hex chars
+                    "x-client-state": "a" * 32,  # Exactly 32 chars
                 },
             }
         )
@@ -732,6 +736,130 @@ class TestXClientStateHeader:
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
+
+    def test_valid_client_state_with_underscore(
+        self,
+        request_token_route,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test X-Client-State with underscore is accepted (urlsafe-base64)"""
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "x-client-state": "abc_def_123",
+                },
+            }
+        )
+        expected_uid = 7351813628096158130
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_uid.return_value = expected_uid
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(event)
+
+        assert response.status_code == HTTPStatus.OK
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
+            expected_uid, "abc_def_123"
+        )
+
+    def test_valid_client_state_with_hyphen(
+        self,
+        request_token_route,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test X-Client-State with hyphen is accepted (urlsafe-base64)"""
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "x-client-state": "abc-def-123",
+                },
+            }
+        )
+        expected_uid = 7351813628096158130
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_uid.return_value = expected_uid
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(event)
+
+        assert response.status_code == HTTPStatus.OK
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
+            expected_uid, "abc-def-123"
+        )
+
+    def test_valid_client_state_with_period(
+        self,
+        request_token_route,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test X-Client-State with period is accepted (urlsafe-base64 + period)"""
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "x-client-state": "abc.def.123",
+                },
+            }
+        )
+        expected_uid = 7351813628096158130
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_uid.return_value = expected_uid
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(event)
+
+        assert response.status_code == HTTPStatus.OK
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
+            expected_uid, "abc.def.123"
+        )
+
+    def test_valid_client_state_mixed_urlsafe_chars(
+        self,
+        request_token_route,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test X-Client-State with mixed urlsafe-base64 + period chars is accepted"""
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Bearer valid-token",
+                    "x-client-state": "aB3_xY-z.9Q",
+                },
+            }
+        )
+        expected_uid = 7351813628096158130
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_uid.return_value = expected_uid
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(event)
+
+        assert response.status_code == HTTPStatus.OK
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
+            expected_uid, "aB3_xY-z.9Q"
+        )
 
     def test_empty_client_state_is_valid(
         self,
@@ -851,4 +979,114 @@ class TestXTimestampHeader:
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+        assert "X-Timestamp" in response.headers
+
+
+class TestNewErrorStatuses:
+    """Test new error status types per Mozilla spec"""
+
+    def test_handle_invalid_timestamp_error(self, request_token_route, valid_event):
+        """Test InvalidTimestampError returns 401 with invalid-timestamp status"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidTimestampError(
+            "Token timestamp differs significantly from server time"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        body = json.loads(response.body)
+        assert body["status"] == "invalid-timestamp"
+        assert body["errors"][0]["location"] == "header"
+        assert body["errors"][0]["name"] == "Authorization"
+        assert "timestamp" in body["errors"][0]["description"].lower()
+
+    def test_handle_invalid_generation_error(self, request_token_route, valid_event):
+        """Test InvalidGenerationError returns 401 with invalid-generation status"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidGenerationError(
+            "Token generation number is outdated"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        body = json.loads(response.body)
+        assert body["status"] == "invalid-generation"
+        assert body["errors"][0]["location"] == "header"
+        assert body["errors"][0]["name"] == "Authorization"
+        assert "generation" in body["errors"][0]["description"].lower()
+
+    def test_handle_invalid_client_state_error(self, request_token_route, valid_event):
+        """Test InvalidClientStateError returns 401 with invalid-client-state status"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidClientStateError(
+            "Client state has been seen before"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        body = json.loads(response.body)
+        assert body["status"] == "invalid-client-state"
+        assert body["errors"][0]["location"] == "header"
+        assert body["errors"][0]["name"] == "X-Client-State"
+
+    def test_handle_new_users_disabled_error(self, request_token_route, valid_event):
+        """Test NewUsersDisabledError returns 401 with new-users-disabled status"""
+        request_token_route.oidc_validator.validate_token.side_effect = NewUsersDisabledError(
+            "New user registration is disabled"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        body = json.loads(response.body)
+        assert body["status"] == "new-users-disabled"
+        assert body["errors"][0]["location"] == "server"
+        assert body["errors"][0]["name"] == "registration"
+
+    def test_invalid_timestamp_includes_x_timestamp_header(self, request_token_route, valid_event):
+        """Test InvalidTimestampError response includes X-Timestamp header"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidTimestampError(
+            "Token timestamp differs significantly from server time"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "X-Timestamp" in response.headers
+        timestamp = int(response.headers["X-Timestamp"])
+        assert timestamp > 0
+
+    def test_invalid_generation_includes_x_timestamp_header(self, request_token_route, valid_event):
+        """Test InvalidGenerationError response includes X-Timestamp header"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidGenerationError(
+            "Token generation number is outdated"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "X-Timestamp" in response.headers
+
+    def test_invalid_client_state_includes_x_timestamp_header(
+        self, request_token_route, valid_event
+    ):
+        """Test InvalidClientStateError response includes X-Timestamp header"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidClientStateError(
+            "Client state has been seen before"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "X-Timestamp" in response.headers
+
+    def test_new_users_disabled_includes_x_timestamp_header(self, request_token_route, valid_event):
+        """Test NewUsersDisabledError response includes X-Timestamp header"""
+        request_token_route.oidc_validator.validate_token.side_effect = NewUsersDisabledError(
+            "New user registration is disabled"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert "X-Timestamp" in response.headers
