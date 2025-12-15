@@ -117,26 +117,26 @@
   - **Property 42: X-Client-State format validation**
   - **Validates: Requirements 13.4**
 
-- [ ] 20. Add client_state_history tracking
-  - [ ] 20.1 Update UserRecord dataclass
+- [x] 20. Add client_state_history tracking
+  - [x] 20.1 Update UserRecord dataclass
     - Add client_state_history: List[str] field to lambda/src/shared/user.py
     - Default to empty list for new users
     - _Requirements: 7.2, 7.6_
-  - [ ] 20.2 Update DynamoDB schema handling in UserManager
+  - [x] 20.2 Update DynamoDB schema handling in UserManager
     - Update create_user() to initialize client_state_history as empty list
     - Update get_user() to read client_state_history from DynamoDB
     - Handle migration for existing records (default to empty list if missing)
     - _Requirements: 7.2, 7.6_
-  - [ ] 20.3 Implement history validation in UserManager
+  - [x] 20.3 Implement history validation in UserManager
     - Add validate_client_state() method
     - Reject if new client_state matches any value in history
     - Reject if new client_state is empty but history contains non-empty values
     - _Requirements: 13.6, 13.7_
-  - [ ] 20.4 Update get_or_create_user() for history tracking
+  - [x] 20.4 Update get_or_create_user() for history tracking
     - Call validate_client_state() before accepting new state
     - Add previous client_state to history when state changes
     - _Requirements: 13.8_
-  - [ ] 20.5 Add unit tests for history validation
+  - [x] 20.5 Add unit tests for history validation
     - Test rejection of previously-seen client state
     - Test rejection of empty state when history exists
     - Test history is updated on state change
