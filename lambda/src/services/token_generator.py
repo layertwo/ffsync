@@ -28,21 +28,21 @@ class TokenGenerator:
         """
         self._storage_domain = storage_domain
 
-    def generate_hawk_id(self, uid: int, generation: int, expiry: int) -> str:
+    def generate_hawk_id(self, user_id: str, generation: int, expiry: int) -> str:
         """Generate HAWK identifier as URL-safe base64-encoded string
 
-        The HAWK ID encodes uid:generation:expiry to enable stateless
+        The HAWK ID encodes user_id:generation:expiry to enable stateless
         validation by the Storage API.
 
         Args:
-            uid: Numeric user identifier
+            user_id: User identifier from OIDC sub claim (stable)
             generation: Current generation number for token invalidation
             expiry: Token expiry timestamp (Unix epoch seconds)
 
         Returns:
-            URL-safe base64-encoded string containing uid:generation:expiry
+            URL-safe base64-encoded string containing user_id:generation:expiry
         """
-        payload = f"{uid}:{generation}:{expiry}"
+        payload = f"{user_id}:{generation}:{expiry}"
         encoded = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("utf-8")
         # Remove padding for cleaner URLs
         return encoded.rstrip("=")
@@ -57,36 +57,41 @@ class TokenGenerator:
         """
         return secrets.token_bytes(self.HAWK_KEY_SIZE).hex()
 
-    def generate_uid(self, user_id: str) -> int:
-        """Generate numeric user ID from user identifier
+    def generate_uid(self, user_id: str, generation: int) -> int:
+        """Generate numeric user ID from user identifier and generation
 
-        Creates a consistent numeric UID by hashing the user_id.
+        Creates a numeric UID by hashing user_id + generation.
+        The uid changes when generation changes (node reset).
         Uses first 8 bytes of SHA-256 hash as unsigned integer.
 
         Args:
             user_id: User identifier from OIDC sub claim
+            generation: Current generation number
 
         Returns:
-            Positive integer derived from user_id hash
+            Positive integer derived from user_id and generation hash
         """
-        hash_bytes = hashlib.sha256(user_id.encode("utf-8")).digest()
+        # Combine user_id and generation for hashing
+        combined = f"{user_id}:{generation}"
+        hash_bytes = hashlib.sha256(combined.encode("utf-8")).digest()
         # Use first 8 bytes as unsigned 64-bit integer, then mask to ensure positive
         uid = int.from_bytes(hash_bytes[:8], byteorder="big") & 0x7FFFFFFFFFFFFFFF
         return uid
 
-    def generate_token(self, uid: int, generation: int) -> TokenResponse:
+    def generate_token(self, user_id: str, uid: int, generation: int) -> TokenResponse:
         """Generate complete token response with HAWK credentials
 
         Constructs a TokenResponse with all required fields for Firefox Sync:
-        - id: HAWK identifier (base64-encoded uid:generation:expiry)
+        - id: HAWK identifier (base64-encoded user_id:generation:expiry)
         - key: HAWK shared secret (hex-encoded random bytes)
         - api_endpoint: Full storage API URL
-        - uid: Numeric user ID
+        - uid: Numeric user ID (derived, changes on node reset)
         - duration: Token validity in seconds (300)
         - hashalg: Hash algorithm for HAWK ("sha256")
 
         Args:
-            uid: Numeric user identifier
+            user_id: User identifier from OIDC sub claim (stable)
+            uid: Numeric user identifier (derived from user_id + generation)
             generation: Current generation number
 
         Returns:
@@ -96,11 +101,11 @@ class TokenGenerator:
         current_time = int(time.time())
         expiry = current_time + self.TOKEN_DURATION
 
-        # Generate HAWK credentials
-        hawk_id = self.generate_hawk_id(uid, generation, expiry)
+        # Generate HAWK credentials with stable user_id
+        hawk_id = self.generate_hawk_id(user_id, generation, expiry)
         hawk_key = self.generate_hawk_key()
 
-        # Compute api_endpoint dynamically
+        # Compute api_endpoint dynamically using derived uid
         api_endpoint = f"https://{self._storage_domain}/1.5/{uid}"
 
         return TokenResponse(

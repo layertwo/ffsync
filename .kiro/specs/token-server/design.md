@@ -296,15 +296,18 @@ class UserManager:
 **DynamoDB Schema**:
 ```
 Table: TokenServerUsers
-Partition Key: user_id (String)
+Partition Key: PK (String) = "USER#{user_id}"
 
 Attributes:
-- user_id: String (PK)
+- PK: String (partition key) = "USER#{user_id}" where user_id is OIDC sub claim
+- user_id: String (OIDC sub claim - stable identifier)
 - generation: Number (default: 0)
 - client_state: String (default: "")
 - client_state_history: List<String> (default: [])
 - created_at: Number (timestamp)
 - updated_at: Number (timestamp)
+
+Note: uid is NOT stored - it is derived on-demand as hash(user_id + generation)
 ```
 
 **Client State History Validation**:
@@ -493,12 +496,13 @@ class ErrorResponse:
 ```python
 @dataclass
 class UserRecord:
-    user_id: str              # Unique identifier from OIDC sub claim
+    user_id: str              # Unique identifier from OIDC sub claim (stable, used as PK)
     generation: int           # Monotonic counter for token invalidation
     client_state: str         # Current X-Client-State value (urlsafe-base64 + period, max 32 chars)
     client_state_history: List[str]  # Previously-seen client state values
     created_at: float         # Unix timestamp
     updated_at: float         # Unix timestamp
+    # Note: uid is NOT stored - it's derived as hash(user_id + generation)
 ```
 
 ### OIDC Token Claims

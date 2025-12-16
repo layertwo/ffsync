@@ -78,7 +78,7 @@ def mock_oidc_claims():
 @pytest.fixture
 def mock_user_record():
     return UserRecord(
-        uid=7351813628096158130,  # Hash of "user123"
+        user_id="user123",
         generation=0,
         client_state="",
         created_at=datetime.fromtimestamp(1234567800.0),
@@ -274,15 +274,14 @@ class TestRequestTokenRouteHandle:
         )
 
         # Verify generate_uid was called with user_id from OIDC claims
-        request_token_route.token_generator.generate_uid.assert_called_once_with("user123")
+        request_token_route.token_generator.generate_uid.assert_called_once_with("user123", 0)
 
         # Verify user manager was called with uid and client_state (empty string default)
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            expected_uid, ""
-        )
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
 
-        # Verify token generator was called with uid and generation
+        # Verify token generator was called with user_id, uid, and generation
         request_token_route.token_generator.generate_token.assert_called_once_with(
+            user_id="user123",
             uid=expected_uid,
             generation=0,
         )
@@ -608,7 +607,7 @@ class TestXClientStateHeader:
 
         assert response.status_code == HTTPStatus.OK
         request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            expected_uid, "abcdef123456"
+            "user123", "abcdef123456"
         )
 
     def test_client_state_case_insensitive_header(
@@ -639,7 +638,7 @@ class TestXClientStateHeader:
 
         assert response.status_code == HTTPStatus.OK
         request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            expected_uid, "ABCDEF"
+            "user123", "ABCDEF"
         )
 
     def test_missing_client_state_defaults_to_empty_string(
@@ -668,9 +667,7 @@ class TestXClientStateHeader:
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            expected_uid, ""
-        )
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
 
     def test_invalid_client_state_special_chars_returns_400(self, request_token_route):
         """Test X-Client-State with invalid special characters returns 400"""
@@ -765,7 +762,7 @@ class TestXClientStateHeader:
 
         assert response.status_code == HTTPStatus.OK
         request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            expected_uid, "abc_def_123"
+            "user123", "abc_def_123"
         )
 
     def test_valid_client_state_with_hyphen(
@@ -796,7 +793,7 @@ class TestXClientStateHeader:
 
         assert response.status_code == HTTPStatus.OK
         request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            expected_uid, "abc-def-123"
+            "user123", "abc-def-123"
         )
 
     def test_valid_client_state_with_period(
@@ -827,7 +824,7 @@ class TestXClientStateHeader:
 
         assert response.status_code == HTTPStatus.OK
         request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            expected_uid, "abc.def.123"
+            "user123", "abc.def.123"
         )
 
     def test_valid_client_state_mixed_urlsafe_chars(
@@ -858,7 +855,7 @@ class TestXClientStateHeader:
 
         assert response.status_code == HTTPStatus.OK
         request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            expected_uid, "aB3_xY-z.9Q"
+            "user123", "aB3_xY-z.9Q"
         )
 
     def test_empty_client_state_is_valid(
@@ -888,9 +885,7 @@ class TestXClientStateHeader:
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            expected_uid, ""
-        )
+        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
 
 
 class TestXTimestampHeader:

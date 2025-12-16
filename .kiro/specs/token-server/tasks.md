@@ -248,18 +248,49 @@
   - **Property 52: New users disabled configuration**
   - **Validates: Requirements 17.1**
 
-- [ ] 26. Update uid generation for node reset
-  - [ ] 26.1 Update TokenGenerator.generate_uid()
-    - Include generation number in uid calculation
-    - uid = hash(user_id + generation) so it changes on node reset
+- [x] 26. Fix uid generation and database schema for node reset
+  - [x] 26.1 Update UserRecord model to remove uid field
+    - Remove uid from UserRecord dataclass (it should be derived, not stored)
+    - uid is computed on-demand from user_id + generation
+    - _Requirements: 2.4, 7.2_
+  - [x] 26.2 Update UserManager to use user_id as PK (not uid)
+    - Change _user_pk() to accept user_id (OIDC sub) instead of uid
+    - Update all methods to use user_id as the stable identifier
+    - Update create_user() signature: create_user(user_id: str, client_state: str)
+    - Update get_user() signature: get_user(user_id: str)
+    - Update get_or_create_user() signature: get_or_create_user(user_id: str, client_state: str)
+    - Update increment_generation() signature: increment_generation(user_id: str)
+    - Update validate_generation() signature: validate_generation(user_id: str, generation: int)
+    - Update update_user_client_state() signature: update_user_client_state(user_id: str, ...)
+    - _Requirements: 2.4, 7.1, 7.2_
+  - [x] 26.3 Update TokenGenerator.generate_uid() to include generation
+    - Change signature: generate_uid(user_id: str, generation: int)
+    - uid = hash(user_id + str(generation)) so it changes on node reset
     - _Requirements: 2.4_
-  - [ ] 26.2 Update generate_token() to pass generation to generate_uid()
-    - Ensure uid changes when generation changes
+  - [x] 26.4 Update RequestTokenRoute flow
+    - Extract user_id from OIDC claims (claims.sub)
+    - Call user_manager.get_or_create_user(user_id, client_state) FIRST
+    - Then derive uid: token_generator.generate_uid(user_id, user_record.generation)
+    - Pass uid to generate_token()
     - _Requirements: 2.4_
-  - [ ] 26.3 Add unit tests for uid generation
+  - [x] 26.5 Update all UserManager unit tests
+    - Update test fixtures to use user_id instead of uid
+    - Update all method calls to pass user_id
+    - _Requirements: 2.4, 7.1, 7.2_
+  - [x] 26.6 Update TokenGenerator unit tests
+    - Test generate_uid() with both user_id and generation parameters
     - Test uid changes when generation changes
     - Test same user_id + generation produces same uid
     - _Requirements: 2.4_
+  - [x] 26.7 Update RequestTokenRoute unit tests
+    - Update test flow to match new order (get_or_create_user before generate_uid)
+    - Update mock assertions for user_id instead of uid
+    - _Requirements: 2.4_
+  - [x] 26.8 Data migration consideration
+    - Document that existing DynamoDB records with PK=USER#{uid} need migration
+    - Add migration script or manual process to re-key records by user_id
+    - Note: This is a breaking change requiring data migration
+    - _Requirements: 7.1_
 
 - [ ]* 26.4 Write property test for node reset on client state change
   - **Property 8: Node reset on client state change**
