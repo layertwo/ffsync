@@ -123,23 +123,25 @@ class RequestTokenRoute(BaseRoute):
             claims = self.oidc_validator.validate_token(token)
             user_id = claims.sub
 
-            # Generate uid from user_id (OIDC sub claim)
-            uid = self.token_generator.generate_uid(user_id)
-
             logger.info(
                 "OIDC token validated",
                 extra={
                     "user_id": user_id,
-                    "uid": uid,
                     "issuer": claims.iss,
                     "token_expiry": claims.exp,
                 },
             )
 
-            user_record = self.user_manager.get_or_create_user(uid, client_state)
+            # Get or create user record FIRST (to get generation)
+            user_record = self.user_manager.get_or_create_user(user_id, client_state)
+
+            # Then derive uid from user_id + generation (changes on node reset)
+            uid = self.token_generator.generate_uid(user_id, user_record.generation)
+
             logger.info(
                 "User record retrieved",
                 extra={
+                    "user_id": user_id,
                     "uid": uid,
                     "generation": user_record.generation,
                     "client_state_changed": (
@@ -151,6 +153,7 @@ class RequestTokenRoute(BaseRoute):
             )
 
             token_response = self.token_generator.generate_token(
+                user_id=user_id,
                 uid=uid,
                 generation=user_record.generation,
             )
