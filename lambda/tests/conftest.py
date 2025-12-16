@@ -57,6 +57,7 @@ def setup_environment(
     monkeypatch.setenv("OIDC_SECRET_ARN", oidc_secret_arn)
     monkeypatch.setenv("BASE_DOMAIN", base_domain)
     monkeypatch.setenv("CLOCK_SKEW_TOLERANCE", "300")
+    monkeypatch.setenv("RETRY_AFTER_SECONDS", "30")
 
 
 class MockServiceProvider(ServiceProvider):

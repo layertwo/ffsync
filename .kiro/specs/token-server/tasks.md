@@ -183,15 +183,15 @@
   - **Property 54: Timestamp validation includes X-Timestamp**
   - **Validates: Requirements 18.3**
 
-- [ ] 22. Add Retry-After header on 503 responses
-  - [ ] 22.1 Add RETRY_AFTER_SECONDS configuration
+- [x] 22. Add Retry-After header on 503 responses
+  - [x] 22.1 Add RETRY_AFTER_SECONDS configuration
     - Add environment variable (default 30 seconds)
     - Add to ServiceProvider configuration
     - _Requirements: 15.1_
-  - [ ] 22.2 Update error response for 503 status
+  - [x] 22.2 Update error response for 503 status
     - Add Retry-After header to all 503 responses in _error_response()
     - _Requirements: 15.1_
-  - [ ] 22.3 Add unit tests for Retry-After header
+  - [x] 22.3 Add unit tests for Retry-After header
     - Test 503 responses include Retry-After header
     - Test header value is correct
     - _Requirements: 15.1_
@@ -200,12 +200,12 @@
   - **Property 49: Retry-After header on 503**
   - **Validates: Requirements 15.1**
 
-- [ ] 23. Add WWW-Authenticate header on 401 responses
-  - [ ] 23.1 Update error response for 401 status
+- [x] 23. Add WWW-Authenticate header on 401 responses
+  - [x] 23.1 Update error response for 401 status
     - Add WWW-Authenticate header with "Bearer" scheme to all 401 responses
     - Include realm and error description
     - _Requirements: 16.1, 16.2, 16.3_
-  - [ ] 23.2 Add unit tests for WWW-Authenticate header
+  - [x] 23.2 Add unit tests for WWW-Authenticate header
     - Test all 401 responses include WWW-Authenticate header
     - Test header format is correct (Bearer scheme)
     - _Requirements: 16.1, 16.2, 16.3_
@@ -296,7 +296,7 @@
   - **Property 8: Node reset on client state change**
   - **Validates: Requirements 2.4**
 
-- [ ] 27. Checkpoint - Ensure all Mozilla spec compliance tests pass
+- [x] 27. Checkpoint - Ensure all Mozilla spec compliance tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Phase 3: Integration Tests

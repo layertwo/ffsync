@@ -1085,3 +1085,263 @@ class TestNewErrorStatuses:
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert "X-Timestamp" in response.headers
+
+
+class TestRetryAfterHeader:
+    """Test Retry-After header on 503 responses"""
+
+    def test_service_unavailable_includes_retry_after_header(
+        self, request_token_route, valid_event
+    ):
+        """Test 503 response includes Retry-After header"""
+        request_token_route.oidc_validator.validate_token.side_effect = ServiceUnavailableError(
+            "OIDC provider unreachable"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+        assert "Retry-After" in response.headers
+        # Verify it's a valid integer
+        retry_after = int(response.headers["Retry-After"])
+        assert retry_after > 0
+
+    def test_retry_after_header_value_is_correct(self, request_token_route, valid_event):
+        """Test Retry-After header value matches configured value"""
+        # Default is 30 seconds
+        request_token_route.oidc_validator.validate_token.side_effect = ServiceUnavailableError(
+            "OIDC provider unreachable"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+        assert response.headers["Retry-After"] == "30"
+
+    def test_retry_after_header_custom_value(
+        self, mock_oidc_validator, mock_user_manager, mock_token_generator, valid_event
+    ):
+        """Test Retry-After header uses custom configured value"""
+        # Create route with custom retry_after_seconds
+        route = RequestTokenRoute(
+            oidc_validator=mock_oidc_validator,
+            user_manager=mock_user_manager,
+            token_generator=mock_token_generator,
+            retry_after_seconds=60,
+        )
+        mock_oidc_validator.validate_token.side_effect = ServiceUnavailableError(
+            "OIDC provider unreachable"
+        )
+
+        response = route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+        assert response.headers["Retry-After"] == "60"
+
+    def test_non_503_responses_do_not_include_retry_after(self, request_token_route):
+        """Test non-503 responses do not include Retry-After header"""
+        # Test 401 error
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/1.0/sync/1.5",
+                "headers": {},
+            }
+        )
+        response = request_token_route.handle(event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "Retry-After" not in response.headers
+
+    def test_400_error_does_not_include_retry_after(self, request_token_route):
+        """Test 400 error does not include Retry-After header"""
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Basic invalid",
+                },
+            }
+        )
+        response = request_token_route.handle(event)
+
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert "Retry-After" not in response.headers
+
+    def test_500_error_does_not_include_retry_after(self, request_token_route, valid_event):
+        """Test 500 error does not include Retry-After header"""
+        request_token_route.oidc_validator.validate_token.side_effect = RuntimeError(
+            "Unexpected error"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+        assert "Retry-After" not in response.headers
+
+
+class TestWWWAuthenticateHeader:
+    """Test WWW-Authenticate header on 401 responses"""
+
+    def test_missing_auth_header_includes_www_authenticate(self, request_token_route):
+        """Test 401 response for missing auth header includes WWW-Authenticate"""
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/1.0/sync/1.5",
+                "headers": {},
+            }
+        )
+        response = request_token_route.handle(event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "WWW-Authenticate" in response.headers
+        assert response.headers["WWW-Authenticate"].startswith("Bearer")
+
+    def test_invalid_credentials_includes_www_authenticate(self, request_token_route, valid_event):
+        """Test 401 response for invalid credentials includes WWW-Authenticate"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidCredentialsError(
+            "Token expired"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "WWW-Authenticate" in response.headers
+        assert response.headers["WWW-Authenticate"].startswith("Bearer")
+
+    def test_invalid_token_includes_www_authenticate(self, request_token_route, valid_event):
+        """Test 401 response for invalid token includes WWW-Authenticate"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidTokenError(
+            "Invalid signature"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "WWW-Authenticate" in response.headers
+        assert response.headers["WWW-Authenticate"].startswith("Bearer")
+
+    def test_invalid_timestamp_includes_www_authenticate(self, request_token_route, valid_event):
+        """Test 401 response for invalid timestamp includes WWW-Authenticate"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidTimestampError(
+            "Token timestamp differs significantly from server time"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "WWW-Authenticate" in response.headers
+        assert response.headers["WWW-Authenticate"].startswith("Bearer")
+
+    def test_invalid_generation_includes_www_authenticate(self, request_token_route, valid_event):
+        """Test 401 response for invalid generation includes WWW-Authenticate"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidGenerationError(
+            "Token generation number is outdated"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "WWW-Authenticate" in response.headers
+        assert response.headers["WWW-Authenticate"].startswith("Bearer")
+
+    def test_invalid_client_state_includes_www_authenticate(self, request_token_route, valid_event):
+        """Test 401 response for invalid client state includes WWW-Authenticate"""
+        request_token_route.oidc_validator.validate_token.side_effect = InvalidClientStateError(
+            "Client state has been seen before"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "WWW-Authenticate" in response.headers
+        assert response.headers["WWW-Authenticate"].startswith("Bearer")
+
+    def test_new_users_disabled_includes_www_authenticate(self, request_token_route, valid_event):
+        """Test 401 response for new users disabled includes WWW-Authenticate"""
+        request_token_route.oidc_validator.validate_token.side_effect = NewUsersDisabledError(
+            "New user registration is disabled"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert "WWW-Authenticate" in response.headers
+        assert response.headers["WWW-Authenticate"].startswith("Bearer")
+
+    def test_www_authenticate_header_format(self, request_token_route):
+        """Test WWW-Authenticate header has correct Bearer format"""
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/1.0/sync/1.5",
+                "headers": {},
+            }
+        )
+        response = request_token_route.handle(event)
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        www_auth = response.headers["WWW-Authenticate"]
+        # Should be in format: Bearer realm="...", error="..."
+        assert www_auth.startswith("Bearer")
+        assert "realm=" in www_auth
+        assert "error=" in www_auth
+
+    def test_non_401_responses_do_not_include_www_authenticate(
+        self,
+        request_token_route,
+        valid_event,
+        mock_oidc_claims,
+        mock_user_record,
+        mock_token_response,
+    ):
+        """Test non-401 responses do not include WWW-Authenticate header"""
+        # Test 200 success response
+        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
+        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
+        request_token_route.token_generator.generate_token.return_value = mock_token_response
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.OK
+        assert "WWW-Authenticate" not in response.headers
+
+    def test_400_error_does_not_include_www_authenticate(self, request_token_route):
+        """Test 400 error does not include WWW-Authenticate header"""
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/1.0/sync/1.5",
+                "headers": {
+                    "authorization": "Basic invalid",
+                },
+            }
+        )
+        response = request_token_route.handle(event)
+
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert "WWW-Authenticate" not in response.headers
+
+    def test_503_error_does_not_include_www_authenticate(self, request_token_route, valid_event):
+        """Test 503 error does not include WWW-Authenticate header"""
+        request_token_route.oidc_validator.validate_token.side_effect = ServiceUnavailableError(
+            "OIDC provider unreachable"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+        assert "WWW-Authenticate" not in response.headers
+
+    def test_500_error_does_not_include_www_authenticate(self, request_token_route, valid_event):
+        """Test 500 error does not include WWW-Authenticate header"""
+        request_token_route.oidc_validator.validate_token.side_effect = RuntimeError(
+            "Unexpected error"
+        )
+
+        response = request_token_route.handle(valid_event)
+
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+        assert "WWW-Authenticate" not in response.headers
