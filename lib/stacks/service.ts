@@ -163,6 +163,7 @@ export class ServiceStack extends Stack {
                 OIDC_SECRET_ARN: oidcSecret.secretArn,
                 TOKEN_USERS_TABLE_NAME: this.tokenUsersTable.tableName,
                 CLOCK_SKEW_TOLERANCE: "300",
+                RETRY_AFTER_SECONDS: "30",
             },
         });
 

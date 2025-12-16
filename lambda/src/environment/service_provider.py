@@ -118,6 +118,11 @@ class ServiceProvider:
         return int(os.environ["CLOCK_SKEW_TOLERANCE"])
 
     @cached_property
+    def retry_after_seconds(self) -> int:
+        """Get Retry-After value for 503 responses in seconds (default 30)"""
+        return int(os.environ["RETRY_AFTER_SECONDS"])
+
+    @cached_property
     def oidc_validator(self) -> OIDCValidator:
         """Create OIDC validator with configuration from Secrets Manager"""
         return OIDCValidator(
@@ -140,6 +145,7 @@ class ServiceProvider:
                     oidc_validator=self.oidc_validator,
                     user_manager=self.user_manager,
                     token_generator=self.token_generator,
+                    retry_after_seconds=self.retry_after_seconds,
                 ),
             ]
         )

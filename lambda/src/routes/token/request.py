@@ -37,10 +37,12 @@ class RequestTokenRoute(BaseRoute):
         oidc_validator: OIDCValidator,
         user_manager: UserManager,
         token_generator: TokenGenerator,
+        retry_after_seconds: int = 30,
     ):
         self.oidc_validator = oidc_validator
         self.user_manager = user_manager
         self.token_generator = token_generator
+        self.retry_after_seconds = retry_after_seconds
 
     def bind(self, app: APIGatewayRestResolver):
         @app.get("/1.0/sync/1.5")
@@ -319,9 +321,21 @@ class RequestTokenRoute(BaseRoute):
             "status": error_type,
             "errors": [{"location": location, "name": name, "description": description}],
         }
+
+        # Build headers based on status code
+        headers = {"X-Timestamp": str(int(time.time()))}
+
+        # Add Retry-After header for 503 responses
+        if status_code == 503:
+            headers["Retry-After"] = str(self.retry_after_seconds)
+
+        # Add WWW-Authenticate header for 401 responses
+        if status_code == 401:
+            headers["WWW-Authenticate"] = 'Bearer realm="Token Service", error="invalid_token"'
+
         return Response(
             status_code=status_code,
             content_type="application/json",
             body=json_dumps(body),
-            headers={"X-Timestamp": str(int(time.time()))},
+            headers=headers,
         )
