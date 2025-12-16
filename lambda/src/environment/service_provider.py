@@ -17,7 +17,7 @@ from src.routes.info.read_counts import ReadCollectionCountsRoute
 from src.routes.info.read_quota import ReadQuotaInfoRoute
 from src.routes.info.read_usage import ReadCollectionUsageRoute
 from src.routes.storage.delete_all import DeleteAllStorageRoute
-from src.routes.token.request import RequestTokenRoute
+from src.routes.token.request import GetTokenRoute
 from src.services.api_router import ApiRouter
 from src.services.oidc_validator import OIDCValidator
 from src.services.storage_manager import StorageManager
@@ -141,7 +141,7 @@ class ServiceProvider:
         """Create API router for Token API with RequestTokenRoute"""
         return ApiRouter(
             routes=[
-                RequestTokenRoute(
+                GetTokenRoute(
                     oidc_validator=self.oidc_validator,
                     user_manager=self.user_manager,
                     token_generator=self.token_generator,

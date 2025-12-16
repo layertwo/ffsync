@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
-from src.routes.token.request import BEARER_TOKEN_PATTERN, RequestTokenRoute
+from src.routes.token.request import BEARER_TOKEN_PATTERN, GetTokenRoute
 from src.shared.exceptions import (
     InvalidClientStateError,
     InvalidCredentialsError,
@@ -41,7 +41,7 @@ def mock_token_generator():
 
 @pytest.fixture
 def request_token_route(mock_oidc_validator, mock_user_manager, mock_token_generator):
-    return RequestTokenRoute(
+    return GetTokenRoute(
         oidc_validator=mock_oidc_validator,
         user_manager=mock_user_manager,
         token_generator=mock_token_generator,
@@ -105,7 +105,7 @@ class TestRequestTokenRouteInit:
         self, mock_oidc_validator, mock_user_manager, mock_token_generator
     ):
         """Test that dependencies are stored correctly"""
-        route = RequestTokenRoute(
+        route = GetTokenRoute(
             oidc_validator=mock_oidc_validator,
             user_manager=mock_user_manager,
             token_generator=mock_token_generator,
@@ -1123,7 +1123,7 @@ class TestRetryAfterHeader:
     ):
         """Test Retry-After header uses custom configured value"""
         # Create route with custom retry_after_seconds
-        route = RequestTokenRoute(
+        route = GetTokenRoute(
             oidc_validator=mock_oidc_validator,
             user_manager=mock_user_manager,
             token_generator=mock_token_generator,

@@ -29,7 +29,7 @@ BEARER_TOKEN_PATTERN = re.compile(r"^Bearer\s+(.+)$", re.IGNORECASE)
 CLIENT_STATE_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]{0,32}$")
 
 
-class RequestTokenRoute(BaseRoute):
+class GetTokenRoute(BaseRoute):
     """Route handler for RequestToken operation."""
 
     def __init__(
