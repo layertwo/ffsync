@@ -67,7 +67,7 @@
             <a id="nextFileLink" class="nav" href="z_d83b06f4dc70cadf_delete_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.0">coverage.py v7.13.0</a>,
-            created at 2025-12-16 04:39 +0000
+            created at 2025-12-16 05:10 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -101,7 +101,7 @@
     <p class="run"><span class="n"><a id="t17" href="#t17">17</a></span><span class="t"><span class="key">from</span> <span class="nam">src</span><span class="op">.</span><span class="nam">routes</span><span class="op">.</span><span class="nam">info</span><span class="op">.</span><span class="nam">read_quota</span> <span class="key">import</span> <span class="nam">ReadQuotaInfoRoute</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t18" href="#t18">18</a></span><span class="t"><span class="key">from</span> <span class="nam">src</span><span class="op">.</span><span class="nam">routes</span><span class="op">.</span><span class="nam">info</span><span class="op">.</span><span class="nam">read_usage</span> <span class="key">import</span> <span class="nam">ReadCollectionUsageRoute</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t19" href="#t19">19</a></span><span class="t"><span class="key">from</span> <span class="nam">src</span><span class="op">.</span><span class="nam">routes</span><span class="op">.</span><span class="nam">storage</span><span class="op">.</span><span class="nam">delete_all</span> <span class="key">import</span> <span class="nam">DeleteAllStorageRoute</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t20" href="#t20">20</a></span><span class="t"><span class="key">from</span> <span class="nam">src</span><span class="op">.</span><span class="nam">routes</span><span class="op">.</span><span class="nam">token</span><span class="op">.</span><span class="nam">request</span> <span class="key">import</span> <span class="nam">RequestTokenRoute</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t20" href="#t20">20</a></span><span class="t"><span class="key">from</span> <span class="nam">src</span><span class="op">.</span><span class="nam">routes</span><span class="op">.</span><span class="nam">token</span><span class="op">.</span><span class="nam">request</span> <span class="key">import</span> <span class="nam">GetTokenRoute</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t21" href="#t21">21</a></span><span class="t"><span class="key">from</span> <span class="nam">src</span><span class="op">.</span><span class="nam">services</span><span class="op">.</span><span class="nam">api_router</span> <span class="key">import</span> <span class="nam">ApiRouter</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t22" href="#t22">22</a></span><span class="t"><span class="key">from</span> <span class="nam">src</span><span class="op">.</span><span class="nam">services</span><span class="op">.</span><span class="nam">oidc_validator</span> <span class="key">import</span> <span class="nam">OIDCValidator</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t23" href="#t23">23</a></span><span class="t"><span class="key">from</span> <span class="nam">src</span><span class="op">.</span><span class="nam">services</span><span class="op">.</span><span class="nam">storage_manager</span> <span class="key">import</span> <span class="nam">StorageManager</span>&nbsp;</span><span class="r"></span></p>
@@ -225,7 +225,7 @@
     <p class="pln"><span class="n"><a id="t141" href="#t141">141</a></span><span class="t">        <span class="str">"""Create API router for Token API with RequestTokenRoute"""</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t142" href="#t142">142</a></span><span class="t">        <span class="key">return</span> <span class="nam">ApiRouter</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t143" href="#t143">143</a></span><span class="t">            <span class="nam">routes</span><span class="op">=</span><span class="op">[</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t144" href="#t144">144</a></span><span class="t">                <span class="nam">RequestTokenRoute</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t144" href="#t144">144</a></span><span class="t">                <span class="nam">GetTokenRoute</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t145" href="#t145">145</a></span><span class="t">                    <span class="nam">oidc_validator</span><span class="op">=</span><span class="nam">self</span><span class="op">.</span><span class="nam">oidc_validator</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t146" href="#t146">146</a></span><span class="t">                    <span class="nam">user_manager</span><span class="op">=</span><span class="nam">self</span><span class="op">.</span><span class="nam">user_manager</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t147" href="#t147">147</a></span><span class="t">                    <span class="nam">token_generator</span><span class="op">=</span><span class="nam">self</span><span class="op">.</span><span class="nam">token_generator</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
@@ -242,7 +242,7 @@
             <a class="nav" href="z_d83b06f4dc70cadf_delete_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.0">coverage.py v7.13.0</a>,
-            created at 2025-12-16 04:39 +0000
+            created at 2025-12-16 05:10 +0000
         </p>
     </div>
 </footer>
