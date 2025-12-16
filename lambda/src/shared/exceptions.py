@@ -2,6 +2,15 @@ from http import HTTPStatus
 
 from aws_lambda_powertools.event_handler import Response
 
+# Mozilla Firefox Sync response codes
+# These are returned in the response body for certain error conditions
+CODE_JSON_PARSE_FAILURE = 6
+CODE_INVALID_BSO = 8
+CODE_INVALID_COLLECTION = 13
+CODE_QUOTA_EXCEEDED = 14
+CODE_INCOMPATIBLE_CLIENT = 16
+CODE_SERVER_LIMIT_EXCEEDED = 17
+
 
 class SyncStorageException(Exception):
     """Base exception for SyncStorage API"""
@@ -88,6 +97,47 @@ class AuthenticationException(SyncStorageException):
     error_code = "AuthenticationException"
 
     def __init__(self, message: str = "Authentication required"):
+        super().__init__(message)
+
+
+class RequestTooLargeException(SyncStorageException):
+    """Request entity too large exception"""
+
+    status_code = HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+    error_code = "RequestTooLargeException"
+
+    def __init__(self, message: str = "Request entity too large"):
+        super().__init__(message)
+
+
+class MethodNotAllowedException(SyncStorageException):
+    """Method not allowed exception"""
+
+    status_code = HTTPStatus.METHOD_NOT_ALLOWED
+    error_code = "MethodNotAllowedException"
+
+    def __init__(self, message: str = "Method not allowed"):
+        super().__init__(message)
+
+
+class UnsupportedMediaTypeException(SyncStorageException):
+    """Unsupported media type exception"""
+
+    status_code = HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+    error_code = "UnsupportedMediaTypeException"
+
+    def __init__(self, message: str = "Unsupported media type"):
+        super().__init__(message)
+
+
+class ServerLimitExceededException(SyncStorageException):
+    """Server limit exceeded exception (Mozilla response code 17)"""
+
+    status_code = HTTPStatus.BAD_REQUEST
+    error_code = "ServerLimitExceededException"
+    mozilla_code = 17
+
+    def __init__(self, message: str = "Server limit exceeded"):
         super().__init__(message)
 
 

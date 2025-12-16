@@ -9,13 +9,13 @@
     - Add `CollectionData` dataclass with name, modified, count, usage
     - Add `BatchResult` dataclass with success, failed (string values), modified
     - _Requirements: 10.1-10.5, 15.1-15.3_
-  - [ ] 1.3 Add missing exception classes to `shared/exceptions.py`
+  - [x] 1.3 Add missing exception classes to `shared/exceptions.py`
     - Add `RequestTooLargeException` (HTTP 413)
     - Add `MethodNotAllowedException` (HTTP 405)
     - Add `UnsupportedMediaTypeException` (HTTP 415)
     - Add `ServerLimitExceededException` (HTTP 400, code 17)
     - _Requirements: 3.4-3.6, 16.9, 16.12, 16.13_
-  - [ ] 1.4 Add Mozilla response code constants in `shared/exceptions.py`
+  - [x] 1.4 Add Mozilla response code constants in `shared/exceptions.py`
     - CODE_JSON_PARSE_FAILURE = 6
     - CODE_INVALID_BSO = 8
     - CODE_INVALID_COLLECTION = 13
@@ -23,12 +23,12 @@
     - CODE_INCOMPATIBLE_CLIENT = 16
     - CODE_SERVER_LIMIT_EXCEEDED = 17
     - _Requirements: 13.2-13.7_
-  - [ ] 1.5 Add payload size validation helper in `shared/models.py`
+  - [x] 1.5 Add payload size validation helper in `shared/models.py`
     - Validate payload size (max 256 KB in bytes)
     - Validate sortindex range (max 9 digits)
     - Validate TTL is positive integer (max 9 digits)
     - _Requirements: 10.1, 10.4, 10.5_
-  - [ ] 1.6 Update collection name validation for urlsafe-base64 + period
+  - [x] 1.6 Update collection name validation for urlsafe-base64 + period
     - Allow alphanumeric (a-z, A-Z, 0-9), underscore, hyphen, period
     - Max 32 characters
     - _Requirements: 15.1, 15.2, 15.3_

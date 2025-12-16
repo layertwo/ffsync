@@ -414,3 +414,132 @@ class TestServiceUnavailableError:
         body = json.loads(response.body)
         assert body["error"] == "ServiceUnavailableError"
         assert body["message"] == "Database connection failed"
+
+
+class TestRequestTooLargeException:
+    """Tests for RequestTooLargeException"""
+
+    def test_default_initialization(self):
+        """Test exception with default message"""
+        from src.shared.exceptions import RequestTooLargeException
+
+        exc = RequestTooLargeException()
+
+        assert exc.message == "Request entity too large"
+        assert exc.status_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+        assert exc.error_code == "RequestTooLargeException"
+
+    def test_custom_message(self):
+        """Test exception with custom message"""
+        from src.shared.exceptions import RequestTooLargeException
+
+        exc = RequestTooLargeException("Payload exceeds 2MB limit")
+
+        assert exc.message == "Payload exceeds 2MB limit"
+
+    def test_to_response(self):
+        """Test converting exception to Response"""
+        from src.shared.exceptions import RequestTooLargeException
+
+        exc = RequestTooLargeException("Request too large")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+        assert response.content_type == "application/json"
+
+
+class TestMethodNotAllowedException:
+    """Tests for MethodNotAllowedException"""
+
+    def test_default_initialization(self):
+        """Test exception with default message"""
+        from src.shared.exceptions import MethodNotAllowedException
+
+        exc = MethodNotAllowedException()
+
+        assert exc.message == "Method not allowed"
+        assert exc.status_code == HTTPStatus.METHOD_NOT_ALLOWED
+        assert exc.error_code == "MethodNotAllowedException"
+
+    def test_custom_message(self):
+        """Test exception with custom message"""
+        from src.shared.exceptions import MethodNotAllowedException
+
+        exc = MethodNotAllowedException("POST not allowed on this resource")
+
+        assert exc.message == "POST not allowed on this resource"
+
+    def test_to_response(self):
+        """Test converting exception to Response"""
+        from src.shared.exceptions import MethodNotAllowedException
+
+        exc = MethodNotAllowedException("Method not allowed")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
+        assert response.content_type == "application/json"
+
+
+class TestUnsupportedMediaTypeException:
+    """Tests for UnsupportedMediaTypeException"""
+
+    def test_default_initialization(self):
+        """Test exception with default message"""
+        from src.shared.exceptions import UnsupportedMediaTypeException
+
+        exc = UnsupportedMediaTypeException()
+
+        assert exc.message == "Unsupported media type"
+        assert exc.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+        assert exc.error_code == "UnsupportedMediaTypeException"
+
+    def test_custom_message(self):
+        """Test exception with custom message"""
+        from src.shared.exceptions import UnsupportedMediaTypeException
+
+        exc = UnsupportedMediaTypeException("Content-Type must be application/json")
+
+        assert exc.message == "Content-Type must be application/json"
+
+    def test_to_response(self):
+        """Test converting exception to Response"""
+        from src.shared.exceptions import UnsupportedMediaTypeException
+
+        exc = UnsupportedMediaTypeException("Unsupported media type")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+        assert response.content_type == "application/json"
+
+
+class TestServerLimitExceededException:
+    """Tests for ServerLimitExceededException"""
+
+    def test_default_initialization(self):
+        """Test exception with default message"""
+        from src.shared.exceptions import ServerLimitExceededException
+
+        exc = ServerLimitExceededException()
+
+        assert exc.message == "Server limit exceeded"
+        assert exc.status_code == HTTPStatus.BAD_REQUEST
+        assert exc.error_code == "ServerLimitExceededException"
+        assert exc.mozilla_code == 17
+
+    def test_custom_message(self):
+        """Test exception with custom message"""
+        from src.shared.exceptions import ServerLimitExceededException
+
+        exc = ServerLimitExceededException("Batch size exceeds 100 records")
+
+        assert exc.message == "Batch size exceeds 100 records"
+
+    def test_to_response(self):
+        """Test converting exception to Response"""
+        from src.shared.exceptions import ServerLimitExceededException
+
+        exc = ServerLimitExceededException("Server limit exceeded")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert response.content_type == "application/json"
