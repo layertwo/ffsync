@@ -20,8 +20,17 @@ class ReadCollectionsInfoRoute(BaseRoute):
     def handle(self, event) -> Response:
         """Get metadata for all collections"""
         try:
+            # Extract user_id from authorizer context
+            user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
+            if not user_id:
+                return Response(
+                    status_code=401,
+                    content_type="application/json",
+                    body=json_dumps({"error": "Unauthorized"}),
+                )
+
             # Get collections using storage manager
-            collections = self.storage_manager.list_collections()
+            collections = self.storage_manager.list_collections(user_id)
 
             # Convert to map format as expected by the Smithy model
             collections_map = {collection.name: collection.to_dict() for collection in collections}

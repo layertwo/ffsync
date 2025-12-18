@@ -18,6 +18,15 @@ class DeleteAllStorageRoute(BaseRoute):
     def handle(self, event) -> Response:
         """Delete all storage data for the authenticated user"""
         try:
+            # Extract user_id from authorizer context
+            user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
+            if not user_id:
+                return Response(
+                    status_code=401,
+                    content_type="application/json",
+                    body=json_dumps({"error": "Unauthorized"}),
+                )
+
             # TODO: Implement authentication validation
             # TODO: Implement deletion of all collections for authenticated user
 

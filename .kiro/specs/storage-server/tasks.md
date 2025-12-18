@@ -67,41 +67,41 @@
     - `list_collections` - return collection timestamps
     - _Requirements: 7.1, 7.2, 7.3_
 
-- [ ] 3. Complete StorageManager missing functionality
-  - [ ] 3.1 Add user_id scoping to StorageManager
+- [x] 3. Complete StorageManager missing functionality
+  - [x] 3.1 Add user_id scoping to StorageManager
     - Update PK pattern: `USER#{user_id}#COLLECTION#{collection_name}`
     - Ensure all operations are scoped to authenticated user
     - _Requirements: 12.5_
-  - [ ] 3.2 Implement `delete_collection_objects` for selective deletion
+  - [x] 3.2 Implement `delete_collection_objects` for selective deletion
     - Delete only specified BSO IDs (max 100)
     - Update collection's last-modified time
     - Return JSON object with `modified` timestamp
     - _Requirements: 4.1, 4.2, 4.5_
-  - [ ] 3.3 Implement `delete_all_storage` for complete user data deletion
+  - [x] 3.3 Implement `delete_all_storage` for complete user data deletion
     - Delete all collections and BSOs for user
     - Return deletion timestamp
     - _Requirements: 4.6, 4.7, 4.8_
-  - [ ] 3.4 Implement `get_quota` for quota information
+  - [x] 3.4 Implement `get_quota` for quota information
     - Return tuple of (usage_kb, quota_kb or None)
     - _Requirements: 7.4_
-  - [ ] 3.5 Add TTL expiry calculation for DynamoDB TTL attribute
+  - [x] 3.5 Add TTL expiry calculation for DynamoDB TTL attribute
     - Calculate `expiry` as current_time + ttl
     - Ensure TTL is NOT returned in GET responses
     - _Requirements: 11.1-11.4_
-  - [ ] 3.6 Add batch limit validation
+  - [x] 3.6 Add batch limit validation
     - Validate max_post_records (100 BSOs)
     - Validate max_post_bytes (2 MB)
     - Validate max_ids_per_request (100 IDs)
     - _Requirements: 3.4, 3.5, 3.7, 3.8, 4.2_
-  - [ ] 3.7 Implement optimistic concurrency control
+  - [x] 3.7 Implement optimistic concurrency control
     - Add `if_unmodified_since` parameter
     - Support `if_unmodified_since=0` for create-only
     - _Requirements: 5.1, 5.2, 5.3_
-  - [ ] 3.8 Implement conflict detection
+  - [x] 3.8 Implement conflict detection
     - Detect conflicting concurrent changes
     - Raise `ConflictException` with optional Retry-After
     - _Requirements: 5.6, 5.7_
-  - [ ] 3.9 Update `get_collection_objects` to return empty list for non-existent collections
+  - [x] 3.9 Update `get_collection_objects` to return empty list for non-existent collections
     - Currently raises CollectionNotFoundException, should return empty list
     - _Requirements: 2.2_
   - [ ]* 3.10 Write property test for BSO round-trip

@@ -20,8 +20,17 @@ class ListCollectionsRoute(BaseRoute):
     def handle(self, event) -> Response:
         """List all collections with their metadata"""
         try:
+            # Extract user_id from authorizer context
+            user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
+            if not user_id:
+                return Response(
+                    status_code=401,
+                    content_type="application/json",
+                    body=json_dumps({"error": "Unauthorized"}),
+                )
+
             # Get collections using storage manager
-            collections = self.storage_manager.list_collections()
+            collections = self.storage_manager.list_collections(user_id)
 
             response_body = {"collections": [collection.to_dict() for collection in collections]}
 

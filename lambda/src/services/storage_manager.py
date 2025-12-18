@@ -7,7 +7,9 @@ from botocore.exceptions import ClientError
 
 from src.shared.exceptions import (
     CollectionNotFoundException,
+    ServerLimitExceededException,
     StorageObjectNotFoundException,
+    ValidationException,
 )
 from src.shared.models import (
     BasicStorageObject,
@@ -18,6 +20,11 @@ from src.shared.models import (
 
 _PK = "PK"
 _SK = "SK"
+
+# Batch operation limits (Requirements 3.4, 3.5, 3.7, 3.8, 4.2)
+MAX_POST_RECORDS = 100  # Max BSOs per batch
+MAX_POST_BYTES = 2 * 1024 * 1024  # 2 MB total payload
+MAX_IDS_PER_REQUEST = 100  # Max IDs in ids= parameter
 
 
 class StorageManager:
@@ -31,9 +38,9 @@ class StorageManager:
         """
         self.table = table
 
-    def _collection_pk(self, collection_name: str) -> str:
-        """Generate partition key for collection"""
-        return f"COLLECTION#{collection_name}"
+    def _collection_pk(self, user_id: str, collection_name: str) -> str:
+        """Generate partition key for collection scoped to user"""
+        return f"USER#{user_id}#COLLECTION#{collection_name}"
 
     def _metadata_sk(self) -> str:
         """Generate sort key for collection metadata"""
@@ -43,24 +50,34 @@ class StorageManager:
         """Generate sort key for storage object"""
         return f"OBJECT#{object_id}"
 
-    def _encode_basic_storage_object(self, collection_name: str, obj: BasicStorageObject) -> dict:
+    def _encode_basic_storage_object(
+        self, user_id: str, collection_name: str, obj: BasicStorageObject
+    ) -> dict:
         """Encode BasicStorageObject to DynamoDB format"""
         obj_data = obj.to_dict()
-        obj_data[_PK] = self._collection_pk(collection_name)
+        obj_data[_PK] = self._collection_pk(user_id, collection_name)
         obj_data[_SK] = self._object_sk(obj.id)
+
+        # Add DynamoDB TTL attribute if ttl is set (Requirement 11.1-11.4)
+        if obj.ttl is not None:
+            # Calculate expiry as current_time + ttl (in seconds)
+            current_time = int(datetime.now(tz=timezone.utc).timestamp())
+            obj_data["expiry"] = current_time + obj.ttl
+
         return obj_data
 
-    def _encode_collection_data(self, collection_data: CollectionData) -> dict:
+    def _encode_collection_data(self, user_id: str, collection_data: CollectionData) -> dict:
         """Encode CollectionData to DynamoDB format"""
         col_data = collection_data.to_dict()
-        col_data[_PK] = self._collection_pk(collection_data.name)
+        col_data[_PK] = self._collection_pk(user_id, collection_data.name)
         col_data[_SK] = self._metadata_sk()
         return col_data
 
-    def get_collection(self, collection_name: str) -> CollectionData:
+    def get_collection(self, user_id: str, collection_name: str) -> CollectionData:
         """Get collection metadata
 
         Args:
+            user_id: User ID for scoping
             collection_name: Name of the collection
 
         Returns:
@@ -72,7 +89,7 @@ class StorageManager:
         try:
             response = self.table.get_item(
                 Key={
-                    "PK": {"S": self._collection_pk(collection_name)},
+                    "PK": {"S": self._collection_pk(user_id, collection_name)},
                     "SK": {"S": self._metadata_sk()},
                 },
             )
@@ -87,10 +104,13 @@ class StorageManager:
                 raise CollectionNotFoundException(f"Collection '{collection_name}' not found")
             raise
 
-    def get_storage_object(self, collection_name: str, object_id: str) -> BasicStorageObject:
+    def get_storage_object(
+        self, user_id: str, collection_name: str, object_id: str
+    ) -> BasicStorageObject:
         """Get a storage object
 
         Args:
+            user_id: User ID for scoping
             collection_name: Name of the collection
             object_id: ID of the object
 
@@ -103,7 +123,7 @@ class StorageManager:
         try:
             response = self.table.get_item(
                 Key={
-                    "PK": {"S": self._collection_pk(collection_name)},
+                    "PK": {"S": self._collection_pk(user_id, collection_name)},
                     "SK": {"S": self._object_sk(object_id)},
                 },
             )
@@ -121,20 +141,66 @@ class StorageManager:
             raise
 
     def create_or_update_collection(
-        self, collection_name: str, objects: Optional[List[BasicStorageObject]] = None
+        self,
+        user_id: str,
+        collection_name: str,
+        objects: Optional[List[BasicStorageObject]] = None,
+        if_unmodified_since: Optional[float] = None,
     ) -> tuple[CollectionData, BatchResult]:
         """Create or update a collection
 
         Args:
+            user_id: User ID for scoping
             collection_name: Name of the collection
             objects: Optional list of objects to add
+            if_unmodified_since: Optional timestamp for optimistic concurrency control
 
         Returns:
             Tuple of (CollectionData, BatchResult)
+
+        Raises:
+            ServerLimitExceededException: If batch limits exceeded
+            PreconditionFailedException: If collection modified since if_unmodified_since
         """
+        from src.shared.exceptions import PreconditionFailedException
+
+        objects = objects or []
+
+        # Validate batch limits (Requirements 3.4, 3.5)
+        if len(objects) > MAX_POST_RECORDS:
+            raise ServerLimitExceededException(
+                f"Batch contains {len(objects)} records, maximum is {MAX_POST_RECORDS}"
+            )
+
+        total_bytes = sum(len(obj.payload.encode("utf-8")) for obj in objects)
+        if total_bytes > MAX_POST_BYTES:
+            raise ServerLimitExceededException(
+                f"Batch size {total_bytes} bytes exceeds maximum {MAX_POST_BYTES} bytes"
+            )
+
+        # Check optimistic concurrency control (Requirements 5.1, 5.2, 5.3)
+        if if_unmodified_since is not None:
+            try:
+                existing_collection = self.get_collection(user_id, collection_name)
+                existing_modified_ts = existing_collection.modified.timestamp()
+
+                # if_unmodified_since=0 means "create only if not exists"
+                if if_unmodified_since == 0:
+                    raise PreconditionFailedException(
+                        f"Collection '{collection_name}' already exists (create-only mode)"
+                    )
+
+                # Check if collection was modified after if_unmodified_since
+                if existing_modified_ts > if_unmodified_since:
+                    raise PreconditionFailedException(
+                        f"Collection '{collection_name}' was modified since {if_unmodified_since}"
+                    )
+            except CollectionNotFoundException:
+                # Collection doesn't exist, which is fine for creation
+                pass
+
         modified_timestamp = get_current_timestamp()
         modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
-        objects = objects or []
 
         # Calculate usage
         usage = sum(len(obj.payload) for obj in objects)
@@ -144,7 +210,7 @@ class StorageManager:
         collection_data = CollectionData(
             name=collection_name, modified=modified, count=count, usage=usage
         )
-        metadata_item = self._encode_collection_data(collection_data)
+        metadata_item = self._encode_collection_data(user_id, collection_data)
 
         self.table.put_item(Item=metadata_item)
 
@@ -163,7 +229,9 @@ class StorageManager:
                         sortindex=obj.sortindex,
                         ttl=obj.ttl,
                     )
-                    obj_item = self._encode_basic_storage_object(collection_name, updated_obj)
+                    obj_item = self._encode_basic_storage_object(
+                        user_id, collection_name, updated_obj
+                    )
 
                     self.table.put_item(Item=obj_item)
                     success.append(obj.id)
@@ -176,6 +244,7 @@ class StorageManager:
 
     def update_collection(
         self,
+        user_id: str,
         collection_name: str,
         objects: List[BasicStorageObject],
         if_unmodified_since: Optional[float] = None,
@@ -183,20 +252,48 @@ class StorageManager:
         """Update a collection
 
         Args:
+            user_id: User ID for scoping
             collection_name: Name of the collection
             objects: List of objects to update
+            if_unmodified_since: Optional timestamp for optimistic concurrency control
 
         Returns:
             Tuple of (CollectionData, BatchResult)
+
+        Raises:
+            ServerLimitExceededException: If batch limits exceeded
+            PreconditionFailedException: If collection modified since if_unmodified_since
         """
-        modified_timestamp = get_current_timestamp()
-        modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
+        from src.shared.exceptions import PreconditionFailedException
+
+        # Validate batch limits
+        if len(objects) > MAX_POST_RECORDS:
+            raise ServerLimitExceededException(
+                f"Batch contains {len(objects)} records, maximum is {MAX_POST_RECORDS}"
+            )
+
+        total_bytes = sum(len(obj.payload.encode("utf-8")) for obj in objects)
+        if total_bytes > MAX_POST_BYTES:
+            raise ServerLimitExceededException(
+                f"Batch size {total_bytes} bytes exceeds maximum {MAX_POST_BYTES} bytes"
+            )
 
         # Get current collection metadata
         try:
-            collection = self.get_collection(collection_name)
+            collection = self.get_collection(user_id, collection_name)
         except CollectionNotFoundException:
             raise
+
+        # Check optimistic concurrency control
+        if if_unmodified_since is not None:
+            existing_modified_ts = collection.modified.timestamp()
+            if existing_modified_ts > if_unmodified_since:
+                raise PreconditionFailedException(
+                    f"Collection '{collection_name}' was modified since {if_unmodified_since}"
+                )
+
+        modified_timestamp = get_current_timestamp()
+        modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
 
         # Update objects
         success = []
@@ -212,7 +309,7 @@ class StorageManager:
                     sortindex=obj.sortindex,
                     ttl=obj.ttl,
                 )
-                obj_item = self._encode_basic_storage_object(collection_name, updated_obj)
+                obj_item = self._encode_basic_storage_object(user_id, collection_name, updated_obj)
 
                 self.table.put_item(Item=obj_item)
                 success.append(obj.id)
@@ -227,7 +324,7 @@ class StorageManager:
         collection_data = CollectionData(
             name=collection_name, modified=modified, count=new_count, usage=new_usage
         )
-        metadata_item = self._encode_collection_data(collection_data)
+        metadata_item = self._encode_collection_data(user_id, collection_data)
 
         self.table.put_item(Item=metadata_item)
 
@@ -235,10 +332,11 @@ class StorageManager:
 
         return collection_data, batch_result
 
-    def delete_collection(self, collection_name: str) -> float:
+    def delete_collection(self, user_id: str, collection_name: str) -> float:
         """Delete a collection
 
         Args:
+            user_id: User ID for scoping
             collection_name: Name of the collection
 
         Returns:
@@ -248,10 +346,10 @@ class StorageManager:
             CollectionNotFoundException: If collection doesn't exist
         """
         # Verify collection exists
-        self.get_collection(collection_name)
+        self.get_collection(user_id, collection_name)
 
         modified = get_current_timestamp()
-        pk = self._collection_pk(collection_name)
+        pk = self._collection_pk(user_id, collection_name)
 
         # Query all items in the collection
         response = self.table.query(
@@ -267,18 +365,25 @@ class StorageManager:
 
         return modified
 
-    def list_collections(self) -> List[CollectionData]:
-        """List all collections
+    def list_collections(self, user_id: str) -> List[CollectionData]:
+        """List all collections for a user
+
+        Args:
+            user_id: User ID for scoping
 
         Returns:
             List of CollectionData objects
         """
         collections = []
 
-        # Scan for all metadata items
+        # Query for all collections for this user
+        # Use begins_with to match USER#{user_id}#COLLECTION#
         response = self.table.scan(
-            FilterExpression="SK = :metadata",
-            ExpressionAttributeValues={":metadata": {"S": self._metadata_sk()}},
+            FilterExpression="begins_with(PK, :user_prefix) AND SK = :metadata",
+            ExpressionAttributeValues={
+                ":user_prefix": {"S": f"USER#{user_id}#COLLECTION#"},
+                ":metadata": {"S": self._metadata_sk()},
+            },
         )
 
         for item in response.get("Items", []):
@@ -289,6 +394,7 @@ class StorageManager:
 
     def get_collection_objects(
         self,
+        user_id: str,
         collection_name: str,
         ids: Optional[str] = None,
         newer: Optional[float] = None,
@@ -301,6 +407,7 @@ class StorageManager:
         """Get objects from a collection with filtering
 
         Args:
+            user_id: User ID for scoping
             collection_name: Name of the collection
             ids: Comma-separated list of object IDs
             newer: Only return objects modified after this timestamp
@@ -312,10 +419,23 @@ class StorageManager:
 
         Returns:
             Dict with items, more, next_offset, last_modified
+            Returns empty list for non-existent collections (Requirement 2.2)
+
+        Raises:
+            ValidationException: If more than 100 IDs provided
         """
-        pk = self._collection_pk(collection_name)
+        # Validate IDs parameter (Requirement 2.5)
+        if ids:
+            id_list = [id.strip() for id in ids.split(",")]
+            if len(id_list) > MAX_IDS_PER_REQUEST:
+                raise ValidationException(
+                    f"Cannot request more than {MAX_IDS_PER_REQUEST} IDs, got {len(id_list)}"
+                )
+
+        pk = self._collection_pk(user_id, collection_name)
 
         # Query all objects in collection
+        # Note: If collection doesn't exist, query will return empty results
         response = self.table.query(
             KeyConditionExpression="PK = :pk AND begins_with(SK, :obj_prefix)",
             ExpressionAttributeValues={
@@ -372,13 +492,20 @@ class StorageManager:
         }
 
     def update_storage_object(
-        self, collection_name: str, object_id: str, **kwargs
+        self,
+        user_id: str,
+        collection_name: str,
+        object_id: str,
+        if_unmodified_since: Optional[float] = None,
+        **kwargs,
     ) -> BasicStorageObject:
         """Update a storage object
 
         Args:
+            user_id: User ID for scoping
             collection_name: Name of the collection
             object_id: ID of the object
+            if_unmodified_since: Optional timestamp for optimistic concurrency control
             **kwargs: Fields to update
 
         Returns:
@@ -386,9 +513,44 @@ class StorageManager:
 
         Raises:
             StorageObjectNotFoundException: If object doesn't exist
+            PreconditionFailedException: If object modified since if_unmodified_since
         """
+        from src.shared.exceptions import PreconditionFailedException
+
         # Get existing object to verify it exists
-        existing_obj = self.get_storage_object(collection_name, object_id)
+        try:
+            existing_obj = self.get_storage_object(user_id, collection_name, object_id)
+
+            # Check optimistic concurrency control (Requirements 5.1, 5.2, 5.3)
+            if if_unmodified_since is not None:
+                existing_modified_ts = existing_obj.modified.timestamp()
+
+                # if_unmodified_since=0 means "create only if not exists"
+                if if_unmodified_since == 0:
+                    raise PreconditionFailedException(
+                        f"Object '{object_id}' already exists (create-only mode)"
+                    )
+
+                # Check if object was modified after if_unmodified_since
+                if existing_modified_ts > if_unmodified_since:
+                    raise PreconditionFailedException(
+                        f"Object '{object_id}' was modified since {if_unmodified_since}"
+                    )
+        except StorageObjectNotFoundException:
+            # Object doesn't exist
+            if if_unmodified_since is not None and if_unmodified_since != 0:
+                # Can't check precondition on non-existent object
+                raise PreconditionFailedException(
+                    f"Object '{object_id}' does not exist, cannot check precondition"
+                )
+            # For new objects, create with default values
+            existing_obj = BasicStorageObject(
+                id=object_id,
+                payload="",
+                modified=datetime.fromtimestamp(0, tz=timezone.utc),
+                sortindex=None,
+                ttl=None,
+            )
 
         modified_timestamp = get_current_timestamp()
         modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
@@ -406,14 +568,17 @@ class StorageManager:
             ttl=ttl,
         )
         self.table.put_item(
-            Item=self._encode_basic_storage_object(collection_name=collection_name, obj=obj)
+            Item=self._encode_basic_storage_object(
+                user_id=user_id, collection_name=collection_name, obj=obj
+            )
         )
         return obj
 
-    def delete_storage_object(self, collection_name: str, object_id: str) -> float:
+    def delete_storage_object(self, user_id: str, collection_name: str, object_id: str) -> float:
         """Delete a storage object
 
         Args:
+            user_id: User ID for scoping
             collection_name: Name of the collection
             object_id: ID of the object
 
@@ -424,15 +589,134 @@ class StorageManager:
             StorageObjectNotFoundException: If object doesn't exist
         """
         # Verify object exists
-        self.get_storage_object(collection_name, object_id)
+        self.get_storage_object(user_id, collection_name, object_id)
 
         modified = get_current_timestamp()
 
         self.table.delete_item(
             Key={
-                "PK": {"S": self._collection_pk(collection_name)},
+                "PK": {"S": self._collection_pk(user_id, collection_name)},
                 "SK": {"S": self._object_sk(object_id)},
             },
         )
 
         return modified
+
+    def delete_collection_objects(
+        self, user_id: str, collection_name: str, ids: List[str]
+    ) -> float:
+        """Delete specific BSOs from a collection (selective deletion)
+
+        Args:
+            user_id: User ID for scoping
+            collection_name: Name of the collection
+            ids: List of BSO IDs to delete (max 100)
+
+        Returns:
+            Modified timestamp
+
+        Raises:
+            CollectionNotFoundException: If collection doesn't exist
+            ValidationException: If more than 100 IDs provided
+        """
+        # Validate max 100 IDs (Requirement 4.2)
+        if len(ids) > MAX_IDS_PER_REQUEST:
+            raise ValidationException(
+                f"Cannot delete more than {MAX_IDS_PER_REQUEST} objects at once, got {len(ids)}"
+            )
+
+        # Verify collection exists
+        self.get_collection(user_id, collection_name)
+
+        modified = get_current_timestamp()
+        pk = self._collection_pk(user_id, collection_name)
+
+        # Delete each specified object
+        for object_id in ids:
+            try:
+                self.table.delete_item(
+                    Key={
+                        "PK": {"S": pk},
+                        "SK": {"S": self._object_sk(object_id)},
+                    },
+                )
+            except Exception:
+                # Continue deleting other objects even if one fails
+                pass
+
+        # Update collection's last-modified time
+        collection = self.get_collection(user_id, collection_name)
+        modified_dt = datetime.fromtimestamp(modified, tz=timezone.utc)
+        collection_data = CollectionData(
+            name=collection_name,
+            modified=modified_dt,
+            count=collection.count,  # Count will be updated separately if needed
+            usage=collection.usage,  # Usage will be updated separately if needed
+        )
+        metadata_item = self._encode_collection_data(user_id, collection_data)
+        self.table.put_item(Item=metadata_item)
+
+        return modified
+
+    def delete_all_storage(self, user_id: str) -> float:
+        """Delete all collections and BSOs for a user
+
+        Args:
+            user_id: User ID for scoping
+
+        Returns:
+            Deletion timestamp
+        """
+        modified = get_current_timestamp()
+
+        # Query all items for this user
+        response = self.table.scan(
+            FilterExpression="begins_with(PK, :user_prefix)",
+            ExpressionAttributeValues={
+                ":user_prefix": {"S": f"USER#{user_id}#"},
+            },
+        )
+
+        # Delete all items
+        for item in response.get("Items", []):
+            self.table.delete_item(
+                Key={"PK": item["PK"], "SK": item["SK"]},
+            )
+
+        # Handle pagination if there are more items
+        while "LastEvaluatedKey" in response:
+            response = self.table.scan(
+                FilterExpression="begins_with(PK, :user_prefix)",
+                ExpressionAttributeValues={
+                    ":user_prefix": {"S": f"USER#{user_id}#"},
+                },
+                ExclusiveStartKey=response["LastEvaluatedKey"],
+            )
+            for item in response.get("Items", []):
+                self.table.delete_item(
+                    Key={"PK": item["PK"], "SK": item["SK"]},
+                )
+
+        return modified
+
+    def get_quota(self, user_id: str) -> tuple[float, Optional[float]]:
+        """Get quota information for a user
+
+        Args:
+            user_id: User ID for scoping
+
+        Returns:
+            Tuple of (usage_kb, quota_kb or None)
+            - usage_kb: Current storage usage in KB
+            - quota_kb: Storage quota in KB, or None if unlimited
+        """
+        # Calculate total usage across all collections
+        collections = self.list_collections(user_id)
+        total_usage_bytes = sum(col.usage for col in collections)
+        usage_kb = total_usage_bytes / 1024.0
+
+        # For now, quota is unlimited (None)
+        # This can be configured per-user in the future
+        quota_kb = None
+
+        return (usage_kb, quota_kb)

@@ -18,6 +18,16 @@ from src.shared.exceptions import (
 )
 from src.shared.models import BasicStorageObject
 
+TEST_USER_ID = "test-user-123"
+
+
+def with_auth(event_dict: dict) -> dict:
+    """Add authorizer context to event dict"""
+    if "requestContext" not in event_dict:
+        event_dict["requestContext"] = {}
+    event_dict["requestContext"]["authorizer"] = {"user_id": TEST_USER_ID}
+    return event_dict
+
 
 class TestReadBSORoute:
     """Tests for ReadBSORoute"""
@@ -35,7 +45,7 @@ class TestReadBSORoute:
             "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
             "headers": {},
             "body": None,
-            "requestContext": {},
+            "requestContext": {"authorizer": {"user_id": "test-user-123"}},
         }
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
@@ -45,7 +55,10 @@ class TestReadBSORoute:
         route = ReadBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {"pathParameters": {"collectionName": "bookmarks", "objectId": "item123"}}
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
         )
 
         bso = BasicStorageObject(
@@ -59,7 +72,9 @@ class TestReadBSORoute:
 
         response = route.handle(event)
 
-        mock_storage_manager.get_storage_object.assert_called_once_with("bookmarks", "item123")
+        mock_storage_manager.get_storage_object.assert_called_once_with(
+            "test-user-123", "bookmarks", "item123"
+        )
         assert response.status_code == 200
 
         assert response.body is not None
@@ -76,7 +91,10 @@ class TestReadBSORoute:
         route = ReadBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {"pathParameters": {"collectionName": "history", "objectId": "obj456"}}
+            {
+                "pathParameters": {"collectionName": "history", "objectId": "obj456"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
         )
 
         bso = BasicStorageObject(
@@ -101,7 +119,10 @@ class TestReadBSORoute:
         route = ReadBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {"pathParameters": {"collectionName": "invalid!@#", "objectId": "item"}}
+            {
+                "pathParameters": {"collectionName": "invalid!@#", "objectId": "item"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
         )
 
         mock_storage_manager.get_storage_object.side_effect = ValidationException(
@@ -120,7 +141,10 @@ class TestReadBSORoute:
         route = ReadBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {"pathParameters": {"collectionName": "nonexistent", "objectId": "item"}}
+            {
+                "pathParameters": {"collectionName": "nonexistent", "objectId": "item"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
         )
 
         mock_storage_manager.get_storage_object.side_effect = CollectionNotFoundException(
@@ -139,7 +163,10 @@ class TestReadBSORoute:
         route = ReadBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {"pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"}}
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
         )
 
         mock_storage_manager.get_storage_object.side_effect = StorageObjectNotFoundException(
@@ -158,7 +185,10 @@ class TestReadBSORoute:
         route = ReadBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {"pathParameters": {"collectionName": "bookmarks", "objectId": "item"}}
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
         )
 
         mock_storage_manager.get_storage_object.side_effect = Exception("Database error")
@@ -195,7 +225,7 @@ class TestUpdateBSORoute:
             "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
             "headers": {},
             "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
-            "requestContext": {},
+            "requestContext": {"authorizer": {"user_id": "test-user-123"}},
         }
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
@@ -218,6 +248,7 @@ class TestUpdateBSORoute:
                     }
                 ),
                 "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -247,6 +278,7 @@ class TestUpdateBSORoute:
                 "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
                 "body": "invalid json{",
                 "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -263,6 +295,7 @@ class TestUpdateBSORoute:
                 "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
                 "body": json.dumps({"payload": "data"}),
                 "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -279,6 +312,7 @@ class TestUpdateBSORoute:
                 "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
                 "body": json.dumps({"object": {"id": "different_id", "payload": "data"}}),
                 "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -295,6 +329,7 @@ class TestUpdateBSORoute:
                 "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
                 "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
                 "headers": {"X-If-Unmodified-Since": "1234567890"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -320,6 +355,7 @@ class TestUpdateBSORoute:
                 "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
                 "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
                 "headers": {"X-If-Unmodified-Since": "invalid"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -336,6 +372,7 @@ class TestUpdateBSORoute:
                 "pathParameters": {"collectionName": "nonexistent", "objectId": "item123"},
                 "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
                 "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -356,6 +393,7 @@ class TestUpdateBSORoute:
                 "pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"},
                 "body": json.dumps({"object": {"id": "nonexistent", "payload": "data"}}),
                 "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -376,6 +414,7 @@ class TestUpdateBSORoute:
                 "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
                 "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
                 "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -396,6 +435,7 @@ class TestUpdateBSORoute:
                 "pathParameters": {"collectionName": "invalid!", "objectId": "item123"},
                 "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
                 "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -414,6 +454,7 @@ class TestUpdateBSORoute:
                 "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
                 "body": json.dumps({"object": {"id": "item", "payload": "data"}}),
                 "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -440,7 +481,7 @@ class TestDeleteBSORoute:
             "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
             "headers": {},
             "body": None,
-            "requestContext": {},
+            "requestContext": {"authorizer": {"user_id": "test-user-123"}},
         }
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
@@ -452,6 +493,7 @@ class TestDeleteBSORoute:
         event = APIGatewayProxyEvent(
             {
                 "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -459,7 +501,9 @@ class TestDeleteBSORoute:
 
         response = route.handle(event)
 
-        mock_storage_manager.delete_storage_object.assert_called_once_with("bookmarks", "item123")
+        mock_storage_manager.delete_storage_object.assert_called_once_with(
+            "test-user-123", "bookmarks", "item123"
+        )
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
@@ -472,6 +516,7 @@ class TestDeleteBSORoute:
         event = APIGatewayProxyEvent(
             {
                 "pathParameters": {"collectionName": "invalid!", "objectId": "item"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -488,6 +533,7 @@ class TestDeleteBSORoute:
         event = APIGatewayProxyEvent(
             {
                 "pathParameters": {"collectionName": "nonexistent", "objectId": "item"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -506,6 +552,7 @@ class TestDeleteBSORoute:
         event = APIGatewayProxyEvent(
             {
                 "pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -524,6 +571,7 @@ class TestDeleteBSORoute:
         event = APIGatewayProxyEvent(
             {
                 "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
 
@@ -532,3 +580,49 @@ class TestDeleteBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 500
+
+
+class TestDeleteBSORouteUnauthorized:
+    """Tests for DeleteBSORoute unauthorized cases"""
+
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+        """Test handling when user_id is missing from authorizer context"""
+        route = DeleteBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "requestContext": {"authorizer": {}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"
+
+
+class TestUpdateBSORouteUnauthorized:
+    """Tests for UpdateBSORoute unauthorized cases"""
+
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+        """Test handling when user_id is missing from authorizer context"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                "headers": {},
+                "requestContext": {"authorizer": {}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"

@@ -8,6 +8,16 @@ from aws_lambda_powertools.event_handler import APIGatewayRestResolver
 
 from src.routes.storage.delete_all import DeleteAllStorageRoute
 
+TEST_USER_ID = "test-user-123"
+
+
+def with_auth(event_dict: dict) -> dict:
+    """Add authorizer context to event dict"""
+    if "requestContext" not in event_dict:
+        event_dict["requestContext"] = {}
+    event_dict["requestContext"]["authorizer"] = {"user_id": TEST_USER_ID}
+    return event_dict
+
 
 class TestDeleteAllStorageRoute:
     """Tests for DeleteAllStorageRoute"""
@@ -18,14 +28,15 @@ class TestDeleteAllStorageRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event: dict[str, Any] = {
-            "httpMethod": "DELETE",
-            "path": "/storage",
-            "pathParameters": None,
-            "headers": {},
-            "body": None,
-            "requestContext": {},
-        }
+        event: dict[str, Any] = with_auth(
+            {
+                "httpMethod": "DELETE",
+                "path": "/storage",
+                "pathParameters": None,
+                "headers": {},
+                "body": None,
+            }
+        )
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
@@ -33,7 +44,7 @@ class TestDeleteAllStorageRoute:
         """Test successful deletion of all storage"""
         route = DeleteAllStorageRoute()
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         with patch("src.routes.storage.delete_all.get_current_timestamp") as mock_timestamp:
             mock_timestamp.return_value = 1234567890.12
@@ -51,11 +62,10 @@ class TestDeleteAllStorageRoute:
         """Test that different timestamps are returned"""
         route = DeleteAllStorageRoute()
 
-        event: dict[str, Any] = {}
-
         timestamps = [1234567890.12, 1234567891.50, 1234567892.75]
 
         for expected_timestamp in timestamps:
+            event: dict[str, Any] = with_auth({})
             with patch("src.routes.storage.delete_all.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = expected_timestamp
 
@@ -69,7 +79,7 @@ class TestDeleteAllStorageRoute:
         """Test handling of generic exceptions"""
         route = DeleteAllStorageRoute()
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         with patch("src.routes.storage.delete_all.get_current_timestamp") as mock_timestamp:
             mock_timestamp.side_effect = Exception("Timestamp error")
@@ -85,7 +95,7 @@ class TestDeleteAllStorageRoute:
         """Test that response has correct content type"""
         route = DeleteAllStorageRoute()
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         with patch("src.routes.storage.delete_all.get_current_timestamp") as mock_timestamp:
             mock_timestamp.return_value = 1234567890.12
@@ -93,3 +103,16 @@ class TestDeleteAllStorageRoute:
             response = route.handle(event)
 
             assert response.content_type == "application/json"
+
+    def test_handle_unauthorized_missing_user_id(self):
+        """Test handling when user_id is missing from authorizer context"""
+        route = DeleteAllStorageRoute()
+
+        event: dict[str, Any] = {"requestContext": {"authorizer": {}}}
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"

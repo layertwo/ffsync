@@ -22,6 +22,15 @@ from src.shared.exceptions import (
 )
 from src.shared.models import BasicStorageObject, BatchResult, CollectionData
 
+TEST_USER_ID = "test-user-123"
+AUTH_CONTEXT = {"requestContext": {"authorizer": {"user_id": TEST_USER_ID}}}
+
+
+def with_auth(event_dict: dict) -> dict:
+    """Add authorizer context to event dict"""
+    event_dict["requestContext"] = {"authorizer": {"user_id": TEST_USER_ID}}
+    return event_dict
+
 
 class TestCreateCollectionRoute:
     """Tests for CreateCollectionRoute"""
@@ -32,14 +41,15 @@ class TestCreateCollectionRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event: dict[str, Any] = {
-            "httpMethod": "POST",
-            "path": "/storage/bookmarks",
-            "pathParameters": {"collectionName": "bookmarks"},
-            "headers": {},
-            "body": None,
-            "requestContext": {},
-        }
+        event: dict[str, Any] = with_auth(
+            {
+                "httpMethod": "POST",
+                "path": "/storage/bookmarks",
+                "pathParameters": {"collectionName": "bookmarks"},
+                "headers": {},
+                "body": None,
+            }
+        )
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 201
 
@@ -48,18 +58,20 @@ class TestCreateCollectionRoute:
         route = CreateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {},
-                "body": json.dumps(
-                    {
-                        "objects": [
-                            {"id": "obj1", "payload": "data1", "sortindex": 100},
-                            {"id": "obj2", "payload": "data2"},
-                        ]
-                    }
-                ),
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {},
+                    "body": json.dumps(
+                        {
+                            "objects": [
+                                {"id": "obj1", "payload": "data1", "sortindex": 100},
+                                {"id": "obj2", "payload": "data2"},
+                            ]
+                        }
+                    ),
+                }
+            )
         )
 
         collection_data = CollectionData(
@@ -91,13 +103,15 @@ class TestCreateCollectionRoute:
         route = CreateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "tabs"},
-                "headers": {},
-                "body": json.dumps(
-                    [{"id": "tab1", "payload": "data1"}, {"id": "tab2", "payload": "data2"}]
-                ),
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "tabs"},
+                    "headers": {},
+                    "body": json.dumps(
+                        [{"id": "tab1", "payload": "data1"}, {"id": "tab2", "payload": "data2"}]
+                    ),
+                }
+            )
         )
 
         collection_data = CollectionData(
@@ -125,11 +139,13 @@ class TestCreateCollectionRoute:
         route = CreateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "history"},
-                "headers": {},
-                "body": None,
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "history"},
+                    "headers": {},
+                    "body": None,
+                }
+            )
         )
 
         collection_data = CollectionData(
@@ -155,14 +171,15 @@ class TestCreateCollectionRoute:
         route = CreateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {"X-If-Unmodified-Since": "1234567889.00"},
-                "body": json.dumps({"objects": []}),
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {"X-If-Unmodified-Since": "1234567889.00"},
+                    "body": json.dumps({"objects": []}),
+                }
+            )
         )
 
-        # Collection was modified after the timestamp
         existing_collection = CollectionData(
             name="bookmarks",
             modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
@@ -180,11 +197,13 @@ class TestCreateCollectionRoute:
         route = CreateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {"X-If-Unmodified-Since": "1234567891.00"},
-                "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {"X-If-Unmodified-Since": "1234567891.00"},
+                    "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
+                }
+            )
         )
 
         existing_collection = CollectionData(
@@ -220,11 +239,13 @@ class TestCreateCollectionRoute:
         route = CreateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {},
-                "body": "invalid json{",
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {},
+                    "body": "invalid json{",
+                }
+            )
         )
 
         response = route.handle(event)
@@ -236,11 +257,13 @@ class TestCreateCollectionRoute:
         route = CreateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "invalid!"},
-                "headers": {},
-                "body": None,
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "invalid!"},
+                    "headers": {},
+                    "body": None,
+                }
+            )
         )
 
         mock_storage_manager.create_or_update_collection.side_effect = ValidationException(
@@ -256,11 +279,13 @@ class TestCreateCollectionRoute:
         route = CreateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {},
-                "body": None,
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {},
+                    "body": None,
+                }
+            )
         )
 
         mock_storage_manager.create_or_update_collection.side_effect = ConflictException("Conflict")
@@ -274,11 +299,13 @@ class TestCreateCollectionRoute:
         route = CreateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {},
-                "body": None,
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {},
+                    "body": None,
+                }
+            )
         )
 
         mock_storage_manager.create_or_update_collection.side_effect = Exception("Error")
@@ -297,15 +324,16 @@ class TestReadCollectionRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event = {
-            "httpMethod": "GET",
-            "path": "/storage/bookmarks",
-            "pathParameters": {"collectionName": "bookmarks"},
-            "queryStringParameters": None,
-            "headers": {},
-            "body": None,
-            "requestContext": {},
-        }
+        event = with_auth(
+            {
+                "httpMethod": "GET",
+                "path": "/storage/bookmarks",
+                "pathParameters": {"collectionName": "bookmarks"},
+                "queryStringParameters": None,
+                "headers": {},
+                "body": None,
+            }
+        )
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
@@ -314,10 +342,12 @@ class TestReadCollectionRoute:
         route = ReadCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "queryStringParameters": None,
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": None,
+                }
+            )
         )
 
         collection_data = CollectionData(
@@ -341,14 +371,16 @@ class TestReadCollectionRoute:
         route = ReadCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "queryStringParameters": {
-                    "newer": "1234567880.00",
-                    "limit": "10",
-                    "sort": "newest",
-                },
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": {
+                        "newer": "1234567880.00",
+                        "limit": "10",
+                        "sort": "newest",
+                    },
+                }
+            )
         )
 
         objects = {
@@ -379,10 +411,12 @@ class TestReadCollectionRoute:
         route = ReadCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "history"},
-                "queryStringParameters": {"limit": "5", "offset": "10"},
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "history"},
+                    "queryStringParameters": {"limit": "5", "offset": "10"},
+                }
+            )
         )
 
         objects = {
@@ -415,10 +449,12 @@ class TestReadCollectionRoute:
         route = ReadCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "tabs"},
-                "queryStringParameters": {"ids": "obj1,obj2"},
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "tabs"},
+                    "queryStringParameters": {"ids": "obj1,obj2"},
+                }
+            )
         )
 
         objects = {
@@ -448,10 +484,12 @@ class TestReadCollectionRoute:
         route = ReadCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "invalid!"},
-                "queryStringParameters": None,
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "invalid!"},
+                    "queryStringParameters": None,
+                }
+            )
         )
 
         mock_storage_manager.get_collection.side_effect = ValidationException("Invalid")
@@ -465,10 +503,12 @@ class TestReadCollectionRoute:
         route = ReadCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "nonexistent"},
-                "queryStringParameters": None,
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "nonexistent"},
+                    "queryStringParameters": None,
+                }
+            )
         )
 
         mock_storage_manager.get_collection.side_effect = CollectionNotFoundException("Not found")
@@ -482,10 +522,12 @@ class TestReadCollectionRoute:
         route = ReadCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "queryStringParameters": None,
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": None,
+                }
+            )
         )
 
         mock_storage_manager.get_collection.side_effect = Exception("Error")
@@ -517,14 +559,15 @@ class TestUpdateCollectionRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event = {
-            "httpMethod": "PUT",
-            "path": "/storage/bookmarks",
-            "pathParameters": {"collectionName": "bookmarks"},
-            "headers": {},
-            "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
-            "requestContext": {},
-        }
+        event = with_auth(
+            {
+                "httpMethod": "PUT",
+                "path": "/storage/bookmarks",
+                "pathParameters": {"collectionName": "bookmarks"},
+                "headers": {},
+                "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
+            }
+        )
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
@@ -533,11 +576,13 @@ class TestUpdateCollectionRoute:
         route = UpdateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {},
-                "body": json.dumps({"objects": [{"id": "obj1", "payload": "updated"}]}),
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {},
+                    "body": json.dumps({"objects": [{"id": "obj1", "payload": "updated"}]}),
+                }
+            )
         )
 
         collection_data = CollectionData(
@@ -565,11 +610,13 @@ class TestUpdateCollectionRoute:
         route = UpdateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {},
-                "body": "invalid json{",
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {},
+                    "body": "invalid json{",
+                }
+            )
         )
 
         response = route.handle(event)
@@ -581,11 +628,13 @@ class TestUpdateCollectionRoute:
         route = UpdateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {},
-                "body": json.dumps({"data": []}),
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {},
+                    "body": json.dumps({"data": []}),
+                }
+            )
         )
 
         response = route.handle(event)
@@ -597,11 +646,13 @@ class TestUpdateCollectionRoute:
         route = UpdateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {"X-If-Unmodified-Since": "1234567890"},
-                "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {"X-If-Unmodified-Since": "1234567890"},
+                    "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
+                }
+            )
         )
 
         collection_data = CollectionData(
@@ -629,11 +680,13 @@ class TestUpdateCollectionRoute:
         route = UpdateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {"X-If-Unmodified-Since": "invalid"},
-                "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {"X-If-Unmodified-Since": "invalid"},
+                    "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
+                }
+            )
         )
 
         response = route.handle(event)
@@ -645,11 +698,13 @@ class TestUpdateCollectionRoute:
         route = UpdateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "invalid!"},
-                "headers": {},
-                "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "invalid!"},
+                    "headers": {},
+                    "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
+                }
+            )
         )
 
         mock_storage_manager.update_collection.side_effect = ValidationException("Invalid")
@@ -663,11 +718,13 @@ class TestUpdateCollectionRoute:
         route = UpdateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "nonexistent"},
-                "headers": {},
-                "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "nonexistent"},
+                    "headers": {},
+                    "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
+                }
+            )
         )
 
         mock_storage_manager.update_collection.side_effect = CollectionNotFoundException(
@@ -683,11 +740,13 @@ class TestUpdateCollectionRoute:
         route = UpdateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {},
-                "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {},
+                    "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
+                }
+            )
         )
 
         mock_storage_manager.update_collection.side_effect = PreconditionFailedException("Failed")
@@ -701,11 +760,13 @@ class TestUpdateCollectionRoute:
         route = UpdateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
-            {
-                "pathParameters": {"collectionName": "bookmarks"},
-                "headers": {},
-                "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
-            }
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {},
+                    "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
+                }
+            )
         )
 
         mock_storage_manager.update_collection.side_effect = Exception("Error")
@@ -725,14 +786,15 @@ class TestDeleteCollectionRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event = {
-            "httpMethod": "DELETE",
-            "path": "/storage/bookmarks",
-            "pathParameters": {"collectionName": "bookmarks"},
-            "headers": {},
-            "body": None,
-            "requestContext": {},
-        }
+        event = with_auth(
+            {
+                "httpMethod": "DELETE",
+                "path": "/storage/bookmarks",
+                "pathParameters": {"collectionName": "bookmarks"},
+                "headers": {},
+                "body": None,
+            }
+        )
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
@@ -740,13 +802,19 @@ class TestDeleteCollectionRoute:
         """Test successful collection deletion"""
         route = DeleteCollectionRoute(mock_storage_manager)
 
-        event = APIGatewayProxyEvent({"pathParameters": {"collectionName": "bookmarks"}})
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                }
+            )
+        )
 
         mock_storage_manager.delete_collection.return_value = 1234567892.00
 
         response = route.handle(event)
 
-        mock_storage_manager.delete_collection.assert_called_once_with("bookmarks")
+        mock_storage_manager.delete_collection.assert_called_once_with(TEST_USER_ID, "bookmarks")
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
@@ -756,7 +824,13 @@ class TestDeleteCollectionRoute:
         """Test handling of ValidationException"""
         route = DeleteCollectionRoute(mock_storage_manager)
 
-        event = APIGatewayProxyEvent({"pathParameters": {"collectionName": "invalid!"}})
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "invalid!"},
+                }
+            )
+        )
 
         mock_storage_manager.delete_collection.side_effect = ValidationException("Invalid")
 
@@ -768,7 +842,13 @@ class TestDeleteCollectionRoute:
         """Test handling of CollectionNotFoundException"""
         route = DeleteCollectionRoute(mock_storage_manager)
 
-        event = APIGatewayProxyEvent({"pathParameters": {"collectionName": "nonexistent"}})
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "nonexistent"},
+                }
+            )
+        )
 
         mock_storage_manager.delete_collection.side_effect = CollectionNotFoundException(
             "Not found"
@@ -782,7 +862,13 @@ class TestDeleteCollectionRoute:
         """Test handling of generic exceptions"""
         route = DeleteCollectionRoute(mock_storage_manager)
 
-        event = APIGatewayProxyEvent({"pathParameters": {"collectionName": "bookmarks"}})
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                }
+            )
+        )
 
         mock_storage_manager.delete_collection.side_effect = Exception("Error")
 
@@ -801,15 +887,16 @@ class TestListCollectionsRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event: dict[str, Any] = {
-            "httpMethod": "GET",
-            "path": "/storage",
-            "pathParameters": None,
-            "queryStringParameters": None,
-            "headers": {},
-            "body": None,
-            "requestContext": {},
-        }
+        event: dict[str, Any] = with_auth(
+            {
+                "httpMethod": "GET",
+                "path": "/storage",
+                "pathParameters": None,
+                "queryStringParameters": None,
+                "headers": {},
+                "body": None,
+            }
+        )
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
@@ -817,7 +904,13 @@ class TestListCollectionsRoute:
         """Test successful collection listing"""
         route = ListCollectionsRoute(mock_storage_manager)
 
-        event = APIGatewayProxyEvent({"queryStringParameters": None})
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "queryStringParameters": None,
+                }
+            )
+        )
 
         collections = [
             CollectionData(
@@ -847,10 +940,129 @@ class TestListCollectionsRoute:
         """Test handling of generic exceptions"""
         route = ListCollectionsRoute(mock_storage_manager)
 
-        event = APIGatewayProxyEvent({"queryStringParameters": None})
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "queryStringParameters": None,
+                }
+            )
+        )
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
         response = route.handle(event)
 
         assert response.status_code == 500
+
+
+class TestCreateCollectionRouteUnauthorized:
+    """Tests for CreateCollectionRoute unauthorized cases"""
+
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+        """Test handling when user_id is missing from authorizer context"""
+        route = CreateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks"},
+                "body": json.dumps({"objects": []}),
+                "headers": {},
+                "requestContext": {"authorizer": {}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"
+
+
+class TestDeleteCollectionRouteUnauthorized:
+    """Tests for DeleteCollectionRoute unauthorized cases"""
+
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+        """Test handling when user_id is missing from authorizer context"""
+        route = DeleteCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks"},
+                "requestContext": {"authorizer": {}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"
+
+
+class TestListCollectionsRouteUnauthorized:
+    """Tests for ListCollectionsRoute unauthorized cases"""
+
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+        """Test handling when user_id is missing from authorizer context"""
+        route = ListCollectionsRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "requestContext": {"authorizer": {}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"
+
+
+class TestReadCollectionRouteUnauthorized:
+    """Tests for ReadCollectionRoute unauthorized cases"""
+
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+        """Test handling when user_id is missing from authorizer context"""
+        route = ReadCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks"},
+                "requestContext": {"authorizer": {}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"
+
+
+class TestUpdateCollectionRouteUnauthorized:
+    """Tests for UpdateCollectionRoute unauthorized cases"""
+
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+        """Test handling when user_id is missing from authorizer context"""
+        route = UpdateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks"},
+                "body": json.dumps({"objects": []}),
+                "headers": {},
+                "requestContext": {"authorizer": {}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"

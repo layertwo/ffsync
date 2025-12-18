@@ -21,11 +21,20 @@ class DeleteCollectionRoute(BaseRoute):
     def handle(self, event) -> Response:
         """Delete an entire collection"""
         try:
+            # Extract user_id from authorizer context
+            user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
+            if not user_id:
+                return Response(
+                    status_code=401,
+                    content_type="application/json",
+                    body=json_dumps({"error": "Unauthorized"}),
+                )
+
             path_params = event.path_parameters or {}
             collection_name = path_params["collectionName"]
 
             # Delete collection using DynamoDB service
-            modified_timestamp = self.dynamodb_service.delete_collection(collection_name)
+            modified_timestamp = self.dynamodb_service.delete_collection(user_id, collection_name)
 
             response_body = {"modified": modified_timestamp}
 
