@@ -133,7 +133,7 @@
     - **Property 13, 14: Concurrency properties**
     - **Validates: Requirements 5.1-5.3**
 
-- [ ] 4. Checkpoint - Ensure all tests pass
+- [x] 4. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 5. Implement BSO route handlers
@@ -148,18 +148,18 @@
   - [x] 5.3 Create `DeleteBSORoute` in `routes/bso/delete.py`
     - DELETE `/storage/{collection}/{id}`
     - _Requirements: 1.5_
-  - [ ] 5.4 Update ReadBSORoute to exclude TTL from response
+  - [x] 5.4 Update ReadBSORoute to exclude TTL from response
     - TTL is write-only per Mozilla spec (currently TTL is included when present)
     - _Requirements: 11.4_
-  - [ ] 5.5 Add BSO business validation to UpdateBSORoute
+  - [x] 5.5 Add BSO business validation to UpdateBSORoute
     - Validate payload size (max 256 KB)
     - Validate BSO ID (max 64 chars, printable ASCII)
     - _Requirements: 10.1, 10.2, 10.3_
-  - [ ] 5.6 Add conditional GET support to ReadBSORoute
+  - [x] 5.6 Add conditional GET support to ReadBSORoute
     - Support X-If-Modified-Since header
     - Return 304 Not Modified when unchanged
     - _Requirements: 6.1-6.4_
-  - [ ] 5.7 Update UpdateBSORoute to implement optimistic concurrency
+  - [x] 5.7 Update UpdateBSORoute to implement optimistic concurrency
     - Currently parses X-If-Unmodified-Since but doesn't use it
     - _Requirements: 5.1-5.3_
   - [ ]* 5.8 Write property tests for BSO routes
@@ -167,7 +167,7 @@
     - **Property 15: Conditional GET Correctness**
     - **Validates: Requirements 1.7, 5.4, 5.5, 6.1, 6.2**
 
-- [x] 6. Implement collection route handlers
+- [ ] 6. Implement collection route handlers
   - [x] 6.1 Create `ReadCollectionRoute` in `routes/collections/read.py`
     - GET `/storage/{collection}` with filtering
     - Return empty list for non-existent collections
@@ -198,7 +198,7 @@
     - Currently returns wrapped `{"collection": ..., "batchResult": ...}` format
     - _Requirements: 3.2_
 
-- [x] 7. Implement info route handlers (partial)
+- [ ] 7. Implement info route handlers (partial)
   - [x] 7.1 Create `ReadCollectionsInfoRoute`
     - _Requirements: 7.1_
   - [x] 7.2 Create `ReadCollectionCountsRoute`

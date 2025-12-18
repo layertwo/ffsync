@@ -10,10 +10,18 @@ from src.shared.base_route import BaseRoute
 from src.shared.exceptions import (
     CollectionNotFoundException,
     PreconditionFailedException,
+    RequestTooLargeException,
     StorageObjectNotFoundException,
     ValidationException,
 )
-from src.shared.models import BasicStorageObject
+from src.shared.models import (
+    BasicStorageObject,
+    ValidationError,
+    validate_bso_id,
+    validate_payload_size,
+    validate_sortindex,
+    validate_ttl,
+)
 from src.shared.utils import json_dumps
 
 logger = Logger()
@@ -49,29 +57,58 @@ class UpdateBSORoute(BaseRoute):
             try:
                 body_data = json.loads(body)
                 obj_data = body_data["object"]
+
+                # Validate BSO ID (Requirements 10.2, 10.3)
+                bso_id = obj_data["id"]
+                try:
+                    validate_bso_id(bso_id)
+                except ValidationError as e:
+                    raise ValidationException(str(e))
+
+                # Validate that object ID in body matches path parameter
+                if bso_id != object_id:
+                    raise ValidationException("Object ID in body must match path parameter")
+
+                # Validate payload size (Requirement 10.1)
+                payload = obj_data["payload"]
+                try:
+                    validate_payload_size(payload)
+                except ValidationError as e:
+                    raise RequestTooLargeException(str(e))
+
+                # Validate sortindex if provided
+                sortindex = obj_data.get("sortindex")
+                try:
+                    validate_sortindex(sortindex)
+                except ValidationError as e:
+                    raise ValidationException(str(e))
+
+                # Validate TTL if provided
+                ttl = obj_data.get("ttl")
+                try:
+                    validate_ttl(ttl)
+                except ValidationError as e:
+                    raise ValidationException(str(e))
+
                 storage_object = BasicStorageObject(
-                    id=obj_data["id"],
-                    payload=obj_data["payload"],
-                    sortindex=obj_data.get("sortindex"),
-                    ttl=obj_data.get("ttl"),
+                    id=bso_id,
+                    payload=payload,
+                    sortindex=sortindex,
+                    ttl=ttl,
                     modified=datetime.fromtimestamp(
                         0, tz=timezone.utc
                     ),  # Will be set by DynamoDB service
                 )
 
-                # Validate that object ID in body matches path parameter
-                if storage_object.id != object_id:
-                    raise ValidationException("Object ID in body must match path parameter")
-
             except (json.JSONDecodeError, KeyError) as e:
                 raise ValidationException(f"Invalid request body: {e}")
 
-            # Handle conditional update header
+            # Handle conditional update header (Requirements 5.1-5.3)
             if_unmodified_since = None
             if_unmodified_since_header = event.headers.get("x-if-unmodified-since")
             if if_unmodified_since_header:
                 try:
-                    if_unmodified_since = int(if_unmodified_since_header)  # noqa: F841
+                    if_unmodified_since = float(if_unmodified_since_header)
                 except ValueError:
                     raise ValidationException("Invalid X-If-Unmodified-Since header")
 
@@ -80,6 +117,7 @@ class UpdateBSORoute(BaseRoute):
                 user_id,
                 collection_name,
                 object_id,
+                if_unmodified_since=if_unmodified_since,
                 payload=storage_object.payload,
                 sortindex=storage_object.sortindex,
                 ttl=storage_object.ttl,
@@ -126,6 +164,12 @@ class UpdateBSORoute(BaseRoute):
         except PreconditionFailedException as e:
             return Response(
                 status_code=412,
+                content_type="application/json",
+                body=json_dumps({"error": str(e)}),
+            )
+        except RequestTooLargeException as e:
+            return Response(
+                status_code=413,
                 content_type="application/json",
                 body=json_dumps({"error": str(e)}),
             )
