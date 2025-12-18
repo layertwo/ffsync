@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
 
 from src.routes.info.read_collections import ReadCollectionsInfoRoute
+from src.routes.info.read_configuration import ReadConfigurationRoute
 from src.routes.info.read_counts import ReadCollectionCountsRoute
 from src.routes.info.read_quota import ReadQuotaInfoRoute
 from src.routes.info.read_usage import ReadCollectionUsageRoute
@@ -46,8 +47,8 @@ class TestReadCollectionsInfoRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success(self, mock_storage_manager):
-        """Test successful retrieval of collections info"""
+    def test_handle_success_mozilla_format(self, mock_storage_manager):
+        """Test successful retrieval of collections info in Mozilla format (name -> timestamp)"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
         event: dict[str, Any] = with_auth({})
@@ -81,13 +82,12 @@ class TestReadCollectionsInfoRoute:
 
         assert response.body is not None
         body = json.loads(response.body)
-        assert "collections" in body
-        assert "bookmarks" in body["collections"]
-        assert body["collections"]["bookmarks"]["name"] == "bookmarks"
-        assert body["collections"]["bookmarks"]["modified"] == 1234567890.12
-        assert body["collections"]["bookmarks"]["count"] == 5
-        assert body["collections"]["bookmarks"]["usage"] == 1024
-        assert len(body["collections"]) == 3
+        # Mozilla format: object mapping collection names to timestamps
+        assert body == {
+            "bookmarks": 1234567890.12,
+            "history": 1234567880.00,
+            "tabs": 1234567870.00,
+        }
 
     def test_handle_empty_collections(self, mock_storage_manager):
         """Test handling when no collections exist"""
@@ -102,7 +102,8 @@ class TestReadCollectionsInfoRoute:
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
-        assert body["collections"] == {}
+        # Mozilla format: empty object
+        assert body == {}
 
     def test_handle_generic_exception(self, mock_storage_manager):
         """Test handling of generic exceptions"""
@@ -142,8 +143,8 @@ class TestReadCollectionCountsRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success(self, mock_storage_manager):
-        """Test successful retrieval of collection counts"""
+    def test_handle_success_mozilla_format(self, mock_storage_manager):
+        """Test successful retrieval of collection counts in Mozilla format (name -> count)"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
         event: dict[str, Any] = with_auth({})
@@ -175,7 +176,8 @@ class TestReadCollectionCountsRoute:
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
-        assert body["counts"] == {"bookmarks": 15, "history": 100, "tabs": 7}
+        # Mozilla format: object mapping collection names to counts directly
+        assert body == {"bookmarks": 15, "history": 100, "tabs": 7}
 
     def test_handle_empty_collections(self, mock_storage_manager):
         """Test handling when no collections exist"""
@@ -190,7 +192,8 @@ class TestReadCollectionCountsRoute:
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
-        assert body["counts"] == {}
+        # Mozilla format: empty object
+        assert body == {}
 
     def test_handle_generic_exception(self, mock_storage_manager):
         """Test handling of generic exceptions"""
@@ -227,8 +230,8 @@ class TestReadCollectionUsageRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success(self, mock_storage_manager):
-        """Test successful retrieval of collection usage"""
+    def test_handle_success_mozilla_format(self, mock_storage_manager):
+        """Test successful retrieval of collection usage in Mozilla format (name -> usage in KB)"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
         event: dict[str, Any] = with_auth({})
@@ -238,19 +241,19 @@ class TestReadCollectionUsageRoute:
                 name="bookmarks",
                 modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
                 count=5,
-                usage=1024,
+                usage=1024,  # 1 KB
             ),
             CollectionData(
                 name="history",
                 modified=datetime.fromtimestamp(1234567880.00, tz=timezone.utc),
                 count=10,
-                usage=4096,
+                usage=4096,  # 4 KB
             ),
             CollectionData(
                 name="tabs",
                 modified=datetime.fromtimestamp(1234567870.00, tz=timezone.utc),
                 count=3,
-                usage=512,
+                usage=512,  # 0.5 KB
             ),
         ]
         mock_storage_manager.list_collections.return_value = collections
@@ -260,7 +263,8 @@ class TestReadCollectionUsageRoute:
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
-        assert body["usage"] == {"bookmarks": 1024, "history": 4096, "tabs": 512}
+        # Mozilla format: object mapping collection names to usage in KB (not bytes)
+        assert body == {"bookmarks": 1.0, "history": 4.0, "tabs": 0.5}
 
     def test_handle_empty_collections(self, mock_storage_manager):
         """Test handling when no collections exist"""
@@ -275,7 +279,8 @@ class TestReadCollectionUsageRoute:
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
-        assert body["usage"] == {}
+        # Mozilla format: empty object
+        assert body == {}
 
     def test_handle_generic_exception(self, mock_storage_manager):
         """Test handling of generic exceptions"""
@@ -312,8 +317,8 @@ class TestReadQuotaInfoRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success(self, mock_storage_manager):
-        """Test successful retrieval of quota information"""
+    def test_handle_success_mozilla_format(self, mock_storage_manager):
+        """Test successful retrieval of quota information in Mozilla format [usage_kb, quota_kb]"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
         event: dict[str, Any] = with_auth({})
@@ -323,19 +328,19 @@ class TestReadQuotaInfoRoute:
                 name="bookmarks",
                 modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
                 count=5,
-                usage=1024,
+                usage=1024,  # 1 KB
             ),
             CollectionData(
                 name="history",
                 modified=datetime.fromtimestamp(1234567880.00, tz=timezone.utc),
                 count=10,
-                usage=2048,
+                usage=2048,  # 2 KB
             ),
             CollectionData(
                 name="tabs",
                 modified=datetime.fromtimestamp(1234567870.00, tz=timezone.utc),
                 count=3,
-                usage=512,
+                usage=512,  # 0.5 KB
             ),
         ]
         mock_storage_manager.list_collections.return_value = collections
@@ -346,11 +351,40 @@ class TestReadQuotaInfoRoute:
         assert response.body is not None
         body = json.loads(response.body)
 
-        quota = body["quota"]
-        assert quota["max_collections"] == 100
-        assert quota["max_usage"] == 10485760
-        assert quota["current_collections"] == 3
-        assert quota["current_usage"] == 3584  # 1024 + 2048 + 512
+        # Mozilla format: [usage_kb, quota_kb or null]
+        assert isinstance(body, list)
+        assert len(body) == 2
+        # Total usage: (1024 + 2048 + 512) / 1024 = 3.5 KB
+        assert body[0] == 3.5
+        # Default quota is None (not enforced)
+        assert body[1] is None
+
+    def test_handle_with_quota_limit(self, mock_storage_manager):
+        """Test quota info with a configured quota limit"""
+        quota_kb = 10240  # 10 MB in KB
+        route = ReadQuotaInfoRoute(mock_storage_manager, quota_kb=quota_kb)
+
+        event: dict[str, Any] = with_auth({})
+
+        collections = [
+            CollectionData(
+                name="bookmarks",
+                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                count=5,
+                usage=2048,  # 2 KB
+            ),
+        ]
+        mock_storage_manager.list_collections.return_value = collections
+
+        response = route.handle(event)
+
+        assert response.status_code == 200
+        assert response.body is not None
+        body = json.loads(response.body)
+
+        # Mozilla format: [usage_kb, quota_kb]
+        assert body[0] == 2.0  # 2048 bytes = 2 KB
+        assert body[1] == 10240  # Configured quota
 
     def test_handle_no_collections(self, mock_storage_manager):
         """Test quota info when no collections exist"""
@@ -366,9 +400,11 @@ class TestReadQuotaInfoRoute:
         assert response.body is not None
         body = json.loads(response.body)
 
-        quota = body["quota"]
-        assert quota["current_collections"] == 0
-        assert quota["current_usage"] == 0
+        # Mozilla format: [usage_kb, quota_kb or null]
+        assert isinstance(body, list)
+        assert len(body) == 2
+        assert body[0] == 0.0  # No usage
+        assert body[1] is None  # No quota enforced
 
     def test_handle_single_collection(self, mock_storage_manager):
         """Test quota info with single collection"""
@@ -381,7 +417,7 @@ class TestReadQuotaInfoRoute:
                 name="bookmarks",
                 modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
                 count=25,
-                usage=5000,
+                usage=5120,  # 5 KB
             )
         ]
         mock_storage_manager.list_collections.return_value = collections
@@ -392,9 +428,9 @@ class TestReadQuotaInfoRoute:
         assert response.body is not None
         body = json.loads(response.body)
 
-        quota = body["quota"]
-        assert quota["current_collections"] == 1
-        assert quota["current_usage"] == 5000
+        # Mozilla format: [usage_kb, quota_kb or null]
+        assert body[0] == 5.0  # 5120 bytes = 5 KB
+        assert body[1] is None
 
     def test_handle_generic_exception(self, mock_storage_manager):
         """Test handling of generic exceptions"""
@@ -471,3 +507,96 @@ class TestReadCollectionUsageRouteUnauthorized:
         assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "Unauthorized"
+
+
+class TestReadConfigurationRoute:
+    """Tests for ReadConfigurationRoute"""
+
+    def test_bind_registers_route(self):
+        """Test that bind registers the GET route and handler works through resolver"""
+        route = ReadConfigurationRoute()
+        app = APIGatewayRestResolver()
+        route.bind(app)
+
+        event: dict[str, Any] = {
+            "httpMethod": "GET",
+            "path": "/info/configuration",
+            "pathParameters": None,
+            "headers": {},
+            "body": None,
+        }
+        result = app.resolve(event, MagicMock())
+        assert result["statusCode"] == 200
+
+    def test_handle_default_configuration(self):
+        """Test successful retrieval of default server configuration"""
+        route = ReadConfigurationRoute()
+
+        event: dict[str, Any] = {}
+
+        response = route.handle(event)
+
+        assert response.status_code == 200
+        assert response.body is not None
+        body = json.loads(response.body)
+
+        # Required fields per Mozilla spec
+        assert body["max_request_bytes"] == 2 * 1024 * 1024  # 2 MB
+        assert body["max_post_records"] == 100
+        assert body["max_post_bytes"] == 2 * 1024 * 1024  # 2 MB
+        assert body["max_record_payload_bytes"] == 256 * 1024  # 256 KB
+
+        # Optional fields should not be present by default
+        assert "max_total_records" not in body
+        assert "max_total_bytes" not in body
+
+    def test_handle_custom_configuration(self):
+        """Test configuration with custom limits"""
+        route = ReadConfigurationRoute(
+            max_request_bytes=1024 * 1024,  # 1 MB
+            max_post_records=50,
+            max_post_bytes=512 * 1024,  # 512 KB
+            max_record_payload_bytes=128 * 1024,  # 128 KB
+            max_total_records=1000,
+            max_total_bytes=10 * 1024 * 1024,  # 10 MB
+        )
+
+        event: dict[str, Any] = {}
+
+        response = route.handle(event)
+
+        assert response.status_code == 200
+        assert response.body is not None
+        body = json.loads(response.body)
+
+        assert body["max_request_bytes"] == 1024 * 1024
+        assert body["max_post_records"] == 50
+        assert body["max_post_bytes"] == 512 * 1024
+        assert body["max_record_payload_bytes"] == 128 * 1024
+        assert body["max_total_records"] == 1000
+        assert body["max_total_bytes"] == 10 * 1024 * 1024
+
+    def test_handle_partial_optional_configuration(self):
+        """Test configuration with only some optional limits"""
+        route = ReadConfigurationRoute(
+            max_total_records=500,
+            max_total_bytes=None,  # Not configured
+        )
+
+        event: dict[str, Any] = {}
+
+        response = route.handle(event)
+
+        assert response.status_code == 200
+        assert response.body is not None
+        body = json.loads(response.body)
+
+        # Required fields present
+        assert "max_request_bytes" in body
+        assert "max_post_records" in body
+        assert "max_post_bytes" in body
+        assert "max_record_payload_bytes" in body
+
+        # Only max_total_records should be present
+        assert body["max_total_records"] == 500
+        assert "max_total_bytes" not in body

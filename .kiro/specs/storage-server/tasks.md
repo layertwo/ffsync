@@ -198,28 +198,28 @@
     - Currently returns wrapped `{"collection": ..., "batchResult": ...}` format
     - _Requirements: 3.2_
 
-- [ ] 7. Implement info route handlers (partial)
+- [x] 7. Implement info route handlers (partial)
   - [x] 7.1 Create `ReadCollectionsInfoRoute`
     - _Requirements: 7.1_
   - [x] 7.2 Create `ReadCollectionCountsRoute`
     - _Requirements: 7.2_
   - [x] 7.3 Create `ReadCollectionUsageRoute`
     - _Requirements: 7.3_
-  - [ ] 7.4 Update `ReadQuotaInfoRoute` to return Mozilla format
+  - [x] 7.4 Update `ReadQuotaInfoRoute` to return Mozilla format
     - Return [usage_kb, quota_kb or null] as two-item list
     - Currently returns wrapped object format
     - _Requirements: 7.4_
-  - [ ] 7.5 Create `ReadConfigurationRoute` in `routes/info/read_configuration.py`
+  - [x] 7.5 Create `ReadConfigurationRoute` in `routes/info/read_configuration.py`
     - Return max_request_bytes, max_post_records, max_post_bytes, max_record_payload_bytes
     - _Requirements: 8.1-8.7_
-  - [ ] 7.6 Update `ReadCollectionsInfoRoute` to return Mozilla format
+  - [x] 7.6 Update `ReadCollectionsInfoRoute` to return Mozilla format
     - Return object mapping collection names to timestamps (not full metadata)
     - Currently returns full CollectionData objects
     - _Requirements: 7.1_
-  - [ ] 7.7 Update `ReadCollectionCountsRoute` to return Mozilla format
+  - [x] 7.7 Update `ReadCollectionCountsRoute` to return Mozilla format
     - Return object mapping collection names to counts directly (not wrapped)
     - _Requirements: 7.2_
-  - [ ] 7.8 Update `ReadCollectionUsageRoute` to return Mozilla format
+  - [x] 7.8 Update `ReadCollectionUsageRoute` to return Mozilla format
     - Return object mapping collection names to usage in KB (not bytes, not wrapped)
     - _Requirements: 7.3_
   - [ ]* 7.9 Write property test for configuration

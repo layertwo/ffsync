@@ -18,7 +18,12 @@ class ReadCollectionCountsRoute(BaseRoute):
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:
-        """Get count information for all collections"""
+        """
+        Get count information for all collections.
+
+        Returns Mozilla format: object mapping collection names to counts directly.
+        Example: {"bookmarks": 15, "tabs": 7}
+        """
         try:
             # Extract user_id from authorizer context
             user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
@@ -32,10 +37,8 @@ class ReadCollectionCountsRoute(BaseRoute):
             # Get collections using storage manager
             collections = self.storage_manager.list_collections(user_id)
 
-            # Convert to counts format
-            counts = {collection.name: collection.count for collection in collections}
-
-            response_body = {"counts": counts}
+            # Mozilla format: object mapping collection names to counts directly
+            response_body = {collection.name: collection.count for collection in collections}
 
             return Response(
                 status_code=200,

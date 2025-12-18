@@ -18,7 +18,12 @@ class ReadCollectionUsageRoute(BaseRoute):
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:
-        """Get usage information for all collections"""
+        """
+        Get usage information for all collections.
+
+        Returns Mozilla format: object mapping collection names to usage in KB.
+        Example: {"bookmarks": 1.5, "tabs": 0.5}
+        """
         try:
             # Extract user_id from authorizer context
             user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
@@ -32,10 +37,8 @@ class ReadCollectionUsageRoute(BaseRoute):
             # Get collections using storage manager
             collections = self.storage_manager.list_collections(user_id)
 
-            # Convert to usage format
-            usage = {collection.name: collection.usage for collection in collections}
-
-            response_body = {"usage": usage}
+            # Mozilla format: object mapping collection names to usage in KB (not bytes)
+            response_body = {collection.name: collection.usage / 1024 for collection in collections}
 
             return Response(
                 status_code=200,
