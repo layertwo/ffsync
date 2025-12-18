@@ -167,7 +167,7 @@
     - **Property 15: Conditional GET Correctness**
     - **Validates: Requirements 1.7, 5.4, 5.5, 6.1, 6.2**
 
-- [ ] 6. Implement collection route handlers
+- [x] 6. Implement collection route handlers
   - [x] 6.1 Create `ReadCollectionRoute` in `routes/collections/read.py`
     - GET `/storage/{collection}` with filtering
     - Return empty list for non-existent collections
@@ -178,22 +178,22 @@
   - [x] 6.3 Create `DeleteCollectionRoute` in `routes/collections/delete.py`
     - DELETE `/storage/{collection}`
     - _Requirements: 4.3, 4.4_
-  - [ ] 6.4 Update ReadCollectionRoute to return empty list for non-existent collections
+  - [x] 6.4 Update ReadCollectionRoute to return empty list for non-existent collections
     - Currently returns 404, should return empty array per Mozilla spec
     - _Requirements: 2.2_
-  - [ ] 6.5 Update `DeleteCollectionRoute` for selective deletion
+  - [x] 6.5 Update `DeleteCollectionRoute` for selective deletion
     - Support `ids` query param (max 100)
     - Return `{"modified": timestamp}`
     - _Requirements: 4.1, 4.2, 4.5_
-  - [ ] 6.6 Add batch limit validation to CreateCollectionRoute
+  - [x] 6.6 Add batch limit validation to CreateCollectionRoute
     - Support X-Weave-Records and X-Weave-Bytes headers
     - Return 400 with code 17 for violations
     - _Requirements: 3.4, 3.5, 3.7, 3.8_
-  - [ ] 6.7 Add conditional GET support to ReadCollectionRoute
+  - [x] 6.7 Add conditional GET support to ReadCollectionRoute
     - _Requirements: 6.1, 6.2_
-  - [ ] 6.8 Add X-Weave-Records response header
+  - [x] 6.8 Add X-Weave-Records response header
     - _Requirements: 2.14_
-  - [ ] 6.9 Update CreateCollectionRoute to return Mozilla-compliant response
+  - [x] 6.9 Update CreateCollectionRoute to return Mozilla-compliant response
     - Return `{"modified": timestamp, "success": [...], "failed": {...}}` format
     - Currently returns wrapped `{"collection": ..., "batchResult": ...}` format
     - _Requirements: 3.2_

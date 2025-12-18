@@ -7,8 +7,10 @@ from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import (
+    CODE_SERVER_LIMIT_EXCEEDED,
     ConflictException,
     PreconditionFailedException,
+    ServerLimitExceededException,
     ValidationException,
 )
 from src.shared.models import BasicStorageObject
@@ -39,11 +41,36 @@ class CreateCollectionRoute(BaseRoute):
                 )
 
             path_params = event.path_parameters or {}
+            headers = event.headers or {}
             body = event.body
             collection_name = path_params["collectionName"]
 
+            # Validate X-Weave-Records header if present (Requirement 3.7)
+            x_weave_records = headers.get("x-weave-records")
+            if x_weave_records:
+                try:
+                    expected_records = int(x_weave_records)
+                    if expected_records > 100:  # MAX_POST_RECORDS
+                        raise ServerLimitExceededException(
+                            f"X-Weave-Records header indicates {expected_records} records, maximum is 100"
+                        )
+                except ValueError:
+                    raise ValidationException("X-Weave-Records header must be an integer")
+
+            # Validate X-Weave-Bytes header if present (Requirement 3.8)
+            x_weave_bytes = headers.get("x-weave-bytes")
+            if x_weave_bytes:
+                try:
+                    expected_bytes = int(x_weave_bytes)
+                    if expected_bytes > 2 * 1024 * 1024:  # MAX_POST_BYTES (2 MB)
+                        raise ServerLimitExceededException(
+                            f"X-Weave-Bytes header indicates {expected_bytes} bytes, maximum is {2 * 1024 * 1024}"
+                        )
+                except ValueError:
+                    raise ValidationException("X-Weave-Bytes header must be an integer")
+
             # Check conditional headers
-            if_unmodified_since = event.headers.get("x-if-unmodified-since")
+            if_unmodified_since = headers.get("x-if-unmodified-since")
             if if_unmodified_since and not self._check_precondition(
                 user_id, collection_name, if_unmodified_since
             ):
@@ -83,26 +110,40 @@ class CreateCollectionRoute(BaseRoute):
                 except (json.JSONDecodeError, KeyError) as e:
                     raise ValidationException(f"Invalid request body: {e}")
 
+            # Validate actual record count matches X-Weave-Records if provided
+            if x_weave_records:
+                actual_records = len(objects)
+                if actual_records != expected_records:
+                    raise ValidationException(
+                        f"X-Weave-Records header indicates {expected_records} records, but body contains {actual_records}"
+                    )
+
             # Create/update collection using storage manager
             collection_data, batch_result = self.storage_manager.create_or_update_collection(
                 user_id, collection_name, objects if objects else None
             )
 
-            # Convert to dict using dataclass serialization
-            collection_dict = collection_data.to_dict()
-            batch_dict = batch_result.to_dict()
-
+            # Return Mozilla-compliant response format (Requirement 3.2)
+            # {"modified": timestamp, "success": [...], "failed": {...}}
             response_body = {
-                "collection": collection_dict,
-                "batchResult": batch_dict,
+                "modified": collection_data.modified.timestamp(),
+                "success": batch_result.success,
+                "failed": batch_result.failed,
             }
 
             return Response(
-                status_code=201,
+                status_code=201,  # 201 Created for new collection
                 content_type="application/json",
                 body=json_dumps(response_body),
             )
 
+        except ServerLimitExceededException:
+            # Return 400 with Mozilla response code 17 (Requirement 3.4, 3.5)
+            return Response(
+                status_code=400,
+                content_type="application/json",
+                body=json_dumps(CODE_SERVER_LIMIT_EXCEEDED),
+            )
         except ValidationException as e:
             return Response(
                 status_code=400,

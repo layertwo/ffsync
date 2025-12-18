@@ -95,8 +95,10 @@ class TestCreateCollectionRoute:
         assert response.status_code == 201
         assert response.body is not None
         body = json.loads(response.body)
-        assert body["collection"]["name"] == "bookmarks"
-        assert body["batchResult"]["success"] == ["obj1", "obj2"]
+        # Mozilla-compliant response format
+        assert body["modified"] == 1234567890.12
+        assert body["success"] == ["obj1", "obj2"]
+        assert body["failed"] == {}
 
     def test_handle_success_with_array_format(self, mock_storage_manager):
         """Test collection creation with direct array format"""
@@ -314,12 +316,184 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 500
 
+    def test_handle_x_weave_records_exceeds_limit(self, mock_storage_manager):
+        """Test X-Weave-Records header exceeding limit returns 400 with code 17"""
+        route = CreateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {"x-weave-records": "150"},  # Exceeds 100 limit
+                    "body": json.dumps([]),
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body == 17  # CODE_SERVER_LIMIT_EXCEEDED
+
+    def test_handle_x_weave_bytes_exceeds_limit(self, mock_storage_manager):
+        """Test X-Weave-Bytes header exceeding limit returns 400 with code 17"""
+        route = CreateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {"x-weave-bytes": "3000000"},  # Exceeds 2MB limit
+                    "body": json.dumps([]),
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body == 17  # CODE_SERVER_LIMIT_EXCEEDED
+
+    def test_handle_x_weave_records_invalid_format(self, mock_storage_manager):
+        """Test X-Weave-Records header with invalid format returns 400"""
+        route = CreateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {"x-weave-records": "invalid"},
+                    "body": json.dumps([]),
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+
+    def test_handle_x_weave_bytes_invalid_format(self, mock_storage_manager):
+        """Test X-Weave-Bytes header with invalid format returns 400"""
+        route = CreateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {"x-weave-bytes": "invalid"},
+                    "body": json.dumps([]),
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+
+    def test_handle_x_weave_records_mismatch(self, mock_storage_manager):
+        """Test X-Weave-Records header mismatch with actual records returns 400"""
+        route = CreateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {"x-weave-records": "5"},  # Says 5 records
+                    "body": json.dumps([{"id": "obj1", "payload": "data"}]),  # But only 1
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+
+    def test_handle_x_weave_bytes_valid(self, mock_storage_manager):
+        """Test X-Weave-Bytes header with valid value proceeds normally"""
+        route = CreateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {"x-weave-bytes": "1000"},  # Valid bytes
+                    "body": json.dumps([{"id": "obj1", "payload": "data"}]),
+                }
+            )
+        )
+
+        collection_data = CollectionData(
+            name="bookmarks",
+            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            count=1,
+            usage=100,
+        )
+        batch_result = BatchResult(
+            success=["obj1"],
+            failed={},
+            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+        )
+        mock_storage_manager.create_or_update_collection.return_value = (
+            collection_data,
+            batch_result,
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 201
+
+    def test_handle_x_weave_records_valid_match(self, mock_storage_manager):
+        """Test X-Weave-Records header matching actual records proceeds normally"""
+        route = CreateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {"x-weave-records": "1"},  # Matches actual count
+                    "body": json.dumps([{"id": "obj1", "payload": "data"}]),
+                }
+            )
+        )
+
+        collection_data = CollectionData(
+            name="bookmarks",
+            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            count=1,
+            usage=100,
+        )
+        batch_result = BatchResult(
+            success=["obj1"],
+            failed={},
+            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+        )
+        mock_storage_manager.create_or_update_collection.return_value = (
+            collection_data,
+            batch_result,
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 201
+
 
 class TestReadCollectionRoute:
     """Tests for ReadCollectionRoute"""
 
     def test_bind_registers_route(self, mock_storage_manager):
         """Test that bind registers the GET route and handler works through resolver"""
+        # Set up mock to return empty collection
+        objects = {
+            "items": [],
+            "more": False,
+            "last_modified": 0.0,
+        }
+        mock_storage_manager.get_collection_objects.return_value = objects
+
         route = ReadCollectionRoute(mock_storage_manager)
         app = APIGatewayRestResolver()
         route.bind(app)
@@ -338,7 +512,7 @@ class TestReadCollectionRoute:
         assert result["statusCode"] == 200
 
     def test_handle_metadata_only(self, mock_storage_manager):
-        """Test getting collection metadata without objects"""
+        """Test getting collection - returns empty list when no query params"""
         route = ReadCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -346,25 +520,26 @@ class TestReadCollectionRoute:
                 {
                     "pathParameters": {"collectionName": "bookmarks"},
                     "queryStringParameters": None,
+                    "headers": {},
                 }
             )
         )
 
-        collection_data = CollectionData(
-            name="bookmarks",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
-            count=5,
-            usage=2048,
-        )
-        mock_storage_manager.get_collection.return_value = collection_data
+        # Now returns objects from get_collection_objects (empty list for non-existent)
+        objects = {
+            "items": [],
+            "more": False,
+            "last_modified": 1234567890.12,
+        }
+        mock_storage_manager.get_collection_objects.return_value = objects
 
         response = route.handle(event)
 
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
-        assert body["collection"]["name"] == "bookmarks"
-        assert body["collection"]["count"] == 5
+        # Mozilla-compliant: returns array of IDs (empty in this case)
+        assert body == []
 
     def test_handle_with_object_filters(self, mock_storage_manager):
         """Test getting collection objects with filters"""
@@ -378,7 +553,9 @@ class TestReadCollectionRoute:
                         "newer": "1234567880.00",
                         "limit": "10",
                         "sort": "newest",
+                        "full": "1",  # Request full objects
                     },
+                    "headers": {},
                 }
             )
         )
@@ -403,8 +580,9 @@ class TestReadCollectionRoute:
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
-        assert len(body["objects"]) == 1
-        assert body["more"] is False
+        # Mozilla-compliant: returns flat array of BSO objects
+        assert len(body) == 1
+        assert body[0]["id"] == "obj1"
 
     def test_handle_objects_with_pagination(self, mock_storage_manager):
         """Test getting objects with pagination"""
@@ -415,6 +593,7 @@ class TestReadCollectionRoute:
                 {
                     "pathParameters": {"collectionName": "history"},
                     "queryStringParameters": {"limit": "5", "offset": "10"},
+                    "headers": {},
                 }
             )
         )
@@ -441,8 +620,10 @@ class TestReadCollectionRoute:
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
-        assert body["more"] is True
-        assert body["next_offset"] == 15
+        # Mozilla-compliant: returns flat array of IDs (default full=0)
+        assert len(body) == 5
+        # Check X-Weave-Next-Offset header for pagination
+        assert response.headers.get("X-Weave-Next-Offset") == "15"
 
     def test_handle_objects_without_optional_fields(self, mock_storage_manager):
         """Test formatting objects without sortindex/ttl"""
@@ -452,7 +633,8 @@ class TestReadCollectionRoute:
             with_auth(
                 {
                     "pathParameters": {"collectionName": "tabs"},
-                    "queryStringParameters": {"ids": "obj1,obj2"},
+                    "queryStringParameters": {"ids": "obj1,obj2", "full": "1"},
+                    "headers": {},
                 }
             )
         )
@@ -476,8 +658,9 @@ class TestReadCollectionRoute:
 
         assert response.body is not None
         body = json.loads(response.body)
-        assert "sortindex" not in body["objects"][0]
-        assert "ttl" not in body["objects"][0]
+        # Mozilla-compliant: returns flat array of BSO objects
+        assert "sortindex" not in body[0]
+        assert "ttl" not in body[0]
 
     def test_handle_validation_exception(self, mock_storage_manager):
         """Test handling of ValidationException"""
@@ -488,18 +671,19 @@ class TestReadCollectionRoute:
                 {
                     "pathParameters": {"collectionName": "invalid!"},
                     "queryStringParameters": None,
+                    "headers": {},
                 }
             )
         )
 
-        mock_storage_manager.get_collection.side_effect = ValidationException("Invalid")
+        mock_storage_manager.get_collection_objects.side_effect = ValidationException("Invalid")
 
         response = route.handle(event)
 
         assert response.status_code == 400
 
     def test_handle_collection_not_found(self, mock_storage_manager):
-        """Test handling of CollectionNotFoundException"""
+        """Test handling of non-existent collection - returns empty list per Mozilla spec"""
         route = ReadCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -507,15 +691,26 @@ class TestReadCollectionRoute:
                 {
                     "pathParameters": {"collectionName": "nonexistent"},
                     "queryStringParameters": None,
+                    "headers": {},
                 }
             )
         )
 
-        mock_storage_manager.get_collection.side_effect = CollectionNotFoundException("Not found")
+        # Per Mozilla spec (Requirement 2.2), return empty list for non-existent collections
+        objects = {
+            "items": [],
+            "more": False,
+            "last_modified": 0.0,
+        }
+        mock_storage_manager.get_collection_objects.return_value = objects
 
         response = route.handle(event)
 
-        assert response.status_code == 404
+        # Should return 200 with empty list, not 404
+        assert response.status_code == 200
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body == []
 
     def test_handle_generic_exception(self, mock_storage_manager):
         """Test handling of generic exceptions"""
@@ -526,15 +721,175 @@ class TestReadCollectionRoute:
                 {
                     "pathParameters": {"collectionName": "bookmarks"},
                     "queryStringParameters": None,
+                    "headers": {},
                 }
             )
         )
 
-        mock_storage_manager.get_collection.side_effect = Exception("Error")
+        mock_storage_manager.get_collection_objects.side_effect = Exception("Error")
 
         response = route.handle(event)
 
         assert response.status_code == 500
+
+    def test_handle_conditional_get_not_modified(self, mock_storage_manager):
+        """Test conditional GET returns 304 when not modified"""
+        route = ReadCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": None,
+                    "headers": {"x-if-modified-since": "1234567890.12"},
+                }
+            )
+        )
+
+        objects = {
+            "items": [],
+            "more": False,
+            "last_modified": 1234567880.00,  # Older than if-modified-since
+        }
+        mock_storage_manager.get_collection_objects.return_value = objects
+
+        response = route.handle(event)
+
+        assert response.status_code == 304
+
+    def test_handle_conditional_get_modified(self, mock_storage_manager):
+        """Test conditional GET returns 200 when modified"""
+        route = ReadCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": None,
+                    "headers": {"x-if-modified-since": "1234567880.00"},
+                }
+            )
+        )
+
+        objects = {
+            "items": [],
+            "more": False,
+            "last_modified": 1234567890.12,  # Newer than if-modified-since
+        }
+        mock_storage_manager.get_collection_objects.return_value = objects
+
+        response = route.handle(event)
+
+        assert response.status_code == 200
+
+    def test_handle_both_conditional_headers_returns_400(self, mock_storage_manager):
+        """Test both X-If-Modified-Since and X-If-Unmodified-Since returns 400"""
+        route = ReadCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": None,
+                    "headers": {
+                        "x-if-modified-since": "1234567890.12",
+                        "x-if-unmodified-since": "1234567890.12",
+                    },
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+
+    def test_handle_invalid_if_modified_since_returns_400(self, mock_storage_manager):
+        """Test invalid X-If-Modified-Since header returns 400"""
+        route = ReadCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": None,
+                    "headers": {"x-if-modified-since": "invalid"},
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+
+    def test_handle_negative_if_modified_since_returns_400(self, mock_storage_manager):
+        """Test negative X-If-Modified-Since header returns 400"""
+        route = ReadCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": None,
+                    "headers": {"x-if-modified-since": "-1.0"},
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+
+    def test_handle_with_datetime_last_modified(self, mock_storage_manager):
+        """Test handling when last_modified is a datetime object"""
+        route = ReadCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": None,
+                    "headers": {},
+                }
+            )
+        )
+
+        objects = {
+            "items": [],
+            "more": False,
+            "last_modified": datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+        }
+        mock_storage_manager.get_collection_objects.return_value = objects
+
+        response = route.handle(event)
+
+        assert response.status_code == 200
+
+    def test_handle_with_none_last_modified(self, mock_storage_manager):
+        """Test handling when last_modified is None"""
+        route = ReadCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": None,
+                    "headers": {},
+                }
+            )
+        )
+
+        objects = {
+            "items": [],
+            "more": False,
+            "last_modified": None,  # None value
+        }
+        mock_storage_manager.get_collection_objects.return_value = objects
+
+        response = route.handle(event)
+
+        assert response.status_code == 200
+        # Should default to 0.0
+        assert response.headers.get("X-Last-Modified") == "0.0"
 
 
 class TestUpdateCollectionRoute:
@@ -791,6 +1146,7 @@ class TestDeleteCollectionRoute:
                 "httpMethod": "DELETE",
                 "path": "/storage/bookmarks",
                 "pathParameters": {"collectionName": "bookmarks"},
+                "queryStringParameters": None,
                 "headers": {},
                 "body": None,
             }
@@ -806,6 +1162,7 @@ class TestDeleteCollectionRoute:
             with_auth(
                 {
                     "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": None,
                 }
             )
         )
@@ -828,6 +1185,7 @@ class TestDeleteCollectionRoute:
             with_auth(
                 {
                     "pathParameters": {"collectionName": "invalid!"},
+                    "queryStringParameters": None,
                 }
             )
         )
@@ -846,6 +1204,7 @@ class TestDeleteCollectionRoute:
             with_auth(
                 {
                     "pathParameters": {"collectionName": "nonexistent"},
+                    "queryStringParameters": None,
                 }
             )
         )
@@ -866,6 +1225,7 @@ class TestDeleteCollectionRoute:
             with_auth(
                 {
                     "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": None,
                 }
             )
         )
@@ -875,6 +1235,31 @@ class TestDeleteCollectionRoute:
         response = route.handle(event)
 
         assert response.status_code == 500
+
+    def test_handle_selective_deletion(self, mock_storage_manager):
+        """Test selective deletion with ids parameter"""
+        route = DeleteCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "queryStringParameters": {"ids": "obj1,obj2,obj3"},
+                }
+            )
+        )
+
+        mock_storage_manager.delete_collection_objects.return_value = 1234567892.00
+
+        response = route.handle(event)
+
+        mock_storage_manager.delete_collection_objects.assert_called_once_with(
+            TEST_USER_ID, "bookmarks", ["obj1", "obj2", "obj3"]
+        )
+        assert response.status_code == 200
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["modified"] == 1234567892.00
 
 
 class TestListCollectionsRoute:
