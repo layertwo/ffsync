@@ -83,7 +83,8 @@ class TestReadBSORoute:
         assert body["object"]["payload"] == "bookmark_data"
         assert body["object"]["modified"] == 1234567890.12
         assert body["object"]["sortindex"] == 100
-        assert body["object"]["ttl"] == 3600
+        # TTL is write-only per Mozilla spec (Requirement 11.4) - should not be in response
+        assert "ttl" not in body["object"]
         assert response.headers["X-Last-Modified"] == "1234567890.12"
 
     def test_handle_success_without_optional_fields(self, mock_storage_manager):
@@ -582,6 +583,29 @@ class TestDeleteBSORoute:
         assert response.status_code == 500
 
 
+class TestReadBSORouteUnauthorized:
+    """Tests for ReadBSORoute unauthorized cases"""
+
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+        """Test handling when user_id is missing from authorizer context"""
+        route = ReadBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "headers": {},
+                "requestContext": {"authorizer": {}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"
+
+
 class TestDeleteBSORouteUnauthorized:
     """Tests for DeleteBSORoute unauthorized cases"""
 
@@ -626,3 +650,300 @@ class TestUpdateBSORouteUnauthorized:
         assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "Unauthorized"
+
+
+class TestReadBSORouteConditionalGET:
+    """Tests for ReadBSORoute conditional GET support (Requirements 6.1-6.4)"""
+
+    def test_handle_if_modified_since_not_modified(self, mock_storage_manager):
+        """Test 304 Not Modified when resource hasn't changed"""
+        route = ReadBSORoute(mock_storage_manager)
+
+        bso = BasicStorageObject(
+            id="item123",
+            payload="data",
+            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            sortindex=None,
+            ttl=None,
+        )
+        mock_storage_manager.get_storage_object.return_value = bso
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "headers": {"x-if-modified-since": "1234567890.12"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 304
+        assert response.headers["X-Last-Modified"] == "1234567890.12"
+
+    def test_handle_if_modified_since_modified(self, mock_storage_manager):
+        """Test 200 OK when resource has been modified"""
+        route = ReadBSORoute(mock_storage_manager)
+
+        bso = BasicStorageObject(
+            id="item123",
+            payload="data",
+            modified=datetime.fromtimestamp(1234567900.00, tz=timezone.utc),
+            sortindex=None,
+            ttl=None,
+        )
+        mock_storage_manager.get_storage_object.return_value = bso
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "headers": {"x-if-modified-since": "1234567890.12"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 200
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["object"]["id"] == "item123"
+
+    def test_handle_if_modified_since_invalid_format(self, mock_storage_manager):
+        """Test 400 Bad Request for invalid X-If-Modified-Since header"""
+        route = ReadBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "headers": {"x-if-modified-since": "invalid"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "Invalid X-If-Modified-Since header" in body["error"]
+
+    def test_handle_if_modified_since_negative(self, mock_storage_manager):
+        """Test 400 Bad Request for negative X-If-Modified-Since value"""
+        route = ReadBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "headers": {"x-if-modified-since": "-123.45"},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "Invalid X-If-Modified-Since header" in body["error"]
+
+    def test_handle_both_conditional_headers(self, mock_storage_manager):
+        """Test 400 Bad Request when both X-If-Modified-Since and X-If-Unmodified-Since are present"""
+        route = ReadBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "headers": {
+                    "x-if-modified-since": "1234567890.12",
+                    "x-if-unmodified-since": "1234567890.12",
+                },
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "Cannot specify both" in body["error"]
+
+
+class TestUpdateBSORouteValidation:
+    """Tests for UpdateBSORoute validation (Requirements 10.1-10.5)"""
+
+    def test_handle_payload_too_large(self, mock_storage_manager):
+        """Test 413 Request Too Large for oversized payload"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        # Create a payload larger than 256 KB
+        large_payload = "x" * (256 * 1024 + 1)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "body": json.dumps({"object": {"id": "item123", "payload": large_payload}}),
+                "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 413
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "Payload size" in body["error"]
+
+    def test_handle_bso_id_too_long(self, mock_storage_manager):
+        """Test 400 Bad Request for BSO ID exceeding 64 characters"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        long_id = "x" * 65
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": long_id},
+                "body": json.dumps({"object": {"id": long_id, "payload": "data"}}),
+                "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "BSO ID length" in body["error"]
+
+    def test_handle_bso_id_non_printable_ascii(self, mock_storage_manager):
+        """Test 400 Bad Request for BSO ID with non-printable ASCII"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        invalid_id = "item\x00123"
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": invalid_id},
+                "body": json.dumps({"object": {"id": invalid_id, "payload": "data"}}),
+                "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "non-printable ASCII" in body["error"]
+
+    def test_handle_sortindex_invalid(self, mock_storage_manager):
+        """Test 400 Bad Request for invalid sortindex"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "body": json.dumps(
+                    {"object": {"id": "item123", "payload": "data", "sortindex": "not_an_int"}}
+                ),
+                "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "Sortindex must be an integer" in body["error"]
+
+    def test_handle_sortindex_exceeds_max(self, mock_storage_manager):
+        """Test 400 Bad Request for sortindex exceeding 9 digits"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "body": json.dumps(
+                    {"object": {"id": "item123", "payload": "data", "sortindex": 1000000000}}
+                ),
+                "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "Sortindex" in body["error"] and "exceeds" in body["error"]
+
+    def test_handle_ttl_invalid(self, mock_storage_manager):
+        """Test 400 Bad Request for invalid TTL"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "body": json.dumps(
+                    {"object": {"id": "item123", "payload": "data", "ttl": "not_an_int"}}
+                ),
+                "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "TTL must be an integer" in body["error"]
+
+    def test_handle_ttl_negative(self, mock_storage_manager):
+        """Test 400 Bad Request for negative TTL"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "body": json.dumps({"object": {"id": "item123", "payload": "data", "ttl": -100}}),
+                "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "TTL must be a positive integer" in body["error"]
+
+    def test_handle_ttl_exceeds_max(self, mock_storage_manager):
+        """Test 400 Bad Request for TTL exceeding 9 digits"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "body": json.dumps(
+                    {"object": {"id": "item123", "payload": "data", "ttl": 1000000000}}
+                ),
+                "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "TTL" in body["error"] and "exceeds" in body["error"]
