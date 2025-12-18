@@ -16,10 +16,10 @@
 | src/routes/bso/read.py                 |       54 |        0 |       14 |        0 |     100% |           |
 | src/routes/bso/update.py               |       83 |        0 |       10 |        0 |     100% |           |
 | src/routes/collections/\_\_init\_\_.py |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/collections/create.py       |       56 |        0 |        8 |        0 |     100% |           |
-| src/routes/collections/delete.py       |       31 |        0 |        2 |        0 |     100% |           |
+| src/routes/collections/create.py       |       77 |        0 |       20 |        0 |     100% |           |
+| src/routes/collections/delete.py       |       36 |        0 |        4 |        0 |     100% |           |
 | src/routes/collections/list.py         |       24 |        0 |        2 |        0 |     100% |           |
-| src/routes/collections/read.py         |       60 |        0 |       14 |        0 |     100% |           |
+| src/routes/collections/read.py         |       78 |        0 |       28 |        0 |     100% |           |
 | src/routes/collections/update.py       |       51 |        0 |        4 |        0 |     100% |           |
 | src/routes/info/\_\_init\_\_.py        |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/info/read\_collections.py   |       25 |        0 |        2 |        0 |     100% |           |
@@ -43,7 +43,7 @@
 | src/shared/token.py                    |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                     |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                    |       19 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                              | **1392** |    **0** |  **236** |    **0** | **100%** |           |
+| **TOTAL**                              | **1436** |    **0** |  **264** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
