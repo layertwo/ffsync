@@ -13,8 +13,8 @@
 | src/routes/\_\_init\_\_.py             |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/delete.py               |       34 |        0 |        2 |        0 |     100% |           |
-| src/routes/bso/read.py                 |       39 |        0 |        6 |        0 |     100% |           |
-| src/routes/bso/update.py               |       61 |        0 |       10 |        0 |     100% |           |
+| src/routes/bso/read.py                 |       54 |        0 |       14 |        0 |     100% |           |
+| src/routes/bso/update.py               |       83 |        0 |       10 |        0 |     100% |           |
 | src/routes/collections/\_\_init\_\_.py |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/collections/create.py       |       56 |        0 |        8 |        0 |     100% |           |
 | src/routes/collections/delete.py       |       31 |        0 |        2 |        0 |     100% |           |
@@ -43,7 +43,7 @@
 | src/shared/token.py                    |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                     |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                    |       19 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                              | **1355** |    **0** |  **228** |    **0** | **100%** |           |
+| **TOTAL**                              | **1392** |    **0** |  **236** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
