@@ -19,7 +19,7 @@ class DeleteCollectionRoute(BaseRoute):
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:
-        """Delete an entire collection"""
+        """Delete an entire collection or specific BSOs"""
         try:
             # Extract user_id from authorizer context
             user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
@@ -31,10 +31,23 @@ class DeleteCollectionRoute(BaseRoute):
                 )
 
             path_params = event.path_parameters or {}
+            query_params = event.query_string_parameters or {}
             collection_name = path_params["collectionName"]
 
-            # Delete collection using DynamoDB service
-            modified_timestamp = self.dynamodb_service.delete_collection(user_id, collection_name)
+            # Check if selective deletion (ids parameter present)
+            ids_param = query_params.get("ids")
+
+            if ids_param:
+                # Selective deletion - delete only specified BSOs (Requirement 4.1, 4.2, 4.5)
+                ids = [id.strip() for id in ids_param.split(",")]
+                modified_timestamp = self.dynamodb_service.delete_collection_objects(
+                    user_id, collection_name, ids
+                )
+            else:
+                # Delete entire collection (Requirement 4.3, 4.4)
+                modified_timestamp = self.dynamodb_service.delete_collection(
+                    user_id, collection_name
+                )
 
             response_body = {"modified": modified_timestamp}
 
