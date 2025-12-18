@@ -413,11 +413,52 @@ class TokenGenerator:
 - **Duration**: 300 seconds (5 minutes)
 - **uid**: Hash of user_id + generation (changes on node reset)
 
-**Design Decision**: Embed generation number and expiry in HAWK ID to enable stateless validation by Storage API. Use secrets.token_bytes() for cryptographic randomness. Include generation in uid calculation so uid changes when client_state changes.
+**Design Decision**: Embed generation number and expiry in HAWK ID to enable stateless validation by Storage API. Use secrets.token_bytes() for cryptographic randomness. Include generation in uid calculation so uid changes when client_state changes. Store issued tokens in DynamoDB cache for Storage Server validation.
 
-**Rationale**: Stateless token design allows Storage API to validate tokens without querying Token Server. Embedding metadata in HAWK ID enables validation of generation number and expiry. uid changes on generation increment implement the Mozilla spec's node reset behavior.
+**Rationale**: Stateless token design allows Storage API to validate tokens without querying Token Server. Embedding metadata in HAWK ID enables validation of generation number and expiry. uid changes on generation increment implement the Mozilla spec's node reset behavior. Token cache enables Storage Server to validate HAWK signatures without shared secrets.
 
 **Note**: The Mozilla spec does not include `hashalg` in the response. We include it for HAWK compatibility but it's not part of the official spec.
+
+#### TokenCache Service
+
+```python
+class TokenCache:
+    def __init__(self, dynamodb_table_name: str):
+        self.table_name = dynamodb_table_name
+        self.dynamodb = boto3.resource('dynamodb')
+        self.table = self.dynamodb.Table(table_name)
+    
+    def store_token(self, hawk_id: str, hawk_key: str, user_id: str, generation: int, expiry: int) -> None:
+        """
+        Store issued HAWK token in DynamoDB cache for Storage Server validation.
+        
+        Args:
+            hawk_id: Base64-encoded HAWK ID
+            hawk_key: Hex-encoded HAWK shared secret (64 chars)
+            user_id: User identifier
+            generation: Generation number
+            expiry: Unix timestamp when token expires
+        
+        DynamoDB Schema:
+            PK: "TOKEN#{hawk_id}"
+            hawk_key: String (hex-encoded, 64 chars)
+            user_id: String
+            generation: Number
+            expiry: Number (DynamoDB TTL attribute for auto-cleanup)
+            created_at: Number
+        
+        Note: DynamoDB TTL automatically removes expired tokens after expiry time.
+        """
+```
+
+**Token Cache Integration**:
+1. Token Server generates HAWK credentials (id, key)
+2. Token Server writes token to cache: `token_cache.store_token(hawk_id, hawk_key, user_id, generation, expiry)`
+3. Token Server returns credentials to client
+4. Client uses HAWK credentials to authenticate Storage API requests
+5. Storage Server reads token from cache: `token_key_store.get_hawk_key(hawk_id)`
+6. Storage Server validates HAWK signature using cached key
+7. DynamoDB TTL automatically removes expired tokens (300 seconds)
 
 ### 5. Error Handler
 

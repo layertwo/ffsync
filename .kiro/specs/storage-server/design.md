@@ -92,34 +92,486 @@ Each route follows the `BaseRoute` pattern with `bind()` and `handle()` methods:
 
 The Lambda Authorizer handles HAWK authentication and authorization, running before the main Storage API handler.
 
-```python
-class HawkAuthorizer:
-    def authorize(self, event: dict) -> AuthPolicy:
-        """
-        Validates HAWK credentials and returns IAM policy.
-        
-        Args:
-            event: API Gateway authorizer event containing:
-                - authorizationToken: HAWK Authorization header
-                - methodArn: Resource ARN being accessed
-                - requestContext: Request metadata
-        
-        Returns:
-            AuthPolicy with:
-                - principalId: User ID extracted from HAWK credentials
-                - policyDocument: IAM policy (Allow/Deny)
-                - context: Additional context (user_id, hawk_id) passed to handler
-        
-        Raises:
-            Returns Deny policy for:
-                - Missing or malformed HAWK header
-                - Invalid HAWK signature
-                - Expired HAWK credentials
-                - Unknown HAWK key ID
-        """
+#### Component Architecture
+
+```
+API Gateway REQUEST Authorizer Event
+         ↓
+    hawk_authorizer.py (Lambda Handler)
+         ↓
+    HawkValidator.validate()
+         ├─ Parse HAWK header
+         ├─ Extract HAWK ID (user_id:generation:expiry)
+         ├─ Check expiry timestamp
+         └─ Validate signature
+              ↓
+    TokenKeyStore.get_hawk_key()
+         ├─ Query Token Server DynamoDB table
+         ├─ Retrieve user record by user_id
+         ├─ Validate generation number
+         └─ Return HAWK shared secret
+              ↓
+    AuthPolicy (Allow/Deny + Context)
+         ↓
+    API Gateway → Storage API Handler
 ```
 
-**Authorizer Response Format:**
+#### HawkAuthorizer Entry Point
+
+```python
+# entrypoint/hawk_authorizer.py
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
+    """
+    Lambda handler for API Gateway REQUEST authorizer.
+    
+    Args:
+        event: API Gateway authorizer event with structure:
+            {
+                "type": "REQUEST",
+                "methodArn": "arn:aws:execute-api:...",
+                "headers": {
+                    "Authorization": "Hawk id=\"...\", ts=\"...\", nonce=\"...\", mac=\"...\""
+                },
+                "requestContext": {...}
+            }
+    
+    Returns:
+        IAM policy document with context:
+            {
+                "principalId": "user_id",
+                "policyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [{
+                        "Action": "execute-api:Invoke",
+                        "Effect": "Allow|Deny",
+                        "Resource": "arn:aws:execute-api:..."
+                    }]
+                },
+                "context": {
+                    "user_id": "abc123",
+                    "hawk_id": "base64_encoded_id",
+                    "authenticated_at": "1702345678.12"
+                }
+            }
+    """
+```
+
+#### HawkService (Shared Component)
+
+```python
+import hmac
+import hashlib
+import base64
+import time
+import secrets
+import boto3
+from typing import Tuple, Optional
+
+@dataclass
+class HawkCredentials:
+    user_id: str
+    generation: int
+    expiry: int
+    hawk_id: str
+    hawk_key: Optional[str] = None  # Only populated when generating
+
+class HawkService:
+    """
+    Unified HAWK service for both Token Server and Storage Server.
+    
+    Token Server uses:
+        - generate_hawk_credentials()
+        - store_token_in_cache()
+    
+    Storage Server uses:
+        - validate()
+        - All validation helper methods
+    """
+    TIMESTAMP_SKEW_SECONDS = 60  # Allow 60 second clock skew
+    TOKEN_DURATION_SECONDS = 300  # 5 minutes
+    
+    def __init__(self, token_cache_table_name: str):
+        self.token_cache_table_name = token_cache_table_name
+        self.dynamodb = boto3.resource('dynamodb')
+        self.token_cache_table = self.dynamodb.Table(token_cache_table_name)
+    
+    def validate(self, authorization_header: str, method: str, path: str, host: str, port: int) -> HawkCredentials:
+        """
+        Validate HAWK Authorization header and return credentials.
+        
+        Args:
+            authorization_header: HAWK Authorization header value
+            method: HTTP method (GET, POST, etc.)
+            path: Request path
+            host: Request host
+            port: Request port
+        
+        Returns:
+            HawkCredentials with user_id, generation, expiry, hawk_id
+        
+        Raises:
+            InvalidHawkHeaderException: Malformed HAWK header
+            ExpiredHawkTokenException: Token expired
+            InvalidHawkSignatureException: Signature verification failed
+            InvalidGenerationException: Generation number mismatch
+        
+        HAWK Header Format:
+            Hawk id="base64_encoded_id", ts="1702345678", nonce="random", mac="signature"
+        
+        HAWK ID Format (base64-encoded):
+            {user_id}:{generation}:{expiry_timestamp}
+        
+        Validation Steps:
+            1. Parse HAWK header and extract id, ts, nonce, mac
+            2. Decode HAWK ID and extract user_id, generation, expiry
+            3. Verify token has not expired (current_time < expiry)
+            4. Validate timestamp is within acceptable window
+            5. Retrieve HAWK shared secret from TokenKeyStore
+            6. Compute expected MAC using HMAC-SHA256
+            7. Compare computed MAC with provided MAC (constant-time comparison)
+        """
+        # Parse HAWK header
+        hawk_params = self.parse_hawk_header(authorization_header)
+        hawk_id = hawk_params['id']
+        timestamp = int(hawk_params['ts'])
+        nonce = hawk_params['nonce']
+        provided_mac = hawk_params['mac']
+        
+        # Decode and validate HAWK ID
+        user_id, generation, expiry = self.decode_hawk_id(hawk_id)
+        
+        # Validate token hasn't expired
+        if not self.validate_hawk_id_expiry(expiry):
+            raise ExpiredHawkTokenException(f"HAWK token expired at {expiry}")
+        
+        # Validate timestamp
+        if not self.validate_timestamp(timestamp):
+            raise InvalidHawkSignatureException(f"Timestamp {timestamp} outside acceptable window")
+        
+        # Retrieve HAWK key from cache
+        hawk_key, cached_user_id, cached_generation = self.get_hawk_key_from_cache(hawk_id)
+        
+        # Verify MAC
+        if not self.verify_mac(hawk_key, provided_mac, timestamp, nonce, method, path, host, port):
+            raise InvalidHawkSignatureException("HAWK MAC verification failed")
+        
+        return HawkCredentials(
+            user_id=user_id,
+            generation=generation,
+            expiry=expiry,
+            hawk_id=hawk_id
+        )
+    
+    def parse_hawk_header(self, authorization_header: str) -> dict:
+        """
+        Parse HAWK Authorization header.
+        
+        Args:
+            authorization_header: Full Authorization header value
+        
+        Returns:
+            Dictionary with id, ts, nonce, mac keys
+        
+        Raises:
+            InvalidHawkHeaderException: Malformed header
+        
+        Example:
+            Hawk id="abc123", ts="1702345678", nonce="xyz", mac="signature=="
+        """
+        if not authorization_header.startswith('Hawk '):
+            raise InvalidHawkHeaderException("Authorization header must start with 'Hawk '")
+        
+        # Parse key="value" pairs
+        params = {}
+        parts = authorization_header[5:].split(', ')  # Skip 'Hawk '
+        for part in parts:
+            if '=' not in part:
+                raise InvalidHawkHeaderException(f"Invalid HAWK parameter: {part}")
+            key, value = part.split('=', 1)
+            params[key] = value.strip('"')
+        
+        # Validate required fields
+        required = ['id', 'ts', 'nonce', 'mac']
+        for field in required:
+            if field not in params:
+                raise InvalidHawkHeaderException(f"Missing required HAWK parameter: {field}")
+        
+        return params
+    
+    def decode_hawk_id(self, hawk_id: str) -> Tuple[str, int, int]:
+        """
+        Decode HAWK ID back to user_id, generation, expiry.
+        
+        Args:
+            hawk_id: Base64-encoded HAWK ID
+        
+        Returns:
+            Tuple of (user_id, generation, expiry)
+        
+        Raises:
+            InvalidHawkHeaderException: Invalid format
+        """
+        try:
+            # Add padding back if needed
+            padding = 4 - (len(hawk_id) % 4)
+            if padding != 4:
+                hawk_id += "=" * padding
+            
+            decoded = base64.urlsafe_b64decode(hawk_id).decode("utf-8")
+            parts = decoded.split(":")
+            
+            if len(parts) != 3:
+                raise ValueError("HAWK ID must have 3 parts")
+            
+            user_id, generation, expiry = parts
+            return user_id, int(generation), int(expiry)
+        
+        except (ValueError, base64.binascii.Error) as e:
+            raise InvalidHawkHeaderException(f"Invalid HAWK ID format: {e}")
+    
+    def validate_hawk_id_expiry(self, expiry: int) -> bool:
+        """
+        Validate HAWK ID hasn't expired.
+        
+        Args:
+            expiry: Unix timestamp when token expires
+        
+        Returns:
+            True if token is still valid
+        """
+        return int(time.time()) < expiry
+    
+    def validate_timestamp(self, timestamp: int) -> bool:
+        """
+        Validate timestamp is within acceptable window.
+        
+        Args:
+            timestamp: Unix timestamp from HAWK header
+        
+        Returns:
+            True if timestamp is within acceptable skew
+        """
+        now = int(time.time())
+        return abs(now - timestamp) <= self.TIMESTAMP_SKEW_SECONDS
+    
+    def build_normalized_string(
+        self,
+        timestamp: str,
+        nonce: str,
+        method: str,
+        uri: str,
+        host: str,
+        port: str,
+        payload_hash: str = "",
+        ext: str = ""
+    ) -> str:
+        """
+        Build the normalized request string for MAC calculation.
+        
+        HAWK Normalized Request String Format:
+            hawk.1.header\n
+            {timestamp}\n
+            {nonce}\n
+            {method}\n
+            {uri}\n
+            {host}\n
+            {port}\n
+            {payload_hash}\n
+            {ext}\n
+        """
+        return (
+            f"hawk.1.header\n"
+            f"{timestamp}\n"
+            f"{nonce}\n"
+            f"{method.upper()}\n"
+            f"{uri}\n"
+            f"{host.lower()}\n"
+            f"{port}\n"
+            f"{payload_hash}\n"
+            f"{ext}\n"
+        )
+    
+    def calculate_mac(self, key: str, normalized_string: str) -> str:
+        """
+        Calculate HAWK MAC using HMAC-SHA256.
+        
+        Args:
+            key: Hex-encoded HAWK shared secret
+            normalized_string: Normalized request string
+        
+        Returns:
+            Base64-encoded MAC signature
+        """
+        mac = hmac.new(
+            bytes.fromhex(key),
+            normalized_string.encode("utf-8"),
+            hashlib.sha256
+        )
+        return base64.b64encode(mac.digest()).decode("utf-8")
+    
+    def verify_mac(
+        self,
+        hawk_key: str,
+        provided_mac: str,
+        timestamp: int,
+        nonce: str,
+        method: str,
+        uri: str,
+        host: str,
+        port: int,
+        payload_hash: str = "",
+        ext: str = ""
+    ) -> bool:
+        """
+        Verify the MAC from the Authorization header.
+        
+        Args:
+            hawk_key: Hex-encoded HAWK shared secret
+            provided_mac: MAC from Authorization header
+            timestamp: Unix timestamp from header
+            nonce: Nonce from header
+            method: HTTP method
+            uri: Request URI
+            host: Request host
+            port: Request port
+            payload_hash: Optional payload hash
+            ext: Optional extension data
+        
+        Returns:
+            True if MAC is valid (constant-time comparison)
+        """
+        normalized = self.build_normalized_string(
+            str(timestamp), nonce, method, uri, host, str(port), payload_hash, ext
+        )
+        expected_mac = self.calculate_mac(hawk_key, normalized)
+        return hmac.compare_digest(expected_mac, provided_mac)
+    
+    def get_hawk_key_from_cache(self, hawk_id: str) -> Tuple[str, str, int]:
+        """
+        Retrieve HAWK shared secret from token cache.
+        
+        Args:
+            hawk_id: Base64-encoded HAWK ID
+        
+        Returns:
+            Tuple of (hawk_key, user_id, generation)
+        
+        Raises:
+            AuthenticationException: Token not found in cache or DynamoDB error
+        
+        Token Cache Schema:
+            PK: "TOKEN#{base64_hawk_id}"
+            hawk_key: String (hex-encoded, 64 chars)
+            user_id: String
+            generation: Number
+            expiry: Number (DynamoDB TTL attribute for auto-cleanup)
+            created_at: Number
+        """
+        try:
+            response = self.token_cache_table.get_item(
+                Key={'PK': f'TOKEN#{hawk_id}'}
+            )
+            
+            if 'Item' not in response:
+                raise AuthenticationException(f"HAWK token not found: {hawk_id}")
+            
+            item = response['Item']
+            return (
+                item['hawk_key'],
+                item['user_id'],
+                int(item['generation'])
+            )
+        
+        except self.dynamodb.meta.client.exceptions.ClientError as e:
+            raise AuthenticationException(f"Failed to retrieve HAWK token: {e}")
+    
+    # ========== Token Generation Methods (Token Server) ==========
+    
+    def generate_hawk_credentials(self, user_id: str, generation: int) -> HawkCredentials:
+        """
+        Generate HAWK credentials for token issuance.
+        
+        Args:
+            user_id: User identifier from OIDC sub claim
+            generation: Current generation number
+        
+        Returns:
+            HawkCredentials with hawk_id and hawk_key populated
+        
+        Used by Token Server when issuing tokens.
+        """
+        expiry = int(time.time()) + self.TOKEN_DURATION_SECONDS
+        hawk_id = self.generate_hawk_id(user_id, generation, expiry)
+        hawk_key = self.generate_hawk_key()
+        
+        return HawkCredentials(
+            user_id=user_id,
+            generation=generation,
+            expiry=expiry,
+            hawk_id=hawk_id,
+            hawk_key=hawk_key
+        )
+    
+    def generate_hawk_id(self, user_id: str, generation: int, expiry: int) -> str:
+        """
+        Generate HAWK identifier (URL-safe base64).
+        
+        Format: {user_id}:{generation}:{expiry}
+        
+        Returns:
+            Base64-encoded HAWK ID (without padding)
+        """
+        id_string = f"{user_id}:{generation}:{expiry}"
+        encoded = base64.urlsafe_b64encode(id_string.encode('utf-8')).decode('utf-8')
+        # Remove padding for cleaner URLs
+        return encoded.rstrip('=')
+    
+    def generate_hawk_key(self) -> str:
+        """
+        Generate cryptographically random HAWK shared secret.
+        
+        Returns:
+            64-character hex string (32 bytes)
+        """
+        return secrets.token_bytes(32).hex()
+    
+    def store_token_in_cache(self, credentials: HawkCredentials) -> None:
+        """
+        Store issued HAWK token in DynamoDB cache.
+        
+        Args:
+            credentials: HawkCredentials with hawk_key populated
+        
+        Used by Token Server after generating credentials.
+        """
+        self.token_cache_table.put_item(
+            Item={
+                'PK': f'TOKEN#{credentials.hawk_id}',
+                'hawk_key': credentials.hawk_key,
+                'user_id': credentials.user_id,
+                'generation': credentials.generation,
+                'expiry': credentials.expiry,
+                'created_at': int(time.time())
+            }
+        )
+```
+
+**Design Decision**: Create a unified `HawkService` shared by both Token Server and Storage Server. This service handles HAWK credential generation, token caching, and validation in a single cohesive component.
+
+**Rationale**: 
+- Both services are in the same codebase (`lambda/src/services/hawk_service.py`)
+- HAWK keys are cryptographically random (generated using `secrets.token_bytes()`)
+- Cannot be regenerated deterministically - must be stored in cache
+- DynamoDB TTL automatically cleans up expired tokens (300 seconds)
+- Enables stateless validation without querying Token Server
+- Shared cache table between Token Server and Storage Server
+- Single source of truth for HAWK logic reduces duplication and bugs
+- Token Server uses generation methods, Storage Server uses validation methods
+- Consolidating all HAWK logic into one service improves maintainability
+
+**Alternative Approach Rejected**: Regenerating keys deterministically would require a shared secret and complex key derivation, making the system more fragile and harder to rotate secrets. Separating into multiple services (TokenGenerator, HawkValidator, TokenKeyStore) adds unnecessary complexity when they're in the same codebase.
+
+#### AuthPolicy Model
 
 ```python
 @dataclass
@@ -127,23 +579,134 @@ class AuthPolicy:
     principal_id: str           # User ID from HAWK credentials
     policy_document: dict       # IAM policy document
     context: dict               # Passed to Lambda handler via requestContext
+    
+    @staticmethod
+    def allow(principal_id: str, resource: str, context: dict) -> dict:
+        """Generate Allow policy with context."""
+        return {
+            "principalId": principal_id,
+            "policyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Action": "execute-api:Invoke",
+                    "Effect": "Allow",
+                    "Resource": resource
+                }]
+            },
+            "context": context
+        }
+    
+    @staticmethod
+    def deny(principal_id: str, resource: str) -> dict:
+        """Generate Deny policy without context."""
+        return {
+            "principalId": principal_id,
+            "policyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Action": "execute-api:Invoke",
+                    "Effect": "Deny",
+                    "Resource": resource
+                }]
+            }
+        }
 ```
 
-**Context passed to handler:**
+#### HAWK Signature Calculation
+
+The HAWK signature is computed using HMAC-SHA256:
+
+```python
+def compute_hawk_mac(
+    credentials: dict,
+    method: str,
+    path: str,
+    host: str,
+    port: int,
+    timestamp: int,
+    nonce: str
+) -> str:
+    """
+    Compute HAWK MAC signature.
+    
+    Normalized request string format:
+        hawk.1.header\n
+        {timestamp}\n
+        {nonce}\n
+        {method}\n
+        {path}\n
+        {host}\n
+        {port}\n
+        \n
+        \n
+    
+    Returns:
+        Base64-encoded HMAC-SHA256 signature
+    """
+    normalized = (
+        f"hawk.1.header\n"
+        f"{timestamp}\n"
+        f"{nonce}\n"
+        f"{method.upper()}\n"
+        f"{path}\n"
+        f"{host.lower()}\n"
+        f"{port}\n"
+        f"\n"
+        f"\n"
+    )
+    
+    mac = hmac.new(
+        bytes.fromhex(credentials['key']),
+        normalized.encode('utf-8'),
+        hashlib.sha256
+    )
+    
+    return base64.b64encode(mac.digest()).decode('utf-8')
+```
+
+#### Context Passed to Storage API
 
 ```json
 {
   "user_id": "abc123",
-  "hawk_id": "hawk-key-id",
-  "authenticated_at": 1702345678.12
+  "hawk_id": "YWJjMTIzOjA6MTcwMjM0NTY3OA==",
+  "authenticated_at": "1702345678.12"
 }
 ```
+
+The Storage API handler extracts `user_id` from `event['requestContext']['authorizer']['user_id']` and passes it to StorageManager to scope all operations to the authenticated user.
+
+#### Error Handling
+
+**Authentication Failures Return Deny Policy**:
+- Missing Authorization header → Deny with principalId "unknown"
+- Malformed HAWK header → Deny with principalId "unknown"
+- Invalid signature → Deny with principalId from HAWK ID
+- Expired token → Deny with principalId from HAWK ID
+- Invalid generation → Deny with principalId from HAWK ID
+
+**API Gateway Behavior**:
+- Deny policy → 403 Forbidden (API Gateway default)
+- To return 401 Unauthorized, the authorizer must throw an exception with message "Unauthorized"
+
+**Design Decision**: Throw "Unauthorized" exception for authentication failures to return 401 instead of 403.
+
+**Rationale**: The Mozilla spec requires 401 for authentication failures, not 403. API Gateway REQUEST authorizers return 403 by default for Deny policies, so we must throw an exception to get 401.
+
+#### Caching Strategy
+
+**API Gateway Authorizer Caching**:
+- Cache key: Authorization header value
+- TTL: 300 seconds (matches token duration)
+- Reduces Lambda invocations for repeated requests with same token
+- Cache is invalidated when token expires
 
 **Design Rationale:**
 - Separates authentication from business logic for cleaner code
 - Enables API Gateway caching of authorization results (configurable TTL)
 - Provides consistent 401 responses before handler invocation
 - User context is securely passed via API Gateway, not client-controlled
+- Validates generation number to support token invalidation
 
 ### StorageManager Interface
 

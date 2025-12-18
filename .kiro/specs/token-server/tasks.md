@@ -17,6 +17,22 @@
 - [x] 5. Implement Token Generator component
   - _Requirements: 1.1, 1.5, 2.1, 2.2, 2.3, 2.5, 4.1, 4.2, 4.3, 4.4_
 
+- [ ] 5.1 Update Token Generator to use shared HawkService
+  - [ ] 5.1.1 Replace TokenGenerator HAWK methods with HawkService
+    - Remove `generate_hawk_id()` and `generate_hawk_key()` from TokenGenerator
+    - Use `HawkService.generate_hawk_credentials()` instead
+    - Use `HawkService.store_token_in_cache()` to write tokens
+    - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5 (Storage Server validation)_
+  - [ ]* 5.1.2 Update TokenGenerator unit tests
+    - Mock HawkService instead of testing HAWK generation directly
+    - Test TokenGenerator orchestration logic
+    - _Requirements: 4.1, 4.2, 4.3, 4.4_
+  - [ ]* 5.1.3 Write integration test for Token Server → Storage Server flow
+    - Generate token using Token Server
+    - Validate token using Storage Server HAWK authorizer
+    - Verify end-to-end HAWK authentication
+    - _Requirements: 4.5, 12.1, 12.2, 12.3_
+
 - [x] 6. Implement Token Request Handler
   - _Requirements: 1.1, 1.3, 1.4, 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5_
 

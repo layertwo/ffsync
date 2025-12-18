@@ -1,5 +1,23 @@
 # Implementation Plan
 
+- [ ] 0. Update Smithy API models
+  - [ ] 0.1 Review and update Storage API Smithy models in `smithy/models/storage/`
+    - Verify BSO operations match Mozilla spec (GET/PUT/DELETE `/storage/{collection}/{id}`)
+    - Verify collection operations match Mozilla spec (GET/POST/DELETE `/storage/{collection}`)
+    - Verify info endpoints match Mozilla spec (`/info/collections`, `/info/collection_counts`, `/info/collection_usage`, `/info/quota`, `/info/configuration`)
+    - Add DELETE `/` operation for root-level deletion
+    - Update response structures to match Mozilla format (e.g., quota returns `[usage, quota]` array, not object)
+    - Update BatchResult.failed to use string values (not string arrays) per Mozilla spec
+    - Ensure TTL field is marked as input-only (not returned in responses)
+    - _Requirements: All_
+  - [ ] 0.2 Run `smithy build` to generate updated OpenAPI specs
+    - Execute from `smithy/` directory
+    - Verify generated specs in `smithy/build/`
+    - _Requirements: All_
+  - [ ] 0.3 Update CDK to use generated OpenAPI specs (if applicable)
+    - Review `lib/stacks/service.ts` for OpenAPI integration
+    - _Requirements: All_
+
 - [x] 1. Set up project structure and shared components
   - [x] 1.1 Create storage-specific exception classes in `shared/exceptions.py`
     - Add `SyncStorageException`, `CollectionNotFoundException`, `StorageObjectNotFoundException`, `PreconditionFailedException`, `QuotaExceededException`, `ValidationException`, `ConflictException`, `AuthenticationException`
@@ -268,25 +286,105 @@
     - **Property 28: Content-Type Handling**
     - **Validates: Requirements 17.1-17.5**
 
-- [ ] 12. Update ServiceProvider and API Router
-  - [ ] 12.1 Update `ServiceProvider` to pass user_id to StorageManager
+- [ ] 12. Implement HAWK Lambda Authorizer
+  - [ ] 12.1 Create token cache DynamoDB table in CDK
+    - Add `tokenCacheTable` to `lib/stacks/service.ts`
+    - Schema: PK (String), hawk_key (String), user_id (String), generation (Number), expiry (Number, TTL attribute), created_at (Number)
+    - Enable DynamoDB TTL on `expiry` attribute for automatic cleanup
+    - Grant read permissions to HAWK authorizer Lambda
+    - Grant write permissions to Token Server Lambda
+    - _Requirements: 12.1, 12.2, 12.3_
+  - [ ] 12.2 Create HAWK authorizer Lambda function in CDK
+    - Add `hawkAuthorizerFunction` to `lib/stacks/service.ts`
+    - Entry point: `lambda/src/entrypoint/hawk_authorizer.py`
+    - Environment variables: TOKEN_CACHE_TABLE_NAME
+    - Grant read access to token cache table
+    - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
+  - [ ] 12.3 Configure API Gateway REQUEST authorizer in CDK
+    - Add `hawkAuthorizer` to Storage API in `lib/stacks/service.ts`
+    - Type: REQUEST authorizer
+    - Identity source: `method.request.header.Authorization`
+    - Result caching: 300 seconds (TTL matches token duration)
+    - Attach authorizer to all Storage API routes
+    - _Requirements: 12.1, 12.4_
+  - [ ] 12.4 Create HAWK authorizer entry point in `entrypoint/hawk_authorizer.py`
+    - Lambda handler function for API Gateway REQUEST authorizer
+    - Parse authorizer event and extract Authorization header
+    - Return IAM policy with user context
+    - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
+  - [ ] 12.5 Create unified `HawkService` in `services/hawk_service.py`
+    - **Validation Methods (Storage Server):**
+      - `parse_hawk_header()` - extract id, ts, nonce, mac from Authorization header
+      - `decode_hawk_id()` - decode base64 HAWK ID to user_id, generation, expiry
+      - `validate_hawk_id_expiry()` - check token hasn't expired
+      - `validate_timestamp()` - check timestamp within 60-second skew window
+      - `build_normalized_string()` - construct HAWK normalized request string
+      - `calculate_mac()` - compute HMAC-SHA256 signature
+      - `verify_mac()` - constant-time MAC comparison
+      - `get_hawk_key_from_cache()` - retrieve HAWK key from DynamoDB token cache
+      - `validate()` - orchestrate full HAWK validation flow
+    - **Generation Methods (Token Server):**
+      - `generate_hawk_credentials()` - create HAWK ID and key for new token
+      - `generate_hawk_id()` - encode user_id:generation:expiry as base64
+      - `generate_hawk_key()` - generate 32 random bytes (hex-encoded)
+      - `store_token_in_cache()` - write token to DynamoDB cache with TTL
+    - _Requirements: 12.1, 12.2, 12.3, 12.4_
+  - [ ] 12.6 Create `AuthPolicy` model in `shared/models.py`
+    - IAM policy document structure
+    - Principal ID (user_id)
+    - Context dictionary (user_id, hawk_id, authenticated_at)
+    - Helper methods for Allow/Deny policies
+    - _Requirements: 12.1, 12.4, 12.5_
+  - [ ] 12.7 Add HAWK-specific exceptions to `shared/exceptions.py`
+    - `InvalidHawkHeaderException` - malformed HAWK header
+    - `InvalidHawkSignatureException` - signature verification failed
+    - `ExpiredHawkTokenException` - token expired
+    - `InvalidGenerationException` - outdated generation number
+    - _Requirements: 12.1, 12.2, 12.3_
+  - [ ]* 12.8 Write unit tests for HawkService
+    - **Validation tests:**
+      - Valid HAWK signature verification
+      - Invalid signature rejection
+      - Expired token rejection
+      - Malformed header rejection
+      - Token cache retrieval
+      - Unknown HAWK ID handling
+    - **Generation tests:**
+      - HAWK ID encoding/decoding round-trip
+      - HAWK key randomness (multiple generations produce unique keys)
+      - Token cache storage
+    - _Requirements: 12.1, 12.2, 12.3, 12.4_
+  - [ ]* 12.9 Write unit tests for hawk_authorizer handler
+    - Valid authorization flow
+    - IAM policy generation (Allow/Deny)
+    - Context passing to Storage API
+    - Error handling and Deny policies
+    - _Requirements: 12.1, 12.4, 12.5_
+  - [ ]* 12.10 Write property test for HAWK authentication
+    - **Property 26: Authentication Enforcement (Lambda Authorizer)**
+    - **Validates: Requirements 12.1, 12.2, 12.3, 12.4, 12.5**
+
+- [ ] 13. Update ServiceProvider and API Router
+  - [ ] 13.1 Update `ServiceProvider` to pass user_id to StorageManager
     - Extract user_id from request context (set by Lambda Authorizer)
     - _Requirements: 12.5_
-  - [ ] 12.2 Update structured logging
+  - [ ] 13.2 Update structured logging
     - Log request method, path, user_id
     - Never log BSO payloads
     - _Requirements: 14.1-14.4_
 
-- [ ] 13. Checkpoint - Ensure all tests pass
+- [ ] 14. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 14. Final integration and validation
-  - [ ] 14.1 Create integration test fixtures
+- [ ] 15. Final integration and validation
+  - [ ] 15.1 Create integration test fixtures
     - _Requirements: All_
-  - [ ]* 14.2 Write integration tests
+  - [ ]* 15.2 Write integration tests for end-to-end flow
+    - Test HAWK authorizer → Storage API flow
+    - Test user isolation (users can only access their own data)
     - _Requirements: All_
-  - [ ] 14.3 Verify test coverage meets 100% requirement
+  - [ ] 15.3 Verify test coverage meets 100% requirement
     - _Requirements: All_
 
-- [ ] 15. Final Checkpoint - Ensure all tests pass
+- [ ] 16. Final Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
