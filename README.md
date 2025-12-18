@@ -12,27 +12,27 @@
 | src/environment/service\_provider.py   |       75 |        0 |        0 |        0 |     100% |           |
 | src/routes/\_\_init\_\_.py             |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/bso/delete.py               |       31 |        0 |        0 |        0 |     100% |           |
-| src/routes/bso/read.py                 |       36 |        0 |        4 |        0 |     100% |           |
-| src/routes/bso/update.py               |       58 |        0 |        8 |        0 |     100% |           |
+| src/routes/bso/delete.py               |       34 |        0 |        2 |        0 |     100% |           |
+| src/routes/bso/read.py                 |       39 |        0 |        6 |        0 |     100% |           |
+| src/routes/bso/update.py               |       61 |        0 |       10 |        0 |     100% |           |
 | src/routes/collections/\_\_init\_\_.py |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/collections/create.py       |       53 |        0 |        6 |        0 |     100% |           |
-| src/routes/collections/delete.py       |       28 |        0 |        0 |        0 |     100% |           |
-| src/routes/collections/list.py         |       21 |        0 |        0 |        0 |     100% |           |
-| src/routes/collections/read.py         |       57 |        0 |       12 |        0 |     100% |           |
-| src/routes/collections/update.py       |       48 |        0 |        2 |        0 |     100% |           |
+| src/routes/collections/create.py       |       56 |        0 |        8 |        0 |     100% |           |
+| src/routes/collections/delete.py       |       31 |        0 |        2 |        0 |     100% |           |
+| src/routes/collections/list.py         |       24 |        0 |        2 |        0 |     100% |           |
+| src/routes/collections/read.py         |       60 |        0 |       14 |        0 |     100% |           |
+| src/routes/collections/update.py       |       51 |        0 |        4 |        0 |     100% |           |
 | src/routes/info/\_\_init\_\_.py        |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/info/read\_collections.py   |       22 |        0 |        0 |        0 |     100% |           |
-| src/routes/info/read\_counts.py        |       22 |        0 |        0 |        0 |     100% |           |
-| src/routes/info/read\_quota.py         |       25 |        0 |        0 |        0 |     100% |           |
-| src/routes/info/read\_usage.py         |       22 |        0 |        0 |        0 |     100% |           |
+| src/routes/info/read\_collections.py   |       25 |        0 |        2 |        0 |     100% |           |
+| src/routes/info/read\_counts.py        |       25 |        0 |        2 |        0 |     100% |           |
+| src/routes/info/read\_quota.py         |       28 |        0 |        2 |        0 |     100% |           |
+| src/routes/info/read\_usage.py         |       25 |        0 |        2 |        0 |     100% |           |
 | src/routes/storage/\_\_init\_\_.py     |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/storage/delete\_all.py      |       18 |        0 |        0 |        0 |     100% |           |
+| src/routes/storage/delete\_all.py      |       21 |        0 |        2 |        0 |     100% |           |
 | src/routes/token/\_\_init\_\_.py       |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/token/request.py            |      113 |        0 |       22 |        0 |     100% |           |
 | src/services/api\_router.py            |       15 |        0 |        2 |        0 |     100% |           |
 | src/services/oidc\_validator.py        |       88 |        0 |       14 |        0 |     100% |           |
-| src/services/storage\_manager.py       |      155 |        0 |       34 |        0 |     100% |           |
+| src/services/storage\_manager.py       |      234 |        0 |       76 |        0 |     100% |           |
 | src/services/token\_generator.py       |       29 |        0 |        0 |        0 |     100% |           |
 | src/services/user\_manager.py          |       89 |        0 |       26 |        0 |     100% |           |
 | src/shared/\_\_init\_\_.py             |        0 |        0 |        0 |        0 |     100% |           |
@@ -43,7 +43,7 @@
 | src/shared/token.py                    |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                     |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                    |       19 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                              | **1237** |    **0** |  **160** |    **0** | **100%** |           |
+| **TOTAL**                              | **1355** |    **0** |  **228** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
