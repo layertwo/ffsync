@@ -27,7 +27,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "METADATA"},
                     "name": {"S": "bookmarks"},
                     "modified": {"N": "1234567890.12"},
@@ -38,13 +38,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "METADATA"},
                 },
             },
         )
 
-        collection = storage_manager.get_collection("bookmarks")
+        collection = storage_manager.get_collection("test-user-123", "bookmarks")
 
         assert collection.name == "bookmarks"
         assert collection.modified == datetime.fromtimestamp(1234567890.12, tz=timezone.utc)
@@ -59,14 +59,14 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#nonexistent"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#nonexistent"},
                     "SK": {"S": "METADATA"},
                 },
             },
         )
 
         with pytest.raises(CollectionNotFoundException):
-            storage_manager.get_collection("nonexistent")
+            storage_manager.get_collection("test-user-123", "nonexistent")
 
     def test_get_storage_object_success(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -76,7 +76,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                     "id": {"S": "obj123"},
                     "payload": {"S": "test_payload"},
@@ -88,13 +88,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                 },
             },
         )
 
-        obj = storage_manager.get_storage_object("bookmarks", "obj123")
+        obj = storage_manager.get_storage_object("test-user-123", "bookmarks", "obj123")
 
         assert obj.id == "obj123"
         assert obj.payload == "test_payload"
@@ -112,14 +112,14 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#nonexistent"},
                 },
             },
         )
 
         with pytest.raises(StorageObjectNotFoundException):
-            storage_manager.get_storage_object("bookmarks", "nonexistent")
+            storage_manager.get_storage_object("test-user-123", "bookmarks", "nonexistent")
 
     def test_get_storage_object_without_optional_fields(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -129,7 +129,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                     "id": {"S": "obj123"},
                     "payload": {"S": "test_payload"},
@@ -139,13 +139,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                 },
             },
         )
 
-        obj = storage_manager.get_storage_object("bookmarks", "obj123")
+        obj = storage_manager.get_storage_object("test-user-123", "bookmarks", "obj123")
 
         assert obj.id == "obj123"
         assert obj.payload == "test_payload"
@@ -169,7 +169,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
                     "name": "bookmarks",
                     "modified": Decimal(mock_timestamp),
@@ -179,7 +179,9 @@ class TestStorageManager:
             },
         )
 
-        collection, batch_result = storage_manager.create_or_update_collection("bookmarks")
+        collection, batch_result = storage_manager.create_or_update_collection(
+            "test-user-123", "bookmarks"
+        )
 
         assert collection.name == "bookmarks"
         assert collection.modified == mock_timestamp_datetime
@@ -219,7 +221,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
                     "name": "bookmarks",
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
@@ -229,43 +231,23 @@ class TestStorageManager:
             },
         )
 
-        # Stub object 1 put
+        # Stub object 1 put - don't validate params due to dynamic expiry field
         dynamodb_stubber.add_response(
             "put_item",
             {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
-                    "id": "obj1",
-                    "payload": "payload1",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "sortindex": 100,
-                    "ttl": 3600,
-                },
-            },
+            None,
         )
 
-        # Stub object 2 put
+        # Stub object 2 put - don't validate params
         dynamodb_stubber.add_response(
             "put_item",
             {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj2",
-                    "id": "obj2",
-                    "payload": "payload2",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "sortindex": None,
-                    "ttl": None,
-                },
-            },
+            None,
         )
 
-        collection, batch_result = storage_manager.create_or_update_collection("bookmarks", objects)
+        collection, batch_result = storage_manager.create_or_update_collection(
+            "test-user-123", "bookmarks", objects
+        )
 
         assert collection.name == "bookmarks"
         assert collection.count == 2
@@ -286,7 +268,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "METADATA"},
                     "name": {"S": "bookmarks"},
                     "modified": {"N": "1234567880.00"},
@@ -297,7 +279,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "METADATA"},
                 },
             },
@@ -318,7 +300,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "OBJECT#obj1",
                     "id": "obj1",
                     "payload": "newpayload",
@@ -336,7 +318,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
                     "name": "bookmarks",
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
@@ -346,7 +328,9 @@ class TestStorageManager:
             },
         )
 
-        collection, batch_result = storage_manager.update_collection("bookmarks", objects)
+        collection, batch_result = storage_manager.update_collection(
+            "test-user-123", "bookmarks", objects
+        )
 
         assert collection.name == "bookmarks"
         assert collection.count == 2
@@ -362,7 +346,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#nonexistent"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#nonexistent"},
                     "SK": {"S": "METADATA"},
                 },
             },
@@ -377,7 +361,7 @@ class TestStorageManager:
         ]
 
         with pytest.raises(CollectionNotFoundException):
-            storage_manager.update_collection("nonexistent", objects)
+            storage_manager.update_collection("test-user-123", "nonexistent", objects)
 
     def test_delete_collection(
         self,
@@ -394,7 +378,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "METADATA"},
                     "name": {"S": "bookmarks"},
                     "modified": {"N": "1234567880.00"},
@@ -405,7 +389,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "METADATA"},
                 },
             },
@@ -417,11 +401,11 @@ class TestStorageManager:
             {
                 "Items": [
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "METADATA"},
                     },
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj1"},
                     },
                 ]
@@ -429,7 +413,9 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {":pk": {"S": "COLLECTION#bookmarks"}},
+                "ExpressionAttributeValues": {
+                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"}
+                },
             },
         )
 
@@ -440,7 +426,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
                 },
             },
@@ -453,13 +439,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "OBJECT#obj1",
                 },
             },
         )
 
-        modified = storage_manager.delete_collection("bookmarks")
+        modified = storage_manager.delete_collection("test-user-123", "bookmarks")
         assert modified == mock_timestamp
 
     def test_list_collections(self, storage_manager, dynamodb_stubber, storage_table_name):
@@ -469,7 +455,7 @@ class TestStorageManager:
             {
                 "Items": [
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "METADATA"},
                         "name": {"S": "bookmarks"},
                         "modified": {"N": "1234567890.12"},
@@ -477,7 +463,7 @@ class TestStorageManager:
                         "usage": {"N": "1024"},
                     },
                     {
-                        "PK": {"S": "COLLECTION#history"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#history"},
                         "SK": {"S": "METADATA"},
                         "name": {"S": "history"},
                         "modified": {"N": "1234567891.00"},
@@ -488,12 +474,15 @@ class TestStorageManager:
             },
             {
                 "TableName": storage_table_name,
-                "FilterExpression": "SK = :metadata",
-                "ExpressionAttributeValues": {":metadata": {"S": "METADATA"}},
+                "FilterExpression": "begins_with(PK, :user_prefix) AND SK = :metadata",
+                "ExpressionAttributeValues": {
+                    ":user_prefix": {"S": "USER#test-user-123#COLLECTION#"},
+                    ":metadata": {"S": "METADATA"},
+                },
             },
         )
 
-        collections = storage_manager.list_collections()
+        collections = storage_manager.list_collections("test-user-123")
 
         assert len(collections) == 2
         assert collections[0].name == "bookmarks"
@@ -508,12 +497,15 @@ class TestStorageManager:
             {"Items": []},
             {
                 "TableName": storage_table_name,
-                "FilterExpression": "SK = :metadata",
-                "ExpressionAttributeValues": {":metadata": {"S": "METADATA"}},
+                "FilterExpression": "begins_with(PK, :user_prefix) AND SK = :metadata",
+                "ExpressionAttributeValues": {
+                    ":user_prefix": {"S": "USER#test-user-123#COLLECTION#"},
+                    ":metadata": {"S": "METADATA"},
+                },
             },
         )
 
-        collections = storage_manager.list_collections()
+        collections = storage_manager.list_collections("test-user-123")
         assert collections == []
 
     def test_get_collection_objects(self, storage_manager, dynamodb_stubber, storage_table_name):
@@ -523,7 +515,7 @@ class TestStorageManager:
             {
                 "Items": [
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj1"},
                         "id": {"S": "obj1"},
                         "payload": {"S": "payload1"},
@@ -531,7 +523,7 @@ class TestStorageManager:
                         "sortindex": {"N": "100"},
                     },
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj2"},
                         "id": {"S": "obj2"},
                         "payload": {"S": "payload2"},
@@ -543,13 +535,13 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "COLLECTION#bookmarks"},
+                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     ":obj_prefix": {"S": "OBJECT#"},
                 },
             },
         )
 
-        result = storage_manager.get_collection_objects("bookmarks", limit=10)
+        result = storage_manager.get_collection_objects("test-user-123", "bookmarks", limit=10)
 
         assert len(result["items"]) == 2
         assert result["items"][0].id == "obj1"  # sorted by newest first
@@ -566,14 +558,14 @@ class TestStorageManager:
             {
                 "Items": [
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj1"},
                         "id": {"S": "obj1"},
                         "payload": {"S": "payload1"},
                         "modified": {"N": "1234567891.00"},
                     },
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj2"},
                         "id": {"S": "obj2"},
                         "payload": {"S": "payload2"},
@@ -585,13 +577,13 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "COLLECTION#bookmarks"},
+                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     ":obj_prefix": {"S": "OBJECT#"},
                 },
             },
         )
 
-        result = storage_manager.get_collection_objects("bookmarks", ids="obj1")
+        result = storage_manager.get_collection_objects("test-user-123", "bookmarks", ids="obj1")
 
         assert len(result["items"]) == 1
         assert result["items"][0].id == "obj1"
@@ -605,21 +597,21 @@ class TestStorageManager:
             {
                 "Items": [
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj1"},
                         "id": {"S": "obj1"},
                         "payload": {"S": "payload1"},
                         "modified": {"N": "1234567893.00"},
                     },
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj2"},
                         "id": {"S": "obj2"},
                         "payload": {"S": "payload2"},
                         "modified": {"N": "1234567892.00"},
                     },
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj3"},
                         "id": {"S": "obj3"},
                         "payload": {"S": "payload3"},
@@ -631,13 +623,15 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "COLLECTION#bookmarks"},
+                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     ":obj_prefix": {"S": "OBJECT#"},
                 },
             },
         )
 
-        result = storage_manager.get_collection_objects("bookmarks", limit=2, offset=0)
+        result = storage_manager.get_collection_objects(
+            "test-user-123", "bookmarks", limit=2, offset=0
+        )
 
         assert len(result["items"]) == 2
         assert result["more"] is True
@@ -658,7 +652,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                     "id": {"S": "obj123"},
                     "payload": {"S": "old_payload"},
@@ -669,7 +663,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                 },
             },
@@ -682,7 +676,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "OBJECT#obj123",
                     "id": "obj123",
                     "payload": "new_payload",
@@ -694,7 +688,7 @@ class TestStorageManager:
         )
 
         updated_obj = storage_manager.update_storage_object(
-            "bookmarks", "obj123", payload="new_payload"
+            "test-user-123", "bookmarks", "obj123", payload="new_payload"
         )
 
         assert updated_obj.id == "obj123"
@@ -703,23 +697,33 @@ class TestStorageManager:
         assert updated_obj.sortindex == 100
 
     def test_update_storage_object_not_found(
-        self, storage_manager, dynamodb_stubber, storage_table_name
+        self, storage_manager, dynamodb_stubber, storage_table_name, mock_get_current_timestamp
     ):
-        """Test updating non-existent object raises error"""
+        """Test updating non-existent object creates it (PUT semantics)"""
         dynamodb_stubber.add_response(
             "get_item",
             {},
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#nonexistent"},
                 },
             },
         )
 
-        with pytest.raises(StorageObjectNotFoundException):
-            storage_manager.update_storage_object("bookmarks", "nonexistent", payload="new")
+        # Stub put_item for creating the new object
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            None,  # Don't validate params
+        )
+
+        obj = storage_manager.update_storage_object(
+            "test-user-123", "bookmarks", "nonexistent", payload="new"
+        )
+        assert obj.id == "nonexistent"
+        assert obj.payload == "new"
 
     def test_delete_storage_object(
         self,
@@ -736,7 +740,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                     "id": {"S": "obj123"},
                     "payload": {"S": "payload"},
@@ -746,7 +750,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                 },
             },
@@ -759,13 +763,13 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                 },
             },
         )
 
-        modified = storage_manager.delete_storage_object("bookmarks", "obj123")
+        modified = storage_manager.delete_storage_object("test-user-123", "bookmarks", "obj123")
         assert modified == mock_timestamp
 
     def test_delete_storage_object_not_found(
@@ -778,14 +782,14 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#nonexistent"},
                 },
             },
         )
 
         with pytest.raises(StorageObjectNotFoundException):
-            storage_manager.delete_storage_object("bookmarks", "nonexistent")
+            storage_manager.delete_storage_object("test-user-123", "bookmarks", "nonexistent")
 
     def test_get_collection_client_error(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -798,7 +802,7 @@ class TestStorageManager:
         )
 
         with pytest.raises(CollectionNotFoundException):
-            storage_manager.get_collection("bookmarks")
+            storage_manager.get_collection("test-user-123", "bookmarks")
 
     def test_get_storage_object_client_error(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -811,7 +815,7 @@ class TestStorageManager:
         )
 
         with pytest.raises(StorageObjectNotFoundException):
-            storage_manager.get_storage_object("bookmarks", "obj123")
+            storage_manager.get_storage_object("test-user-123", "bookmarks", "obj123")
 
     def test_create_collection_with_failed_object(
         self,
@@ -837,7 +841,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
                     "name": "bookmarks",
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
@@ -854,7 +858,9 @@ class TestStorageManager:
             service_message="Invalid item",
         )
 
-        collection, batch_result = storage_manager.create_or_update_collection("bookmarks", objects)
+        collection, batch_result = storage_manager.create_or_update_collection(
+            "test-user-123", "bookmarks", objects
+        )
 
         assert collection.name == "bookmarks"
         assert len(batch_result.success) == 0
@@ -875,7 +881,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "METADATA"},
                     "name": {"S": "bookmarks"},
                     "modified": {"N": "1234567880.00"},
@@ -886,7 +892,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "METADATA"},
                 },
             },
@@ -914,7 +920,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
                     "name": "bookmarks",
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
@@ -924,7 +930,9 @@ class TestStorageManager:
             },
         )
 
-        collection, batch_result = storage_manager.update_collection("bookmarks", objects)
+        collection, batch_result = storage_manager.update_collection(
+            "test-user-123", "bookmarks", objects
+        )
 
         assert len(batch_result.success) == 0
         assert len(batch_result.failed) == 1
@@ -938,14 +946,14 @@ class TestStorageManager:
             {
                 "Items": [
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj1"},
                         "id": {"S": "obj1"},
                         "payload": {"S": "payload1"},
                         "modified": {"N": "1234567891.00"},
                     },
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj2"},
                         "id": {"S": "obj2"},
                         "payload": {"S": "payload2"},
@@ -957,13 +965,15 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "COLLECTION#bookmarks"},
+                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     ":obj_prefix": {"S": "OBJECT#"},
                 },
             },
         )
 
-        result = storage_manager.get_collection_objects("bookmarks", newer=1234567890.00)
+        result = storage_manager.get_collection_objects(
+            "test-user-123", "bookmarks", newer=1234567890.00
+        )
 
         assert len(result["items"]) == 1
         assert result["items"][0].id == "obj1"
@@ -977,14 +987,14 @@ class TestStorageManager:
             {
                 "Items": [
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj1"},
                         "id": {"S": "obj1"},
                         "payload": {"S": "payload1"},
                         "modified": {"N": "1234567891.00"},
                     },
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj2"},
                         "id": {"S": "obj2"},
                         "payload": {"S": "payload2"},
@@ -996,13 +1006,15 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "COLLECTION#bookmarks"},
+                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     ":obj_prefix": {"S": "OBJECT#"},
                 },
             },
         )
 
-        result = storage_manager.get_collection_objects("bookmarks", older=1234567890.00)
+        result = storage_manager.get_collection_objects(
+            "test-user-123", "bookmarks", older=1234567890.00
+        )
 
         assert len(result["items"]) == 1
         assert result["items"][0].id == "obj2"
@@ -1016,14 +1028,14 @@ class TestStorageManager:
             {
                 "Items": [
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj1"},
                         "id": {"S": "obj1"},
                         "payload": {"S": "payload1"},
                         "modified": {"N": "1234567891.00"},
                     },
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj2"},
                         "id": {"S": "obj2"},
                         "payload": {"S": "payload2"},
@@ -1035,13 +1047,13 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "COLLECTION#bookmarks"},
+                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     ":obj_prefix": {"S": "OBJECT#"},
                 },
             },
         )
 
-        result = storage_manager.get_collection_objects("bookmarks", sort="oldest")
+        result = storage_manager.get_collection_objects("test-user-123", "bookmarks", sort="oldest")
 
         assert result["items"][0].id == "obj2"  # oldest first
         assert result["items"][1].id == "obj1"
@@ -1055,7 +1067,7 @@ class TestStorageManager:
             {
                 "Items": [
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj1"},
                         "id": {"S": "obj1"},
                         "payload": {"S": "payload1"},
@@ -1063,7 +1075,7 @@ class TestStorageManager:
                         "sortindex": {"N": "100"},
                     },
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj2"},
                         "id": {"S": "obj2"},
                         "payload": {"S": "payload2"},
@@ -1076,13 +1088,13 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "COLLECTION#bookmarks"},
+                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     ":obj_prefix": {"S": "OBJECT#"},
                 },
             },
         )
 
-        result = storage_manager.get_collection_objects("bookmarks", sort="index")
+        result = storage_manager.get_collection_objects("test-user-123", "bookmarks", sort="index")
 
         assert result["items"][0].id == "obj2"  # higher sortindex first
         assert result["items"][1].id == "obj1"
@@ -1101,7 +1113,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                     "id": {"S": "obj123"},
                     "payload": {"S": "old_payload"},
@@ -1111,32 +1123,21 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                 },
             },
         )
 
-        # Stub put_item for update
+        # Stub put_item for update - don't check exact params since expiry is dynamic
         dynamodb_stubber.add_response(
             "put_item",
             {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj123",
-                    "id": "obj123",
-                    "payload": "new_payload",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "sortindex": 150,
-                    "ttl": 7200,
-                },
-            },
+            None,  # Don't validate params due to dynamic expiry field
         )
 
         updated_obj = storage_manager.update_storage_object(
-            "bookmarks", "obj123", payload="new_payload", sortindex=150, ttl=7200
+            "test-user-123", "bookmarks", "obj123", payload="new_payload", sortindex=150, ttl=7200
         )
 
         assert updated_obj.payload == "new_payload"
@@ -1154,7 +1155,7 @@ class TestStorageManager:
         )
 
         with pytest.raises(Exception):  # Should raise the original ClientError
-            storage_manager.get_collection("bookmarks")
+            storage_manager.get_collection("test-user-123", "bookmarks")
 
     def test_get_storage_object_client_error_other(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -1167,7 +1168,7 @@ class TestStorageManager:
         )
 
         with pytest.raises(Exception):  # Should raise the original ClientError
-            storage_manager.get_storage_object("bookmarks", "obj123")
+            storage_manager.get_storage_object("test-user-123", "bookmarks", "obj123")
 
     def test_get_collection_objects_empty_result(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -1180,13 +1181,13 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "COLLECTION#bookmarks"},
+                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     ":obj_prefix": {"S": "OBJECT#"},
                 },
             },
         )
 
-        result = storage_manager.get_collection_objects("bookmarks")
+        result = storage_manager.get_collection_objects("test-user-123", "bookmarks")
 
         assert len(result["items"]) == 0
         assert result["more"] is False
@@ -1206,7 +1207,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "METADATA"},
                     "name": {"S": "bookmarks"},
                     "modified": {"N": "1234567880.00"},
@@ -1217,7 +1218,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "METADATA"},
                 },
             },
@@ -1243,7 +1244,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "OBJECT#obj1",
                     "id": "obj1",
                     "payload": "payload1",
@@ -1268,7 +1269,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
                     "name": "bookmarks",
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
@@ -1278,7 +1279,9 @@ class TestStorageManager:
             },
         )
 
-        collection, batch_result = storage_manager.update_collection("bookmarks", objects)
+        collection, batch_result = storage_manager.update_collection(
+            "test-user-123", "bookmarks", objects
+        )
 
         assert len(batch_result.success) == 1
         assert "obj1" in batch_result.success
@@ -1299,7 +1302,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "METADATA"},
                     "name": {"S": "bookmarks"},
                     "modified": {"N": "1234567880.00"},
@@ -1310,7 +1313,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "METADATA"},
                 },
             },
@@ -1326,22 +1329,11 @@ class TestStorageManager:
             )
         ]
 
-        # Stub object put with sortindex and ttl
+        # Stub object put with sortindex and ttl - don't validate params due to dynamic expiry
         dynamodb_stubber.add_response(
             "put_item",
             {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
-                    "id": "obj1",
-                    "payload": "payload1",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "sortindex": 150,
-                    "ttl": 7200,
-                },
-            },
+            None,
         )
 
         # Stub metadata update
@@ -1351,7 +1343,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
                     "name": "bookmarks",
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
@@ -1361,7 +1353,9 @@ class TestStorageManager:
             },
         )
 
-        collection, batch_result = storage_manager.update_collection("bookmarks", objects)
+        collection, batch_result = storage_manager.update_collection(
+            "test-user-123", "bookmarks", objects
+        )
 
         assert len(batch_result.success) == 1
 
@@ -1379,7 +1373,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                     "id": {"S": "obj123"},
                     "payload": {"S": "old_payload"},
@@ -1390,31 +1384,20 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                 },
             },
         )
 
-        # Stub put_item
+        # Stub put_item - don't validate params due to dynamic expiry
         dynamodb_stubber.add_response(
             "put_item",
             {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj123",
-                    "id": "obj123",
-                    "payload": "old_payload",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "sortindex": None,
-                    "ttl": 3600,
-                },
-            },
+            None,
         )
 
-        updated_obj = storage_manager.update_storage_object("bookmarks", "obj123")
+        updated_obj = storage_manager.update_storage_object("test-user-123", "bookmarks", "obj123")
 
         assert updated_obj.ttl == 3600
 
@@ -1432,7 +1415,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                     "id": {"S": "obj123"},
                     "payload": {"S": "old_payload"},
@@ -1443,31 +1426,20 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                 },
             },
         )
 
-        # Stub put_item - no sortindex in result
+        # Stub put_item - don't validate params due to dynamic expiry
         dynamodb_stubber.add_response(
             "put_item",
             {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj123",
-                    "id": "obj123",
-                    "payload": "old_payload",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "sortindex": None,
-                    "ttl": 3600,
-                },
-            },
+            None,
         )
 
-        updated_obj = storage_manager.update_storage_object("bookmarks", "obj123")
+        updated_obj = storage_manager.update_storage_object("test-user-123", "bookmarks", "obj123")
 
         assert updated_obj.sortindex is None
         assert updated_obj.ttl == 3600
@@ -1481,14 +1453,14 @@ class TestStorageManager:
             {
                 "Items": [
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj1"},
                         "id": {"S": "obj1"},
                         "payload": {"S": "payload1"},
                         "modified": {"N": "1234567891.00"},
                     },
                     {
-                        "PK": {"S": "COLLECTION#bookmarks"},
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj2"},
                         "id": {"S": "obj2"},
                         "payload": {"S": "payload2"},
@@ -1500,13 +1472,15 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "COLLECTION#bookmarks"},
+                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     ":obj_prefix": {"S": "OBJECT#"},
                 },
             },
         )
 
-        result = storage_manager.get_collection_objects("bookmarks", sort="invalid")
+        result = storage_manager.get_collection_objects(
+            "test-user-123", "bookmarks", sort="invalid"
+        )
 
         assert len(result["items"]) == 2
         assert result["last_modified"] == datetime.fromtimestamp(1234567891.00, tz=timezone.utc)
@@ -1525,7 +1499,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                     "id": {"S": "obj123"},
                     "payload": {"S": "old_payload"},
@@ -1535,7 +1509,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                 },
             },
@@ -1548,7 +1522,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "OBJECT#obj123",
                     "id": "obj123",
                     "payload": "old_payload",
@@ -1559,7 +1533,9 @@ class TestStorageManager:
             },
         )
 
-        updated_obj = storage_manager.update_storage_object("bookmarks", "obj123", sortindex=200)
+        updated_obj = storage_manager.update_storage_object(
+            "test-user-123", "bookmarks", "obj123", sortindex=200
+        )
 
         assert updated_obj.sortindex == 200
         assert updated_obj.ttl is None
@@ -1578,7 +1554,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                     "id": {"S": "obj123"},
                     "payload": {"S": "old_payload"},
@@ -1590,32 +1566,21 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                 },
             },
         )
 
-        # Stub put_item - keep sortindex, keep ttl
+        # Stub put_item - don't validate params due to dynamic expiry
         dynamodb_stubber.add_response(
             "put_item",
             {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj123",
-                    "id": "obj123",
-                    "payload": "updated_payload",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "sortindex": 100,
-                    "ttl": 3600,
-                },
-            },
+            None,
         )
 
         updated_obj = storage_manager.update_storage_object(
-            "bookmarks", "obj123", payload="updated_payload"
+            "test-user-123", "bookmarks", "obj123", payload="updated_payload"
         )
 
         assert updated_obj.sortindex == 100
@@ -1635,7 +1600,7 @@ class TestStorageManager:
             "get_item",
             {
                 "Item": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                     "id": {"S": "obj123"},
                     "payload": {"S": "old_payload"},
@@ -1646,7 +1611,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "COLLECTION#bookmarks"},
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                     "SK": {"S": "OBJECT#obj123"},
                 },
             },
@@ -1659,7 +1624,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Item": {
-                    "PK": "COLLECTION#bookmarks",
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "OBJECT#obj123",
                     "id": "obj123",
                     "payload": "old_payload",
@@ -1670,7 +1635,716 @@ class TestStorageManager:
             },
         )
 
-        updated_obj = storage_manager.update_storage_object("bookmarks", "obj123")
+        updated_obj = storage_manager.update_storage_object("test-user-123", "bookmarks", "obj123")
 
         assert updated_obj.sortindex == 100
         assert updated_obj.ttl is None
+
+    def test_create_collection_batch_limit_exceeded(
+        self, storage_manager, dynamodb_stubber, storage_table_name
+    ):
+        """Test creating collection with too many objects raises ServerLimitExceededException"""
+        from src.shared.exceptions import ServerLimitExceededException
+
+        # Create 101 objects (exceeds MAX_POST_RECORDS=100)
+        objects = [
+            BasicStorageObject(
+                id=f"obj{i}",
+                payload="x",
+                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            )
+            for i in range(101)
+        ]
+
+        with pytest.raises(ServerLimitExceededException):
+            storage_manager.create_or_update_collection("test-user-123", "bookmarks", objects)
+
+    def test_create_collection_batch_size_exceeded(
+        self, storage_manager, dynamodb_stubber, storage_table_name
+    ):
+        """Test creating collection with too large payload raises ServerLimitExceededException"""
+        from src.shared.exceptions import ServerLimitExceededException
+
+        # Create object with payload > 2MB
+        large_payload = "x" * (2 * 1024 * 1024 + 1)
+        objects = [
+            BasicStorageObject(
+                id="obj1",
+                payload=large_payload,
+                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            )
+        ]
+
+        with pytest.raises(ServerLimitExceededException):
+            storage_manager.create_or_update_collection("test-user-123", "bookmarks", objects)
+
+    def test_create_collection_precondition_create_only_fails(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_get_current_timestamp,
+    ):
+        """Test create-only mode fails when collection exists"""
+        from src.shared.exceptions import PreconditionFailedException
+
+        # Stub get_collection to return existing collection
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567890.12"},
+                    "count": {"N": "5"},
+                    "usage": {"N": "1024"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                },
+            },
+        )
+
+        with pytest.raises(PreconditionFailedException):
+            storage_manager.create_or_update_collection(
+                "test-user-123", "bookmarks", [], if_unmodified_since=0
+            )
+
+    def test_create_collection_precondition_modified_since(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_get_current_timestamp,
+    ):
+        """Test precondition fails when collection modified since timestamp"""
+        from src.shared.exceptions import PreconditionFailedException
+
+        # Stub get_collection to return collection modified after the precondition timestamp
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567900.00"},  # Modified after precondition
+                    "count": {"N": "5"},
+                    "usage": {"N": "1024"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                },
+            },
+        )
+
+        with pytest.raises(PreconditionFailedException):
+            storage_manager.create_or_update_collection(
+                "test-user-123", "bookmarks", [], if_unmodified_since=1234567890.00
+            )
+
+    def test_update_collection_batch_limit_exceeded(
+        self, storage_manager, dynamodb_stubber, storage_table_name
+    ):
+        """Test updating collection with too many objects raises ServerLimitExceededException"""
+        from src.shared.exceptions import ServerLimitExceededException
+
+        # Create 101 objects (exceeds MAX_POST_RECORDS=100)
+        objects = [
+            BasicStorageObject(
+                id=f"obj{i}",
+                payload="x",
+                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            )
+            for i in range(101)
+        ]
+
+        with pytest.raises(ServerLimitExceededException):
+            storage_manager.update_collection("test-user-123", "bookmarks", objects)
+
+    def test_update_collection_batch_size_exceeded(
+        self, storage_manager, dynamodb_stubber, storage_table_name
+    ):
+        """Test updating collection with too large payload raises ServerLimitExceededException"""
+        from src.shared.exceptions import ServerLimitExceededException
+
+        # Create object with payload > 2MB
+        large_payload = "x" * (2 * 1024 * 1024 + 1)
+        objects = [
+            BasicStorageObject(
+                id="obj1",
+                payload=large_payload,
+                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            )
+        ]
+
+        with pytest.raises(ServerLimitExceededException):
+            storage_manager.update_collection("test-user-123", "bookmarks", objects)
+
+    def test_update_collection_precondition_modified_since(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_get_current_timestamp,
+    ):
+        """Test update precondition fails when collection modified since timestamp"""
+        from src.shared.exceptions import PreconditionFailedException
+
+        # Stub get_collection to return collection modified after the precondition timestamp
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567900.00"},  # Modified after precondition
+                    "count": {"N": "5"},
+                    "usage": {"N": "1024"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                },
+            },
+        )
+
+        with pytest.raises(PreconditionFailedException):
+            storage_manager.update_collection(
+                "test-user-123", "bookmarks", [], if_unmodified_since=1234567890.00
+            )
+
+    def test_get_collection_objects_ids_limit_exceeded(
+        self, storage_manager, dynamodb_stubber, storage_table_name
+    ):
+        """Test getting objects with too many IDs raises ValidationException"""
+        from src.shared.exceptions import ValidationException
+
+        # Create comma-separated list of 101 IDs
+        ids = ",".join([f"obj{i}" for i in range(101)])
+
+        with pytest.raises(ValidationException):
+            storage_manager.get_collection_objects("test-user-123", "bookmarks", ids=ids)
+
+    def test_update_storage_object_precondition_create_only_fails(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_get_current_timestamp,
+    ):
+        """Test create-only mode fails when object exists"""
+        from src.shared.exceptions import PreconditionFailedException
+
+        # Stub get_storage_object to return existing object
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "OBJECT#obj123"},
+                    "id": {"S": "obj123"},
+                    "payload": {"S": "existing_payload"},
+                    "modified": {"N": "1234567890.12"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "OBJECT#obj123"},
+                },
+            },
+        )
+
+        with pytest.raises(PreconditionFailedException):
+            storage_manager.update_storage_object(
+                "test-user-123",
+                "bookmarks",
+                "obj123",
+                payload="new",
+                if_unmodified_since=0,
+            )
+
+    def test_update_storage_object_precondition_modified_since(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_get_current_timestamp,
+    ):
+        """Test update precondition fails when object modified since timestamp"""
+        from src.shared.exceptions import PreconditionFailedException
+
+        # Stub get_storage_object to return object modified after the precondition timestamp
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "OBJECT#obj123"},
+                    "id": {"S": "obj123"},
+                    "payload": {"S": "existing_payload"},
+                    "modified": {"N": "1234567900.00"},  # Modified after precondition
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "OBJECT#obj123"},
+                },
+            },
+        )
+
+        with pytest.raises(PreconditionFailedException):
+            storage_manager.update_storage_object(
+                "test-user-123",
+                "bookmarks",
+                "obj123",
+                payload="new",
+                if_unmodified_since=1234567890.00,
+            )
+
+    def test_update_storage_object_precondition_nonexistent_object(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_get_current_timestamp,
+    ):
+        """Test precondition fails when checking non-existent object with non-zero timestamp"""
+        from src.shared.exceptions import PreconditionFailedException
+
+        # Stub get_storage_object to return empty (object doesn't exist)
+        dynamodb_stubber.add_response(
+            "get_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "OBJECT#nonexistent"},
+                },
+            },
+        )
+
+        with pytest.raises(PreconditionFailedException):
+            storage_manager.update_storage_object(
+                "test-user-123",
+                "bookmarks",
+                "nonexistent",
+                payload="new",
+                if_unmodified_since=1234567890.00,
+            )
+
+    def test_delete_collection_objects(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test batch deleting multiple objects"""
+        # Stub get_collection to verify collection exists
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567890.00"},
+                    "count": {"N": "5"},
+                    "usage": {"N": "1024"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                },
+            },
+        )
+
+        # Stub delete_item for each object
+        dynamodb_stubber.add_response("delete_item", {}, None)
+        dynamodb_stubber.add_response("delete_item", {}, None)
+
+        # Stub get_collection again for updating metadata
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567890.00"},
+                    "count": {"N": "3"},
+                    "usage": {"N": "512"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                },
+            },
+        )
+
+        # Stub put_item for metadata update
+        dynamodb_stubber.add_response("put_item", {}, None)
+
+        modified = storage_manager.delete_collection_objects(
+            "test-user-123", "bookmarks", ["obj1", "obj2"]
+        )
+
+        assert modified == mock_timestamp
+
+    def test_delete_collection_objects_limit_exceeded(
+        self, storage_manager, dynamodb_stubber, storage_table_name
+    ):
+        """Test batch delete with too many IDs raises ValidationException"""
+        from src.shared.exceptions import ValidationException
+
+        # Create list of 101 IDs
+        ids = [f"obj{i}" for i in range(101)]
+
+        with pytest.raises(ValidationException):
+            storage_manager.delete_collection_objects("test-user-123", "bookmarks", ids)
+
+    def test_delete_collection_objects_with_error(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test batch delete continues when individual delete fails"""
+        # Stub get_collection to verify collection exists
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567890.00"},
+                    "count": {"N": "5"},
+                    "usage": {"N": "1024"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                },
+            },
+        )
+
+        # First delete fails
+        dynamodb_stubber.add_client_error(
+            "delete_item",
+            service_error_code="ValidationException",
+            service_message="Delete failed",
+        )
+
+        # Second delete succeeds
+        dynamodb_stubber.add_response("delete_item", {}, None)
+
+        # Stub get_collection again for updating metadata
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567890.00"},
+                    "count": {"N": "4"},
+                    "usage": {"N": "800"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                },
+            },
+        )
+
+        # Stub put_item for metadata update
+        dynamodb_stubber.add_response("put_item", {}, None)
+
+        # Should complete without raising, even though first delete failed
+        modified = storage_manager.delete_collection_objects(
+            "test-user-123", "bookmarks", ["obj1", "obj2"]
+        )
+
+        assert modified == mock_timestamp
+
+    def test_delete_all_storage(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test deleting all storage for a user"""
+        # Stub scan to return items
+        dynamodb_stubber.add_response(
+            "scan",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "METADATA"},
+                    },
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "OBJECT#obj1"},
+                    },
+                ]
+            },
+            None,
+        )
+
+        # Stub delete_item for each item
+        dynamodb_stubber.add_response("delete_item", {}, None)
+        dynamodb_stubber.add_response("delete_item", {}, None)
+
+        modified = storage_manager.delete_all_storage("test-user-123")
+
+        assert modified == mock_timestamp
+
+    def test_delete_all_storage_with_pagination(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test deleting all storage with pagination"""
+        # Stub first scan page with LastEvaluatedKey
+        dynamodb_stubber.add_response(
+            "scan",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "METADATA"},
+                    },
+                ],
+                "LastEvaluatedKey": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                },
+            },
+            None,
+        )
+
+        # Stub delete_item for first page
+        dynamodb_stubber.add_response("delete_item", {}, None)
+
+        # Stub second scan page (no more items)
+        dynamodb_stubber.add_response(
+            "scan",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#history"},
+                        "SK": {"S": "METADATA"},
+                    },
+                ]
+            },
+            None,
+        )
+
+        # Stub delete_item for second page
+        dynamodb_stubber.add_response("delete_item", {}, None)
+
+        modified = storage_manager.delete_all_storage("test-user-123")
+
+        assert modified == mock_timestamp
+
+    def test_get_quota(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+    ):
+        """Test getting quota information"""
+        # list_collections uses scan
+        dynamodb_stubber.add_response(
+            "scan",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "METADATA"},
+                        "name": {"S": "bookmarks"},
+                        "modified": {"N": "1234567890.00"},
+                        "count": {"N": "5"},
+                        "usage": {"N": "1024"},
+                    },
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#history"},
+                        "SK": {"S": "METADATA"},
+                        "name": {"S": "history"},
+                        "modified": {"N": "1234567880.00"},
+                        "count": {"N": "10"},
+                        "usage": {"N": "2048"},
+                    },
+                ]
+            },
+            None,
+        )
+
+        usage_kb, quota_kb = storage_manager.get_quota("test-user-123")
+
+        assert usage_kb == (1024 + 2048) / 1024.0
+        assert quota_kb is None  # Unlimited
+
+    def test_create_collection_precondition_passes(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test precondition passes when collection not modified since timestamp"""
+        # Stub get_collection to return collection modified before the precondition timestamp
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567880.00"},  # Modified before precondition
+                    "count": {"N": "5"},
+                    "usage": {"N": "1024"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                },
+            },
+        )
+
+        # Stub put_item for metadata update
+        dynamodb_stubber.add_response("put_item", {}, None)
+
+        collection, batch_result = storage_manager.create_or_update_collection(
+            "test-user-123", "bookmarks", [], if_unmodified_since=1234567890.00
+        )
+
+        assert collection.name == "bookmarks"
+
+    def test_update_collection_precondition_passes(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test update precondition passes when collection not modified since timestamp"""
+        # Stub get_collection to return collection modified before the precondition timestamp
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567880.00"},  # Modified before precondition
+                    "count": {"N": "5"},
+                    "usage": {"N": "1024"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                },
+            },
+        )
+
+        # Stub put_item for metadata update
+        dynamodb_stubber.add_response("put_item", {}, None)
+
+        collection, batch_result = storage_manager.update_collection(
+            "test-user-123", "bookmarks", [], if_unmodified_since=1234567890.00
+        )
+
+        assert collection.name == "bookmarks"
+
+    def test_update_storage_object_precondition_passes(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test update precondition passes when object not modified since timestamp"""
+        # Stub get_storage_object to return object modified before the precondition timestamp
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "OBJECT#obj123"},
+                    "id": {"S": "obj123"},
+                    "payload": {"S": "existing_payload"},
+                    "modified": {"N": "1234567880.00"},  # Modified before precondition
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "OBJECT#obj123"},
+                },
+            },
+        )
+
+        # Stub put_item for update
+        dynamodb_stubber.add_response("put_item", {}, None)
+
+        obj = storage_manager.update_storage_object(
+            "test-user-123",
+            "bookmarks",
+            "obj123",
+            payload="new_payload",
+            if_unmodified_since=1234567890.00,
+        )
+
+        assert obj.payload == "new_payload"

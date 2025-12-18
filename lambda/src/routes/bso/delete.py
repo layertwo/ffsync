@@ -25,13 +25,22 @@ class DeleteBSORoute(BaseRoute):
     def handle(self, event) -> Response:
         """Delete a specific storage object"""
         try:
+            # Extract user_id from authorizer context
+            user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
+            if not user_id:
+                return Response(
+                    status_code=401,
+                    content_type="application/json",
+                    body=json_dumps({"error": "Unauthorized"}),
+                )
+
             path_params = event.path_parameters or {}
             collection_name = path_params["collectionName"]
             object_id = path_params["objectId"]
 
-            # Delete storage object using storage manager
+            # Delete storage object using storage manager with user_id
             modified_timestamp = self.storage_manager.delete_storage_object(
-                collection_name, object_id
+                user_id, collection_name, object_id
             )
 
             response_body = {"modified": modified_timestamp}

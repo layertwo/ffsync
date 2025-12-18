@@ -29,6 +29,15 @@ class CreateCollectionRoute(BaseRoute):
     def handle(self, event) -> Response:
         """Create a new collection or batch create/update objects"""
         try:
+            # Extract user_id from authorizer context
+            user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
+            if not user_id:
+                return Response(
+                    status_code=401,
+                    content_type="application/json",
+                    body=json_dumps({"error": "Unauthorized"}),
+                )
+
             path_params = event.path_parameters or {}
             body = event.body
             collection_name = path_params["collectionName"]
@@ -36,7 +45,7 @@ class CreateCollectionRoute(BaseRoute):
             # Check conditional headers
             if_unmodified_since = event.headers.get("x-if-unmodified-since")
             if if_unmodified_since and not self._check_precondition(
-                collection_name, if_unmodified_since
+                user_id, collection_name, if_unmodified_since
             ):
                 return Response(
                     status_code=412,
@@ -76,7 +85,7 @@ class CreateCollectionRoute(BaseRoute):
 
             # Create/update collection using storage manager
             collection_data, batch_result = self.storage_manager.create_or_update_collection(
-                collection_name, objects if objects else None
+                user_id, collection_name, objects if objects else None
             )
 
             # Convert to dict using dataclass serialization
@@ -120,11 +129,11 @@ class CreateCollectionRoute(BaseRoute):
                 body=json_dumps({"error": "Internal server error"}),
             )
 
-    def _check_precondition(self, collection_name, if_unmodified_since):
+    def _check_precondition(self, user_id, collection_name, if_unmodified_since):
         """Check if collection was modified since given timestamp"""
         try:
             timestamp = float(if_unmodified_since)
-            collection = self.storage_manager.get_collection(collection_name)
+            collection = self.storage_manager.get_collection(user_id, collection_name)
             return collection.modified <= datetime.fromtimestamp(timestamp, tz=timezone.utc)
         except (ValueError, Exception):  # pragma: nocover
             return True  # If we can't check, allow the operation

@@ -1,8 +1,7 @@
-from datetime import datetime, timezone
-
 """Tests for info route handlers"""
 
 import json
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -13,6 +12,16 @@ from src.routes.info.read_counts import ReadCollectionCountsRoute
 from src.routes.info.read_quota import ReadQuotaInfoRoute
 from src.routes.info.read_usage import ReadCollectionUsageRoute
 from src.shared.models import CollectionData
+
+TEST_USER_ID = "test-user-123"
+
+
+def with_auth(event_dict: dict) -> dict:
+    """Add authorizer context to event dict"""
+    if "requestContext" not in event_dict:
+        event_dict["requestContext"] = {}
+    event_dict["requestContext"]["authorizer"] = {"user_id": TEST_USER_ID}
+    return event_dict
 
 
 class TestReadCollectionsInfoRoute:
@@ -25,14 +34,15 @@ class TestReadCollectionsInfoRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event: dict[str, Any] = {
-            "httpMethod": "GET",
-            "path": "/info/collections",
-            "pathParameters": None,
-            "headers": {},
-            "body": None,
-            "requestContext": {},
-        }
+        event: dict[str, Any] = with_auth(
+            {
+                "httpMethod": "GET",
+                "path": "/info/collections",
+                "pathParameters": None,
+                "headers": {},
+                "body": None,
+            }
+        )
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
@@ -40,7 +50,7 @@ class TestReadCollectionsInfoRoute:
         """Test successful retrieval of collections info"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         collections = [
             CollectionData(
@@ -83,7 +93,7 @@ class TestReadCollectionsInfoRoute:
         """Test handling when no collections exist"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         mock_storage_manager.list_collections.return_value = []
 
@@ -98,7 +108,7 @@ class TestReadCollectionsInfoRoute:
         """Test handling of generic exceptions"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         mock_storage_manager.list_collections.side_effect = Exception("Database error")
 
@@ -120,14 +130,15 @@ class TestReadCollectionCountsRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event: dict[str, Any] = {
-            "httpMethod": "GET",
-            "path": "/info/collection_counts",
-            "pathParameters": None,
-            "headers": {},
-            "body": None,
-            "requestContext": {},
-        }
+        event: dict[str, Any] = with_auth(
+            {
+                "httpMethod": "GET",
+                "path": "/info/collection_counts",
+                "pathParameters": None,
+                "headers": {},
+                "body": None,
+            }
+        )
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
@@ -135,7 +146,7 @@ class TestReadCollectionCountsRoute:
         """Test successful retrieval of collection counts"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         collections = [
             CollectionData(
@@ -170,7 +181,7 @@ class TestReadCollectionCountsRoute:
         """Test handling when no collections exist"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         mock_storage_manager.list_collections.return_value = []
 
@@ -185,7 +196,7 @@ class TestReadCollectionCountsRoute:
         """Test handling of generic exceptions"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
@@ -204,14 +215,15 @@ class TestReadCollectionUsageRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event: dict[str, Any] = {
-            "httpMethod": "GET",
-            "path": "/info/collection_usage",
-            "pathParameters": None,
-            "headers": {},
-            "body": None,
-            "requestContext": {},
-        }
+        event: dict[str, Any] = with_auth(
+            {
+                "httpMethod": "GET",
+                "path": "/info/collection_usage",
+                "pathParameters": None,
+                "headers": {},
+                "body": None,
+            }
+        )
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
@@ -219,7 +231,7 @@ class TestReadCollectionUsageRoute:
         """Test successful retrieval of collection usage"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         collections = [
             CollectionData(
@@ -254,7 +266,7 @@ class TestReadCollectionUsageRoute:
         """Test handling when no collections exist"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         mock_storage_manager.list_collections.return_value = []
 
@@ -269,7 +281,7 @@ class TestReadCollectionUsageRoute:
         """Test handling of generic exceptions"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
@@ -288,14 +300,15 @@ class TestReadQuotaInfoRoute:
         app = APIGatewayRestResolver()
         route.bind(app)
 
-        event: dict[str, Any] = {
-            "httpMethod": "GET",
-            "path": "/info/quota",
-            "pathParameters": None,
-            "headers": {},
-            "body": None,
-            "requestContext": {},
-        }
+        event: dict[str, Any] = with_auth(
+            {
+                "httpMethod": "GET",
+                "path": "/info/quota",
+                "pathParameters": None,
+                "headers": {},
+                "body": None,
+            }
+        )
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
@@ -303,7 +316,7 @@ class TestReadQuotaInfoRoute:
         """Test successful retrieval of quota information"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         collections = [
             CollectionData(
@@ -343,7 +356,7 @@ class TestReadQuotaInfoRoute:
         """Test quota info when no collections exist"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         mock_storage_manager.list_collections.return_value = []
 
@@ -361,7 +374,7 @@ class TestReadQuotaInfoRoute:
         """Test quota info with single collection"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         collections = [
             CollectionData(
@@ -387,10 +400,74 @@ class TestReadQuotaInfoRoute:
         """Test handling of generic exceptions"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {}
+        event: dict[str, Any] = with_auth({})
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
         response = route.handle(event)
 
         assert response.status_code == 500
+
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+        """Test handling when user_id is missing from authorizer context"""
+        route = ReadQuotaInfoRoute(mock_storage_manager)
+
+        event: dict[str, Any] = {"requestContext": {"authorizer": {}}}
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"
+
+
+class TestReadCollectionsInfoRouteUnauthorized:
+    """Tests for ReadCollectionsInfoRoute unauthorized cases"""
+
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+        """Test handling when user_id is missing from authorizer context"""
+        route = ReadCollectionsInfoRoute(mock_storage_manager)
+
+        event: dict[str, Any] = {"requestContext": {"authorizer": {}}}
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"
+
+
+class TestReadCollectionCountsRouteUnauthorized:
+    """Tests for ReadCollectionCountsRoute unauthorized cases"""
+
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+        """Test handling when user_id is missing from authorizer context"""
+        route = ReadCollectionCountsRoute(mock_storage_manager)
+
+        event: dict[str, Any] = {"requestContext": {"authorizer": {}}}
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"
+
+
+class TestReadCollectionUsageRouteUnauthorized:
+    """Tests for ReadCollectionUsageRoute unauthorized cases"""
+
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+        """Test handling when user_id is missing from authorizer context"""
+        route = ReadCollectionUsageRoute(mock_storage_manager)
+
+        event: dict[str, Any] = {"requestContext": {"authorizer": {}}}
+
+        response = route.handle(event)
+
+        assert response.status_code == 401
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"

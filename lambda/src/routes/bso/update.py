@@ -31,6 +31,15 @@ class UpdateBSORoute(BaseRoute):
     def handle(self, event) -> Response:
         """Update a storage object"""
         try:
+            # Extract user_id from authorizer context
+            user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
+            if not user_id:
+                return Response(
+                    status_code=401,
+                    content_type="application/json",
+                    body=json_dumps({"error": "Unauthorized"}),
+                )
+
             path_params = event.path_parameters or {}
             body = event.body
             collection_name = path_params["collectionName"]
@@ -66,8 +75,9 @@ class UpdateBSORoute(BaseRoute):
                 except ValueError:
                     raise ValidationException("Invalid X-If-Unmodified-Since header")
 
-            # Update storage object using storage manager
+            # Update storage object using storage manager with user_id
             updated_object = self.storage_manager.update_storage_object(
+                user_id,
                 collection_name,
                 object_id,
                 payload=storage_object.payload,

@@ -21,6 +21,15 @@ class ReadCollectionRoute(BaseRoute):
     def handle(self, event) -> Response:
         """Get collection metadata or retrieve objects with filtering"""
         try:
+            # Extract user_id from authorizer context
+            user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
+            if not user_id:
+                return Response(
+                    status_code=401,
+                    content_type="application/json",
+                    body=json_dumps({"error": "Unauthorized"}),
+                )
+
             path_params = event.path_parameters or {}
             query_params = event.query_string_parameters or {}
             collection_name = path_params["collectionName"]
@@ -42,6 +51,7 @@ class ReadCollectionRoute(BaseRoute):
             if has_object_filters:
                 # Return objects from collection with filtering
                 objects = self.storage_manager.get_collection_objects(
+                    user_id,
                     collection_name,
                     ids=query_params.get("ids"),
                     newer=self._parse_timestamp(query_params.get("newer")),
@@ -68,7 +78,7 @@ class ReadCollectionRoute(BaseRoute):
                 )
             else:
                 # Return collection metadata only
-                collection_data = self.storage_manager.get_collection(collection_name)
+                collection_data = self.storage_manager.get_collection(user_id, collection_name)
 
                 # Convert to dict using dataclass serialization
                 collection_dict = collection_data.to_dict()

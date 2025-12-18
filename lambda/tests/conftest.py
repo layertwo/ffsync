@@ -132,7 +132,23 @@ def mock_storage_manager():
 
 
 @pytest.fixture
-def sample_lambda_event():
+def test_user_id():
+    """Test user ID for authenticated requests"""
+    return "test-user-123"
+
+
+def make_event_with_auth(event_dict: dict, user_id: str = "test-user-123") -> dict:
+    """Helper to add authorizer context to an event dict"""
+    if "requestContext" not in event_dict:
+        event_dict["requestContext"] = {}
+    if "authorizer" not in event_dict["requestContext"]:
+        event_dict["requestContext"]["authorizer"] = {}
+    event_dict["requestContext"]["authorizer"]["user_id"] = user_id
+    return event_dict
+
+
+@pytest.fixture
+def sample_lambda_event(test_user_id):
     """Sample Lambda event structure"""
     return {
         "httpMethod": "GET",
@@ -144,7 +160,11 @@ def sample_lambda_event():
         "headers": {"Content-Type": "application/json"},
         "body": None,
         "queryStringParameters": None,
-        "requestContext": {"requestId": "test-request-id", "accountId": "123456789012"},
+        "requestContext": {
+            "requestId": "test-request-id",
+            "accountId": "123456789012",
+            "authorizer": {"user_id": test_user_id},
+        },
     }
 
 
