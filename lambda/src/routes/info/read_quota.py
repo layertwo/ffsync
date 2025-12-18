@@ -7,10 +7,14 @@ from src.shared.utils import json_dumps
 
 logger = Logger()
 
+# Default quota limit in KB (None means unlimited/not enforced)
+DEFAULT_QUOTA_KB = None
+
 
 class ReadQuotaInfoRoute(BaseRoute):
-    def __init__(self, storage_manager: StorageManager):
+    def __init__(self, storage_manager: StorageManager, quota_kb: int | None = DEFAULT_QUOTA_KB):
         self.storage_manager = storage_manager
+        self.quota_kb = quota_kb
 
     def bind(self, app: APIGatewayRestResolver):
         @app.get("/info/quota")
@@ -18,7 +22,13 @@ class ReadQuotaInfoRoute(BaseRoute):
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:
-        """Get quota information for the authenticated user"""
+        """
+        Get quota information for the authenticated user.
+
+        Returns Mozilla format: [usage_kb, quota_kb or null]
+        - usage_kb: Current storage usage in KB
+        - quota_kb: Storage quota in KB, or null if not enforced
+        """
         try:
             # Extract user_id from authorizer context
             user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
@@ -32,21 +42,12 @@ class ReadQuotaInfoRoute(BaseRoute):
             # Get collections using storage manager to calculate current usage
             collections = self.storage_manager.list_collections(user_id)
 
-            current_collections = len(collections)
-            current_usage = sum(collection.usage for collection in collections)
+            # Calculate total usage in bytes, then convert to KB
+            total_usage_bytes = sum(collection.usage for collection in collections)
+            usage_kb = total_usage_bytes / 1024
 
-            # TODO: Make these configurable per user/tier
-            max_collections = 100
-            max_usage = 10485760  # 10MB
-
-            response_body = {
-                "quota": {
-                    "max_collections": max_collections,
-                    "max_usage": max_usage,
-                    "current_collections": current_collections,
-                    "current_usage": current_usage,
-                }
-            }
+            # Return Mozilla format: [usage_kb, quota_kb or null]
+            response_body = [usage_kb, self.quota_kb]
 
             return Response(
                 status_code=200,

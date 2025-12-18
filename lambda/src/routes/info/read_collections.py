@@ -3,7 +3,7 @@ from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
-from src.shared.utils import json_dumps
+from src.shared.utils import datetime_encoder, json_dumps
 
 logger = Logger()
 
@@ -18,7 +18,12 @@ class ReadCollectionsInfoRoute(BaseRoute):
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:
-        """Get metadata for all collections"""
+        """
+        Get metadata for all collections.
+
+        Returns Mozilla format: object mapping collection names to timestamps.
+        Example: {"bookmarks": 1234567890.12, "tabs": 1234567880.00}
+        """
         try:
             # Extract user_id from authorizer context
             user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
@@ -32,10 +37,10 @@ class ReadCollectionsInfoRoute(BaseRoute):
             # Get collections using storage manager
             collections = self.storage_manager.list_collections(user_id)
 
-            # Convert to map format as expected by the Smithy model
-            collections_map = {collection.name: collection.to_dict() for collection in collections}
-
-            response_body = {"collections": collections_map}
+            # Mozilla format: object mapping collection names to timestamps
+            response_body = {
+                collection.name: datetime_encoder(collection.modified) for collection in collections
+            }
 
             return Response(
                 status_code=200,

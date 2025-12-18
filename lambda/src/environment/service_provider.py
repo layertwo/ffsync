@@ -13,6 +13,7 @@ from src.routes.collections.list import ListCollectionsRoute
 from src.routes.collections.read import ReadCollectionRoute
 from src.routes.collections.update import UpdateCollectionRoute
 from src.routes.info.read_collections import ReadCollectionsInfoRoute
+from src.routes.info.read_configuration import ReadConfigurationRoute
 from src.routes.info.read_counts import ReadCollectionCountsRoute
 from src.routes.info.read_quota import ReadQuotaInfoRoute
 from src.routes.info.read_usage import ReadCollectionUsageRoute
@@ -67,6 +68,7 @@ class ServiceProvider:
         return ApiRouter(
             routes=[
                 DeleteAllStorageRoute(),
+                ReadConfigurationRoute(),
                 ReadCollectionsInfoRoute(self.storage_manager),
                 ReadCollectionCountsRoute(self.storage_manager),
                 ReadCollectionUsageRoute(self.storage_manager),
