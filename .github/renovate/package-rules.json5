@@ -1,0 +1,33 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "packageRules": [
+    {
+      "description": ["Custom schedule for noisy NPM packages"],
+      "matchDataSources": ["npm"],
+      "matchPackagePatterns": [
+          "@types/node",
+          "@typescript-eslint/eslint-plugin",
+          "@typescript-eslint/parser",
+          "eslint-plugin-prettier",
+          "eslint-config-prettier"
+      ],
+      "schedule": ["on saturday"]
+    },
+    {
+      "description": ["Group aws-cdk-lib updates"],
+      "matchDataSources": ["npm"],
+      "matchPackagePatterns": ["aws-cdk-lib", "aws-cdk"],
+      "groupName": "aws-cdk-lib",
+      "groupSlug": "aws-cdk-lib"
+      "schedule": ["on saturday"]
+    },
+    {
+      "description": ["Group boto3 updates"],
+      "matchDatasources": ["pip"],
+      "matchPackagePatterns": ["boto3", "types-boto3"],
+      "groupName": "boto3",
+      "groupSlug": "boto3"
+      "schedule": ["on saturday"]
+    }
+  ]
+}
