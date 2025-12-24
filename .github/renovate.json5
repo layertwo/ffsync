@@ -6,6 +6,6 @@
     'mergeConfidence:all-badges',
     ':disableRateLimiting',
     ':semanticCommits',
-    'github>layertwo/flux//.github/renovate/package-rules.json5',
+    'github>layertwo/ffsync//.github/renovate/package-rules.json5',
   ]
 }
