@@ -1,7 +1,6 @@
 """RequestToken route for Firefox Sync Token Server"""
 
 import re
-import time
 from dataclasses import asdict
 
 from aws_lambda_powertools import Logger
@@ -21,7 +20,7 @@ from src.shared.exceptions import (
     ServiceUnavailableError,
     ValidationException,
 )
-from src.shared.utils import json_dumps
+from src.shared.utils import get_weave_timestamp, json_dumps
 
 logger = Logger()
 
@@ -173,7 +172,7 @@ class GetTokenRoute(BaseRoute):
                 status_code=200,
                 content_type="application/json",
                 body=json_dumps(asdict(token_response)),
-                headers={"X-Timestamp": str(int(time.time()))},
+                headers={"X-Timestamp": str(int(float(get_weave_timestamp())))},
             )
 
         except InvalidTimestampError as e:
@@ -323,7 +322,7 @@ class GetTokenRoute(BaseRoute):
         }
 
         # Build headers based on status code
-        headers = {"X-Timestamp": str(int(time.time()))}
+        headers = {"X-Timestamp": str(int(float(get_weave_timestamp())))}
 
         # Add Retry-After header for 503 responses
         if status_code == 503:

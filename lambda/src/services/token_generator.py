@@ -3,7 +3,7 @@
 import base64
 import hashlib
 import secrets
-import time
+from datetime import datetime, timezone
 
 from src.shared.token import TokenResponse
 
@@ -98,7 +98,7 @@ class TokenGenerator:
             TokenResponse with all HAWK credentials and metadata
         """
         # Calculate expiry timestamp
-        current_time = int(time.time())
+        current_time = int(datetime.now(timezone.utc).timestamp())
         expiry = current_time + self.TOKEN_DURATION
 
         # Generate HAWK credentials with stable user_id

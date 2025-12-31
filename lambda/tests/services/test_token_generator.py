@@ -2,7 +2,7 @@
 
 import base64
 import re
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -98,7 +98,10 @@ class TestTokenGenerator:
         uid = 123456789
         generation = 5
 
-        with patch("src.services.token_generator.time.time", return_value=mock_time):
+        mock_datetime = MagicMock()
+        mock_datetime.timestamp.return_value = mock_time
+        with patch("src.services.token_generator.datetime") as mock_dt:
+            mock_dt.now.return_value = mock_datetime
             token = token_generator.generate_token(user_id, uid, generation)
 
         assert isinstance(token, TokenResponse)
@@ -114,7 +117,10 @@ class TestTokenGenerator:
         user_id = "user123"
         uid = 123456789
 
-        with patch("src.services.token_generator.time.time", return_value=mock_time):
+        mock_datetime = MagicMock()
+        mock_datetime.timestamp.return_value = mock_time
+        with patch("src.services.token_generator.datetime") as mock_dt:
+            mock_dt.now.return_value = mock_datetime
             token = token_generator.generate_token(user_id, uid, 0)
 
         assert token.api_endpoint == f"{storage_url}/1.5/{uid}"
@@ -124,7 +130,10 @@ class TestTokenGenerator:
         user_id = "user123"
         uid = 123456789
 
-        with patch("src.services.token_generator.time.time", return_value=mock_time):
+        mock_datetime = MagicMock()
+        mock_datetime.timestamp.return_value = mock_time
+        with patch("src.services.token_generator.datetime") as mock_dt:
+            mock_dt.now.return_value = mock_datetime
             token = token_generator.generate_token(user_id, uid, 0)
 
         assert token.duration == 300
@@ -134,7 +143,10 @@ class TestTokenGenerator:
         user_id = "user123"
         uid = 123456789
 
-        with patch("src.services.token_generator.time.time", return_value=mock_time):
+        mock_datetime = MagicMock()
+        mock_datetime.timestamp.return_value = mock_time
+        with patch("src.services.token_generator.datetime") as mock_dt:
+            mock_dt.now.return_value = mock_datetime
             token = token_generator.generate_token(user_id, uid, 0)
 
         assert token.hashalg == "sha256"
@@ -146,7 +158,10 @@ class TestTokenGenerator:
         generation = 5
         expected_expiry = mock_time + 300
 
-        with patch("src.services.token_generator.time.time", return_value=mock_time):
+        mock_datetime = MagicMock()
+        mock_datetime.timestamp.return_value = mock_time
+        with patch("src.services.token_generator.datetime") as mock_dt:
+            mock_dt.now.return_value = mock_datetime
             token = token_generator.generate_token(user_id, uid, generation)
 
         # Decode HAWK ID to verify it contains user_id:generation:expiry
@@ -165,7 +180,10 @@ class TestTokenGenerator:
         user_id = "user123"
         uid = 123456789
 
-        with patch("src.services.token_generator.time.time", return_value=mock_time):
+        mock_datetime = MagicMock()
+        mock_datetime.timestamp.return_value = mock_time
+        with patch("src.services.token_generator.datetime") as mock_dt:
+            mock_dt.now.return_value = mock_datetime
             token = token_generator.generate_token(user_id, uid, 0)
 
         assert token.uid == uid
@@ -174,7 +192,10 @@ class TestTokenGenerator:
         """Test each token generation produces unique key"""
         user_id = "user123"
         uid = 123456789
-        with patch("src.services.token_generator.time.time", return_value=mock_time):
+        mock_datetime = MagicMock()
+        mock_datetime.timestamp.return_value = mock_time
+        with patch("src.services.token_generator.datetime") as mock_dt:
+            mock_dt.now.return_value = mock_datetime
             tokens = [token_generator.generate_token(user_id, uid, 0) for _ in range(10)]
 
         keys = [t.key for t in tokens]

@@ -158,14 +158,13 @@ class TestQuotaExceededException:
         assert exc.message == "Maximum storage limit reached"
 
     def test_to_response(self):
-        """Test converting to Response"""
+        """Test converting to Response returns Mozilla code (Requirement 13.1, 13.5)"""
         exc = QuotaExceededException("Quota exceeded")
         response = exc.to_response()
 
         assert response.status_code == HTTPStatus.INSUFFICIENT_STORAGE
-        assert response.body is not None
-        body = json.loads(response.body)
-        assert body["error"] == "QuotaExceededException"
+        # Should return integer Mozilla response code 14
+        assert response.body == "14"
 
 
 class TestCollectionNotFoundException:
@@ -534,8 +533,8 @@ class TestServerLimitExceededException:
 
         assert exc.message == "Batch size exceeds 100 records"
 
-    def test_to_response(self):
-        """Test converting exception to Response"""
+    def test_to_response_returns_mozilla_code(self):
+        """Test converting exception to Response returns Mozilla code (Requirement 13.1, 13.7)"""
         from src.shared.exceptions import ServerLimitExceededException
 
         exc = ServerLimitExceededException("Server limit exceeded")
@@ -543,3 +542,231 @@ class TestServerLimitExceededException:
 
         assert response.status_code == HTTPStatus.BAD_REQUEST
         assert response.content_type == "application/json"
+        # Should return integer Mozilla response code, not JSON object
+        assert response.body == "17"
+
+
+class TestQuotaExceededExceptionMozillaCode:
+    """Tests for QuotaExceededException Mozilla response code"""
+
+    def test_to_response_returns_mozilla_code(self):
+        """Test converting exception to Response returns Mozilla code (Requirement 13.1, 13.5)"""
+        exc = QuotaExceededException("Quota exceeded")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.INSUFFICIENT_STORAGE
+        assert response.content_type == "application/json"
+        # Should return integer Mozilla response code 14
+        assert response.body == "14"
+
+
+class TestInvalidBSOException:
+    """Tests for InvalidBSOException"""
+
+    def test_default_initialization(self):
+        """Test exception with default message"""
+        from src.shared.exceptions import InvalidBSOException
+
+        exc = InvalidBSOException()
+
+        assert exc.message == "Invalid BSO"
+        assert exc.status_code == HTTPStatus.BAD_REQUEST
+        assert exc.error_code == "InvalidBSOException"
+        assert exc.mozilla_code == 8
+
+    def test_to_response_returns_mozilla_code(self):
+        """Test converting exception to Response returns Mozilla code (Requirement 13.1, 13.3)"""
+        from src.shared.exceptions import InvalidBSOException
+
+        exc = InvalidBSOException("Invalid BSO payload")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert response.content_type == "application/json"
+        # Should return integer Mozilla response code 8
+        assert response.body == "8"
+
+
+class TestInvalidCollectionException:
+    """Tests for InvalidCollectionException"""
+
+    def test_default_initialization(self):
+        """Test exception with default message"""
+        from src.shared.exceptions import InvalidCollectionException
+
+        exc = InvalidCollectionException()
+
+        assert exc.message == "Invalid collection name"
+        assert exc.status_code == HTTPStatus.BAD_REQUEST
+        assert exc.error_code == "InvalidCollectionException"
+        assert exc.mozilla_code == 13
+
+    def test_to_response_returns_mozilla_code(self):
+        """Test converting exception to Response returns Mozilla code (Requirement 13.1, 13.4)"""
+        from src.shared.exceptions import InvalidCollectionException
+
+        exc = InvalidCollectionException("Collection name too long")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert response.content_type == "application/json"
+        # Should return integer Mozilla response code 13
+        assert response.body == "13"
+
+
+class TestJSONParseException:
+    """Tests for JSONParseException"""
+
+    def test_default_initialization(self):
+        """Test exception with default message"""
+        from src.shared.exceptions import JSONParseException
+
+        exc = JSONParseException()
+
+        assert exc.message == "JSON parse failure"
+        assert exc.status_code == HTTPStatus.BAD_REQUEST
+        assert exc.error_code == "JSONParseException"
+        assert exc.mozilla_code == 6
+
+    def test_to_response_returns_mozilla_code(self):
+        """Test converting exception to Response returns Mozilla code (Requirement 13.1, 13.2)"""
+        from src.shared.exceptions import JSONParseException
+
+        exc = JSONParseException("Malformed JSON")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert response.content_type == "application/json"
+        # Should return integer Mozilla response code 6
+        assert response.body == "6"
+
+
+class TestIncompatibleClientException:
+    """Tests for IncompatibleClientException"""
+
+    def test_default_initialization(self):
+        """Test exception with default message"""
+        from src.shared.exceptions import IncompatibleClientException
+
+        exc = IncompatibleClientException()
+
+        assert exc.message == "Incompatible client"
+        assert exc.status_code == HTTPStatus.BAD_REQUEST
+        assert exc.error_code == "IncompatibleClientException"
+        assert exc.mozilla_code == 16
+
+    def test_to_response_returns_mozilla_code(self):
+        """Test converting exception to Response returns Mozilla code (Requirement 13.1, 13.6)"""
+        from src.shared.exceptions import IncompatibleClientException
+
+        exc = IncompatibleClientException("Client version not supported")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert response.content_type == "application/json"
+        # Should return integer Mozilla response code 16
+        assert response.body == "16"
+
+
+class TestOptionalResponseHeaders:
+    """Tests for optional response headers (Requirements 5.7, 18.1-18.4)"""
+
+    def test_retry_after_header(self):
+        """Test Retry-After header on ConflictException (Requirement 5.7)"""
+        exc = ConflictException("Resource conflict", retry_after=30)
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.CONFLICT
+        assert response.headers is not None
+        assert response.headers.get("Retry-After") == "30"
+
+    def test_x_weave_backoff_header(self):
+        """Test X-Weave-Backoff header (Requirement 18.1)"""
+        exc = ServiceUnavailableError("Server under load", backoff=60)
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+        assert response.headers is not None
+        assert response.headers.get("X-Weave-Backoff") == "60"
+
+    def test_x_weave_alert_header(self):
+        """Test X-Weave-Alert header (Requirement 18.3)"""
+        exc = ServiceUnavailableError("Service decommissioned", alert="hard-eol")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+        assert response.headers is not None
+        assert response.headers.get("X-Weave-Alert") == "hard-eol"
+
+    def test_multiple_optional_headers(self):
+        """Test multiple optional headers together"""
+        exc = ConflictException(
+            "Conflict detected", retry_after=15, backoff=30, alert="Please retry"
+        )
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.CONFLICT
+        assert response.headers is not None
+        assert response.headers.get("Retry-After") == "15"
+        assert response.headers.get("X-Weave-Backoff") == "30"
+        assert response.headers.get("X-Weave-Alert") == "Please retry"
+
+    def test_no_optional_headers_by_default(self):
+        """Test that optional headers are not present by default"""
+        exc = ValidationException("Invalid input")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        # Headers should be None or empty when no optional headers are set
+        if response.headers is not None:
+            assert "Retry-After" not in response.headers
+            assert "X-Weave-Backoff" not in response.headers
+            assert "X-Weave-Alert" not in response.headers
+
+
+class TestTokenServerExceptionsWithKwargs:
+    """Test Token Server exceptions accept **kwargs for optional headers"""
+
+    def test_invalid_timestamp_error_with_kwargs(self):
+        """Test InvalidTimestampError accepts optional headers"""
+        from src.shared.exceptions import InvalidTimestampError
+
+        exc = InvalidTimestampError("Timestamp mismatch", retry_after=10)
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert response.headers is not None
+        assert response.headers.get("Retry-After") == "10"
+
+    def test_invalid_generation_error_with_kwargs(self):
+        """Test InvalidGenerationError accepts optional headers"""
+        from src.shared.exceptions import InvalidGenerationError
+
+        exc = InvalidGenerationError("Generation outdated", alert="Please re-authenticate")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert response.headers is not None
+        assert response.headers.get("X-Weave-Alert") == "Please re-authenticate"
+
+    def test_invalid_client_state_error_with_kwargs(self):
+        """Test InvalidClientStateError accepts optional headers"""
+        from src.shared.exceptions import InvalidClientStateError
+
+        exc = InvalidClientStateError("Invalid state", backoff=5)
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert response.headers is not None
+        assert response.headers.get("X-Weave-Backoff") == "5"
+
+    def test_new_users_disabled_error_with_kwargs(self):
+        """Test NewUsersDisabledError accepts optional headers"""
+        from src.shared.exceptions import NewUsersDisabledError
+
+        exc = NewUsersDisabledError("Registration disabled", alert="Service closed")
+        response = exc.to_response()
+
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+        assert response.headers is not None
+        assert response.headers.get("X-Weave-Alert") == "Service closed"

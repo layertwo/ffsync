@@ -1,5 +1,6 @@
 """Tests for shared utility functions"""
 
+import re
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -11,6 +12,7 @@ from src.shared.utils import (
     datetime_encoder,
     decimal_to_float,
     float_to_decimal,
+    get_weave_timestamp,
     json_dumps,
 )
 
@@ -47,6 +49,33 @@ class TestFloatDecimalConverters:
         result = decimal_to_float(Decimal("123.45"))
         assert isinstance(result, float)
         assert result == 123.45
+
+
+class TestWeaveTimestamp:
+    """Test Weave timestamp generation (Requirements 9.1, 9.2)"""
+
+    def test_get_weave_timestamp_format(self):
+        """Test that get_weave_timestamp returns correct format"""
+        timestamp = get_weave_timestamp()
+
+        # Should be a string
+        assert isinstance(timestamp, str)
+
+        # Should match format: digits.2decimals (e.g., "1702345678.12")
+        assert re.match(r"^\d+\.\d{2}$", timestamp), f"Timestamp {timestamp} doesn't match format"
+
+        # Should be parseable as float
+        float_value = float(timestamp)
+        assert float_value > 0
+
+    def test_get_weave_timestamp_precision(self):
+        """Test that get_weave_timestamp has exactly 2 decimal places"""
+        timestamp = get_weave_timestamp()
+
+        # Split on decimal point
+        parts = timestamp.split(".")
+        assert len(parts) == 2, "Timestamp should have exactly one decimal point"
+        assert len(parts[1]) == 2, "Timestamp should have exactly 2 decimal places"
 
 
 class TestDecimalEncoder:
