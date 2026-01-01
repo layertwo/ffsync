@@ -26,6 +26,19 @@ def decimal_to_float(value: Decimal) -> float:
     return float(value)
 
 
+def get_weave_timestamp() -> str:
+    """
+    Get current server timestamp in Mozilla Weave format.
+
+    Returns:
+        String timestamp with seconds since epoch and 2 decimal places precision.
+        Example: "1702345678.12"
+
+    Requirements: 9.1, 9.2
+    """
+    return f"{datetime.now(timezone.utc).timestamp():.2f}"
+
+
 class DecimalEncoder(json.JSONEncoder):
     """JSON encoder that handles Decimal objects by converting them to float"""
 

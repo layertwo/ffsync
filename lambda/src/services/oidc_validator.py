@@ -1,6 +1,6 @@
 """OIDC Validator for token validation against configured OIDC providers"""
 
-import time
+from datetime import datetime, timezone
 from typing import Optional
 
 import jwt
@@ -51,7 +51,8 @@ class OIDCValidator:
         """Check if the cached provider configuration is still valid."""
         if self._provider_config is None:
             return False
-        return (time.time() - self._provider_config_timestamp) < CACHE_TTL_SECONDS
+        current_time = datetime.now(timezone.utc).timestamp()
+        return (current_time - self._provider_config_timestamp) < CACHE_TTL_SECONDS
 
     def discover_provider_config(self) -> OIDCProviderConfig:
         """
@@ -83,7 +84,7 @@ class OIDCValidator:
                 token_endpoint=config_data.get("token_endpoint", ""),
                 userinfo_endpoint=config_data.get("userinfo_endpoint", ""),
             )
-            self._provider_config_timestamp = time.time()
+            self._provider_config_timestamp = datetime.now(timezone.utc).timestamp()
 
             # Reset JWK client to use new JWKS URI
             self._jwk_client = None
@@ -185,7 +186,7 @@ class OIDCValidator:
                 raise InvalidTokenError(f"Invalid token: {e}")
 
             # Validate timestamp (iat claim) against server time
-            server_time = int(time.time())
+            server_time = int(datetime.now(timezone.utc).timestamp())
 
             iat = claims.get("iat")
             if iat is not None:

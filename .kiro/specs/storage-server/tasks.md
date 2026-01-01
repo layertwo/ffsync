@@ -258,21 +258,21 @@
 - [ ] 9. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. Implement response headers and middleware
-  - [ ] 10.1 Create X-Weave-Timestamp header middleware
+- [x] 10. Implement response headers and middleware
+  - [x] 10.1 Create X-Weave-Timestamp header middleware
     - Add to all responses
     - Ensure equals X-Last-Modified on writes
     - _Requirements: 9.1-9.4_
   - [ ]* 10.2 Write property tests for timestamps
     - **Property 17, 18: Timestamp properties**
     - **Validates: Requirements 9.1-9.4**
-  - [ ] 10.3 Update error response formatting to use Mozilla response codes
+  - [x] 10.3 Update error response formatting to use Mozilla response codes
     - Return integer response code in JSON body
     - _Requirements: 13.1-13.8_
   - [ ]* 10.4 Write property tests for errors
     - **Property 22, 27: Error and status code properties**
     - **Validates: Requirements 13.1-13.7, 16.1-16.14**
-  - [ ] 10.5 Add optional response headers
+  - [x] 10.5 Add optional response headers
     - X-Weave-Backoff, X-Weave-Quota-Remaining, X-Weave-Alert, Retry-After
     - _Requirements: 5.7, 18.1-18.4_
 

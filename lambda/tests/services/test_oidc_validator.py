@@ -1,6 +1,6 @@
 """Unit tests for OIDCValidator"""
 
-import time
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import jwt
@@ -13,6 +13,11 @@ from src.shared.exceptions import (
     InvalidTokenError,
     ServiceUnavailableError,
 )
+
+
+def current_timestamp() -> int:
+    """Helper to get current timestamp consistently"""
+    return int(datetime.now(timezone.utc).timestamp())
 
 
 @pytest.fixture
@@ -114,7 +119,9 @@ class TestDiscoverProviderConfig:
             validator.discover_provider_config()
 
             # Simulate cache expiry
-            validator._provider_config_timestamp = time.time() - CACHE_TTL_SECONDS - 1
+            validator._provider_config_timestamp = (
+                datetime.now(timezone.utc).timestamp() - CACHE_TTL_SECONDS - 1
+            )
 
             # Second call should fetch again
             validator.discover_provider_config()
@@ -185,8 +192,8 @@ class TestValidateToken:
             "sub": "user123",
             "iss": "https://auth.example.com",
             "aud": "test-client-id",
-            "exp": int(time.time()) + 3600,
-            "iat": int(time.time()),
+            "exp": int(datetime.now(timezone.utc).timestamp()) + 3600,
+            "iat": int(datetime.now(timezone.utc).timestamp()),
             "email": "user@example.com",
         }
 
@@ -340,8 +347,8 @@ class TestValidateToken:
             "sub": "user123",
             "iss": "https://auth.example.com",
             "aud": ["test-client-id", "other-client"],
-            "exp": int(time.time()) + 3600,
-            "iat": int(time.time()),
+            "exp": int(datetime.now(timezone.utc).timestamp()) + 3600,
+            "iat": int(datetime.now(timezone.utc).timestamp()),
         }
 
         with patch("src.services.oidc_validator.requests.get") as mock_get:
@@ -381,8 +388,8 @@ class TestValidateToken:
                         "sub": "",  # Empty string
                         "iss": "https://auth.example.com",
                         "aud": "test-client-id",
-                        "exp": int(time.time()) + 3600,
-                        "iat": int(time.time()),
+                        "exp": int(datetime.now(timezone.utc).timestamp()) + 3600,
+                        "iat": int(datetime.now(timezone.utc).timestamp()),
                     }
 
                     with pytest.raises(InvalidCredentialsError) as exc_info:
@@ -396,8 +403,8 @@ class TestValidateToken:
             "sub": "user123",
             "iss": "https://auth.example.com",
             "aud": [],  # Empty list
-            "exp": int(time.time()) + 3600,
-            "iat": int(time.time()),
+            "exp": int(datetime.now(timezone.utc).timestamp()) + 3600,
+            "iat": int(datetime.now(timezone.utc).timestamp()),
         }
 
         with patch("src.services.oidc_validator.requests.get") as mock_get:
@@ -453,7 +460,7 @@ class TestValidateToken:
 
     def test_validate_token_timestamp_within_tolerance(self, validator, mock_provider_config):
         """Test successful validation when timestamp is within tolerance"""
-        current_time = int(time.time())
+        current_time = int(datetime.now(timezone.utc).timestamp())
         mock_claims = {
             "sub": "user123",
             "iss": "https://auth.example.com",
@@ -485,7 +492,7 @@ class TestValidateToken:
         """Test InvalidTimestampError when timestamp exceeds tolerance"""
         from src.shared.exceptions import InvalidTimestampError
 
-        current_time = int(time.time())
+        current_time = int(datetime.now(timezone.utc).timestamp())
         mock_claims = {
             "sub": "user123",
             "iss": "https://auth.example.com",
@@ -520,7 +527,7 @@ class TestValidateToken:
         """Test InvalidTimestampError when future timestamp exceeds tolerance"""
         from src.shared.exceptions import InvalidTimestampError
 
-        current_time = int(time.time())
+        current_time = int(datetime.now(timezone.utc).timestamp())
         mock_claims = {
             "sub": "user123",
             "iss": "https://auth.example.com",
@@ -551,7 +558,7 @@ class TestValidateToken:
     def test_validate_token_custom_tolerance(self, provider_url, client_id, mock_provider_config):
         """Test timestamp validation with custom tolerance"""
         validator = OIDCValidator(provider_url, client_id, clock_skew_tolerance=600)
-        current_time = int(time.time())
+        current_time = int(datetime.now(timezone.utc).timestamp())
         mock_claims = {
             "sub": "user123",
             "iss": "https://auth.example.com",
@@ -580,7 +587,7 @@ class TestValidateToken:
 
     def test_validate_token_no_iat_claim(self, validator, mock_provider_config):
         """Test validation succeeds when iat claim is missing (optional validation)"""
-        current_time = int(time.time())
+        current_time = int(datetime.now(timezone.utc).timestamp())
         mock_claims = {
             "sub": "user123",
             "iss": "https://auth.example.com",
@@ -614,8 +621,8 @@ class TestValidateToken:
             "sub": "user123",
             "iss": "https://auth.example.com",
             "aud": "test-client-id",
-            "exp": int(time.time()) + 3600,
-            "iat": int(time.time()) - 100,  # Recent timestamp
+            "exp": int(datetime.now(timezone.utc).timestamp()) + 3600,
+            "iat": int(datetime.now(timezone.utc).timestamp()) - 100,  # Recent timestamp
         }
 
         with patch("src.services.oidc_validator.requests.get") as mock_get:
