@@ -30,21 +30,21 @@
 | src/routes/storage/\_\_init\_\_.py     |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/storage/delete\_all.py      |       21 |        0 |        2 |        0 |     100% |           |
 | src/routes/token/\_\_init\_\_.py       |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/token/request.py            |      113 |        0 |       22 |        0 |     100% |           |
-| src/services/api\_router.py            |       15 |        0 |        2 |        0 |     100% |           |
-| src/services/oidc\_validator.py        |       88 |        0 |       14 |        0 |     100% |           |
+| src/routes/token/request.py            |      112 |        0 |       22 |        0 |     100% |           |
+| src/services/api\_router.py            |       25 |        0 |        2 |        0 |     100% |           |
+| src/services/oidc\_validator.py        |       89 |        0 |       14 |        0 |     100% |           |
 | src/services/storage\_manager.py       |      234 |        0 |       76 |        0 |     100% |           |
 | src/services/token\_generator.py       |       29 |        0 |        0 |        0 |     100% |           |
 | src/services/user\_manager.py          |       89 |        0 |       26 |        0 |     100% |           |
 | src/shared/\_\_init\_\_.py             |        0 |        0 |        0 |        0 |     100% |           |
 | src/shared/base\_route.py              |        3 |        0 |        0 |        0 |     100% |           |
-| src/shared/exceptions.py               |      114 |        0 |        0 |        0 |     100% |           |
+| src/shared/exceptions.py               |      154 |        0 |        8 |        0 |     100% |           |
 | src/shared/models.py                   |       60 |        0 |       28 |        0 |     100% |           |
 | src/shared/oidc.py                     |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/token.py                    |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                     |       10 |        0 |        0 |        0 |     100% |           |
-| src/shared/utils.py                    |       19 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                              | **1465** |    **0** |  **268** |    **0** | **100%** |           |
+| src/shared/utils.py                    |       21 |        0 |        2 |        0 |     100% |           |
+| **TOTAL**                              | **1517** |    **0** |  **276** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
