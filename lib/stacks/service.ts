@@ -5,8 +5,10 @@ import * as path from "path";
 
 import {Duration, RemovalPolicy, Stack, StackProps} from "aws-cdk-lib";
 import {
+    AccessLogFormat,
     ApiDefinition,
     EndpointType,
+    LogGroupLogDestination,
     MethodLoggingLevel,
     SecurityPolicy,
     SpecRestApi,
@@ -15,6 +17,7 @@ import {Certificate, CertificateValidation} from "aws-cdk-lib/aws-certificateman
 import {AttributeType, BillingMode, Table, TableEncryption} from "aws-cdk-lib/aws-dynamodb";
 import {Role, ServicePrincipal} from "aws-cdk-lib/aws-iam";
 import {Architecture, IFunction, Runtime} from "aws-cdk-lib/aws-lambda";
+import {LogGroup, RetentionDays} from "aws-cdk-lib/aws-logs";
 import {
     HostedZone,
     IHostedZone,
@@ -245,10 +248,15 @@ export class ServiceStack extends Stack {
         });
 
         const openApiSpec = this.buildOpenApiSpec(service, handler);
+        const apiName = `ffsync-${service.toLowerCase()}-${this.props.stageType}`;
+        const logGroup = new LogGroup(this, `${capitalService}ApiGatewayAccessLogs`, {
+            logGroupName: `${apiName}-api-access-logs`,
+            retention: RetentionDays.ONE_MONTH,
+        });
         const api = new SpecRestApi(this, `${capitalService}Api`, {
             apiDefinition: ApiDefinition.fromInline(openApiSpec),
             endpointTypes: [EndpointType.EDGE],
-            restApiName: `ffsync-${service.toLowerCase()}-${this.props.stageType}`,
+            restApiName: apiName,
             domainName: {
                 domainName,
                 certificate,
@@ -258,6 +266,8 @@ export class ServiceStack extends Stack {
                 stageName: this.props.stageType.toLowerCase(),
                 metricsEnabled: true,
                 loggingLevel: MethodLoggingLevel.INFO,
+                accessLogDestination: new LogGroupLogDestination(logGroup),
+                accessLogFormat: AccessLogFormat.jsonWithStandardFields(),
             },
             disableExecuteApiEndpoint: true,
         });
