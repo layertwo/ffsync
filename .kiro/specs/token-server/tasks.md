@@ -315,36 +315,34 @@
 - [x] 27. Checkpoint - Ensure all Mozilla spec compliance tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-## Phase 3: Integration Tests
-
-- [ ]* 28.1 Write integration test for GET method token issuance
+- [-] 28. Write integration test for GET method token issuance
   - Test complete flow using GET method
   - Verify response structure matches Mozilla spec
   - _Requirements: 1.1_
 
-- [ ]* 28.2 Write integration test for client state history
-  - Test client state change flow
-  - Test rejection of previously-seen client state
-  - Test rejection of empty state when history exists
-  - _Requirements: 13.6, 13.7, 13.8_
+  - [x] 28.1 Write integration test for client state history
+    - Test client state change flow
+    - Test rejection of previously-seen client state
+    - Test rejection of empty state when history exists
+    - _Requirements: 13.6, 13.7, 13.8_
 
-- [ ]* 28.3 Write integration test for new error statuses
-  - Test invalid-timestamp response
-  - Test invalid-generation response
-  - Test invalid-client-state response
-  - Test new-users-disabled response
-  - _Requirements: 6.6, 6.7, 6.8, 6.9_
+  - [x] 28.2 Write integration test for new error statuses
+    - Test invalid-timestamp response
+    - Test invalid-generation response
+    - Test invalid-client-state response
+    - Test new-users-disabled response
+    - _Requirements: 6.6, 6.7, 6.8, 6.9_
 
-- [ ]* 28.4 Write integration test for response headers
-  - Test X-Timestamp on 200 and 401
-  - Test Retry-After on 503
-  - Test WWW-Authenticate on 401
-  - _Requirements: 14.1, 14.2, 15.1, 16.1_
+  - [x] 28.3 Write integration test for response headers
+    - Test X-Timestamp on 200 and 401
+    - Test Retry-After on 503
+    - Test WWW-Authenticate on 401
+    - _Requirements: 14.1, 14.2, 15.1, 16.1_
 
-- [ ]* 28.5 Write integration test for node reset
-  - Test uid changes when client state changes
-  - Test api_endpoint changes when client state changes
-  - _Requirements: 2.4_
+  - [x] 28.4 Write integration test for node reset
+    - Test uid changes when client state changes
+    - Test api_endpoint changes when client state changes
+    - _Requirements: 2.4_
 
-- [ ] 29. Final Checkpoint - Ensure all tests pass
+- [x] 29. Final Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
