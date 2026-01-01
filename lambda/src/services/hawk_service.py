@@ -92,7 +92,7 @@ class HawkService:
             {user_id}:{generation}:{expiry_timestamp}
 
         Validation Steps:
-            1. Parse HAWK header and extract id, ts, nonce, mac
+            1. Parse HAWK header and extract id, ts, nonce, mac, hash (optional)
             2. Decode HAWK ID and extract user_id, generation, expiry
             3. Verify token has not expired (current_time < expiry)
             4. Validate timestamp is within acceptable window
@@ -106,6 +106,8 @@ class HawkService:
         timestamp = int(hawk_params["ts"])
         nonce = hawk_params["nonce"]
         provided_mac = hawk_params["mac"]
+        payload_hash = hawk_params.get("hash", "")  # Extract hash if present
+        ext = hawk_params.get("ext", "")
 
         # Decode and validate HAWK ID
         user_id, generation, expiry = self.decode_hawk_id(hawk_id)
@@ -127,8 +129,10 @@ class HawkService:
                 f"Generation mismatch: expected {cached_generation}, got {generation}"
             )
 
-        # Verify MAC
-        if not self.verify_mac(hawk_key, provided_mac, timestamp, nonce, method, path, host, port):
+        # Verify MAC (now including payload_hash and ext)
+        if not self.verify_mac(
+            hawk_key, provided_mac, timestamp, nonce, method, path, host, port, payload_hash, ext
+        ):
             raise InvalidHawkSignatureException("HAWK MAC verification failed")
 
         return HawkCredentials(
@@ -269,13 +273,14 @@ class HawkService:
         Calculate HAWK MAC using HMAC-SHA256.
 
         Args:
-            key: Hex-encoded HAWK shared secret
+            key: HAWK shared secret (as string, NOT hex-encoded)
             normalized_string: Normalized request string
 
         Returns:
             Base64-encoded MAC signature
         """
-        mac = hmac.new(bytes.fromhex(key), normalized_string.encode("utf-8"), hashlib.sha256)
+        # Use key as UTF-8 bytes directly (mohawk compatibility)
+        mac = hmac.new(key.encode("utf-8"), normalized_string.encode("utf-8"), hashlib.sha256)
         return base64.b64encode(mac.digest()).decode("utf-8")
 
     def verify_mac(
@@ -313,6 +318,20 @@ class HawkService:
             str(timestamp), nonce, method, uri, host, str(port), payload_hash, ext
         )
         expected_mac = self.calculate_mac(hawk_key, normalized)
+
+        # Log MAC verification details for debugging
+        logger.info(
+            "HAWK MAC verification",
+            extra={
+                "method": method,
+                "uri": uri,
+                "host": host,
+                "port": port,
+                "timestamp": timestamp,
+                "match": hmac.compare_digest(expected_mac, provided_mac),
+            },
+        )
+
         return hmac.compare_digest(expected_mac, provided_mac)
 
     def get_hawk_key_from_cache(self, hawk_id: str) -> Tuple[str, str, int]:
@@ -395,7 +414,8 @@ class HawkService:
         Generate cryptographically random HAWK shared secret.
 
         Returns:
-            64-character hex string (32 bytes)
+            64-character hex string (32 bytes of randomness, hex-encoded for storage)
+            Note: This hex string is used as-is by mohawk, not decoded
         """
         return secrets.token_bytes(32).hex()
 
