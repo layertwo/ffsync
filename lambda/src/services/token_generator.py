@@ -1,61 +1,26 @@
 """Token generator for Firefox Sync HAWK credentials"""
 
-import base64
 import hashlib
-import secrets
-from datetime import datetime, timezone
 
+from src.services.hawk_service import HawkService
 from src.shared.token import TokenResponse
 
 
 class TokenGenerator:
     """Generates HAWK credentials and token responses for Firefox Sync clients"""
 
-    # Token duration in seconds (5 minutes)
-    TOKEN_DURATION = 300
-
     # Hash algorithm for HAWK
     HASH_ALGORITHM = "sha256"
 
-    # HAWK key size in bytes
-    HAWK_KEY_SIZE = 32
-
-    def __init__(self, storage_domain: str):
+    def __init__(self, storage_domain: str, hawk_service: HawkService):
         """Initialize TokenGenerator
 
         Args:
             storage_domain: domain for the storage API (e.g., "storage.sync.example.com")
+            hawk_service: HawkService instance for HAWK credential generation
         """
         self._storage_domain = storage_domain
-
-    def generate_hawk_id(self, user_id: str, generation: int, expiry: int) -> str:
-        """Generate HAWK identifier as URL-safe base64-encoded string
-
-        The HAWK ID encodes user_id:generation:expiry to enable stateless
-        validation by the Storage API.
-
-        Args:
-            user_id: User identifier from OIDC sub claim (stable)
-            generation: Current generation number for token invalidation
-            expiry: Token expiry timestamp (Unix epoch seconds)
-
-        Returns:
-            URL-safe base64-encoded string containing user_id:generation:expiry
-        """
-        payload = f"{user_id}:{generation}:{expiry}"
-        encoded = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("utf-8")
-        # Remove padding for cleaner URLs
-        return encoded.rstrip("=")
-
-    def generate_hawk_key(self) -> str:
-        """Generate cryptographically random HAWK shared secret
-
-        Uses secrets.token_bytes() for cryptographic randomness.
-
-        Returns:
-            64-character hexadecimal string (32 bytes)
-        """
-        return secrets.token_bytes(self.HAWK_KEY_SIZE).hex()
+        self._hawk_service = hawk_service
 
     def generate_uid(self, user_id: str, generation: int) -> int:
         """Generate numeric user ID from user identifier and generation
@@ -97,22 +62,23 @@ class TokenGenerator:
         Returns:
             TokenResponse with all HAWK credentials and metadata
         """
-        # Calculate expiry timestamp
-        current_time = int(datetime.now(timezone.utc).timestamp())
-        expiry = current_time + self.TOKEN_DURATION
+        # Generate HAWK credentials using HawkService
+        credentials = self._hawk_service.generate_hawk_credentials(user_id, generation)
 
-        # Generate HAWK credentials with stable user_id
-        hawk_id = self.generate_hawk_id(user_id, generation, expiry)
-        hawk_key = self.generate_hawk_key()
+        # Store token in cache for Storage Server validation
+        self._hawk_service.store_token_in_cache(credentials)
 
         # Compute api_endpoint dynamically using derived uid
         api_endpoint = f"https://{self._storage_domain}/1.5/{uid}"
 
+        # hawk_key is always populated by generate_hawk_credentials()
+        assert credentials.hawk_key is not None, "HAWK key must be present for token generation"
+
         return TokenResponse(
-            id=hawk_id,
-            key=hawk_key,
+            id=credentials.hawk_id,
+            key=credentials.hawk_key,
             api_endpoint=api_endpoint,
             uid=uid,
-            duration=self.TOKEN_DURATION,
+            duration=self._hawk_service.TOKEN_DURATION_SECONDS,
             hashalg=self.HASH_ALGORITHM,
         )

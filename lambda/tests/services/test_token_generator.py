@@ -1,208 +1,282 @@
-"""Unit tests for TokenGenerator"""
+"""Unit tests for TokenGenerator
 
-import base64
-import re
-from unittest.mock import MagicMock, patch
+Tests focus on TokenGenerator orchestration logic:
+- Calling HawkService methods correctly
+- Constructing api_endpoint properly
+- Assembling TokenResponse with correct fields
+- Using provided uid parameter
+
+HawkService is mocked - HAWK generation logic is tested in test_hawk_service.py
+"""
+
+from unittest.mock import MagicMock
 
 import pytest
 
+from src.services.hawk_service import HawkCredentials
 from src.services.token_generator import TokenGenerator
 from src.shared.token import TokenResponse
 
 
 class TestTokenGenerator:
-    """Test TokenGenerator functionality"""
+    """Test TokenGenerator orchestration logic with mocked HawkService"""
 
     @pytest.fixture
-    def token_generator(self, storage_domain):
-        return TokenGenerator(storage_domain=storage_domain)
+    def mock_hawk_service(self):
+        """Mock HawkService for testing orchestration"""
+        service = MagicMock()
+        service.TOKEN_DURATION_SECONDS = 300
+        return service
 
     @pytest.fixture
-    def mock_time(self):
-        return 1702345678
+    def token_generator(self, storage_domain, mock_hawk_service):
+        """TokenGenerator instance with mocked HawkService"""
+        return TokenGenerator(storage_domain=storage_domain, hawk_service=mock_hawk_service)
 
     @pytest.fixture
-    def mock_hawk_key(self):
-        # 32 bytes = 64 hex characters
-        return "a" * 64
+    def mock_hawk_credentials(self):
+        """Mock HawkCredentials returned by HawkService"""
+        return HawkCredentials(
+            user_id="user123",
+            generation=5,
+            expiry=1702345978,
+            hawk_id="dXNlcjEyMzo1OjE3MDIzNDU5Nzg",  # base64 of "user123:5:1702345978"
+            hawk_key="a" * 64,  # 64 hex characters
+        )
 
-    def test_generate_hawk_id_format(self, token_generator):
-        """Test HAWK ID is URL-safe base64 encoded and contains user_id"""
-        user_id = "user123"
-        generation = 5
-        expiry = 1702345978
-
-        hawk_id = token_generator.generate_hawk_id(user_id, generation, expiry)
-
-        # Should be URL-safe base64 (no +, /, or = padding)
-        assert "+" not in hawk_id
-        assert "/" not in hawk_id
-        # Padding is stripped
-        assert not hawk_id.endswith("=")
-
-        # Should decode to user_id:generation:expiry
-        # Add padding back for decoding
-        padded = hawk_id + "=" * (4 - len(hawk_id) % 4) if len(hawk_id) % 4 else hawk_id
-        decoded = base64.urlsafe_b64decode(padded).decode("utf-8")
-        assert decoded == f"{user_id}:{generation}:{expiry}"
-
-    def test_generate_hawk_id_different_inputs(self, token_generator):
-        """Test HAWK ID varies with different inputs"""
-        id1 = token_generator.generate_hawk_id("user1", 0, 1000)
-        id2 = token_generator.generate_hawk_id("user2", 0, 1000)
-        id3 = token_generator.generate_hawk_id("user1", 1, 1000)
-        id4 = token_generator.generate_hawk_id("user1", 0, 2000)
-
-        assert id1 != id2  # Different user
-        assert id1 != id3  # Different generation
-        assert id1 != id4  # Different expiry
-
-    def test_generate_hawk_key_format(self, token_generator):
-        """Test HAWK key is 64-character hex string"""
-        hawk_key = token_generator.generate_hawk_key()
-
-        assert len(hawk_key) == 64
-        assert re.match(r"^[0-9a-f]{64}$", hawk_key)
-
-    def test_generate_hawk_key_uniqueness(self, token_generator):
-        """Test HAWK keys are unique across generations"""
-        keys = [token_generator.generate_hawk_key() for _ in range(10)]
-        assert len(set(keys)) == 10  # All unique
+    # ========== UID Generation Tests ==========
 
     def test_generate_uid_consistency(self, token_generator):
-        """Test UID is consistent for same user_id"""
-        user_id = "user123"
+        """Test UID is consistent for same user_id and generation
 
-        uid1 = token_generator.generate_uid(user_id, 0)
-        uid2 = token_generator.generate_uid(user_id, 0)
+        Validates: Requirements 4.1, 4.2
+        """
+        user_id = "user123"
+        generation = 0
+
+        uid1 = token_generator.generate_uid(user_id, generation)
+        uid2 = token_generator.generate_uid(user_id, generation)
 
         assert uid1 == uid2
 
     def test_generate_uid_different_users(self, token_generator):
-        """Test UID differs for different user_ids"""
+        """Test UID differs for different user_ids
+
+        Validates: Requirements 4.1, 4.2
+        """
         uid1 = token_generator.generate_uid("user1", 0)
         uid2 = token_generator.generate_uid("user2", 0)
 
         assert uid1 != uid2
 
-    def test_generate_uid_positive(self, token_generator):
-        """Test UID is always positive"""
-        # Test with various user IDs
-        for user_id in ["user1", "test@example.com", "12345", "a" * 100]:
-            uid = token_generator.generate_uid(user_id, 0)
-            assert uid > 0
+    def test_generate_uid_changes_with_generation(self, token_generator):
+        """Test UID changes when generation changes (node reset)
 
-    def test_generate_token_returns_token_response(self, token_generator, mock_time):
-        """Test generate_token returns TokenResponse with all fields"""
+        Validates: Requirements 2.4, 4.1
+        """
+        user_id = "user123"
+
+        uid_gen0 = token_generator.generate_uid(user_id, 0)
+        uid_gen1 = token_generator.generate_uid(user_id, 1)
+        uid_gen2 = token_generator.generate_uid(user_id, 2)
+
+        # All UIDs should be different
+        assert uid_gen0 != uid_gen1
+        assert uid_gen1 != uid_gen2
+        assert uid_gen0 != uid_gen2
+
+    def test_generate_uid_positive(self, token_generator):
+        """Test UID is always positive
+
+        Validates: Requirements 4.1, 4.2
+        """
+        # Test with various user IDs and generations
+        for user_id in ["user1", "test@example.com", "12345", "a" * 100]:
+            for generation in [0, 1, 5, 100]:
+                uid = token_generator.generate_uid(user_id, generation)
+                assert uid > 0
+
+    # ========== Token Generation Orchestration Tests ==========
+
+    # ========== Token Generation Orchestration Tests ==========
+
+    def test_generate_token_calls_hawk_service_correctly(
+        self, token_generator, mock_hawk_service, mock_hawk_credentials
+    ):
+        """Test generate_token calls HawkService.generate_hawk_credentials with correct params
+
+        Validates: Requirements 4.1, 4.2, 4.3, 4.4
+        """
         user_id = "user123"
         uid = 123456789
         generation = 5
 
-        mock_datetime = MagicMock()
-        mock_datetime.timestamp.return_value = mock_time
-        with patch("src.services.token_generator.datetime") as mock_dt:
-            mock_dt.now.return_value = mock_datetime
-            token = token_generator.generate_token(user_id, uid, generation)
+        mock_hawk_service.generate_hawk_credentials.return_value = mock_hawk_credentials
 
+        token_generator.generate_token(user_id, uid, generation)
+
+        # Verify HawkService was called with correct parameters
+        mock_hawk_service.generate_hawk_credentials.assert_called_once_with(user_id, generation)
+
+    def test_generate_token_stores_credentials_in_cache(
+        self, token_generator, mock_hawk_service, mock_hawk_credentials
+    ):
+        """Test generate_token stores credentials via HawkService.store_token_in_cache
+
+        Validates: Requirements 4.1, 4.2, 4.5
+        """
+        user_id = "user123"
+        uid = 123456789
+        generation = 5
+
+        mock_hawk_service.generate_hawk_credentials.return_value = mock_hawk_credentials
+
+        token_generator.generate_token(user_id, uid, generation)
+
+        # Verify token was stored in cache
+        mock_hawk_service.store_token_in_cache.assert_called_once_with(mock_hawk_credentials)
+
+    def test_generate_token_returns_complete_response(
+        self, token_generator, mock_hawk_service, mock_hawk_credentials
+    ):
+        """Test generate_token returns TokenResponse with all required fields
+
+        Validates: Requirements 1.1, 4.1, 4.2
+        """
+        user_id = "user123"
+        uid = 123456789
+        generation = 5
+
+        mock_hawk_service.generate_hawk_credentials.return_value = mock_hawk_credentials
+
+        token = token_generator.generate_token(user_id, uid, generation)
+
+        # Verify response type and all fields present
         assert isinstance(token, TokenResponse)
         assert token.id is not None
         assert token.key is not None
         assert token.api_endpoint is not None
         assert token.uid is not None
-        assert token.duration == 300
-        assert token.hashalg == "sha256"
+        assert token.duration is not None
+        assert token.hashalg is not None
 
-    def test_generate_token_api_endpoint_format(self, token_generator, storage_url, mock_time):
-        """Test api_endpoint follows correct format"""
-        user_id = "user123"
-        uid = 123456789
+    def test_generate_token_uses_hawk_credentials(
+        self, token_generator, mock_hawk_service, mock_hawk_credentials
+    ):
+        """Test generate_token uses HAWK credentials from HawkService
 
-        mock_datetime = MagicMock()
-        mock_datetime.timestamp.return_value = mock_time
-        with patch("src.services.token_generator.datetime") as mock_dt:
-            mock_dt.now.return_value = mock_datetime
-            token = token_generator.generate_token(user_id, uid, 0)
-
-        assert token.api_endpoint == f"{storage_url}/1.5/{uid}"
-
-    def test_generate_token_duration(self, token_generator, mock_time):
-        """Test token duration is 300 seconds"""
-        user_id = "user123"
-        uid = 123456789
-
-        mock_datetime = MagicMock()
-        mock_datetime.timestamp.return_value = mock_time
-        with patch("src.services.token_generator.datetime") as mock_dt:
-            mock_dt.now.return_value = mock_datetime
-            token = token_generator.generate_token(user_id, uid, 0)
-
-        assert token.duration == 300
-
-    def test_generate_token_hashalg(self, token_generator, mock_time):
-        """Test hash algorithm is sha256"""
-        user_id = "user123"
-        uid = 123456789
-
-        mock_datetime = MagicMock()
-        mock_datetime.timestamp.return_value = mock_time
-        with patch("src.services.token_generator.datetime") as mock_dt:
-            mock_dt.now.return_value = mock_datetime
-            token = token_generator.generate_token(user_id, uid, 0)
-
-        assert token.hashalg == "sha256"
-
-    def test_generate_token_hawk_id_contains_expiry(self, token_generator, mock_time):
-        """Test HAWK ID contains correct expiry timestamp and user_id"""
+        Validates: Requirements 4.1, 4.2, 4.3, 4.4
+        """
         user_id = "user123"
         uid = 123456789
         generation = 5
-        expected_expiry = mock_time + 300
 
-        mock_datetime = MagicMock()
-        mock_datetime.timestamp.return_value = mock_time
-        with patch("src.services.token_generator.datetime") as mock_dt:
-            mock_dt.now.return_value = mock_datetime
-            token = token_generator.generate_token(user_id, uid, generation)
+        mock_hawk_service.generate_hawk_credentials.return_value = mock_hawk_credentials
 
-        # Decode HAWK ID to verify it contains user_id:generation:expiry
-        hawk_id = token.id
-        padded = hawk_id + "=" * (4 - len(hawk_id) % 4) if len(hawk_id) % 4 else hawk_id
-        decoded = base64.urlsafe_b64decode(padded).decode("utf-8")
-        parts = decoded.split(":")
+        token = token_generator.generate_token(user_id, uid, generation)
 
-        assert len(parts) == 3
-        assert parts[0] == user_id  # HAWK ID contains user_id, not uid
-        assert parts[1] == str(generation)
-        assert parts[2] == str(expected_expiry)
+        # Verify HAWK credentials from HawkService are used
+        assert token.id == mock_hawk_credentials.hawk_id
+        assert token.key == mock_hawk_credentials.hawk_key
 
-    def test_generate_token_uid_matches_input(self, token_generator, mock_time):
-        """Test token UID matches input uid"""
+    def test_generate_token_constructs_api_endpoint_correctly(
+        self, token_generator, storage_url, mock_hawk_service, mock_hawk_credentials
+    ):
+        """Test generate_token constructs api_endpoint with correct format
+
+        Validates: Requirements 2.3, 2.5
+        """
         user_id = "user123"
         uid = 123456789
+        generation = 0
 
-        mock_datetime = MagicMock()
-        mock_datetime.timestamp.return_value = mock_time
-        with patch("src.services.token_generator.datetime") as mock_dt:
-            mock_dt.now.return_value = mock_datetime
-            token = token_generator.generate_token(user_id, uid, 0)
+        mock_hawk_service.generate_hawk_credentials.return_value = mock_hawk_credentials
 
+        token = token_generator.generate_token(user_id, uid, generation)
+
+        # Verify api_endpoint format: https://{storage_domain}/1.5/{uid}
+        assert token.api_endpoint == f"{storage_url}/1.5/{uid}"
+
+    def test_generate_token_uses_provided_uid(
+        self, token_generator, mock_hawk_service, mock_hawk_credentials
+    ):
+        """Test generate_token uses the uid parameter provided (not generating its own)
+
+        Validates: Requirements 2.1, 4.1
+        """
+        user_id = "user123"
+        uid = 987654321
+        generation = 5
+
+        mock_hawk_service.generate_hawk_credentials.return_value = mock_hawk_credentials
+
+        token = token_generator.generate_token(user_id, uid, generation)
+
+        # Verify the exact uid provided is used in response
         assert token.uid == uid
 
-    def test_generate_token_unique_keys(self, token_generator, mock_time):
-        """Test each token generation produces unique key"""
+    def test_generate_token_different_uids_different_endpoints(
+        self, token_generator, storage_url, mock_hawk_service, mock_hawk_credentials
+    ):
+        """Test different uids result in different api_endpoints
+
+        Validates: Requirements 2.2, 2.3
+        """
+        user_id = "user123"
+        generation = 0
+
+        mock_hawk_service.generate_hawk_credentials.return_value = mock_hawk_credentials
+
+        token1 = token_generator.generate_token(user_id, 111111, generation)
+        token2 = token_generator.generate_token(user_id, 222222, generation)
+
+        # Different uids should produce different endpoints
+        assert token1.api_endpoint != token2.api_endpoint
+        assert token1.api_endpoint == f"{storage_url}/1.5/111111"
+        assert token2.api_endpoint == f"{storage_url}/1.5/222222"
+
+    def test_generate_token_duration_from_hawk_service(
+        self, token_generator, mock_hawk_service, mock_hawk_credentials
+    ):
+        """Test generate_token uses duration from HawkService
+
+        Validates: Requirements 1.5, 4.1
+        """
         user_id = "user123"
         uid = 123456789
-        mock_datetime = MagicMock()
-        mock_datetime.timestamp.return_value = mock_time
-        with patch("src.services.token_generator.datetime") as mock_dt:
-            mock_dt.now.return_value = mock_datetime
-            tokens = [token_generator.generate_token(user_id, uid, 0) for _ in range(10)]
+        generation = 0
 
-        keys = [t.key for t in tokens]
-        assert len(set(keys)) == 10  # All unique
+        mock_hawk_service.generate_hawk_credentials.return_value = mock_hawk_credentials
+        mock_hawk_service.TOKEN_DURATION_SECONDS = 300
 
-    def test_constants(self):
-        """Test class constants are correct"""
-        assert TokenGenerator.TOKEN_DURATION == 300
+        token = token_generator.generate_token(user_id, uid, generation)
+
+        # Verify duration comes from HawkService
+        assert token.duration == 300
+
+    def test_generate_token_hashalg_constant(
+        self, token_generator, mock_hawk_service, mock_hawk_credentials
+    ):
+        """Test generate_token always uses sha256 hash algorithm
+
+        Validates: Requirements 4.1, 4.2
+        """
+        user_id = "user123"
+        uid = 123456789
+        generation = 0
+
+        mock_hawk_service.generate_hawk_credentials.return_value = mock_hawk_credentials
+
+        token = token_generator.generate_token(user_id, uid, generation)
+
+        # Verify hash algorithm is always sha256
+        assert token.hashalg == "sha256"
+
+    # ========== Class Constants Tests ==========
+
+    def test_hash_algorithm_constant(self):
+        """Test HASH_ALGORITHM class constant is sha256
+
+        Validates: Requirements 4.1, 4.2
+        """
         assert TokenGenerator.HASH_ALGORITHM == "sha256"
-        assert TokenGenerator.HAWK_KEY_SIZE == 32
