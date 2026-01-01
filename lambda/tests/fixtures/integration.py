@@ -160,6 +160,7 @@ def build_storage_event(
         body: Request body (will be JSON-encoded if dict/list)
         query_params: Query string parameters
         path_params: Path parameters extracted from URL
+            Note: Use 'collectionName' and 'id' keys to match route definitions
 
     Returns:
         Lambda event dictionary
@@ -206,6 +207,8 @@ def build_authorizer_event(
     return {
         "type": "REQUEST",
         "methodArn": method_arn,
+        "httpMethod": method,  # Required at top level for Lambda Powertools
+        "path": path,  # Required at top level for Lambda Powertools
         "headers": {
             "Authorization": authorization_header,
             "Host": "storage.sync.example.com",
@@ -213,6 +216,7 @@ def build_authorizer_event(
         "requestContext": {
             "path": path,
             "httpMethod": method,
+            "domainName": "storage.sync.example.com",
         },
     }
 

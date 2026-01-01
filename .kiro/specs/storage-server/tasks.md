@@ -376,15 +376,15 @@
 - [x] 14. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [-] 15. Final integration and validation
+- [x] 15. Final integration and validation
   - [x] 15.1 Create integration test fixtures
     - _Requirements: All_
-  - [ ]* 15.2 Write integration tests for end-to-end flow
+  - [x] 15.2 Write integration tests for end-to-end flow
     - Test HAWK authorizer → Storage API flow
     - Test user isolation (users can only access their own data)
     - _Requirements: All_
   - [x] 15.3 Verify test coverage meets 100% requirement
     - _Requirements: All_
 
-- [ ] 16. Final Checkpoint - Ensure all tests pass
+- [x] 16. Final Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
