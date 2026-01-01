@@ -119,6 +119,7 @@ class ReadCollectionRoute(BaseRoute):
             if objects.get("next_offset") is not None:
                 response_headers["X-Weave-Next-Offset"] = str(objects["next_offset"])
 
+            # Always return application/json (API Gateway handles Accept header validation)
             return Response(
                 status_code=200,
                 content_type="application/json",

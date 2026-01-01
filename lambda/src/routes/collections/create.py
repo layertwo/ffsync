@@ -80,7 +80,8 @@ class CreateCollectionRoute(BaseRoute):
                     body=json_dumps({"error": "Precondition failed"}),
                 )
 
-            # Parse objects from request body - support both direct array and wrapped object
+            # Parse objects from request body - support application/json only
+            # API Gateway will reject unsupported Content-Types
             objects = []
             if body:
                 try:

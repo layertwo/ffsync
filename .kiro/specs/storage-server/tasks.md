@@ -276,11 +276,11 @@
     - X-Weave-Backoff, X-Weave-Quota-Remaining, X-Weave-Alert, Retry-After
     - _Requirements: 5.7, 18.1-18.4_
 
-- [ ] 11. Implement content-type handling
-  - [ ] 11.1 Add content-type parsing for POST
+- [x] 11. Implement content-type handling
+  - [x] 11.1 Add content-type parsing for POST
     - application/json, application/newlines, text/plain
     - _Requirements: 17.1-17.3, 16.13_
-  - [ ] 11.2 Add Accept header handling for GET
+  - [x] 11.2 Add Accept header handling for GET
     - _Requirements: 17.4, 17.5_
   - [ ]* 11.3 Write property test for content-type
     - **Property 28: Content-Type Handling**
