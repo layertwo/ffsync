@@ -51,7 +51,7 @@ export class ServiceStack extends Stack {
 
     // Storage Service
     public readonly storageTable: Table;
-    public readonly hawkAuthorizerFunction: IFunction;
+    public readonly hawkAuthorizerHandler: IFunction;
     public readonly storageHandler: IFunction;
     public readonly storageApi: SpecRestApi;
 
@@ -66,17 +66,19 @@ export class ServiceStack extends Stack {
         });
         this.apiExecuteRole = this.buildApiExecuteRole();
 
-        // Storage Service
-        this.storageTable = this.buildStorageTable();
-        this.hawkAuthorizerFunction = this.buildHawkAuthorizerFunction();
-        this.storageHandler = this.buildStorageApiHandler();
-        this.storageApi = this.buildApi(Service.STORAGE, this.storageHandler);
-
-        // Token Service
+        // Tables
         this.tokenUsersTable = this.buildTokenUsersTable();
         this.tokenCacheTable = this.buildTokenCacheTable();
+        this.storageTable = this.buildStorageTable();
+
+        // Handlers
+        this.hawkAuthorizerHandler = this.buildHawkAuthorizerHandler();
         this.tokenHandler = this.buildTokenApiHandler();
+        this.storageHandler = this.buildStorageApiHandler();
+
+        // APIs
         this.tokenApi = this.buildApi(Service.TOKEN, this.tokenHandler);
+        this.storageApi = this.buildApi(Service.STORAGE, this.storageHandler);
     }
 
     private buildStorageTable(): Table {
@@ -97,7 +99,7 @@ export class ServiceStack extends Stack {
             },
             removalPolicy:
                 this.props.stageType === StageType.PROD
-                    ? RemovalPolicy.RETAIN
+                    ? RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
                     : RemovalPolicy.DESTROY,
         });
     }
@@ -116,7 +118,7 @@ export class ServiceStack extends Stack {
             },
             removalPolicy:
                 this.props.stageType === StageType.PROD
-                    ? RemovalPolicy.RETAIN
+                    ? RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
                     : RemovalPolicy.DESTROY,
         });
     }
@@ -136,15 +138,15 @@ export class ServiceStack extends Stack {
             },
             removalPolicy:
                 this.props.stageType === StageType.PROD
-                    ? RemovalPolicy.RETAIN
+                    ? RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
                     : RemovalPolicy.DESTROY,
         });
 
         return table;
     }
 
-    private buildHawkAuthorizerFunction(): PythonFunction {
-        const fn = new PythonFunction(this, "HawkAuthorizerFunction", {
+    private buildHawkAuthorizerHandler(): PythonFunction {
+        const fn = new PythonFunction(this, "HawkAuthorizerHandler", {
             entry: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
             runtime: Runtime.PYTHON_3_14,
@@ -299,7 +301,7 @@ export class ServiceStack extends Stack {
                     "x-amazon-apigateway-authtype": "custom",
                     "x-amazon-apigateway-authorizer": {
                         type: "request",
-                        authorizerUri: `arn:aws:apigateway:${this.region}:lambda:path/2015-03-31/functions/${this.hawkAuthorizerFunction.functionArn}/invocations`,
+                        authorizerUri: `arn:aws:apigateway:${this.region}:lambda:path/2015-03-31/functions/${this.hawkAuthorizerHandler.functionArn}/invocations`,
                         authorizerCredentials: this.apiExecuteRole.roleArn,
                         authorizerResultTtlInSeconds: 300,
                         identitySource: "method.request.header.Authorization",
