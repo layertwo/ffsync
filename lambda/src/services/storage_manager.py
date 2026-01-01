@@ -89,8 +89,8 @@ class StorageManager:
         try:
             response = self.table.get_item(
                 Key={
-                    "PK": {"S": self._collection_pk(user_id, collection_name)},
-                    "SK": {"S": self._metadata_sk()},
+                    "PK": self._collection_pk(user_id, collection_name),
+                    "SK": self._metadata_sk(),
                 },
             )
 
@@ -123,8 +123,8 @@ class StorageManager:
         try:
             response = self.table.get_item(
                 Key={
-                    "PK": {"S": self._collection_pk(user_id, collection_name)},
-                    "SK": {"S": self._object_sk(object_id)},
+                    "PK": self._collection_pk(user_id, collection_name),
+                    "SK": self._object_sk(object_id),
                 },
             )
 
@@ -354,7 +354,7 @@ class StorageManager:
         # Query all items in the collection
         response = self.table.query(
             KeyConditionExpression="PK = :pk",
-            ExpressionAttributeValues={":pk": {"S": pk}},
+            ExpressionAttributeValues={":pk": pk},
         )
 
         # Delete all items
@@ -381,8 +381,8 @@ class StorageManager:
         response = self.table.scan(
             FilterExpression="begins_with(PK, :user_prefix) AND SK = :metadata",
             ExpressionAttributeValues={
-                ":user_prefix": {"S": f"USER#{user_id}#COLLECTION#"},
-                ":metadata": {"S": self._metadata_sk()},
+                ":user_prefix": f"USER#{user_id}#COLLECTION#",
+                ":metadata": self._metadata_sk(),
             },
         )
 
@@ -439,8 +439,8 @@ class StorageManager:
         response = self.table.query(
             KeyConditionExpression="PK = :pk AND begins_with(SK, :obj_prefix)",
             ExpressionAttributeValues={
-                ":pk": {"S": pk},
-                ":obj_prefix": {"S": "OBJECT#"},
+                ":pk": pk,
+                ":obj_prefix": "OBJECT#",
             },
         )
 
@@ -595,8 +595,8 @@ class StorageManager:
 
         self.table.delete_item(
             Key={
-                "PK": {"S": self._collection_pk(user_id, collection_name)},
-                "SK": {"S": self._object_sk(object_id)},
+                "PK": self._collection_pk(user_id, collection_name),
+                "SK": self._object_sk(object_id),
             },
         )
 
@@ -636,8 +636,8 @@ class StorageManager:
             try:
                 self.table.delete_item(
                     Key={
-                        "PK": {"S": pk},
-                        "SK": {"S": self._object_sk(object_id)},
+                        "PK": pk,
+                        "SK": self._object_sk(object_id),
                     },
                 )
             except Exception:
@@ -673,7 +673,7 @@ class StorageManager:
         response = self.table.scan(
             FilterExpression="begins_with(PK, :user_prefix)",
             ExpressionAttributeValues={
-                ":user_prefix": {"S": f"USER#{user_id}#"},
+                ":user_prefix": f"USER#{user_id}#",
             },
         )
 
@@ -688,7 +688,7 @@ class StorageManager:
             response = self.table.scan(
                 FilterExpression="begins_with(PK, :user_prefix)",
                 ExpressionAttributeValues={
-                    ":user_prefix": {"S": f"USER#{user_id}#"},
+                    ":user_prefix": f"USER#{user_id}#",
                 },
                 ExclusiveStartKey=response["LastEvaluatedKey"],
             )

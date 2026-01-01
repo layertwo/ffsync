@@ -38,8 +38,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -59,8 +59,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#nonexistent"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#nonexistent",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -88,8 +88,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -112,8 +112,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#nonexistent"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#nonexistent",
                 },
             },
         )
@@ -139,8 +139,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -279,8 +279,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -346,8 +346,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#nonexistent"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#nonexistent",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -389,8 +389,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -413,9 +413,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {
-                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"}
-                },
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
             },
         )
 
@@ -476,8 +474,8 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "FilterExpression": "begins_with(PK, :user_prefix) AND SK = :metadata",
                 "ExpressionAttributeValues": {
-                    ":user_prefix": {"S": "USER#test-user-123#COLLECTION#"},
-                    ":metadata": {"S": "METADATA"},
+                    ":user_prefix": "USER#test-user-123#COLLECTION#",
+                    ":metadata": "METADATA",
                 },
             },
         )
@@ -499,8 +497,8 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "FilterExpression": "begins_with(PK, :user_prefix) AND SK = :metadata",
                 "ExpressionAttributeValues": {
-                    ":user_prefix": {"S": "USER#test-user-123#COLLECTION#"},
-                    ":metadata": {"S": "METADATA"},
+                    ":user_prefix": "USER#test-user-123#COLLECTION#",
+                    ":metadata": "METADATA",
                 },
             },
         )
@@ -535,8 +533,8 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    ":obj_prefix": {"S": "OBJECT#"},
+                    ":pk": "USER#test-user-123#COLLECTION#bookmarks",
+                    ":obj_prefix": "OBJECT#",
                 },
             },
         )
@@ -577,8 +575,8 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    ":obj_prefix": {"S": "OBJECT#"},
+                    ":pk": "USER#test-user-123#COLLECTION#bookmarks",
+                    ":obj_prefix": "OBJECT#",
                 },
             },
         )
@@ -623,8 +621,8 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    ":obj_prefix": {"S": "OBJECT#"},
+                    ":pk": "USER#test-user-123#COLLECTION#bookmarks",
+                    ":obj_prefix": "OBJECT#",
                 },
             },
         )
@@ -663,8 +661,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -706,8 +704,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#nonexistent"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#nonexistent",
                 },
             },
         )
@@ -750,8 +748,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -763,8 +761,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -782,8 +780,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#nonexistent"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#nonexistent",
                 },
             },
         )
@@ -892,8 +890,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -965,8 +963,8 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    ":obj_prefix": {"S": "OBJECT#"},
+                    ":pk": "USER#test-user-123#COLLECTION#bookmarks",
+                    ":obj_prefix": "OBJECT#",
                 },
             },
         )
@@ -1006,8 +1004,8 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    ":obj_prefix": {"S": "OBJECT#"},
+                    ":pk": "USER#test-user-123#COLLECTION#bookmarks",
+                    ":obj_prefix": "OBJECT#",
                 },
             },
         )
@@ -1047,8 +1045,8 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    ":obj_prefix": {"S": "OBJECT#"},
+                    ":pk": "USER#test-user-123#COLLECTION#bookmarks",
+                    ":obj_prefix": "OBJECT#",
                 },
             },
         )
@@ -1088,8 +1086,8 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    ":obj_prefix": {"S": "OBJECT#"},
+                    ":pk": "USER#test-user-123#COLLECTION#bookmarks",
+                    ":obj_prefix": "OBJECT#",
                 },
             },
         )
@@ -1123,8 +1121,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -1181,8 +1179,8 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    ":obj_prefix": {"S": "OBJECT#"},
+                    ":pk": "USER#test-user-123#COLLECTION#bookmarks",
+                    ":obj_prefix": "OBJECT#",
                 },
             },
         )
@@ -1218,8 +1216,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -1313,8 +1311,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -1384,8 +1382,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -1426,8 +1424,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -1472,8 +1470,8 @@ class TestStorageManager:
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
                 "ExpressionAttributeValues": {
-                    ":pk": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    ":obj_prefix": {"S": "OBJECT#"},
+                    ":pk": "USER#test-user-123#COLLECTION#bookmarks",
+                    ":obj_prefix": "OBJECT#",
                 },
             },
         )
@@ -1509,8 +1507,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -1566,8 +1564,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -1611,8 +1609,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -1704,8 +1702,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -1741,8 +1739,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -1816,8 +1814,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -1864,8 +1862,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -1904,8 +1902,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
@@ -1936,8 +1934,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#nonexistent"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#nonexistent",
                 },
             },
         )
@@ -1976,8 +1974,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -2002,8 +2000,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -2054,8 +2052,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -2086,8 +2084,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -2251,8 +2249,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -2291,8 +2289,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
                 },
             },
         )
@@ -2330,8 +2328,8 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "Key": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj123"},
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj123",
                 },
             },
         )
