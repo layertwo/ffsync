@@ -34,7 +34,7 @@
 | src/routes/token/\_\_init\_\_.py       |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/token/request.py            |      112 |        0 |       22 |        0 |     100% |           |
 | src/services/api\_router.py            |       45 |        0 |        2 |        0 |     100% |           |
-| src/services/hawk\_service.py          |      105 |        0 |       24 |        0 |     100% |           |
+| src/services/hawk\_service.py          |      106 |        0 |       24 |        0 |     100% |           |
 | src/services/oidc\_validator.py        |       89 |        0 |       14 |        0 |     100% |           |
 | src/services/storage\_manager.py       |      234 |        0 |       76 |        0 |     100% |           |
 | src/services/token\_generator.py       |       19 |        0 |        0 |        0 |     100% |           |
@@ -47,7 +47,7 @@
 | src/shared/token.py                    |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                     |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                    |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                              | **1716** |    **0** |  **304** |    **0** | **100%** |           |
+| **TOTAL**                              | **1717** |    **0** |  **304** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
