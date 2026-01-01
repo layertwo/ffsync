@@ -109,6 +109,7 @@ def lambda_handler(
                 "hawk_id": credentials.hawk_id,
                 "authenticated_at": str(round(time.time(), 2)),
             },
+            usage_identifier_key=credentials.user_id,
         )
         policy.allow_all_routes()
 

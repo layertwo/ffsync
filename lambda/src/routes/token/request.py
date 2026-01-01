@@ -22,7 +22,7 @@ from src.shared.exceptions import (
 )
 from src.shared.utils import get_weave_timestamp, json_dumps
 
-logger = Logger()
+logger = Logger("token-server")
 
 BEARER_TOKEN_PATTERN = re.compile(r"^Bearer\s+(.+)$", re.IGNORECASE)
 CLIENT_STATE_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]{0,32}$")
