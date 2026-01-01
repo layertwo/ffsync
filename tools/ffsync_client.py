@@ -3,18 +3,16 @@
 FFSync API Client
 
 A comprehensive client for interacting with the FFSync (Firefox Sync) storage API
-using AWS SigV4 authentication via AWS profiles.
+using HAWK authentication.
 """
 
 import json
 import logging
 from typing import Any, Dict, List, Optional
 
-import boto3
 import click
 import requests
-from botocore.exceptions import NoCredentialsError, ProfileNotFound
-from requests_aws4auth import AWS4Auth
+from requests_hawk import HawkAuth
 
 
 class FFSyncError(Exception):
@@ -48,51 +46,44 @@ class ConflictError(FFSyncError):
 
 
 class FFSyncClient:
-    """Client for FFSync storage API with AWS profile authentication"""
+    """Client for FFSync storage API with HAWK authentication"""
 
     def __init__(
         self,
-        base_url: str,
-        aws_profile: Optional[str] = None,
-        region: str = "us-east-1",
+        hawk_id: str,
+        hawk_key: str,
+        api_endpoint: str,
+        algorithm: str = "sha256",
     ):
         """
         Initialize FFSync client
 
         Args:
-            base_url: Base URL of the FFSync API
-            aws_profile: AWS profile name (uses default if None)
-            region: AWS region for SigV4 signing
+            hawk_id: HAWK credential ID
+            hawk_key: HAWK credential key
+            api_endpoint: API endpoint URL
+            algorithm: HAWK hash algorithm (default: sha256)
         """
-        self.base_url = base_url.rstrip("/")
-        self.region = region
+        from urllib.parse import urlparse
+        
+        self.base_url = api_endpoint.rstrip("/")
         self.logger = logging.getLogger(__name__)
+        
+        # Parse the API endpoint to extract host for HAWK signing
+        parsed = urlparse(self.base_url)
+        self.hawk_host = parsed.hostname or ""
+        self.hawk_port = parsed.port or (443 if parsed.scheme == "https" else 80)
 
-        try:
-            # Create boto3 session with specified profile
-            session = boto3.Session(profile_name=aws_profile)
-            credentials = session.get_credentials()
+        # Create HAWK authentication
+        # Set always_hash_content=False to avoid hashing empty GET request bodies
+        self.auth = HawkAuth(
+            id=hawk_id,
+            key=hawk_key,
+            algorithm=algorithm,
+            always_hash_content=False,
+        )
 
-            if not credentials:
-                raise AuthenticationError("No AWS credentials found")
-
-            # Create AWS4Auth for SigV4 signing with ffsync service
-            self.auth = AWS4Auth(
-                credentials.access_key,
-                credentials.secret_key,
-                region,
-                "execute-api",
-                session_token=credentials.token,
-            )
-
-            self.logger.info(
-                f"Initialized FFSync client with profile: {aws_profile or 'default'}"
-            )
-
-        except ProfileNotFound as e:
-            raise AuthenticationError(f"AWS profile not found: {e}")
-        except NoCredentialsError as e:
-            raise AuthenticationError(f"No AWS credentials available: {e}")
+        self.logger.info(f"Initialized FFSync client for endpoint: {self.base_url}")
 
     def _make_request(self, method: str, path: str, **kwargs) -> requests.Response:
         """
@@ -110,6 +101,7 @@ class FFSyncClient:
             FFSyncError: For API-specific errors
         """
         url = f"{self.base_url}{path}"
+        self.logger.info(f"Making {method} request to {url}")
 
         # Add authentication
         kwargs["auth"] = self.auth
@@ -120,9 +112,12 @@ class FFSyncClient:
         kwargs["headers"] = headers
 
         self.logger.debug(f"{method} {url}")
+        self.logger.debug(f"Headers before request: {headers}")
 
         try:
             response = requests.request(method, url, **kwargs)
+            self.logger.debug(f"Request headers sent: {response.request.headers}")
+            self.logger.debug(f"Response status: {response.status_code}")
 
             # Handle common HTTP errors
             if response.status_code == 401:
@@ -136,7 +131,7 @@ class FFSyncClient:
             elif response.status_code >= 400:
                 try:
                     error_data = response.json()
-                    raise FFSyncError(
+                    FFSyncError(
                         f"API error: {response.status_code}: {error_data}"
                     )
                 except json.JSONDecodeError:
@@ -296,13 +291,15 @@ def setup_logging(verbose: bool = False):
     )
 
 
-def list_aws_profiles() -> List[str]:
-    """List available AWS profiles"""
+def load_hawk_credentials(credentials_file: str) -> Dict[str, str]:
+    """Load HAWK credentials from JSON file"""
     try:
-        session = boto3.Session()
-        return session.available_profiles
-    except Exception:
-        return []
+        with open(credentials_file, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise AuthenticationError(f"Credentials file not found: {credentials_file}")
+    except json.JSONDecodeError as e:
+        raise AuthenticationError(f"Invalid JSON in credentials file: {e}")
 
 
 def get_client(ctx):
@@ -312,13 +309,52 @@ def get_client(ctx):
 
 # Click CLI implementation
 @click.group()
-@click.option("--base-url", required=True, help="Base URL of the FFSync API")
-@click.option("--profile", help="AWS profile name (uses default if not specified)")
-@click.option("--region", default="us-east-1", help="AWS region (default: us-east-1)")
+@click.option(
+    "--hawk-id",
+    envvar="HAWK_ID",
+    help="HAWK credential ID (or set HAWK_ID env var)",
+)
+@click.option(
+    "--hawk-key",
+    envvar="HAWK_KEY",
+    help="HAWK credential key (or set HAWK_KEY env var)",
+)
+@click.option(
+    "--api-endpoint",
+    envvar="HAWK_API_ENDPOINT",
+    help="API endpoint URL (or set HAWK_API_ENDPOINT env var)",
+)
+@click.option(
+    "--credentials-file",
+    type=click.Path(exists=True),
+    help="JSON file with HAWK credentials (from get_hawk_token.py)",
+)
+@click.option(
+    "--algorithm",
+    default="sha256",
+    help="HAWK hash algorithm (default: sha256)",
+)
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 @click.pass_context
-def cli(ctx, base_url, profile, region, verbose):
-    """FFSync API Client - Interact with Firefox Sync storage API using AWS profiles"""
+def cli(
+    ctx, hawk_id, hawk_key, api_endpoint, credentials_file, algorithm, verbose
+):
+    """FFSync API Client - Interact with Firefox Sync storage API using HAWK authentication
+
+    Credentials can be provided via:
+    1. Command-line options (--hawk-id, --hawk-key, --api-endpoint)
+    2. Environment variables (HAWK_ID, HAWK_KEY, HAWK_API_ENDPOINT)
+    3. JSON file from get_hawk_token.py (--credentials-file)
+
+    Example using credentials file:
+        python ffsync_client.py --credentials-file hawk_creds.json info collections
+
+    Example using environment variables:
+        export HAWK_ID="your-hawk-id"
+        export HAWK_KEY="your-hawk-key"
+        export HAWK_API_ENDPOINT="https://sync.example.com/storage"
+        python ffsync_client.py info collections
+    """
     # Setup logging
     setup_logging(verbose)
 
@@ -326,8 +362,23 @@ def cli(ctx, base_url, profile, region, verbose):
     ctx.ensure_object(dict)
 
     try:
+        # Load credentials from file if provided
+        if credentials_file:
+            creds = load_hawk_credentials(credentials_file)
+            hawk_id = creds.get("id")
+            hawk_key = creds.get("key")
+            api_endpoint = "https://storage.beta.ffsync.layertwo.dev" #creds.get("api_endpoint")
+            algorithm = creds.get("hashalg", algorithm)
+
+        # Validate required credentials
+        if not all([hawk_id, hawk_key, api_endpoint]):
+            raise AuthenticationError(
+                "Missing required credentials. Provide --hawk-id, --hawk-key, and "
+                "--api-endpoint, or use --credentials-file, or set environment variables."
+            )
+
         # Initialize client
-        client = FFSyncClient(base_url, profile, region)
+        client = FFSyncClient(hawk_id, hawk_key, api_endpoint, algorithm)
         ctx.obj["client"] = client
 
     except FFSyncError as e:
@@ -336,18 +387,6 @@ def cli(ctx, base_url, profile, region, verbose):
     except Exception as e:
         click.echo(click.style(f"Unexpected error: {e}", fg="red"), err=True)
         ctx.exit(1)
-
-
-@cli.command("list-profiles")
-def list_profiles_command():
-    """List available AWS profiles"""
-    profiles = list_aws_profiles()
-    if profiles:
-        click.echo("Available AWS profiles:")
-        for profile in profiles:
-            click.echo(f"  - {profile}")
-    else:
-        click.echo("No AWS profiles found")
 
 
 # Info commands

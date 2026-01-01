@@ -21,6 +21,7 @@ import secrets
 import urllib.parse
 import webbrowser
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 import click
 import requests
@@ -210,8 +211,6 @@ def wait_for_callback(expected_state: str, port: int) -> str:
     CallbackHandler.state = None
     CallbackHandler.error = None
 
-    print(f"Waiting for callback on http://localhost:{port}/callback ...")
-
     while CallbackHandler.auth_code is None and CallbackHandler.error is None:
         server.handle_request()
 
@@ -343,6 +342,25 @@ def main(
             msg += f"\nResponse: {e.response.text}"
         raise click.ClickException(msg)
 
+    # Decode HAWK ID to extract expiry timestamp
+    try:
+        # Add padding back if needed
+        hawk_id_padded = hawk.id
+        padding = 4 - (len(hawk_id_padded) % 4)
+        if padding != 4:
+            hawk_id_padded += "=" * padding
+        
+        decoded = base64.urlsafe_b64decode(hawk_id_padded).decode("utf-8")
+        parts = decoded.split(":")
+        if len(parts) == 3:
+            expiry_timestamp = int(parts[2])
+            expiry_dt = datetime.fromtimestamp(expiry_timestamp, tz=timezone.utc)
+            expiry_iso = expiry_dt.isoformat()
+        else:
+            expiry_iso = None
+    except Exception:
+        expiry_iso = None
+
     hawk_dict = {
         "id": hawk.id,
         "key": hawk.key,
@@ -351,6 +369,9 @@ def main(
         "duration": hawk.duration,
         "hashalg": hawk.hashalg,
     }
+    
+    if expiry_iso:
+        hawk_dict["expires_at"] = expiry_iso
 
     if json_only:
         click.echo(json.dumps(hawk_dict, indent=2))
@@ -364,6 +385,8 @@ def main(
         click.echo(f"UID:          {hawk.uid}")
         click.echo(f"Duration:     {hawk.duration}s")
         click.echo(f"Hash Alg:     {hawk.hashalg}")
+        if expiry_iso:
+            click.echo(f"Expires At:   {expiry_iso}")
         click.echo("\nJSON:")
         click.echo(json.dumps(hawk_dict, indent=2))
 
