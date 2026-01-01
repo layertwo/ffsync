@@ -4,7 +4,7 @@
     "scripts": {
         "build": "tsc",
         "cdk": "cdk",
-        "check-format": "eslint lib package.json eslint.config.mjs .prettierrc.js",
+        "check-format": "eslint lib package.json eslint.config.mjs .prettierrc.mjs",
         "clean": "find lib \\( -name \"*.d.ts\" -o -name \"*.js\" \\) -delete",
         "format": "npm run check-format -- --fix",
         "test": "jest",

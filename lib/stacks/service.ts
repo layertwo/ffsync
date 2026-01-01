@@ -262,6 +262,9 @@ export class ServiceStack extends Stack {
             disableExecuteApiEndpoint: true,
         });
         api.node.addDependency(handler);
+        if (service == Service.STORAGE) {
+            api.node.addDependency(this.hawkAuthorizerHandler);
+        }
 
         [RecordType.A, RecordType.AAAA].map((recordType) => {
             new RecordSet(this, `${capitalService}${recordType}RecordSet`, {
@@ -288,41 +291,13 @@ export class ServiceStack extends Stack {
         openApiJson = openApiJson.replace(/CDK_LAMBDA_FUNCTION_ARN/g, handler.functionArn);
         openApiJson = openApiJson.replace(/CDK_API_ROLE_ARN/g, this.apiExecuteRole.roleArn);
 
-        const spec = JSON.parse(openApiJson);
-
         // Add HAWK authorizer to Storage API
         if (service === Service.STORAGE) {
-            spec.securityDefinitions = {
-                ...spec.securityDefinitions,
-                HawkAuthorizer: {
-                    type: "apiKey",
-                    name: "Authorization",
-                    in: "header",
-                    "x-amazon-apigateway-authtype": "custom",
-                    "x-amazon-apigateway-authorizer": {
-                        type: "request",
-                        authorizerUri: `arn:aws:apigateway:${this.region}:lambda:path/2015-03-31/functions/${this.hawkAuthorizerHandler.functionArn}/invocations`,
-                        authorizerCredentials: this.apiExecuteRole.roleArn,
-                        authorizerResultTtlInSeconds: 300,
-                        identitySource: "method.request.header.Authorization",
-                    },
-                },
-            };
-
-            // Apply authorizer to all paths
-            if (spec.paths) {
-                Object.keys(spec.paths).forEach((path) => {
-                    Object.keys(spec.paths[path]).forEach((method) => {
-                        if (method !== "options") {
-                            spec.paths[path][method].security = [
-                                {HawkAuthorizer: []},
-                            ];
-                        }
-                    });
-                });
-            }
+            openApiJson = openApiJson.replace(
+                /CDK_AUTH_LAMBDA_FUNCTION_ARN/g,
+                this.hawkAuthorizerHandler.functionArn,
+            );
         }
-
-        return spec;
+        return JSON.parse(openApiJson);
     }
 }
