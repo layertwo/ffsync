@@ -364,26 +364,26 @@
     - **Property 26: Authentication Enforcement (Lambda Authorizer)**
     - **Validates: Requirements 12.1, 12.2, 12.3, 12.4, 12.5**
 
-- [ ] 13. Update ServiceProvider and API Router
-  - [ ] 13.1 Update `ServiceProvider` to pass user_id to StorageManager
+- [x] 13. Update ServiceProvider and API Router
+  - [x] 13.1 Update `ServiceProvider` to pass user_id to StorageManager
     - Extract user_id from request context (set by Lambda Authorizer)
     - _Requirements: 12.5_
-  - [ ] 13.2 Update structured logging
+  - [x] 13.2 Update structured logging
     - Log request method, path, user_id
     - Never log BSO payloads
     - _Requirements: 14.1-14.4_
 
-- [ ] 14. Checkpoint - Ensure all tests pass
+- [x] 14. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 15. Final integration and validation
-  - [ ] 15.1 Create integration test fixtures
+- [-] 15. Final integration and validation
+  - [x] 15.1 Create integration test fixtures
     - _Requirements: All_
   - [ ]* 15.2 Write integration tests for end-to-end flow
     - Test HAWK authorizer → Storage API flow
     - Test user isolation (users can only access their own data)
     - _Requirements: All_
-  - [ ] 15.3 Verify test coverage meets 100% requirement
+  - [x] 15.3 Verify test coverage meets 100% requirement
     - _Requirements: All_
 
 - [ ] 16. Final Checkpoint - Ensure all tests pass

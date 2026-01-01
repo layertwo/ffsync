@@ -19,7 +19,7 @@ from src.routes.info.read_quota import ReadQuotaInfoRoute
 from src.routes.info.read_usage import ReadCollectionUsageRoute
 from src.routes.storage.delete_all import DeleteAllStorageRoute
 from src.routes.token.request import GetTokenRoute
-from src.services.api_router import ApiRouter
+from src.services.api_router import ApiRouter, RequestLoggingMiddleware, WeaveTimestampMiddleware
 from src.services.hawk_service import HawkService
 from src.services.oidc_validator import OIDCValidator
 from src.services.storage_manager import StorageManager
@@ -82,7 +82,8 @@ class ServiceProvider:
                 ReadBSORoute(self.storage_manager),
                 UpdateBSORoute(self.storage_manager),
                 DeleteBSORoute(self.storage_manager),
-            ]
+            ],
+            middlewares=[RequestLoggingMiddleware(), WeaveTimestampMiddleware()],
         )
 
     # Token API properties
@@ -150,7 +151,8 @@ class ServiceProvider:
                     token_generator=self.token_generator,
                     retry_after_seconds=self.retry_after_seconds,
                 ),
-            ]
+            ],
+            middlewares=[WeaveTimestampMiddleware()],
         )
 
     # HAWK Authorizer properties

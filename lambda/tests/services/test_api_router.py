@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from aws_lambda_powertools.event_handler import Response
 
-from src.services.api_router import ApiRouter, WeaveTimestampMiddleware
+from src.services.api_router import ApiRouter, RequestLoggingMiddleware, WeaveTimestampMiddleware
 
 
 def test_api_router_initialization():
@@ -17,7 +17,7 @@ def test_api_router_initialization():
         mock_resolver_instance = MagicMock()
         mock_resolver_class.return_value = mock_resolver_instance
 
-        router = ApiRouter(routes=routes)  # type: ignore[arg-type]
+        router = ApiRouter(routes=routes, middlewares=[])  # type: ignore[arg-type]
 
         # Verify resolver was created
         mock_resolver_class.assert_called_once()
@@ -39,7 +39,7 @@ def test_api_router_handler_calls_resolver():
         mock_resolver_instance = MagicMock()
         mock_resolver_class.return_value = mock_resolver_instance
 
-        router = ApiRouter(routes=[])
+        router = ApiRouter(routes=[], middlewares=[])
         router.handler(event, context)
 
         # Verify resolver.resolve was called with event and context
@@ -88,7 +88,7 @@ def test_api_router_empty_routes():
         mock_resolver_instance = MagicMock()
         mock_resolver_class.return_value = mock_resolver_instance
 
-        router = ApiRouter(routes=[])
+        router = ApiRouter(routes=[], middlewares=[])
 
         # Verify resolver was created
         mock_resolver_class.assert_called_once()
@@ -106,7 +106,7 @@ def test_api_router_handler_passes_context():
         mock_resolver_instance = MagicMock()
         mock_resolver_class.return_value = mock_resolver_instance
 
-        router = ApiRouter(routes=[])
+        router = ApiRouter(routes=[], middlewares=[])
         router.handler(event, context)
 
         # Verify context was passed through
@@ -155,18 +155,23 @@ def test_weave_timestamp_middleware_preserves_existing_headers():
 
 
 def test_api_router_registers_middleware():
-    """Test that ApiRouter registers the WeaveTimestampMiddleware"""
+    """Test that ApiRouter registers both RequestLoggingMiddleware and WeaveTimestampMiddleware"""
     with patch("src.services.api_router.APIGatewayRestResolver") as mock_resolver_class:
         mock_resolver_instance = MagicMock()
         mock_resolver_class.return_value = mock_resolver_instance
 
-        ApiRouter(routes=[])
+        request_logging = RequestLoggingMiddleware()
+        weave_timestamp = WeaveTimestampMiddleware()
+        middlewares = [request_logging, weave_timestamp]
+
+        ApiRouter(routes=[], middlewares=middlewares)
 
         # Verify middleware was registered
         mock_resolver_instance.use.assert_called_once()
-        middlewares = mock_resolver_instance.use.call_args[1]["middlewares"]
-        assert len(middlewares) == 1
-        assert isinstance(middlewares[0], WeaveTimestampMiddleware)
+        registered_middlewares = mock_resolver_instance.use.call_args[1]["middlewares"]
+        assert len(registered_middlewares) == 2
+        assert registered_middlewares[0] is request_logging
+        assert registered_middlewares[1] is weave_timestamp
 
 
 def test_weave_timestamp_middleware_calls_next():
@@ -183,3 +188,119 @@ def test_weave_timestamp_middleware_calls_next():
 
         # Verify next middleware was called
         mock_next.assert_called_once_with(mock_app)
+
+
+def test_request_logging_middleware_logs_request_and_response():
+    """Test that RequestLoggingMiddleware logs request and response information (Requirements 14.1-14.4)"""
+    with patch("src.services.api_router.logger") as mock_logger:
+        middleware = RequestLoggingMiddleware()
+        mock_app = MagicMock()
+        mock_app.current_event = {
+            "httpMethod": "GET",
+            "path": "/storage/bookmarks",
+            "requestContext": {"authorizer": {"user_id": "user123"}},
+        }
+        mock_response = Response(status_code=200, body='{"test": "data"}')
+        mock_next = MagicMock(return_value=mock_response)
+
+        result = middleware.handler(mock_app, mock_next)
+
+        # Verify request received was logged
+        assert mock_logger.info.call_count == 2
+        first_call = mock_logger.info.call_args_list[0]
+        assert first_call[0][0] == "Request received"
+        assert first_call[1]["extra"]["method"] == "GET"
+        assert first_call[1]["extra"]["path"] == "/storage/bookmarks"
+        assert first_call[1]["extra"]["user_id"] == "user123"
+
+        # Verify request completed was logged
+        second_call = mock_logger.info.call_args_list[1]
+        assert second_call[0][0] == "Request completed"
+        assert second_call[1]["extra"]["method"] == "GET"
+        assert second_call[1]["extra"]["path"] == "/storage/bookmarks"
+        assert second_call[1]["extra"]["user_id"] == "user123"
+        assert second_call[1]["extra"]["status_code"] == 200
+        assert "duration_ms" in second_call[1]["extra"]
+
+        # Verify response is returned
+        assert result == mock_response
+
+
+def test_request_logging_middleware_logs_anonymous_user():
+    """Test that RequestLoggingMiddleware logs 'anonymous' when user_id is not present"""
+    with patch("src.services.api_router.logger") as mock_logger:
+        middleware = RequestLoggingMiddleware()
+        mock_app = MagicMock()
+        mock_app.current_event = {
+            "httpMethod": "GET",
+            "path": "/info/configuration",
+            "requestContext": {},
+        }
+        mock_response = Response(status_code=200, body='{"test": "data"}')
+        mock_next = MagicMock(return_value=mock_response)
+
+        middleware.handler(mock_app, mock_next)
+
+        # Verify anonymous user was logged
+        first_call = mock_logger.info.call_args_list[0]
+        assert first_call[1]["extra"]["user_id"] == "anonymous"
+
+
+def test_request_logging_middleware_logs_errors():
+    """Test that RequestLoggingMiddleware logs errors with stack trace (Requirements 14.2)"""
+    with patch("src.services.api_router.logger") as mock_logger:
+        middleware = RequestLoggingMiddleware()
+        mock_app = MagicMock()
+        mock_app.current_event = {
+            "httpMethod": "POST",
+            "path": "/storage/bookmarks",
+            "requestContext": {"authorizer": {"user_id": "user123"}},
+        }
+        test_exception = ValueError("Test error")
+        mock_next = MagicMock(side_effect=test_exception)
+
+        # Verify exception is re-raised
+        try:
+            middleware.handler(mock_app, mock_next)
+            assert False, "Expected exception to be raised"
+        except ValueError:
+            pass
+
+        # Verify request received was logged
+        assert mock_logger.info.call_count == 1
+
+        # Verify error was logged
+        mock_logger.error.assert_called_once()
+        error_call = mock_logger.error.call_args
+        assert error_call[0][0] == "Request failed"
+        assert error_call[1]["extra"]["method"] == "POST"
+        assert error_call[1]["extra"]["path"] == "/storage/bookmarks"
+        assert error_call[1]["extra"]["user_id"] == "user123"
+        assert error_call[1]["extra"]["error_type"] == "ValueError"
+        assert error_call[1]["extra"]["error_message"] == "Test error"
+        assert "duration_ms" in error_call[1]["extra"]
+        assert error_call[1]["exc_info"] is True  # Stack trace included
+
+
+def test_request_logging_middleware_never_logs_payloads():
+    """Test that RequestLoggingMiddleware never logs BSO payloads (Requirements 14.4)"""
+    with patch("src.services.api_router.logger") as mock_logger:
+        middleware = RequestLoggingMiddleware()
+        mock_app = MagicMock()
+        # Event with body containing sensitive data
+        mock_app.current_event = {
+            "httpMethod": "PUT",
+            "path": "/storage/bookmarks/abc123",
+            "body": '{"payload": "sensitive encrypted data", "sortindex": 100}',
+            "requestContext": {"authorizer": {"user_id": "user123"}},
+        }
+        mock_response = Response(status_code=200, body='{"modified": 1702345678.12}')
+        mock_next = MagicMock(return_value=mock_response)
+
+        middleware.handler(mock_app, mock_next)
+
+        # Verify no log call contains the sensitive payload
+        for call in mock_logger.info.call_args_list:
+            log_message = str(call)
+            assert "sensitive encrypted data" not in log_message
+            assert "body" not in str(call[1].get("extra", {}))
