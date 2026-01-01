@@ -1,4 +1,4 @@
-"""Tests for storage route handlers"""
+"""Tests for DeleteAllRootRoute"""
 
 import json
 from typing import Any
@@ -25,12 +25,12 @@ def build_storage_event(method: str, path: str, user_id: str = TEST_USER_ID) -> 
     }
 
 
-class TestDeleteAllStorageRoute:
-    """Tests for DeleteAllStorageRoute"""
+class TestDeleteAllRootRoute:
+    """Tests for DeleteAllRootRoute"""
 
     def test_handle_success(self, mock_service_provider, dynamodb_stubber, sample_lambda_context):
-        """Test successful deletion of all storage"""
-        event = build_storage_event(method="DELETE", path="/storage")
+        """Test successful deletion of all storage via root endpoint"""
+        event = build_storage_event(method="DELETE", path="/")
 
         # Stub scan to return items
         dynamodb_stubber.add_response(
@@ -41,16 +41,11 @@ class TestDeleteAllStorageRoute:
                         "PK": {"S": f"USER#{TEST_USER_ID}#COLLECTION#bookmarks"},
                         "SK": {"S": "METADATA"},
                     },
-                    {
-                        "PK": {"S": f"USER#{TEST_USER_ID}#COLLECTION#bookmarks"},
-                        "SK": {"S": "OBJECT#obj1"},
-                    },
                 ]
             },
         )
 
-        # Stub delete_item for each item
-        dynamodb_stubber.add_response("delete_item", {})
+        # Stub delete_item
         dynamodb_stubber.add_response("delete_item", {})
 
         response = storage_handler(event, sample_lambda_context, mock_service_provider)
@@ -64,58 +59,10 @@ class TestDeleteAllStorageRoute:
         self, mock_service_provider, dynamodb_stubber, sample_lambda_context
     ):
         """Test deletion when storage is already empty"""
-        event = build_storage_event(method="DELETE", path="/storage")
+        event = build_storage_event(method="DELETE", path="/")
 
         # Stub scan to return no items
         dynamodb_stubber.add_response("scan", {"Items": [], "Count": 0})
-
-        response = storage_handler(event, sample_lambda_context, mock_service_provider)
-
-        assert response["statusCode"] == 200
-        body = json.loads(response["body"])
-        assert "modified" in body
-
-    def test_handle_with_pagination(
-        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
-    ):
-        """Test deletion with paginated results"""
-        event = build_storage_event(method="DELETE", path="/storage")
-
-        # Stub first scan page with LastEvaluatedKey
-        dynamodb_stubber.add_response(
-            "scan",
-            {
-                "Items": [
-                    {
-                        "PK": {"S": f"USER#{TEST_USER_ID}#COLLECTION#bookmarks"},
-                        "SK": {"S": "METADATA"},
-                    },
-                ],
-                "LastEvaluatedKey": {
-                    "PK": {"S": f"USER#{TEST_USER_ID}#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
-                },
-            },
-        )
-
-        # Stub delete_item for first page
-        dynamodb_stubber.add_response("delete_item", {})
-
-        # Stub second scan page (no more items)
-        dynamodb_stubber.add_response(
-            "scan",
-            {
-                "Items": [
-                    {
-                        "PK": {"S": f"USER#{TEST_USER_ID}#COLLECTION#history"},
-                        "SK": {"S": "METADATA"},
-                    },
-                ]
-            },
-        )
-
-        # Stub delete_item for second page
-        dynamodb_stubber.add_response("delete_item", {})
 
         response = storage_handler(event, sample_lambda_context, mock_service_provider)
 
@@ -129,7 +76,7 @@ class TestDeleteAllStorageRoute:
         """Test handling when user_id is missing from authorizer context"""
         event: dict[str, Any] = {
             "httpMethod": "DELETE",
-            "path": "/storage",
+            "path": "/",
             "pathParameters": None,
             "headers": {},
             "body": None,
@@ -143,11 +90,37 @@ class TestDeleteAllStorageRoute:
         body = json.loads(response["body"])
         assert body["error"] == "Unauthorized"
 
+    def test_root_and_storage_endpoints_behave_identically(
+        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
+    ):
+        """Test that DELETE / and DELETE /storage behave the same way"""
+        # Test DELETE /
+        root_event = build_storage_event(method="DELETE", path="/")
+        dynamodb_stubber.add_response("scan", {"Items": [], "Count": 0})
+        root_response = storage_handler(root_event, sample_lambda_context, mock_service_provider)
+
+        # Test DELETE /storage
+        storage_event = build_storage_event(method="DELETE", path="/storage")
+        dynamodb_stubber.add_response("scan", {"Items": [], "Count": 0})
+        storage_response = storage_handler(
+            storage_event, sample_lambda_context, mock_service_provider
+        )
+
+        # Both should return 200 with modified timestamp
+        assert root_response["statusCode"] == 200
+        assert storage_response["statusCode"] == 200
+
+        root_body = json.loads(root_response["body"])
+        storage_body = json.loads(storage_response["body"])
+
+        assert "modified" in root_body
+        assert "modified" in storage_body
+
     def test_handle_internal_error(
         self, mock_service_provider, dynamodb_stubber, sample_lambda_context
     ):
         """Test handling of internal server errors"""
-        event = build_storage_event(method="DELETE", path="/storage")
+        event = build_storage_event(method="DELETE", path="/")
 
         # Stub scan to raise an exception
         dynamodb_stubber.add_client_error("scan", service_error_code="InternalServerError")

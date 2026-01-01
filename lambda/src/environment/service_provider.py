@@ -18,6 +18,7 @@ from src.routes.info.read_counts import ReadCollectionCountsRoute
 from src.routes.info.read_quota import ReadQuotaInfoRoute
 from src.routes.info.read_usage import ReadCollectionUsageRoute
 from src.routes.storage.delete_all import DeleteAllStorageRoute
+from src.routes.storage.delete_root import DeleteAllRootRoute
 from src.routes.token.request import GetTokenRoute
 from src.services.api_router import ApiRouter, RequestLoggingMiddleware, WeaveTimestampMiddleware
 from src.services.hawk_service import HawkService
@@ -68,7 +69,8 @@ class ServiceProvider:
     def storage_api_router(self):
         return ApiRouter(
             routes=[
-                DeleteAllStorageRoute(),
+                DeleteAllRootRoute(self.storage_manager),
+                DeleteAllStorageRoute(self.storage_manager),
                 ReadConfigurationRoute(),
                 ReadCollectionsInfoRoute(self.storage_manager),
                 ReadCollectionCountsRoute(self.storage_manager),
