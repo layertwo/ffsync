@@ -318,6 +318,7 @@ class HawkService:
             str(timestamp), nonce, method, uri, host, str(port), payload_hash, ext
         )
         expected_mac = self.calculate_mac(hawk_key, normalized)
+        match = hmac.compare_digest(expected_mac, provided_mac)
 
         # Log MAC verification details for debugging
         logger.info(
@@ -328,11 +329,11 @@ class HawkService:
                 "host": host,
                 "port": port,
                 "timestamp": timestamp,
-                "match": hmac.compare_digest(expected_mac, provided_mac),
+                "match": match,
             },
         )
 
-        return hmac.compare_digest(expected_mac, provided_mac)
+        return match
 
     def get_hawk_key_from_cache(self, hawk_id: str) -> Tuple[str, str, int]:
         """
