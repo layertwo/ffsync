@@ -140,7 +140,7 @@ class ServiceProvider:
     @cached_property
     def token_generator(self) -> TokenGenerator:
         """Create token generator with base URL from environment"""
-        return TokenGenerator(storage_domain=self.storage_domain)
+        return TokenGenerator(storage_domain=self.storage_domain, hawk_service=self.hawk_service)
 
     @cached_property
     def token_api_router(self):
