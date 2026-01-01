@@ -286,33 +286,33 @@
     - **Property 28: Content-Type Handling**
     - **Validates: Requirements 17.1-17.5**
 
-- [ ] 12. Implement HAWK Lambda Authorizer
-  - [ ] 12.1 Create token cache DynamoDB table in CDK
+- [x] 12. Implement HAWK Lambda Authorizer
+  - [x] 12.1 Create token cache DynamoDB table in CDK
     - Add `tokenCacheTable` to `lib/stacks/service.ts`
     - Schema: PK (String), hawk_key (String), user_id (String), generation (Number), expiry (Number, TTL attribute), created_at (Number)
     - Enable DynamoDB TTL on `expiry` attribute for automatic cleanup
     - Grant read permissions to HAWK authorizer Lambda
     - Grant write permissions to Token Server Lambda
     - _Requirements: 12.1, 12.2, 12.3_
-  - [ ] 12.2 Create HAWK authorizer Lambda function in CDK
+  - [x] 12.2 Create HAWK authorizer Lambda function in CDK
     - Add `hawkAuthorizerFunction` to `lib/stacks/service.ts`
     - Entry point: `lambda/src/entrypoint/hawk_authorizer.py`
     - Environment variables: TOKEN_CACHE_TABLE_NAME
     - Grant read access to token cache table
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
-  - [ ] 12.3 Configure API Gateway REQUEST authorizer in CDK
+  - [x] 12.3 Configure API Gateway REQUEST authorizer in CDK
     - Add `hawkAuthorizer` to Storage API in `lib/stacks/service.ts`
     - Type: REQUEST authorizer
     - Identity source: `method.request.header.Authorization`
     - Result caching: 300 seconds (TTL matches token duration)
     - Attach authorizer to all Storage API routes
     - _Requirements: 12.1, 12.4_
-  - [ ] 12.4 Create HAWK authorizer entry point in `entrypoint/hawk_authorizer.py`
+  - [x] 12.4 Create HAWK authorizer entry point in `entrypoint/hawk_authorizer.py`
     - Lambda handler function for API Gateway REQUEST authorizer
     - Parse authorizer event and extract Authorization header
     - Return IAM policy with user context
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
-  - [ ] 12.5 Create unified `HawkService` in `services/hawk_service.py`
+  - [x] 12.5 Create unified `HawkService` in `services/hawk_service.py`
     - **Validation Methods (Storage Server):**
       - `parse_hawk_header()` - extract id, ts, nonce, mac from Authorization header
       - `decode_hawk_id()` - decode base64 HAWK ID to user_id, generation, expiry
@@ -329,19 +329,19 @@
       - `generate_hawk_key()` - generate 32 random bytes (hex-encoded)
       - `store_token_in_cache()` - write token to DynamoDB cache with TTL
     - _Requirements: 12.1, 12.2, 12.3, 12.4_
-  - [ ] 12.6 Create `AuthPolicy` model in `shared/models.py`
+  - [x] 12.6 Create `AuthPolicy` model in `shared/models.py`
     - IAM policy document structure
     - Principal ID (user_id)
     - Context dictionary (user_id, hawk_id, authenticated_at)
     - Helper methods for Allow/Deny policies
     - _Requirements: 12.1, 12.4, 12.5_
-  - [ ] 12.7 Add HAWK-specific exceptions to `shared/exceptions.py`
+  - [x] 12.7 Add HAWK-specific exceptions to `shared/exceptions.py`
     - `InvalidHawkHeaderException` - malformed HAWK header
     - `InvalidHawkSignatureException` - signature verification failed
     - `ExpiredHawkTokenException` - token expired
     - `InvalidGenerationException` - outdated generation number
     - _Requirements: 12.1, 12.2, 12.3_
-  - [ ]* 12.8 Write unit tests for HawkService
+  - [x] 12.8 Write unit tests for HawkService
     - **Validation tests:**
       - Valid HAWK signature verification
       - Invalid signature rejection
@@ -354,7 +354,7 @@
       - HAWK key randomness (multiple generations produce unique keys)
       - Token cache storage
     - _Requirements: 12.1, 12.2, 12.3, 12.4_
-  - [ ]* 12.9 Write unit tests for hawk_authorizer handler
+  - [x] 12.9 Write unit tests for hawk_authorizer handler
     - Valid authorization flow
     - IAM policy generation (Allow/Deny)
     - Context passing to Storage API

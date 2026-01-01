@@ -20,6 +20,7 @@ from src.routes.info.read_usage import ReadCollectionUsageRoute
 from src.routes.storage.delete_all import DeleteAllStorageRoute
 from src.routes.token.request import GetTokenRoute
 from src.services.api_router import ApiRouter
+from src.services.hawk_service import HawkService
 from src.services.oidc_validator import OIDCValidator
 from src.services.storage_manager import StorageManager
 from src.services.token_generator import TokenGenerator
@@ -151,3 +152,20 @@ class ServiceProvider:
                 ),
             ]
         )
+
+    # HAWK Authorizer properties
+
+    @cached_property
+    def token_cache_table_name(self):
+        return os.environ.get("TOKEN_CACHE_TABLE_NAME")
+
+    @cached_property
+    def token_cache_table(self):
+        """Create DynamoDB Table resource for token cache"""
+        resource = self.session.resource("dynamodb")
+        return resource.Table(self.token_cache_table_name)
+
+    @cached_property
+    def hawk_service(self) -> HawkService:
+        """Create HAWK service for authentication"""
+        return HawkService(token_cache_table=self.token_cache_table)

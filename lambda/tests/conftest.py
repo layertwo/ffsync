@@ -35,6 +35,11 @@ def base_domain():
     return "sync.example.com"
 
 
+@pytest.fixture
+def token_cache_table_name():
+    return "test-token-cache-table"
+
+
 @pytest.fixture(autouse=True)
 def setup_environment(
     monkeypatch,
@@ -44,6 +49,7 @@ def setup_environment(
     aws_session_token,
     storage_table_name,
     token_users_table_name,
+    token_cache_table_name,
     oidc_secret_arn,
     base_domain,
 ):
@@ -54,6 +60,7 @@ def setup_environment(
     monkeypatch.setenv("AWS_SESSION_TOKEN", aws_session_token)
     monkeypatch.setenv("STORAGE_TABLE_NAME", storage_table_name)
     monkeypatch.setenv("TOKEN_USERS_TABLE_NAME", token_users_table_name)
+    monkeypatch.setenv("TOKEN_CACHE_TABLE_NAME", token_cache_table_name)
     monkeypatch.setenv("OIDC_SECRET_ARN", oidc_secret_arn)
     monkeypatch.setenv("BASE_DOMAIN", base_domain)
     monkeypatch.setenv("CLOCK_SKEW_TOLERANCE", "300")
