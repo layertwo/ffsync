@@ -21,6 +21,7 @@ service StorageService {
     version: "1.0"
     resources: [
         Storage
+        RootStorage
     ]
     errors: [
         ValidationException

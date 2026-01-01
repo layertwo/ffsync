@@ -11,6 +11,11 @@ resource Storage {
     delete: DeleteAllStorage
 }
 
+@documentation("Root endpoint for deleting all user data")
+resource RootStorage {
+    delete: DeleteAllRootStorage
+}
+
 // ============================================================================
 // Storage Info Resource
 // ============================================================================
@@ -43,6 +48,17 @@ resource ConfigurationInfo { read: GetConfigurationInfo }
 operation DeleteAllStorage {
     input: DeleteAllStorageInput
     output: DeleteAllStorageOutput
+    errors: [
+        AuthenticationException
+    ]
+}
+
+@idempotent
+@http(method: "DELETE", uri: "/")
+@documentation("Delete all storage data for the authenticated user (root endpoint)")
+operation DeleteAllRootStorage {
+    input: DeleteAllRootStorageInput
+    output: DeleteAllRootStorageOutput
     errors: [
         AuthenticationException
     ]
@@ -128,7 +144,7 @@ map CollectionCounts {
     value: Integer
 }
 
-/// Collection usage map (sizes in bytes)
+/// Collection usage map (sizes in KB)
 map CollectionUsage {
     key: CollectionName
     value: Long
@@ -157,12 +173,27 @@ structure DeleteAllStorageOutput {
     modified: Timestamp
 }
 
+@input
+structure DeleteAllRootStorageInput {}
+
+@output
+structure DeleteAllRootStorageOutput {
+    @documentation("Timestamp when the deletion was completed")
+    modified: Timestamp
+}
+
 // Info Operations
 structure GetStorageInfoInput {}
 
 structure GetStorageInfoOutput {
-    @documentation("Map of collection names to their data")
-    collections: CollectionDataMap
+    @documentation("Map of collection names to their last modified timestamps")
+    collections: CollectionTimestamps
+}
+
+/// Collection timestamps map (collection name -> last modified timestamp)
+map CollectionTimestamps {
+    key: CollectionName
+    value: Timestamp
 }
 
 structure GetCollectionCountsInput {}
@@ -175,21 +206,21 @@ structure GetCollectionCountsOutput {
 structure GetCollectionUsageInput {}
 
 structure GetCollectionUsageOutput {
-    @documentation("Map of collection names to usage in bytes")
+    @documentation("Map of collection names to usage in KB")
     usage: CollectionUsage
 }
 
 structure GetQuotaInfoInput {}
 
 structure GetQuotaInfoOutput {
-    @documentation("Total storage quota in bytes")
-    quota: Long
+    @documentation("Two-item list: [usage_kb, quota_kb or null]")
+    @required
+    quota: QuotaArray
+}
 
-    @documentation("Used storage in bytes")
-    usage: Long
-
-    @documentation("Remaining storage in bytes")
-    remaining: Long
+/// Quota array: [usage, quota or null]
+list QuotaArray {
+    member: Long
 }
 
 structure GetConfigurationInfoInput {}

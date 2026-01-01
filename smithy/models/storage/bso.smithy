@@ -30,9 +30,6 @@ structure BasicStorageObject {
 
     @documentation("Sort index for ordering")
     sortindex: Integer
-
-    @documentation("Time-to-live in seconds")
-    ttl: Integer
 }
 
 /// Storage Object input for create/update operations

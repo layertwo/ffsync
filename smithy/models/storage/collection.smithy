@@ -64,11 +64,15 @@ structure CreateCollectionInput {
 
 @output
 structure CreateCollectionOutput {
-    @documentation("Created collection data")
-    collection: CollectionData
+    @documentation("Timestamp when the collection was modified")
+    @required
+    modified: Timestamp
 
-    @documentation("Batch result if objects were provided")
-    batchResult: BatchResult
+    @documentation("Successfully processed object IDs")
+    success: ObjectIdList
+
+    @documentation("Failed operations with error messages")
+    failed: FailedOperations
 }
 
 @idempotent
@@ -209,6 +213,10 @@ structure DeleteCollectionInput {
     @httpLabel
     @required
     collectionName: CollectionName
+
+    @httpQuery("ids")
+    @documentation("Comma-separated list of object IDs to delete (max 100). If omitted, deletes entire collection.")
+    ids: String
 }
 
 @output
@@ -222,15 +230,15 @@ structure BatchResult {
     @documentation("Successfully processed object IDs")
     success: ObjectIdList
 
-    @documentation("Failed operations with error details")
+    @documentation("Failed operations with error messages (ID -> error string)")
     failed: FailedOperations
 
     @documentation("New last modified timestamp")
     modified: Timestamp
 }
 
-/// Failed operation details
+/// Failed operation details (ID -> error message string)
 map FailedOperations {
     key: ObjectId
-    value: StringList
+    value: String
 }

@@ -1,7 +1,7 @@
 # Implementation Plan
 
-- [ ] 0. Update Smithy API models
-  - [ ] 0.1 Review and update Storage API Smithy models in `smithy/models/storage/`
+- [x] 0. Update Smithy API models
+  - [x] 0.1 Review and update Storage API Smithy models in `smithy/models/storage/`
     - Verify BSO operations match Mozilla spec (GET/PUT/DELETE `/storage/{collection}/{id}`)
     - Verify collection operations match Mozilla spec (GET/POST/DELETE `/storage/{collection}`)
     - Verify info endpoints match Mozilla spec (`/info/collections`, `/info/collection_counts`, `/info/collection_usage`, `/info/quota`, `/info/configuration`)
@@ -10,11 +10,11 @@
     - Update BatchResult.failed to use string values (not string arrays) per Mozilla spec
     - Ensure TTL field is marked as input-only (not returned in responses)
     - _Requirements: All_
-  - [ ] 0.2 Run `smithy build` to generate updated OpenAPI specs
+  - [x] 0.2 Run `smithy build` to generate updated OpenAPI specs
     - Execute from `smithy/` directory
     - Verify generated specs in `smithy/build/`
     - _Requirements: All_
-  - [ ] 0.3 Update CDK to use generated OpenAPI specs (if applicable)
+  - [x] 0.3 Update CDK to use generated OpenAPI specs (if applicable)
     - Review `lib/stacks/service.ts` for OpenAPI integration
     - _Requirements: All_
 
