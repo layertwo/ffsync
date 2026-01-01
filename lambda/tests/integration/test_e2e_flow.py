@@ -17,7 +17,6 @@ import pytest
 
 from src.entrypoint.hawk_authorizer import lambda_handler as authorizer_handler
 from src.entrypoint.storage_api import lambda_handler as storage_handler
-from src.services.hawk_service import HawkService
 from tests.fixtures.integration import build_authorizer_event, build_storage_event
 
 
@@ -41,7 +40,7 @@ class TestHawkAuthorizerToStorageAPIFlow:
         user_id = "test-user-123"
         generation = 0
         expiry = int(time.time()) + 300
-        hawk_service = HawkService(mock_service_provider.token_cache_table)
+        hawk_service = mock_service_provider.hawk_service
         credentials = hawk_service.generate_hawk_credentials(user_id, generation)
 
         # Store token in cache
@@ -161,24 +160,14 @@ class TestHawkAuthorizerToStorageAPIFlow:
         user_id = "test-user-123"
         generation = 0
         expiry = int(time.time()) - 100  # Expired 100 seconds ago
-        hawk_service = HawkService(mock_service_provider.token_cache_table)
+        hawk_service = mock_service_provider.hawk_service
 
         # Manually create expired credentials
         hawk_id = hawk_service.generate_hawk_id(user_id, generation, expiry)
         hawk_key = hawk_service.generate_hawk_key()
 
-        # Store in cache (even though expired)
+        # Store in cache (even though expired) - stub the put_item call
         dynamodb_stubber.add_response("put_item", {})
-        mock_service_provider.token_cache_table.put_item(
-            Item={
-                "PK": f"TOKEN#{hawk_id}",
-                "hawk_key": hawk_key,
-                "user_id": user_id,
-                "generation": generation,
-                "expiry": expiry,
-                "created_at": int(time.time()) - 200,
-            }
-        )
 
         # Build HAWK Authorization header with expired token
         timestamp = int(time.time())
@@ -199,6 +188,21 @@ class TestHawkAuthorizerToStorageAPIFlow:
 
         authorizer_event = build_authorizer_event(
             method=method, path=path, authorization_header=authorization_header
+        )
+
+        # Mock get_item for HAWK token retrieval (expired token)
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": f"TOKEN#{hawk_id}"},
+                    "hawk_key": {"S": hawk_key},
+                    "user_id": {"S": user_id},
+                    "generation": {"N": str(generation)},
+                    "expiry": {"N": str(expiry)},
+                    "created_at": {"N": str(int(time.time()) - 200)},
+                }
+            },
         )
 
         # Authorizer should reject expired token
