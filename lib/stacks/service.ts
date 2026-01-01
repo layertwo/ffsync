@@ -45,11 +45,13 @@ export class ServiceStack extends Stack {
 
     // Token Service
     public readonly tokenUsersTable: Table;
+    public readonly tokenCacheTable: Table;
     public readonly tokenHandler: IFunction;
     public readonly tokenApi: SpecRestApi;
 
     // Storage Service
     public readonly storageTable: Table;
+    public readonly hawkAuthorizerFunction: IFunction;
     public readonly storageHandler: IFunction;
     public readonly storageApi: SpecRestApi;
 
@@ -66,11 +68,13 @@ export class ServiceStack extends Stack {
 
         // Storage Service
         this.storageTable = this.buildStorageTable();
+        this.hawkAuthorizerFunction = this.buildHawkAuthorizerFunction();
         this.storageHandler = this.buildStorageApiHandler();
         this.storageApi = this.buildApi(Service.STORAGE, this.storageHandler);
 
         // Token Service
         this.tokenUsersTable = this.buildTokenUsersTable();
+        this.tokenCacheTable = this.buildTokenCacheTable();
         this.tokenHandler = this.buildTokenApiHandler();
         this.tokenApi = this.buildApi(Service.TOKEN, this.tokenHandler);
     }
@@ -115,6 +119,51 @@ export class ServiceStack extends Stack {
                     ? RemovalPolicy.RETAIN
                     : RemovalPolicy.DESTROY,
         });
+    }
+
+    private buildTokenCacheTable(): Table {
+        const table = new Table(this, "TokenCacheTable", {
+            tableName: `ffsync-token-cache-${this.props.stageType.toLowerCase()}`,
+            encryption: TableEncryption.AWS_MANAGED,
+            partitionKey: {
+                name: "PK",
+                type: AttributeType.STRING,
+            },
+            billingMode: BillingMode.PAY_PER_REQUEST,
+            timeToLiveAttribute: "expiry",
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: true,
+            },
+            removalPolicy:
+                this.props.stageType === StageType.PROD
+                    ? RemovalPolicy.RETAIN
+                    : RemovalPolicy.DESTROY,
+        });
+
+        return table;
+    }
+
+    private buildHawkAuthorizerFunction(): PythonFunction {
+        const fn = new PythonFunction(this, "HawkAuthorizerFunction", {
+            entry: path.join(__dirname, "../../lambda"),
+            index: "src/entrypoint/__init__.py",
+            runtime: Runtime.PYTHON_3_14,
+            architecture: Architecture.ARM_64,
+            handler: "hawk_authorizer_handler",
+            functionName: `ffsync-hawk-authorizer-${this.props.stageType.toLowerCase()}`,
+            timeout: Duration.seconds(5),
+            memorySize: 256,
+            environment: {
+                STAGE: this.props.stageType.toLowerCase(),
+                TOKEN_CACHE_TABLE_NAME: this.tokenCacheTable.tableName,
+            },
+        });
+
+        // Grant read permissions to token cache table
+        this.tokenCacheTable.grantReadData(fn);
+        fn.grantInvoke(this.apiExecuteRole);
+
+        return fn;
     }
 
     private buildStorageApiHandler(): PythonFunction {
@@ -162,6 +211,7 @@ export class ServiceStack extends Stack {
                 BASE_DOMAIN: this.stageBaseDomain,
                 OIDC_SECRET_ARN: oidcSecret.secretArn,
                 TOKEN_USERS_TABLE_NAME: this.tokenUsersTable.tableName,
+                TOKEN_CACHE_TABLE_NAME: this.tokenCacheTable.tableName,
                 CLOCK_SKEW_TOLERANCE: "300",
                 RETRY_AFTER_SECONDS: "30",
             },
@@ -170,6 +220,7 @@ export class ServiceStack extends Stack {
         // Grant permissions
         oidcSecret.grantRead(fn);
         this.tokenUsersTable.grantReadWriteData(fn);
+        this.tokenCacheTable.grantReadWriteData(fn);
         fn.grantInvoke(this.apiExecuteRole);
 
         return fn;
@@ -235,6 +286,41 @@ export class ServiceStack extends Stack {
         openApiJson = openApiJson.replace(/CDK_LAMBDA_FUNCTION_ARN/g, handler.functionArn);
         openApiJson = openApiJson.replace(/CDK_API_ROLE_ARN/g, this.apiExecuteRole.roleArn);
 
-        return JSON.parse(openApiJson);
+        const spec = JSON.parse(openApiJson);
+
+        // Add HAWK authorizer to Storage API
+        if (service === Service.STORAGE) {
+            spec.securityDefinitions = {
+                ...spec.securityDefinitions,
+                HawkAuthorizer: {
+                    type: "apiKey",
+                    name: "Authorization",
+                    in: "header",
+                    "x-amazon-apigateway-authtype": "custom",
+                    "x-amazon-apigateway-authorizer": {
+                        type: "request",
+                        authorizerUri: `arn:aws:apigateway:${this.region}:lambda:path/2015-03-31/functions/${this.hawkAuthorizerFunction.functionArn}/invocations`,
+                        authorizerCredentials: this.apiExecuteRole.roleArn,
+                        authorizerResultTtlInSeconds: 300,
+                        identitySource: "method.request.header.Authorization",
+                    },
+                },
+            };
+
+            // Apply authorizer to all paths
+            if (spec.paths) {
+                Object.keys(spec.paths).forEach((path) => {
+                    Object.keys(spec.paths[path]).forEach((method) => {
+                        if (method !== "options") {
+                            spec.paths[path][method].security = [
+                                {HawkAuthorizer: []},
+                            ];
+                        }
+                    });
+                });
+            }
+        }
+
+        return spec;
     }
 }

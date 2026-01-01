@@ -9,14 +9,30 @@ from src.shared.exceptions import (
     AuthenticationException,
     CollectionNotFoundException,
     ConflictException,
+    ExpiredHawkTokenException,
+    IncompatibleClientException,
+    InvalidBSOException,
+    InvalidClientStateError,
+    InvalidCollectionException,
     InvalidCredentialsError,
+    InvalidGenerationError,
+    InvalidGenerationException,
+    InvalidHawkHeaderException,
+    InvalidHawkSignatureException,
+    InvalidTimestampError,
     InvalidTokenError,
+    JSONParseException,
+    MethodNotAllowedException,
+    NewUsersDisabledError,
     PreconditionFailedException,
     QuotaExceededException,
+    RequestTooLargeException,
+    ServerLimitExceededException,
     ServiceUnavailableError,
     StorageObjectNotFoundException,
     SyncStorageException,
     TokenValidationError,
+    UnsupportedMediaTypeException,
     ValidationException,
 )
 
@@ -420,8 +436,6 @@ class TestRequestTooLargeException:
 
     def test_default_initialization(self):
         """Test exception with default message"""
-        from src.shared.exceptions import RequestTooLargeException
-
         exc = RequestTooLargeException()
 
         assert exc.message == "Request entity too large"
@@ -430,16 +444,12 @@ class TestRequestTooLargeException:
 
     def test_custom_message(self):
         """Test exception with custom message"""
-        from src.shared.exceptions import RequestTooLargeException
-
         exc = RequestTooLargeException("Payload exceeds 2MB limit")
 
         assert exc.message == "Payload exceeds 2MB limit"
 
     def test_to_response(self):
         """Test converting exception to Response"""
-        from src.shared.exceptions import RequestTooLargeException
-
         exc = RequestTooLargeException("Request too large")
         response = exc.to_response()
 
@@ -452,8 +462,6 @@ class TestMethodNotAllowedException:
 
     def test_default_initialization(self):
         """Test exception with default message"""
-        from src.shared.exceptions import MethodNotAllowedException
-
         exc = MethodNotAllowedException()
 
         assert exc.message == "Method not allowed"
@@ -462,16 +470,12 @@ class TestMethodNotAllowedException:
 
     def test_custom_message(self):
         """Test exception with custom message"""
-        from src.shared.exceptions import MethodNotAllowedException
-
         exc = MethodNotAllowedException("POST not allowed on this resource")
 
         assert exc.message == "POST not allowed on this resource"
 
     def test_to_response(self):
         """Test converting exception to Response"""
-        from src.shared.exceptions import MethodNotAllowedException
-
         exc = MethodNotAllowedException("Method not allowed")
         response = exc.to_response()
 
@@ -484,8 +488,6 @@ class TestUnsupportedMediaTypeException:
 
     def test_default_initialization(self):
         """Test exception with default message"""
-        from src.shared.exceptions import UnsupportedMediaTypeException
-
         exc = UnsupportedMediaTypeException()
 
         assert exc.message == "Unsupported media type"
@@ -494,16 +496,12 @@ class TestUnsupportedMediaTypeException:
 
     def test_custom_message(self):
         """Test exception with custom message"""
-        from src.shared.exceptions import UnsupportedMediaTypeException
-
         exc = UnsupportedMediaTypeException("Content-Type must be application/json")
 
         assert exc.message == "Content-Type must be application/json"
 
     def test_to_response(self):
         """Test converting exception to Response"""
-        from src.shared.exceptions import UnsupportedMediaTypeException
-
         exc = UnsupportedMediaTypeException("Unsupported media type")
         response = exc.to_response()
 
@@ -516,8 +514,6 @@ class TestServerLimitExceededException:
 
     def test_default_initialization(self):
         """Test exception with default message"""
-        from src.shared.exceptions import ServerLimitExceededException
-
         exc = ServerLimitExceededException()
 
         assert exc.message == "Server limit exceeded"
@@ -527,16 +523,12 @@ class TestServerLimitExceededException:
 
     def test_custom_message(self):
         """Test exception with custom message"""
-        from src.shared.exceptions import ServerLimitExceededException
-
         exc = ServerLimitExceededException("Batch size exceeds 100 records")
 
         assert exc.message == "Batch size exceeds 100 records"
 
     def test_to_response_returns_mozilla_code(self):
         """Test converting exception to Response returns Mozilla code (Requirement 13.1, 13.7)"""
-        from src.shared.exceptions import ServerLimitExceededException
-
         exc = ServerLimitExceededException("Server limit exceeded")
         response = exc.to_response()
 
@@ -565,8 +557,6 @@ class TestInvalidBSOException:
 
     def test_default_initialization(self):
         """Test exception with default message"""
-        from src.shared.exceptions import InvalidBSOException
-
         exc = InvalidBSOException()
 
         assert exc.message == "Invalid BSO"
@@ -576,8 +566,6 @@ class TestInvalidBSOException:
 
     def test_to_response_returns_mozilla_code(self):
         """Test converting exception to Response returns Mozilla code (Requirement 13.1, 13.3)"""
-        from src.shared.exceptions import InvalidBSOException
-
         exc = InvalidBSOException("Invalid BSO payload")
         response = exc.to_response()
 
@@ -592,8 +580,6 @@ class TestInvalidCollectionException:
 
     def test_default_initialization(self):
         """Test exception with default message"""
-        from src.shared.exceptions import InvalidCollectionException
-
         exc = InvalidCollectionException()
 
         assert exc.message == "Invalid collection name"
@@ -603,8 +589,6 @@ class TestInvalidCollectionException:
 
     def test_to_response_returns_mozilla_code(self):
         """Test converting exception to Response returns Mozilla code (Requirement 13.1, 13.4)"""
-        from src.shared.exceptions import InvalidCollectionException
-
         exc = InvalidCollectionException("Collection name too long")
         response = exc.to_response()
 
@@ -619,8 +603,6 @@ class TestJSONParseException:
 
     def test_default_initialization(self):
         """Test exception with default message"""
-        from src.shared.exceptions import JSONParseException
-
         exc = JSONParseException()
 
         assert exc.message == "JSON parse failure"
@@ -630,8 +612,6 @@ class TestJSONParseException:
 
     def test_to_response_returns_mozilla_code(self):
         """Test converting exception to Response returns Mozilla code (Requirement 13.1, 13.2)"""
-        from src.shared.exceptions import JSONParseException
-
         exc = JSONParseException("Malformed JSON")
         response = exc.to_response()
 
@@ -646,8 +626,6 @@ class TestIncompatibleClientException:
 
     def test_default_initialization(self):
         """Test exception with default message"""
-        from src.shared.exceptions import IncompatibleClientException
-
         exc = IncompatibleClientException()
 
         assert exc.message == "Incompatible client"
@@ -657,8 +635,6 @@ class TestIncompatibleClientException:
 
     def test_to_response_returns_mozilla_code(self):
         """Test converting exception to Response returns Mozilla code (Requirement 13.1, 13.6)"""
-        from src.shared.exceptions import IncompatibleClientException
-
         exc = IncompatibleClientException("Client version not supported")
         response = exc.to_response()
 
@@ -729,8 +705,6 @@ class TestTokenServerExceptionsWithKwargs:
 
     def test_invalid_timestamp_error_with_kwargs(self):
         """Test InvalidTimestampError accepts optional headers"""
-        from src.shared.exceptions import InvalidTimestampError
-
         exc = InvalidTimestampError("Timestamp mismatch", retry_after=10)
         response = exc.to_response()
 
@@ -740,8 +714,6 @@ class TestTokenServerExceptionsWithKwargs:
 
     def test_invalid_generation_error_with_kwargs(self):
         """Test InvalidGenerationError accepts optional headers"""
-        from src.shared.exceptions import InvalidGenerationError
-
         exc = InvalidGenerationError("Generation outdated", alert="Please re-authenticate")
         response = exc.to_response()
 
@@ -751,8 +723,6 @@ class TestTokenServerExceptionsWithKwargs:
 
     def test_invalid_client_state_error_with_kwargs(self):
         """Test InvalidClientStateError accepts optional headers"""
-        from src.shared.exceptions import InvalidClientStateError
-
         exc = InvalidClientStateError("Invalid state", backoff=5)
         response = exc.to_response()
 
@@ -762,11 +732,134 @@ class TestTokenServerExceptionsWithKwargs:
 
     def test_new_users_disabled_error_with_kwargs(self):
         """Test NewUsersDisabledError accepts optional headers"""
-        from src.shared.exceptions import NewUsersDisabledError
-
         exc = NewUsersDisabledError("Registration disabled", alert="Service closed")
         response = exc.to_response()
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert response.headers is not None
         assert response.headers.get("X-Weave-Alert") == "Service closed"
+
+
+# HAWK Authentication Exception Tests
+
+
+class TestInvalidHawkHeaderException:
+    """Tests for InvalidHawkHeaderException"""
+
+    def test_default_initialization(self):
+        """Test default initialization"""
+        exception = InvalidHawkHeaderException()
+        assert exception.message == "Malformed HAWK Authorization header"
+        assert exception.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_custom_message(self):
+        """Test custom message"""
+        exception = InvalidHawkHeaderException("Custom HAWK header error")
+        assert exception.message == "Custom HAWK header error"
+
+    def test_to_response(self):
+        """Test converting to response"""
+        exception = InvalidHawkHeaderException()
+        response = exception.to_response()
+
+        assert response.status_code == 401
+        assert response.body is not None
+        assert "Malformed HAWK Authorization header" in response.body
+
+
+class TestInvalidHawkSignatureException:
+    """Tests for InvalidHawkSignatureException"""
+
+    def test_default_initialization(self):
+        """Test default initialization"""
+        exception = InvalidHawkSignatureException()
+        assert exception.message == "HAWK signature verification failed"
+        assert exception.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_custom_message(self):
+        """Test custom message"""
+        exception = InvalidHawkSignatureException("Signature mismatch")
+        assert exception.message == "Signature mismatch"
+
+    def test_to_response(self):
+        """Test converting to response"""
+        exception = InvalidHawkSignatureException()
+        response = exception.to_response()
+
+        assert response.status_code == 401
+        assert response.body is not None
+        assert "HAWK signature verification failed" in response.body
+
+
+class TestExpiredHawkTokenException:
+    """Tests for ExpiredHawkTokenException"""
+
+    def test_default_initialization(self):
+        """Test default initialization"""
+        exception = ExpiredHawkTokenException()
+        assert exception.message == "HAWK token has expired"
+        assert exception.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_custom_message(self):
+        """Test custom message"""
+        exception = ExpiredHawkTokenException("Token expired at 1234567890")
+        assert exception.message == "Token expired at 1234567890"
+
+    def test_to_response(self):
+        """Test converting to response"""
+        exception = ExpiredHawkTokenException()
+        response = exception.to_response()
+
+        assert response.status_code == 401
+        assert response.body is not None
+        assert "HAWK token has expired" in response.body
+
+
+class TestInvalidGenerationException:
+    """Tests for InvalidGenerationException"""
+
+    def test_default_initialization(self):
+        """Test default initialization"""
+        exception = InvalidGenerationException()
+        assert exception.message == "HAWK token generation number is outdated"
+        assert exception.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_custom_message(self):
+        """Test custom message"""
+        exception = InvalidGenerationException("Generation mismatch: expected 5, got 3")
+        assert exception.message == "Generation mismatch: expected 5, got 3"
+
+    def test_to_response(self):
+        """Test converting to response"""
+        exception = InvalidGenerationException()
+        response = exception.to_response()
+
+        assert response.status_code == 401
+        assert response.body is not None
+        assert "HAWK token generation number is outdated" in response.body
+
+
+class TestHawkExceptionInheritance:
+    """Tests for HAWK exception inheritance"""
+
+    def test_hawk_exceptions_inherit_from_authentication_exception(self):
+        """Test that all HAWK exceptions inherit from AuthenticationException"""
+        assert issubclass(InvalidHawkHeaderException, AuthenticationException)
+        assert issubclass(InvalidHawkSignatureException, AuthenticationException)
+        assert issubclass(ExpiredHawkTokenException, AuthenticationException)
+        assert issubclass(InvalidGenerationException, AuthenticationException)
+
+    def test_hawk_exceptions_are_raisable(self):
+        """Test that HAWK exceptions can be raised and caught"""
+
+        with pytest.raises(InvalidHawkHeaderException):
+            raise InvalidHawkHeaderException("Test")
+
+        with pytest.raises(InvalidHawkSignatureException):
+            raise InvalidHawkSignatureException("Test")
+
+        with pytest.raises(ExpiredHawkTokenException):
+            raise ExpiredHawkTokenException("Test")
+
+        with pytest.raises(InvalidGenerationException):
+            raise InvalidGenerationException("Test")

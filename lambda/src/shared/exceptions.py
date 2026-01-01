@@ -310,3 +310,34 @@ class NewUsersDisabledError(SyncStorageException):
 
     def __init__(self, message: str = "New user registration is disabled", **kwargs):
         super().__init__(message, **kwargs)
+
+
+# HAWK Authentication specific exceptions
+
+
+class InvalidHawkHeaderException(AuthenticationException):
+    """Raised when HAWK Authorization header is malformed"""
+
+    def __init__(self, message: str = "Malformed HAWK Authorization header", **kwargs):
+        super().__init__(message, **kwargs)
+
+
+class InvalidHawkSignatureException(AuthenticationException):
+    """Raised when HAWK signature verification fails"""
+
+    def __init__(self, message: str = "HAWK signature verification failed", **kwargs):
+        super().__init__(message, **kwargs)
+
+
+class ExpiredHawkTokenException(AuthenticationException):
+    """Raised when HAWK token has expired"""
+
+    def __init__(self, message: str = "HAWK token has expired", **kwargs):
+        super().__init__(message, **kwargs)
+
+
+class InvalidGenerationException(AuthenticationException):
+    """Raised when HAWK token has an outdated generation number"""
+
+    def __init__(self, message: str = "HAWK token generation number is outdated", **kwargs):
+        super().__init__(message, **kwargs)
