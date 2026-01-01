@@ -5,11 +5,12 @@
 | Name                                   |    Stmts |     Miss |   Branch |   BrPart |    Cover |   Missing |
 |--------------------------------------- | -------: | -------: | -------: | -------: | -------: | --------: |
 | src/\_\_init\_\_.py                    |        0 |        0 |        0 |        0 |     100% |           |
-| src/entrypoint/\_\_init\_\_.py         |        2 |        0 |        0 |        0 |     100% |           |
+| src/entrypoint/\_\_init\_\_.py         |        3 |        0 |        0 |        0 |     100% |           |
+| src/entrypoint/hawk\_authorizer.py     |       33 |        0 |        2 |        0 |     100% |           |
 | src/entrypoint/storage\_api.py         |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/token\_api.py           |        5 |        0 |        0 |        0 |     100% |           |
 | src/environment/\_\_init\_\_.py        |        0 |        0 |        0 |        0 |     100% |           |
-| src/environment/service\_provider.py   |       76 |        0 |        0 |        0 |     100% |           |
+| src/environment/service\_provider.py   |       87 |        0 |        0 |        0 |     100% |           |
 | src/routes/\_\_init\_\_.py             |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/delete.py               |       34 |        0 |        2 |        0 |     100% |           |
@@ -32,19 +33,20 @@
 | src/routes/token/\_\_init\_\_.py       |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/token/request.py            |      112 |        0 |       22 |        0 |     100% |           |
 | src/services/api\_router.py            |       25 |        0 |        2 |        0 |     100% |           |
+| src/services/hawk\_service.py          |      102 |        0 |       24 |        0 |     100% |           |
 | src/services/oidc\_validator.py        |       89 |        0 |       14 |        0 |     100% |           |
 | src/services/storage\_manager.py       |      234 |        0 |       76 |        0 |     100% |           |
 | src/services/token\_generator.py       |       29 |        0 |        0 |        0 |     100% |           |
 | src/services/user\_manager.py          |       89 |        0 |       26 |        0 |     100% |           |
 | src/shared/\_\_init\_\_.py             |        0 |        0 |        0 |        0 |     100% |           |
 | src/shared/base\_route.py              |        3 |        0 |        0 |        0 |     100% |           |
-| src/shared/exceptions.py               |      154 |        0 |        8 |        0 |     100% |           |
+| src/shared/exceptions.py               |      166 |        0 |        8 |        0 |     100% |           |
 | src/shared/models.py                   |       60 |        0 |       28 |        0 |     100% |           |
 | src/shared/oidc.py                     |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/token.py                    |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                     |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                    |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                              | **1517** |    **0** |  **276** |    **0** | **100%** |           |
+| **TOTAL**                              | **1676** |    **0** |  **302** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
