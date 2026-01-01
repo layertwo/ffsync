@@ -446,8 +446,8 @@ class TestUserIsolation:
         # User1 deletes all their data
         delete_event = build_storage_event(method="DELETE", path="/storage", user_id=user1_id)
 
-        # Mock query to find User1's collections (scoped to USER#user-001)
-        dynamodb_stubber.add_response("query", {"Items": [], "Count": 0})
+        # Mock scan to find User1's collections (scoped to USER#user-001)
+        dynamodb_stubber.add_response("scan", {"Items": [], "Count": 0})
 
         response = storage_handler(delete_event, sample_lambda_context, mock_service_provider)
 
@@ -456,6 +456,6 @@ class TestUserIsolation:
         body = json.loads(response["body"])
         assert "modified" in body
 
-        # The key point: the query was scoped to USER#user-001, so only
+        # The key point: the scan was scoped to USER#user-001, so only
         # User1's data would be deleted. User2's data (under USER#user-002)
         # is completely untouched.

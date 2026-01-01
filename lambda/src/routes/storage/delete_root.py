@@ -8,17 +8,17 @@ from src.shared.utils import json_dumps
 logger = Logger()
 
 
-class DeleteAllStorageRoute(BaseRoute):
+class DeleteAllRootRoute(BaseRoute):
     def __init__(self, storage_manager: StorageManager):
         self.storage_manager = storage_manager
 
     def bind(self, app: APIGatewayRestResolver):
-        @app.delete("/storage")
+        @app.delete("/")
         def handle_request():
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:
-        """Delete all storage data for the authenticated user"""
+        """Delete all storage data for the authenticated user (root endpoint alias)"""
         try:
             # Extract user_id from authorizer context
             user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
@@ -32,10 +32,12 @@ class DeleteAllStorageRoute(BaseRoute):
             # Delete all collections and BSOs for the authenticated user
             modified_timestamp = self.storage_manager.delete_all_storage(user_id)
 
+            response_body = {"modified": modified_timestamp}
+
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json_dumps({"modified": modified_timestamp}),
+                body=json_dumps(response_body),
             )
 
         except Exception as e:

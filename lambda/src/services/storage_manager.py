@@ -669,7 +669,7 @@ class StorageManager:
         """
         modified = get_current_timestamp()
 
-        # Query all items for this user
+        # Scan all items for this user
         response = self.table.scan(
             FilterExpression="begins_with(PK, :user_prefix)",
             ExpressionAttributeValues={

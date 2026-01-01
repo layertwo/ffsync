@@ -244,18 +244,18 @@
     - **Property 25: Configuration Response Completeness**
     - **Validates: Requirements 8.1-8.7**
 
-- [ ] 8. Complete storage-level route handlers
-  - [ ] 8.1 Update `DeleteAllStorageRoute` to actually delete all data
+- [x] 8. Complete storage-level route handlers
+  - [x] 8.1 Update `DeleteAllStorageRoute` to actually delete all data
     - DELETE `/storage` - currently returns placeholder
     - _Requirements: 4.6, 4.8_
-  - [ ] 8.2 Create `DeleteAllRootRoute` in `routes/storage/delete_root.py`
+  - [x] 8.2 Create `DeleteAllRootRoute` in `routes/storage/delete_root.py`
     - DELETE `/`
     - _Requirements: 4.7, 4.8_
-  - [ ] 8.3 Register new routes in ServiceProvider
+  - [x] 8.3 Register new routes in ServiceProvider
     - Add ReadConfigurationRoute, DeleteAllRootRoute
     - _Requirements: 4.7, 8.1-8.7_
 
-- [ ] 9. Checkpoint - Ensure all tests pass
+- [x] 9. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 10. Implement response headers and middleware
