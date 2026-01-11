@@ -18,7 +18,7 @@
       "matchDataSources": ["npm"],
       "matchPackagePatterns": ["aws-cdk-lib", "aws-cdk"],
       "groupName": "aws-cdk-lib",
-      "groupSlug": "aws-cdk-lib"
+      "groupSlug": "aws-cdk-lib",
       "schedule": ["on saturday"]
     },
     {
@@ -26,7 +26,7 @@
       "matchDatasources": ["pip"],
       "matchPackagePatterns": ["boto3", "types-boto3"],
       "groupName": "boto3",
-      "groupSlug": "boto3"
+      "groupSlug": "boto3",
       "schedule": ["on saturday"]
     }
   ]
