@@ -52,6 +52,12 @@ Storage Service (Lambda) → DynamoDB (BSOs)
 
 **HAWK Authorizer** (`lambda/src/entrypoint/hawk_authorizer.py`): Lambda authorizer for API Gateway
 
+**Environment Configuration:**
+- `CLOCK_SKEW_TOLERANCE`: OIDC JWT validation skew (Token API: 300s)
+- `OIDC_CACHE_TTL_SECONDS`: OIDC provider config and JWKS cache TTL (Token API: 3600s / 1 hour)
+- `HAWK_TIMESTAMP_SKEW_TOLERANCE`: HAWK timestamp validation skew (60s default)
+- `TOKEN_DURATION`: HAWK credential duration (300s)
+
 ## Project Structure
 
 ```
@@ -127,6 +133,7 @@ tools/                        # CLI tools for testing
 - **HAWK credentials**: Expire after 300 seconds - clients must refresh via Token Service
 - **Test structure**: Must mirror `src/` structure (e.g., `tests/routes/bso/test_read.py` ↔ `src/routes/bso/read.py`)
 - **Fixtures**: Use `mock_service_provider`, `mock_storage_manager` from `conftest.py`
+- **DynamoDB GSI**: `list_collections` uses `UserCollectionsIndex` GSI for efficient queries - collection metadata items include `user_id` attribute
 
 ### TypeScript/CDK
 - **Strict mode**: All code paths must return values

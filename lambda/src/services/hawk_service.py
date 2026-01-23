@@ -51,17 +51,20 @@ class HawkService:
         - All validation helper methods
     """
 
-    TIMESTAMP_SKEW_SECONDS = 60  # Allow 60 second clock skew
-    TOKEN_DURATION_SECONDS = 300  # 5 minutes
-
-    def __init__(self, token_cache_table):
+    def __init__(
+        self, token_cache_table, timestamp_skew_tolerance: int = 60, token_duration: int = 300
+    ):
         """
         Initialize HAWK service with DynamoDB table.
 
         Args:
             token_cache_table: boto3 DynamoDB Table resource for token cache
+            timestamp_skew_tolerance: Allowed clock skew in seconds
+            token_duration: Duration a token is valid for
         """
         self.token_cache_table = token_cache_table
+        self.timestamp_skew_tolerance = timestamp_skew_tolerance
+        self.token_duration = token_duration
 
     def validate(
         self, authorization_header: str, method: str, path: str, host: str, port: int
@@ -229,7 +232,7 @@ class HawkService:
             True if timestamp is within acceptable skew
         """
         now = int(time.time())
-        return abs(now - timestamp) <= self.TIMESTAMP_SKEW_SECONDS
+        return abs(now - timestamp) <= self.timestamp_skew_tolerance
 
     def build_normalized_string(
         self,
@@ -384,7 +387,7 @@ class HawkService:
 
         Used by Token Server when issuing tokens.
         """
-        expiry = int(time.time()) + self.TOKEN_DURATION_SECONDS
+        expiry = int(time.time()) + self.token_duration
         hawk_id = self.generate_hawk_id(user_id, generation, expiry)
         hawk_key = self.generate_hawk_key()
 

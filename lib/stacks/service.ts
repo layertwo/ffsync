@@ -14,7 +14,13 @@ import {
     SpecRestApi,
 } from "aws-cdk-lib/aws-apigateway";
 import {Certificate, CertificateValidation} from "aws-cdk-lib/aws-certificatemanager";
-import {AttributeType, BillingMode, Table, TableEncryption} from "aws-cdk-lib/aws-dynamodb";
+import {
+    AttributeType,
+    BillingMode,
+    ProjectionType,
+    Table,
+    TableEncryption,
+} from "aws-cdk-lib/aws-dynamodb";
 import {Role, ServicePrincipal} from "aws-cdk-lib/aws-iam";
 import {Architecture, IFunction, Runtime} from "aws-cdk-lib/aws-lambda";
 import {LogGroup, RetentionDays} from "aws-cdk-lib/aws-logs";
@@ -85,7 +91,7 @@ export class ServiceStack extends Stack {
     }
 
     private buildStorageTable(): Table {
-        return new Table(this, "StorageTable", {
+        const table = new Table(this, "StorageTable", {
             tableName: `ffsync-storage-${this.props.stageType.toLowerCase()}`,
             encryption: TableEncryption.AWS_MANAGED,
             partitionKey: {
@@ -105,6 +111,22 @@ export class ServiceStack extends Stack {
                     ? RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
                     : RemovalPolicy.DESTROY,
         });
+
+        // Add GSI for efficient user collection queries
+        table.addGlobalSecondaryIndex({
+            indexName: "UserCollectionsIndex",
+            partitionKey: {
+                name: "user_id",
+                type: AttributeType.STRING,
+            },
+            sortKey: {
+                name: "name",
+                type: AttributeType.STRING,
+            },
+            projectionType: ProjectionType.ALL,
+        });
+
+        return table;
     }
 
     private buildTokenUsersTable(): Table {
@@ -161,6 +183,8 @@ export class ServiceStack extends Stack {
             environment: {
                 STAGE: this.props.stageType.toLowerCase(),
                 TOKEN_CACHE_TABLE_NAME: this.tokenCacheTable.tableName,
+                HAWK_TIMESTAMP_SKEW_TOLERANCE: "60",
+                TOKEN_DURATION: "300",
             },
         });
 
@@ -218,7 +242,10 @@ export class ServiceStack extends Stack {
                 TOKEN_USERS_TABLE_NAME: this.tokenUsersTable.tableName,
                 TOKEN_CACHE_TABLE_NAME: this.tokenCacheTable.tableName,
                 CLOCK_SKEW_TOLERANCE: "300",
+                OIDC_CACHE_TTL_SECONDS: "3600",
+                HAWK_TIMESTAMP_SKEW_TOLERANCE: "60",
                 RETRY_AFTER_SECONDS: "30",
+                TOKEN_DURATION: "300",
             },
         });
 
