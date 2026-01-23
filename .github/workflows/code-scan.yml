@@ -1,0 +1,52 @@
+name: code-scan
+
+on:
+  schedule:
+    - cron: "0 0 * * 0" # Every Sunday at midnight
+  workflow_dispatch: # Manual trigger option
+
+concurrency:
+  group: code-scan-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: "us-east-1"
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read 
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.BEDROCK_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          use_bedrock: "true"
+          claude_args: |
+            --model us.anthropic.claude-sonnet-4-5-20250929-v1:0
+            --allowedTools "Read,Bash(npm:*),Bash(gh issue:*),Bash(git:*)"
+          prompt: |
+            REPO: ${{ github.repository }}
+
+            Perform weekly repository maintenance:
+
+            - Code quality and best practices
+            - Potential bugs or issues
+            - Security implications
+            - Performance considerations
+            - Review documentation and AGENTS.md is accurate
+
+            Create a single issue summarizing any findings if open issues do not cover the issues found.
+            If critical security issues are found, also comment on open PRs if relevant.
