@@ -1,6 +1,7 @@
 import type { AppConfig, OIDCConfiguration, TokenResponse } from "./types"
 import { generatePKCE } from "./pkce"
 import * as session from "./session"
+import { sanitizeExternal } from "./sanitize"
 
 export function initiateOAuthFlow(
   config: AppConfig,
@@ -34,9 +35,6 @@ export function detectCallback(): URLSearchParams | null {
   return null
 }
 
-function sanitizeExternal(value: string, maxLength = 200): string {
-  return value.replace(/<[^>]*>/g, "").slice(0, maxLength)
-}
 
 export function validateCallback(params: URLSearchParams): string {
   if (params.has("error")) {

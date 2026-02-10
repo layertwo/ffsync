@@ -1,3 +1,5 @@
+import { sanitizeExternal } from "./sanitize"
+
 export async function validateWithTokenServer(
   tokenServerUrl: string,
   accessToken: string
@@ -33,7 +35,7 @@ export async function validateWithTokenServer(
     let detail = ""
     try {
       const body = await response.text()
-      detail = body.replace(/<[^>]*>/g, "").slice(0, 500)
+      detail = sanitizeExternal(body, 500)
     } catch {
       detail = response.statusText
     }
