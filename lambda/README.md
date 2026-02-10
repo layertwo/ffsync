@@ -83,16 +83,6 @@ class NewRoute(BaseRoute):
         }
 ```
 
-## TODO Items
-
-All route implementations currently contain TODO comments for:
-- Authentication validation integration
-- Proper timestamp generation
-- Request payload parsing and validation
-- Response header management (X-Last-Modified, X-If-Unmodified-Since)
-- Batch operation logic
-- Quota enforcement
-
 ## Testing
 
 Each route class can be unit tested independently by instantiating the class and calling the `handle` method with mock API Gateway events.

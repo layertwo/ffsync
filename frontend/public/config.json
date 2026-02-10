@@ -1,0 +1,7 @@
+{
+  "oidcProviderUrl": "https://auth.example.com/application/o/firefox-sync/",
+  "clientId": "your-client-id-here",
+  "redirectUri": "https://sync-auth.example.com",
+  "tokenServerUrl": "https://sync.example.com",
+  "scopes": ["openid", "profile", "email"]
+}
