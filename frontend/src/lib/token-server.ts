@@ -33,7 +33,7 @@ export async function validateWithTokenServer(
     let detail = ""
     try {
       const body = await response.text()
-      detail = body
+      detail = body.replace(/<[^>]*>/g, "").slice(0, 500)
     } catch {
       detail = response.statusText
     }

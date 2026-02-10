@@ -34,10 +34,16 @@ export function detectCallback(): URLSearchParams | null {
   return null
 }
 
+function sanitizeExternal(value: string, maxLength = 200): string {
+  return value.replace(/<[^>]*>/g, "").slice(0, maxLength)
+}
+
 export function validateCallback(params: URLSearchParams): string {
   if (params.has("error")) {
-    const error = params.get("error")
-    const desc = params.get("error_description") ?? "No details provided"
+    const error = sanitizeExternal(params.get("error") ?? "unknown_error")
+    const desc = sanitizeExternal(
+      params.get("error_description") ?? "No details provided"
+    )
     throw new Error(`${error}: ${desc}`)
   }
 
@@ -101,7 +107,9 @@ export async function exchangeCodeForToken(
     let detail = ""
     try {
       const err = await response.json()
-      detail = err.error_description ?? err.error ?? ""
+      detail = sanitizeExternal(
+        err.error_description ?? err.error ?? "", 500
+      )
     } catch {
       detail = response.statusText
     }

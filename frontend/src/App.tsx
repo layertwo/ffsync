@@ -27,7 +27,11 @@ export default function App() {
 
   const showError = useCallback(
     (title: string, message: string, details?: string) => {
-      console.error(`[ffsync] ${title}: ${message}`, details ?? "")
+      if (import.meta.env.DEV) {
+        console.error(`[ffsync] ${title}: ${message}`, details ?? "")
+      } else {
+        console.error(`[ffsync] ${title}`)
+      }
       setAppState({ kind: "error", title, message, details })
     },
     []
