@@ -15,7 +15,6 @@ import json
 import time
 from unittest.mock import patch
 
-import pytest
 from botocore.stub import ANY
 
 from src.entrypoint.token_api import lambda_handler as token_handler
@@ -933,24 +932,6 @@ class TestResponseHeaders:
         assert isinstance(timestamp, (int, str))
         timestamp_int = int(timestamp)
         assert timestamp_int > 0
-
-    @pytest.mark.skip(reason="503 error handling happens at infrastructure level before handler")
-    def test_retry_after_on_503_response(
-        self,
-        mock_service_provider,
-        secretsmanager_stubber,
-        sample_lambda_context,
-    ):
-        """
-        Test Retry-After header on 503 response.
-
-        Note: This test is skipped because 503 errors from Secrets Manager
-        occur during ServiceProvider initialization, before the request handler
-        can catch them. In production, API Gateway would handle these errors.
-
-        **Validates: Requirement 15.1**
-        """
-        pass
 
     def test_www_authenticate_on_401_response(
         self,

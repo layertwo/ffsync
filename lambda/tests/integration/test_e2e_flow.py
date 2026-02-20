@@ -401,14 +401,15 @@ class TestUserIsolation:
         info_event = build_storage_event(method="GET", path="/info/collections", user_id=user1_id)
 
         modified_time = time.time()
-        # Mock scan returns only User1's collections
+        # Mock query with GSI returns only User1's collections
         dynamodb_stubber.add_response(
-            "scan",
+            "query",
             {
                 "Items": [
                     {
                         "PK": {"S": f"USER#{user1_id}#COLLECTION#bookmarks"},
                         "SK": {"S": "METADATA"},
+                        "user_id": {"S": user1_id},
                         "name": {"S": "bookmarks"},
                         "modified": {"N": str(modified_time)},
                         "count": {"N": "5"},
@@ -417,6 +418,7 @@ class TestUserIsolation:
                     {
                         "PK": {"S": f"USER#{user1_id}#COLLECTION#tabs"},
                         "SK": {"S": "METADATA"},
+                        "user_id": {"S": user1_id},
                         "name": {"S": "tabs"},
                         "modified": {"N": str(modified_time)},
                         "count": {"N": "3"},

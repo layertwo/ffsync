@@ -120,8 +120,27 @@ class ServiceProvider:
 
     @cached_property
     def clock_skew_tolerance(self) -> int:
-        """Get clock skew tolerance in seconds"""
+        """
+        Get clock skew tolerance in seconds for OIDC JWT validation
+        """
         return int(os.environ["CLOCK_SKEW_TOLERANCE"])
+
+    @cached_property
+    def oidc_cache_ttl_seconds(self) -> int:
+        """
+        Get OIDC configuration cache TTL in seconds (default 3600 / 1 hour)
+        """
+        return int(os.environ.get("OIDC_CACHE_TTL_SECONDS", "3600"))
+
+    @cached_property
+    def hawk_timestamp_skew_tolerance(self) -> int:
+        """
+        Get HAWK timestamp skew tolerance in seconds
+
+        Separate from OIDC clock_skew_tolerance to allow independent configuration
+        of HAWK timestamp validation vs OIDC JWT validation
+        """
+        return int(os.environ["HAWK_TIMESTAMP_SKEW_TOLERANCE"])
 
     @cached_property
     def retry_after_seconds(self) -> int:
@@ -135,6 +154,7 @@ class ServiceProvider:
             provider_url=self.oidc_config["provider_url"],
             client_id=self.oidc_config["client_id"],
             clock_skew_tolerance=self.clock_skew_tolerance,
+            cache_ttl_seconds=self.oidc_cache_ttl_seconds,
         )
 
     @cached_property
@@ -164,6 +184,10 @@ class ServiceProvider:
         return os.environ.get("TOKEN_CACHE_TABLE_NAME")
 
     @cached_property
+    def token_duration(self) -> int:
+        return int(os.environ["TOKEN_DURATION"])
+
+    @cached_property
     def token_cache_table(self):
         """Create DynamoDB Table resource for token cache"""
         resource = self.session.resource("dynamodb")
@@ -172,4 +196,8 @@ class ServiceProvider:
     @cached_property
     def hawk_service(self) -> HawkService:
         """Create HAWK service for authentication"""
-        return HawkService(token_cache_table=self.token_cache_table)
+        return HawkService(
+            token_cache_table=self.token_cache_table,
+            timestamp_skew_tolerance=self.hawk_timestamp_skew_tolerance,
+            token_duration=self.token_duration,
+        )

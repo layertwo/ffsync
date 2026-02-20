@@ -15,7 +15,7 @@ from src.shared.exceptions import (
 )
 from src.shared.oidc import OIDCProviderConfig, OIDCTokenClaims
 
-# Cache TTL in seconds (1 hour)
+# Default cache TTL in seconds (1 hour) - maintained for backward compatibility
 CACHE_TTL_SECONDS = 3600
 
 
@@ -31,7 +31,13 @@ class OIDCValidator:
     - User identifier extraction from sub claim
     """
 
-    def __init__(self, provider_url: str, client_id: str, clock_skew_tolerance: int = 300):
+    def __init__(
+        self,
+        provider_url: str,
+        client_id: str,
+        clock_skew_tolerance: int = 300,
+        cache_ttl_seconds: int = CACHE_TTL_SECONDS,
+    ):
         """
         Initialize OIDC validator with provider configuration.
 
@@ -39,10 +45,12 @@ class OIDCValidator:
             provider_url: Base URL of OIDC provider (e.g., https://auth.example.com)
             client_id: Expected audience claim value (OAuth client ID)
             clock_skew_tolerance: Maximum allowed clock skew in seconds (default 300 / 5 minutes)
+            cache_ttl_seconds: Cache TTL for provider config and JWKS in seconds (default 3600 / 1 hour)
         """
         self.provider_url = provider_url.rstrip("/")
         self.client_id = client_id
         self.clock_skew_tolerance = clock_skew_tolerance
+        self.cache_ttl_seconds = cache_ttl_seconds
         self._provider_config: Optional[OIDCProviderConfig] = None
         self._provider_config_timestamp: float = 0
         self._jwk_client: Optional[PyJWKClient] = None
@@ -52,7 +60,7 @@ class OIDCValidator:
         if self._provider_config is None:
             return False
         current_time = datetime.now(timezone.utc).timestamp()
-        return (current_time - self._provider_config_timestamp) < CACHE_TTL_SECONDS
+        return (current_time - self._provider_config_timestamp) < self.cache_ttl_seconds
 
     def discover_provider_config(self) -> OIDCProviderConfig:
         """
@@ -117,7 +125,7 @@ class OIDCValidator:
             self._jwk_client = PyJWKClient(
                 config.jwks_uri,
                 cache_keys=True,
-                lifespan=CACHE_TTL_SECONDS,
+                lifespan=self.cache_ttl_seconds,
             )
         return self._jwk_client
 

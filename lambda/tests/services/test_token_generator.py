@@ -25,7 +25,7 @@ class TestTokenGenerator:
     def mock_hawk_service(self):
         """Mock HawkService for testing orchestration"""
         service = MagicMock()
-        service.TOKEN_DURATION_SECONDS = 300
+        service.token_duration = 300
         return service
 
     @pytest.fixture
@@ -247,7 +247,6 @@ class TestTokenGenerator:
         generation = 0
 
         mock_hawk_service.generate_hawk_credentials.return_value = mock_hawk_credentials
-        mock_hawk_service.TOKEN_DURATION_SECONDS = 300
 
         token = token_generator.generate_token(user_id, uid, generation)
 

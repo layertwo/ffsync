@@ -79,6 +79,6 @@ class TokenGenerator:
             key=credentials.hawk_key,
             api_endpoint=api_endpoint,
             uid=uid,
-            duration=self._hawk_service.TOKEN_DURATION_SECONDS,
+            duration=self._hawk_service.token_duration,
             hashalg=self.HASH_ALGORITHM,
         )

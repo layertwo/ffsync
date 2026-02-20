@@ -71,6 +71,7 @@ class StorageManager:
         col_data = collection_data.to_dict()
         col_data[_PK] = self._collection_pk(user_id, collection_data.name)
         col_data[_SK] = self._metadata_sk()
+        col_data["user_id"] = user_id  # GSI partition key for efficient user queries
         return col_data
 
     def get_collection(self, user_id: str, collection_name: str) -> CollectionData:
@@ -376,19 +377,28 @@ class StorageManager:
         """
         collections = []
 
-        # Query for all collections for this user
-        # Use begins_with to match USER#{user_id}#COLLECTION#
-        response = self.table.scan(
-            FilterExpression="begins_with(PK, :user_prefix) AND SK = :metadata",
-            ExpressionAttributeValues={
-                ":user_prefix": f"USER#{user_id}#COLLECTION#",
-                ":metadata": self._metadata_sk(),
-            },
+        # Query GSI for all collections for this user
+        response = self.table.query(
+            IndexName="UserCollectionsIndex",
+            KeyConditionExpression="user_id = :user_id",
+            ExpressionAttributeValues={":user_id": user_id},
         )
 
         for item in response.get("Items", []):
             collection = CollectionData.from_dict(item)
             collections.append(collection)
+
+        # Handle pagination if there are more results
+        while "LastEvaluatedKey" in response:
+            response = self.table.query(
+                IndexName="UserCollectionsIndex",
+                KeyConditionExpression="user_id = :user_id",
+                ExpressionAttributeValues={":user_id": user_id},
+                ExclusiveStartKey=response["LastEvaluatedKey"],
+            )
+            for item in response.get("Items", []):
+                collection = CollectionData.from_dict(item)
+                collections.append(collection)
 
         return collections
 

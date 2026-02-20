@@ -171,6 +171,7 @@ class TestStorageManager:
                 "Item": {
                     "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
+                    "user_id": "test-user-123",
                     "name": "bookmarks",
                     "modified": Decimal(mock_timestamp),
                     "count": 0,
@@ -223,6 +224,7 @@ class TestStorageManager:
                 "Item": {
                     "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
+                    "user_id": "test-user-123",
                     "name": "bookmarks",
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
                     "count": 2,
@@ -320,6 +322,7 @@ class TestStorageManager:
                 "Item": {
                     "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
+                    "user_id": "test-user-123",
                     "name": "bookmarks",
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
                     "count": 2,
@@ -449,12 +452,13 @@ class TestStorageManager:
     def test_list_collections(self, storage_manager, dynamodb_stubber, storage_table_name):
         """Test listing all collections"""
         dynamodb_stubber.add_response(
-            "scan",
+            "query",
             {
                 "Items": [
                     {
                         "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "METADATA"},
+                        "user_id": {"S": "test-user-123"},
                         "name": {"S": "bookmarks"},
                         "modified": {"N": "1234567890.12"},
                         "count": {"N": "5"},
@@ -463,6 +467,7 @@ class TestStorageManager:
                     {
                         "PK": {"S": "USER#test-user-123#COLLECTION#history"},
                         "SK": {"S": "METADATA"},
+                        "user_id": {"S": "test-user-123"},
                         "name": {"S": "history"},
                         "modified": {"N": "1234567891.00"},
                         "count": {"N": "10"},
@@ -472,11 +477,9 @@ class TestStorageManager:
             },
             {
                 "TableName": storage_table_name,
-                "FilterExpression": "begins_with(PK, :user_prefix) AND SK = :metadata",
-                "ExpressionAttributeValues": {
-                    ":user_prefix": "USER#test-user-123#COLLECTION#",
-                    ":metadata": "METADATA",
-                },
+                "IndexName": "UserCollectionsIndex",
+                "KeyConditionExpression": "user_id = :user_id",
+                "ExpressionAttributeValues": {":user_id": "test-user-123"},
             },
         )
 
@@ -491,20 +494,99 @@ class TestStorageManager:
     def test_list_collections_empty(self, storage_manager, dynamodb_stubber, storage_table_name):
         """Test listing collections when none exist"""
         dynamodb_stubber.add_response(
-            "scan",
+            "query",
             {"Items": []},
             {
                 "TableName": storage_table_name,
-                "FilterExpression": "begins_with(PK, :user_prefix) AND SK = :metadata",
-                "ExpressionAttributeValues": {
-                    ":user_prefix": "USER#test-user-123#COLLECTION#",
-                    ":metadata": "METADATA",
-                },
+                "IndexName": "UserCollectionsIndex",
+                "KeyConditionExpression": "user_id = :user_id",
+                "ExpressionAttributeValues": {":user_id": "test-user-123"},
             },
         )
 
         collections = storage_manager.list_collections("test-user-123")
         assert collections == []
+
+    def test_list_collections_with_pagination(
+        self, storage_manager, dynamodb_stubber, storage_table_name
+    ):
+        """Test listing collections with pagination"""
+        # Stub first page with LastEvaluatedKey
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "METADATA"},
+                        "user_id": {"S": "test-user-123"},
+                        "name": {"S": "bookmarks"},
+                        "modified": {"N": "1234567890.12"},
+                        "count": {"N": "5"},
+                        "usage": {"N": "1024"},
+                    },
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#history"},
+                        "SK": {"S": "METADATA"},
+                        "user_id": {"S": "test-user-123"},
+                        "name": {"S": "history"},
+                        "modified": {"N": "1234567891.00"},
+                        "count": {"N": "10"},
+                        "usage": {"N": "2048"},
+                    },
+                ],
+                "LastEvaluatedKey": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#history"},
+                    "SK": {"S": "METADATA"},
+                    "user_id": {"S": "test-user-123"},
+                },
+            },
+            {
+                "TableName": storage_table_name,
+                "IndexName": "UserCollectionsIndex",
+                "KeyConditionExpression": "user_id = :user_id",
+                "ExpressionAttributeValues": {":user_id": "test-user-123"},
+            },
+        )
+
+        # Stub second page (no more items)
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#passwords"},
+                        "SK": {"S": "METADATA"},
+                        "user_id": {"S": "test-user-123"},
+                        "name": {"S": "passwords"},
+                        "modified": {"N": "1234567892.00"},
+                        "count": {"N": "15"},
+                        "usage": {"N": "3072"},
+                    },
+                ]
+            },
+            {
+                "TableName": storage_table_name,
+                "IndexName": "UserCollectionsIndex",
+                "KeyConditionExpression": "user_id = :user_id",
+                "ExpressionAttributeValues": {":user_id": "test-user-123"},
+                "ExclusiveStartKey": {
+                    "PK": "USER#test-user-123#COLLECTION#history",
+                    "SK": "METADATA",
+                    "user_id": "test-user-123",
+                },
+            },
+        )
+
+        collections = storage_manager.list_collections("test-user-123")
+
+        assert len(collections) == 3
+        assert collections[0].name == "bookmarks"
+        assert collections[0].count == 5
+        assert collections[1].name == "history"
+        assert collections[1].count == 10
+        assert collections[2].name == "passwords"
+        assert collections[2].count == 15
 
     def test_get_collection_objects(self, storage_manager, dynamodb_stubber, storage_table_name):
         """Test getting objects from collection"""
@@ -841,6 +923,7 @@ class TestStorageManager:
                 "Item": {
                     "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
+                    "user_id": "test-user-123",
                     "name": "bookmarks",
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
                     "count": 1,
@@ -920,6 +1003,7 @@ class TestStorageManager:
                 "Item": {
                     "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
+                    "user_id": "test-user-123",
                     "name": "bookmarks",
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
                     "count": 0,
@@ -1269,6 +1353,7 @@ class TestStorageManager:
                 "Item": {
                     "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
+                    "user_id": "test-user-123",
                     "name": "bookmarks",
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
                     "count": 1,
@@ -1343,6 +1428,7 @@ class TestStorageManager:
                 "Item": {
                     "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
+                    "user_id": "test-user-123",
                     "name": "bookmarks",
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
                     "count": 1,
@@ -2193,14 +2279,15 @@ class TestStorageManager:
         storage_table_name,
     ):
         """Test getting quota information"""
-        # list_collections uses scan
+        # list_collections uses query with GSI
         dynamodb_stubber.add_response(
-            "scan",
+            "query",
             {
                 "Items": [
                     {
                         "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "METADATA"},
+                        "user_id": {"S": "test-user-123"},
                         "name": {"S": "bookmarks"},
                         "modified": {"N": "1234567890.00"},
                         "count": {"N": "5"},
@@ -2209,6 +2296,7 @@ class TestStorageManager:
                     {
                         "PK": {"S": "USER#test-user-123#COLLECTION#history"},
                         "SK": {"S": "METADATA"},
+                        "user_id": {"S": "test-user-123"},
                         "name": {"S": "history"},
                         "modified": {"N": "1234567880.00"},
                         "count": {"N": "10"},
@@ -2216,7 +2304,12 @@ class TestStorageManager:
                     },
                 ]
             },
-            None,
+            {
+                "TableName": storage_table_name,
+                "IndexName": "UserCollectionsIndex",
+                "KeyConditionExpression": "user_id = :user_id",
+                "ExpressionAttributeValues": {":user_id": "test-user-123"},
+            },
         )
 
         usage_kb, quota_kb = storage_manager.get_quota("test-user-123")

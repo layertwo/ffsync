@@ -7,7 +7,7 @@ import jwt
 import pytest
 from jwt import PyJWKClientError
 
-from src.services.oidc_validator import CACHE_TTL_SECONDS, OIDCValidator
+from src.services.oidc_validator import OIDCValidator
 from src.shared.exceptions import (
     InvalidCredentialsError,
     InvalidTokenError,
@@ -69,6 +69,16 @@ class TestOIDCValidatorInit:
         validator = OIDCValidator(provider_url, client_id, clock_skew_tolerance=600)
         assert validator.clock_skew_tolerance == 600
 
+    def test_init_default_cache_ttl_seconds(self, provider_url, client_id):
+        """Test that default cache_ttl_seconds is 3600 seconds"""
+        validator = OIDCValidator(provider_url, client_id)
+        assert validator.cache_ttl_seconds == 3600
+
+    def test_init_custom_cache_ttl_seconds(self, provider_url, client_id):
+        """Test that custom cache_ttl_seconds is stored correctly"""
+        validator = OIDCValidator(provider_url, client_id, cache_ttl_seconds=7200)
+        assert validator.cache_ttl_seconds == 7200
+
 
 class TestDiscoverProviderConfig:
     """Test discover_provider_config method"""
@@ -118,12 +128,44 @@ class TestDiscoverProviderConfig:
             # First call
             validator.discover_provider_config()
 
-            # Simulate cache expiry
+            # Simulate cache expiry using the validator's cache_ttl_seconds
             validator._provider_config_timestamp = (
-                datetime.now(timezone.utc).timestamp() - CACHE_TTL_SECONDS - 1
+                datetime.now(timezone.utc).timestamp() - validator.cache_ttl_seconds - 1
             )
 
             # Second call should fetch again
+            validator.discover_provider_config()
+
+            assert mock_get.call_count == 2
+
+    def test_discover_provider_config_custom_cache_ttl(
+        self, provider_url, client_id, mock_provider_config
+    ):
+        """Test that custom cache TTL is respected"""
+        validator = OIDCValidator(provider_url, client_id, cache_ttl_seconds=1800)
+
+        with patch("src.services.oidc_validator.requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.json.return_value = mock_provider_config
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            # First call
+            validator.discover_provider_config()
+
+            # Simulate time passage less than custom TTL (1800s)
+            validator._provider_config_timestamp = datetime.now(timezone.utc).timestamp() - 1000
+
+            # Second call should use cache
+            validator.discover_provider_config()
+
+            # Should only call once due to caching
+            assert mock_get.call_count == 1
+
+            # Simulate cache expiry beyond custom TTL
+            validator._provider_config_timestamp = datetime.now(timezone.utc).timestamp() - 1800 - 1
+
+            # Third call should fetch again
             validator.discover_provider_config()
 
             assert mock_get.call_count == 2
@@ -665,7 +707,30 @@ class TestGetJwkClient:
                 mock_jwk_class.assert_called_once_with(
                     mock_provider_config["jwks_uri"],
                     cache_keys=True,
-                    lifespan=CACHE_TTL_SECONDS,
+                    lifespan=validator.cache_ttl_seconds,
+                )
+
+    def test_get_jwk_client_custom_cache_ttl(self, provider_url, client_id, mock_provider_config):
+        """Test that _get_jwk_client uses custom cache TTL"""
+        validator = OIDCValidator(provider_url, client_id, cache_ttl_seconds=7200)
+
+        with patch("src.services.oidc_validator.requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.json.return_value = mock_provider_config
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            with patch("src.services.oidc_validator.PyJWKClient") as mock_jwk_class:
+                mock_jwk_instance = MagicMock()
+                mock_jwk_class.return_value = mock_jwk_instance
+
+                client = validator._get_jwk_client()
+
+                assert client is mock_jwk_instance
+                mock_jwk_class.assert_called_once_with(
+                    mock_provider_config["jwks_uri"],
+                    cache_keys=True,
+                    lifespan=7200,
                 )
 
     def test_get_jwk_client_caches_client(self, validator, mock_provider_config):
