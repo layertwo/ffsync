@@ -1,7 +1,7 @@
 """User manager for DynamoDB operations on token server users"""
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 
 from botocore.exceptions import ClientError
 
@@ -11,6 +11,7 @@ from src.shared.utils import float_to_decimal
 
 _PK = "PK"
 PK_PREFIX = "USER"
+MAX_CLIENT_STATE_HISTORY = 50
 
 
 class UserManager:
@@ -158,14 +159,22 @@ class UserManager:
             )
 
     def update_user_client_state(
-        self, user_id: str, client_state: str, previous_client_state: str
+        self,
+        user_id: str,
+        client_state: str,
+        previous_client_state: str,
+        current_history: List[str],
     ) -> UserRecord:
         """Update client state, add previous to history, and increment generation atomically
+
+        The history is capped at MAX_CLIENT_STATE_HISTORY entries. When the cap is reached,
+        the oldest entry is dropped to make room for the new one.
 
         Args:
             user_id: User identifier from OIDC sub claim (stable)
             client_state: New X-Client-State value
             previous_client_state: Previous X-Client-State value to add to history
+            current_history: The current client_state_history from the stored user record
 
         Returns:
             Updated UserRecord with new generation, client_state, and updated history
@@ -175,6 +184,7 @@ class UserManager:
         """
         pk = self._user_pk(user_id)
         current_time = datetime.now(tz=timezone.utc)
+        new_history = (current_history + [previous_client_state])[-MAX_CLIENT_STATE_HISTORY:]
 
         try:
             response = self.table.update_item(
@@ -182,15 +192,13 @@ class UserManager:
                 UpdateExpression=(
                     "SET generation = generation + :inc, "
                     "client_state = :client_state, "
-                    "client_state_history = list_append("
-                    "if_not_exists(client_state_history, :empty_list), :prev_state_list), "
+                    "client_state_history = :new_history, "
                     "updated_at = :updated_at"
                 ),
                 ExpressionAttributeValues={
                     ":inc": 1,
                     ":client_state": client_state,
-                    ":prev_state_list": [previous_client_state],
-                    ":empty_list": [],
+                    ":new_history": new_history,
                     ":updated_at": float_to_decimal(current_time.timestamp()),
                 },
                 ReturnValues="ALL_NEW",
@@ -257,7 +265,10 @@ class UserManager:
                     # Client state changed, increment generation, update client_state,
                     # and add previous state to history
                     return self.update_user_client_state(
-                        user_id, client_state, existing_user.client_state
+                        user_id,
+                        client_state,
+                        existing_user.client_state,
+                        current_history=existing_user.client_state_history,
                     )
 
                 return existing_user

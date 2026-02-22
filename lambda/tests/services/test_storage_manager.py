@@ -295,6 +295,19 @@ class TestStorageManager:
             )
         ]
 
+        # Stub get_storage_object for obj1 — not found (new object)
+        dynamodb_stubber.add_response(
+            "get_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                },
+            },
+        )
+
         # Stub object put
         dynamodb_stubber.add_response(
             "put_item",
@@ -987,6 +1000,19 @@ class TestStorageManager:
             )
         ]
 
+        # Stub get_storage_object for obj1 (not found → new object)
+        dynamodb_stubber.add_response(
+            "get_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                },
+            },
+        )
+
         # Stub object put with error
         dynamodb_stubber.add_client_error(
             "put_item",
@@ -1319,6 +1345,19 @@ class TestStorageManager:
             ),
         ]
 
+        # Stub get_storage_object for obj1 (not found → new object)
+        dynamodb_stubber.add_response(
+            "get_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                },
+            },
+        )
+
         # Stub object 1 put (success)
         dynamodb_stubber.add_response(
             "put_item",
@@ -1333,6 +1372,19 @@ class TestStorageManager:
                     "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
                     "sortindex": None,
                     "ttl": None,
+                },
+            },
+        )
+
+        # Stub get_storage_object for obj2 (not found → new object)
+        dynamodb_stubber.add_response(
+            "get_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj2",
                 },
             },
         )
@@ -1411,6 +1463,19 @@ class TestStorageManager:
                 ttl=7200,
             )
         ]
+
+        # Stub get_storage_object for obj1 (not found → new object)
+        dynamodb_stubber.add_response(
+            "get_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                },
+            },
+        )
 
         # Stub object put with sortindex and ttl - don't validate params due to dynamic expiry
         dynamodb_stubber.add_response(
@@ -2439,3 +2504,119 @@ class TestStorageManager:
         )
 
         assert obj.payload == "new_payload"
+
+    def test_update_collection_overwrites_existing_bso_usage_delta(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test that overwriting an existing BSO uses net delta (new_size - old_size), not new_size"""
+        # Existing collection has usage=100, count=1
+        # Existing BSO "obj1" has payload "old" (3 bytes)
+        # We overwrite "obj1" with payload "newpayload" (10 bytes)
+        # Expected delta = 10 - 3 = 7, so new usage = 100 + 7 = 107
+        # Bug: without the fix, usage = 100 + 10 = 110
+
+        old_payload = "old"
+        new_payload = "newpayload"
+        initial_usage = 100
+        expected_usage = initial_usage + len(new_payload) - len(old_payload)  # 107
+
+        # Stub get_collection
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567880.00"},
+                    "count": {"N": "1"},
+                    "usage": {"N": str(initial_usage)},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                },
+            },
+        )
+
+        objects = [
+            BasicStorageObject(
+                id="obj1",
+                payload=new_payload,
+                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+            )
+        ]
+
+        # Stub get_storage_object for existing BSO "obj1" with old payload
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "OBJECT#obj1"},
+                    "id": {"S": "obj1"},
+                    "payload": {"S": old_payload},
+                    "modified": {"N": "1234567880.00"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                },
+            },
+        )
+
+        # Stub put_item for the BSO overwrite
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Item": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                    "id": "obj1",
+                    "payload": new_payload,
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "sortindex": None,
+                    "ttl": None,
+                },
+            },
+        )
+
+        # Stub metadata update — usage must reflect net delta, not added size
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Item": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                    "user_id": "test-user-123",
+                    "name": "bookmarks",
+                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "count": 2,
+                    "usage": expected_usage,
+                },
+            },
+        )
+
+        collection, batch_result = storage_manager.update_collection(
+            "test-user-123", "bookmarks", objects
+        )
+
+        assert (
+            collection.usage == expected_usage
+        ), f"Expected usage {expected_usage} (net delta), got {collection.usage}"
+        assert batch_result.success == ["obj1"]

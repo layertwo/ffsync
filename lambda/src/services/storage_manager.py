@@ -299,9 +299,17 @@ class StorageManager:
         # Update objects
         success = []
         failed = {}
+        usage_delta = 0
 
         for obj in objects:
             try:
+                # Determine usage delta: subtract old payload size if BSO already exists
+                try:
+                    existing_obj = self.get_storage_object(user_id, collection_name, obj.id)
+                    obj_delta = len(obj.payload) - len(existing_obj.payload)
+                except StorageObjectNotFoundException:
+                    obj_delta = len(obj.payload)
+
                 # Create object with updated timestamp
                 updated_obj = BasicStorageObject(
                     id=obj.id,
@@ -314,11 +322,11 @@ class StorageManager:
 
                 self.table.put_item(Item=obj_item)
                 success.append(obj.id)
+                usage_delta += obj_delta
             except Exception as e:
                 failed[obj.id] = [str(e)]
 
         # Update collection metadata
-        usage_delta = sum(len(obj.payload) for obj in objects if obj.id in success)
         new_usage = collection.usage + usage_delta
         new_count = collection.count + len(success)
 

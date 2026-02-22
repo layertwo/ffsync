@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import json
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import ANY, MagicMock
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
@@ -1030,6 +1030,43 @@ class TestUpdateCollectionRoute:
 
         assert response.status_code == 200
 
+    def test_handle_passes_precondition_to_storage_manager(self, mock_storage_manager):
+        """Test that X-If-Unmodified-Since header value is forwarded to update_collection"""
+        route = UpdateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks"},
+                    "headers": {"X-If-Unmodified-Since": "1234567890"},
+                    "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
+                }
+            )
+        )
+
+        collection_data = CollectionData(
+            name="bookmarks",
+            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            count=1,
+            usage=512,
+        )
+        batch_result = BatchResult(
+            success=["obj1"],
+            failed={},
+            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+        )
+        mock_storage_manager.update_collection.return_value = (collection_data, batch_result)
+
+        response = route.handle(event)
+
+        assert response.status_code == 200
+        mock_storage_manager.update_collection.assert_called_once_with(
+            TEST_USER_ID,
+            collection_name="bookmarks",
+            objects=ANY,
+            if_unmodified_since=1234567890,
+        )
+
     def test_handle_invalid_precondition_header(self, mock_storage_manager):
         """Test with invalid X-If-Unmodified-Since header"""
         route = UpdateCollectionRoute(mock_storage_manager)
@@ -1451,3 +1488,95 @@ class TestUpdateCollectionRouteUnauthorized:
         assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "Unauthorized"
+
+
+class TestCreateCollectionRouteInvalidCollectionName:
+    """Tests that validate_collection_name is called before storage in CreateCollectionRoute"""
+
+    def test_handle_invalid_collection_name(self, mock_storage_manager):
+        """Test that invalid collection name returns 400 without calling storage"""
+        route = CreateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "invalid name!"},
+                    "headers": {},
+                    "body": None,
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        mock_storage_manager.create_or_update_collection.assert_not_called()
+
+
+class TestReadCollectionRouteInvalidCollectionName:
+    """Tests that validate_collection_name is called before storage in ReadCollectionRoute"""
+
+    def test_handle_invalid_collection_name(self, mock_storage_manager):
+        """Test that invalid collection name returns 400 without calling storage"""
+        route = ReadCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "invalid name!"},
+                    "queryStringParameters": None,
+                    "headers": {},
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        mock_storage_manager.get_collection_objects.assert_not_called()
+
+
+class TestUpdateCollectionRouteInvalidCollectionName:
+    """Tests that validate_collection_name is called before storage in UpdateCollectionRoute"""
+
+    def test_handle_invalid_collection_name(self, mock_storage_manager):
+        """Test that invalid collection name returns 400 without calling storage"""
+        route = UpdateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "invalid name!"},
+                    "headers": {},
+                    "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        mock_storage_manager.update_collection.assert_not_called()
+
+
+class TestDeleteCollectionRouteInvalidCollectionName:
+    """Tests that validate_collection_name is called before storage in DeleteCollectionRoute"""
+
+    def test_handle_invalid_collection_name(self, mock_storage_manager):
+        """Test that invalid collection name returns 400 without calling storage"""
+        route = DeleteCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "invalid name!"},
+                    "queryStringParameters": None,
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        mock_storage_manager.delete_collection.assert_not_called()
+        mock_storage_manager.delete_collection_objects.assert_not_called()

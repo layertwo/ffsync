@@ -4,6 +4,7 @@ from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import ValidationException
+from src.shared.models import ValidationError, validate_collection_name
 from src.shared.utils import json_dumps
 
 logger = Logger()
@@ -34,6 +35,12 @@ class ReadCollectionRoute(BaseRoute):
             query_params = event.query_string_parameters or {}
             headers = event.headers or {}
             collection_name = path_params["collectionName"]
+
+            # Validate collection name before any storage call
+            try:
+                validate_collection_name(collection_name)
+            except ValidationError as e:
+                raise ValidationException(str(e))
 
             # Check for conditional GET headers (Requirement 6.1, 6.2)
             if_modified_since = headers.get("x-if-modified-since")

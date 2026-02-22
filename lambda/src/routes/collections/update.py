@@ -11,7 +11,7 @@ from src.shared.exceptions import (
     PreconditionFailedException,
     ValidationException,
 )
-from src.shared.models import BasicStorageObject
+from src.shared.models import BasicStorageObject, ValidationError, validate_collection_name
 from src.shared.utils import json_dumps
 
 logger = Logger()
@@ -41,6 +41,10 @@ class UpdateCollectionRoute(BaseRoute):
             path_params = event.path_parameters or {}
             body = event.body
             collection_name = path_params["collectionName"]
+            try:
+                validate_collection_name(collection_name)
+            except ValidationError as e:
+                raise ValidationException(str(e))
 
             # Parse objects from request body
             try:
@@ -65,7 +69,7 @@ class UpdateCollectionRoute(BaseRoute):
             if_unmodified_since_header = event.headers.get("x-if-unmodified-since")
             if if_unmodified_since_header:
                 try:
-                    if_unmodified_since = int(if_unmodified_since_header)  # noqa: F841
+                    if_unmodified_since = int(if_unmodified_since_header)
                 except ValueError:
                     raise ValidationException("Invalid X-If-Unmodified-Since header")
 
@@ -74,6 +78,7 @@ class UpdateCollectionRoute(BaseRoute):
                 user_id,
                 collection_name=collection_name,
                 objects=objects,
+                if_unmodified_since=if_unmodified_since,
             )
 
             # Convert to dict using dataclass serialization

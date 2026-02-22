@@ -13,7 +13,7 @@ from src.shared.exceptions import (
     ServerLimitExceededException,
     ValidationException,
 )
-from src.shared.models import BasicStorageObject
+from src.shared.models import BasicStorageObject, ValidationError, validate_collection_name
 from src.shared.utils import json_dumps
 
 logger = Logger()
@@ -44,6 +44,12 @@ class CreateCollectionRoute(BaseRoute):
             headers = event.headers or {}
             body = event.body
             collection_name = path_params["collectionName"]
+
+            # Validate collection name before any storage call
+            try:
+                validate_collection_name(collection_name)
+            except ValidationError as e:
+                raise ValidationException(str(e))
 
             # Validate X-Weave-Records header if present (Requirement 3.7)
             x_weave_records = headers.get("x-weave-records")

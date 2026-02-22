@@ -770,6 +770,110 @@ class TestReadBSORouteConditionalGET:
         assert "Cannot specify both" in body["error"]
 
 
+class TestReadBSORouteInvalidInputs:
+    """Tests that validate_collection_name and validate_bso_id are called in ReadBSORoute"""
+
+    def test_handle_invalid_collection_name(self, mock_storage_manager):
+        """Test that invalid collection name returns 400 without calling storage"""
+        route = ReadBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "invalid name!", "objectId": "item123"},
+                    "headers": {},
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        mock_storage_manager.get_storage_object.assert_not_called()
+
+    def test_handle_invalid_bso_id(self, mock_storage_manager):
+        """Test that invalid BSO ID returns 400 without calling storage"""
+        route = ReadBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks", "objectId": "invalid\x01id"},
+                    "headers": {},
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        mock_storage_manager.get_storage_object.assert_not_called()
+
+
+class TestUpdateBSORouteInvalidCollectionName:
+    """Tests that validate_collection_name is called before body parsing in UpdateBSORoute"""
+
+    def test_handle_invalid_collection_name(self, mock_storage_manager):
+        """Test that invalid collection name returns 400 without calling storage"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {
+                        "collectionName": "invalid name!",
+                        "objectId": "item123",
+                    },
+                    "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                    "headers": {},
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        mock_storage_manager.update_storage_object.assert_not_called()
+
+
+class TestDeleteBSORouteInvalidInputs:
+    """Tests that validate_collection_name and validate_bso_id are called in DeleteBSORoute"""
+
+    def test_handle_invalid_collection_name(self, mock_storage_manager):
+        """Test that invalid collection name returns 400 without calling storage"""
+        route = DeleteBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "invalid name!", "objectId": "item123"},
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        mock_storage_manager.delete_storage_object.assert_not_called()
+
+    def test_handle_invalid_bso_id(self, mock_storage_manager):
+        """Test that invalid BSO ID returns 400 without calling storage"""
+        route = DeleteBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"collectionName": "bookmarks", "objectId": "invalid\x01id"},
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        mock_storage_manager.delete_storage_object.assert_not_called()
+
+
 class TestUpdateBSORouteValidation:
     """Tests for UpdateBSORoute validation (Requirements 10.1-10.5)"""
 
