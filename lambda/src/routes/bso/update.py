@@ -18,6 +18,7 @@ from src.shared.models import (
     BasicStorageObject,
     ValidationError,
     validate_bso_id,
+    validate_collection_name,
     validate_payload_size,
     validate_sortindex,
     validate_ttl,
@@ -52,6 +53,10 @@ class UpdateBSORoute(BaseRoute):
             body = event.body
             collection_name = path_params["collectionName"]
             object_id = path_params["objectId"]
+            try:
+                validate_collection_name(collection_name)
+            except ValidationError as e:
+                raise ValidationException(str(e))
 
             # Parse object from request body
             try:

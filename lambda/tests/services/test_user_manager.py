@@ -534,15 +534,13 @@ class TestUserManager:
                 "UpdateExpression": (
                     "SET generation = generation + :inc, "
                     "client_state = :client_state, "
-                    "client_state_history = list_append("
-                    "if_not_exists(client_state_history, :empty_list), :prev_state_list), "
+                    "client_state_history = :new_history, "
                     "updated_at = :updated_at"
                 ),
                 "ExpressionAttributeValues": {
                     ":inc": 1,
                     ":client_state": new_client_state,
-                    ":prev_state_list": [old_client_state],
-                    ":empty_list": [],
+                    ":new_history": [old_client_state],
                     ":updated_at": Decimal(str(mock_timestamp)),
                 },
                 "ReturnValues": "ALL_NEW",
@@ -662,7 +660,9 @@ class TestUserManager:
         )
 
         with pytest.raises(ClientError) as exc_info:
-            user_manager.update_user_client_state(user_id, "new_state", "old_state")
+            user_manager.update_user_client_state(
+                user_id, "new_state", "old_state", current_history=[]
+            )
 
         assert exc_info.value.response["Error"]["Code"] == "ValidationException"
 
@@ -884,6 +884,72 @@ class TestUserManager:
 
         assert "Cannot revert to empty client state" in str(exc_info.value.message)
 
+    def test_update_user_client_state_caps_history_at_50_entries(
+        self,
+        user_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_datetime_now,
+    ):
+        """Test that client_state_history is capped at 50 entries when updated"""
+        user_id = "user123456789"
+        old_client_state = "state_50"
+        new_client_state = "state_51"
+        existing_timestamp = 1234567800.00
+
+        # Build a history that already has 50 entries
+        full_history = [f"state_{i}" for i in range(50)]
+
+        # After update, the oldest entry should be dropped and the previous state appended.
+        # Result: entries 1..49 (dropping entry 0) plus old_client_state
+        expected_new_history = full_history[1:] + [old_client_state]
+        assert len(expected_new_history) == 50
+
+        # Stub update_item — the production code must send :new_history (not list_append)
+        dynamodb_stubber.add_response(
+            "update_item",
+            {
+                "Attributes": {
+                    "PK": {"S": f"USER#{user_id}"},
+                    "user_id": {"S": user_id},
+                    "generation": {"N": "6"},
+                    "client_state": {"S": new_client_state},
+                    "client_state_history": {"L": [{"S": s} for s in expected_new_history]},
+                    "created_at": {"N": str(existing_timestamp)},
+                    "updated_at": {"N": str(mock_timestamp)},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": f"USER#{user_id}"},
+                "UpdateExpression": (
+                    "SET generation = generation + :inc, "
+                    "client_state = :client_state, "
+                    "client_state_history = :new_history, "
+                    "updated_at = :updated_at"
+                ),
+                "ExpressionAttributeValues": {
+                    ":inc": 1,
+                    ":client_state": new_client_state,
+                    ":new_history": expected_new_history,
+                    ":updated_at": Decimal(str(mock_timestamp)),
+                },
+                "ReturnValues": "ALL_NEW",
+            },
+        )
+
+        user = user_manager.update_user_client_state(
+            user_id,
+            new_client_state,
+            old_client_state,
+            current_history=full_history,
+        )
+
+        assert len(user.client_state_history) == 50
+        assert user.client_state_history[0] == "state_1"
+        assert user.client_state_history[-1] == old_client_state
+
     def test_get_or_create_user_updates_history_on_state_change(
         self,
         user_manager,
@@ -945,15 +1011,13 @@ class TestUserManager:
                 "UpdateExpression": (
                     "SET generation = generation + :inc, "
                     "client_state = :client_state, "
-                    "client_state_history = list_append("
-                    "if_not_exists(client_state_history, :empty_list), :prev_state_list), "
+                    "client_state_history = :new_history, "
                     "updated_at = :updated_at"
                 ),
                 "ExpressionAttributeValues": {
                     ":inc": 1,
                     ":client_state": new_client_state,
-                    ":prev_state_list": [old_client_state],
-                    ":empty_list": [],
+                    ":new_history": [old_client_state],
                     ":updated_at": Decimal(str(mock_timestamp)),
                 },
                 "ReturnValues": "ALL_NEW",

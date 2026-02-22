@@ -8,6 +8,7 @@ from src.shared.exceptions import (
     StorageObjectNotFoundException,
     ValidationException,
 )
+from src.shared.models import ValidationError, validate_bso_id, validate_collection_name
 from src.shared.utils import json_dumps
 
 logger = Logger()
@@ -37,6 +38,11 @@ class DeleteBSORoute(BaseRoute):
             path_params = event.path_parameters or {}
             collection_name = path_params["collectionName"]
             object_id = path_params["objectId"]
+            try:
+                validate_collection_name(collection_name)
+                validate_bso_id(object_id)
+            except ValidationError as e:
+                raise ValidationException(str(e))
 
             # Delete storage object using storage manager with user_id
             modified_timestamp = self.storage_manager.delete_storage_object(

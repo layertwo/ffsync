@@ -4,6 +4,7 @@ from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import CollectionNotFoundException, ValidationException
+from src.shared.models import ValidationError, validate_collection_name
 from src.shared.utils import json_dumps
 
 logger = Logger()
@@ -33,6 +34,10 @@ class DeleteCollectionRoute(BaseRoute):
             path_params = event.path_parameters or {}
             query_params = event.query_string_parameters or {}
             collection_name = path_params["collectionName"]
+            try:
+                validate_collection_name(collection_name)
+            except ValidationError as e:
+                raise ValidationException(str(e))
 
             # Check if selective deletion (ids parameter present)
             ids_param = query_params.get("ids")
