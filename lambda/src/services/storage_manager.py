@@ -246,7 +246,7 @@ class StorageManager:
                 failed[obj.id] = [str(e)]
 
         # Write collection metadata after objects so counts reflect actual success
-        if collection_exists:
+        if existing_collection is not None:
             # Atomically update existing metadata with ADD to avoid race conditions
             new_count = existing_collection.count + new_objects_count
             new_usage = existing_collection.usage + usage_delta
