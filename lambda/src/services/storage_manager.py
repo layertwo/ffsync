@@ -236,9 +236,7 @@ class StorageManager:
                     sortindex=obj.sortindex,
                     ttl=obj.ttl,
                 )
-                obj_item = self._encode_basic_storage_object(
-                    user_id, collection_name, updated_obj
-                )
+                obj_item = self._encode_basic_storage_object(user_id, collection_name, updated_obj)
                 self.table.put_item(Item=obj_item)
                 success.append(obj.id)
                 usage_delta += obj_delta

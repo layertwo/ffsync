@@ -2283,9 +2283,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {
-                    ":pk": "USER#test-user-123#COLLECTION#bookmarks"
-                },
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
             },
         )
 
@@ -2401,9 +2399,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {
-                    ":pk": "USER#test-user-123#COLLECTION#bookmarks"
-                },
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
             },
         )
 
@@ -2446,9 +2442,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {
-                    ":pk": "USER#test-user-123#COLLECTION#history"
-                },
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#history"},
             },
         )
 
@@ -2869,9 +2863,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {
-                    ":pk": "USER#test-user-123#COLLECTION#bookmarks"
-                },
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
             },
         )
 
@@ -2894,9 +2886,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {
-                    ":pk": "USER#test-user-123#COLLECTION#bookmarks"
-                },
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
                 "ExclusiveStartKey": {
                     "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "OBJECT#obj1",
@@ -2987,9 +2977,7 @@ class TestStorageManager:
             {
                 "TableName": storage_table_name,
                 "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {
-                    ":pk": "USER#test-user-123#COLLECTION#bookmarks"
-                },
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
             },
         )
 
@@ -3070,8 +3058,8 @@ class TestStorageManager:
         existing BSO, the code fetches the existing object to compute usage delta
         accurately (obj_delta = new_len - old_len) and does NOT increment new_objects_count.
         """
-        new_payload = "newpayload"   # 10 bytes
-        old_payload = "old"          # 3 bytes
+        new_payload = "newpayload"  # 10 bytes
+        old_payload = "old"  # 3 bytes
 
         obj = BasicStorageObject(
             id="obj1",

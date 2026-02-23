@@ -169,7 +169,17 @@ class TestDeleteAllStorageRoute:
                 }
             },
         )
-        dynamodb_stubber.add_response("query", {"Items": [{"PK": {"S": f"USER#{TEST_USER_ID}#COLLECTION#bookmarks"}, "SK": {"S": "METADATA"}}]})
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": f"USER#{TEST_USER_ID}#COLLECTION#bookmarks"},
+                        "SK": {"S": "METADATA"},
+                    }
+                ]
+            },
+        )
         dynamodb_stubber.add_response("delete_item", {})
 
         # delete_collection("history")
@@ -186,7 +196,17 @@ class TestDeleteAllStorageRoute:
                 }
             },
         )
-        dynamodb_stubber.add_response("query", {"Items": [{"PK": {"S": f"USER#{TEST_USER_ID}#COLLECTION#history"}, "SK": {"S": "METADATA"}}]})
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": f"USER#{TEST_USER_ID}#COLLECTION#history"},
+                        "SK": {"S": "METADATA"},
+                    }
+                ]
+            },
+        )
         dynamodb_stubber.add_response("delete_item", {})
 
         response = storage_handler(event, sample_lambda_context, mock_service_provider)
