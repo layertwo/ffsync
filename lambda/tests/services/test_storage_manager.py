@@ -163,6 +163,20 @@ class TestStorageManager:
         mock_get_current_timestamp,
     ):
         """Test creating collection without objects"""
+        # Collection existence check — not found, so this is a new collection
+        dynamodb_stubber.add_response(
+            "get_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                },
+            },
+        )
+
+        # New collection: put_item with full metadata (objects before metadata, but no objects here)
         dynamodb_stubber.add_response(
             "put_item",
             {},
@@ -215,7 +229,27 @@ class TestStorageManager:
             ),
         ]
 
-        # Stub metadata put
+        # Collection existence check — not found, so new collection (all objects are new)
+        dynamodb_stubber.add_response(
+            "get_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                },
+            },
+        )
+
+        # Objects are written before metadata
+        # Stub object 1 put - don't validate params due to dynamic expiry field
+        dynamodb_stubber.add_response("put_item", {}, None)
+
+        # Stub object 2 put - don't validate params
+        dynamodb_stubber.add_response("put_item", {}, None)
+
+        # Stub metadata put (after objects, new collection so put_item not update_item)
         dynamodb_stubber.add_response(
             "put_item",
             {},
@@ -231,20 +265,6 @@ class TestStorageManager:
                     "usage": len("payload1") + len("payload2"),
                 },
             },
-        )
-
-        # Stub object 1 put - don't validate params due to dynamic expiry field
-        dynamodb_stubber.add_response(
-            "put_item",
-            {},
-            None,
-        )
-
-        # Stub object 2 put - don't validate params
-        dynamodb_stubber.add_response(
-            "put_item",
-            {},
-            None,
         )
 
         collection, batch_result = storage_manager.create_or_update_collection(
@@ -326,30 +346,15 @@ class TestStorageManager:
             },
         )
 
-        # Stub metadata update
-        dynamodb_stubber.add_response(
-            "put_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "METADATA",
-                    "user_id": "test-user-123",
-                    "name": "bookmarks",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "count": 2,
-                    "usage": 100 + len("newpayload"),
-                },
-            },
-        )
+        # Atomic metadata update (new object, so count += 1)
+        dynamodb_stubber.add_response("update_item", {}, None)
 
         collection, batch_result = storage_manager.update_collection(
             "test-user-123", "bookmarks", objects
         )
 
         assert collection.name == "bookmarks"
-        assert collection.count == 2
+        assert collection.count == 2  # 1 existing + 1 new
         assert batch_result.success == ["obj1"]
 
     def test_update_collection_not_found(
@@ -927,36 +932,35 @@ class TestStorageManager:
             )
         ]
 
-        # Stub metadata put
+        # Collection existence check — not found (new collection)
         dynamodb_stubber.add_response(
-            "put_item",
+            "get_item",
             {},
             {
                 "TableName": storage_table_name,
-                "Item": {
+                "Key": {
                     "PK": "USER#test-user-123#COLLECTION#bookmarks",
                     "SK": "METADATA",
-                    "user_id": "test-user-123",
-                    "name": "bookmarks",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "count": 1,
-                    "usage": len("payload1"),
                 },
             },
         )
 
-        # Stub object put with error
+        # Objects are written before metadata — obj1 fails
         dynamodb_stubber.add_client_error(
             "put_item",
             service_error_code="ValidationException",
             service_message="Invalid item",
         )
 
+        # Metadata put after objects (count=0 because obj1 failed)
+        dynamodb_stubber.add_response("put_item", {}, None)
+
         collection, batch_result = storage_manager.create_or_update_collection(
             "test-user-123", "bookmarks", objects
         )
 
         assert collection.name == "bookmarks"
+        assert collection.count == 0  # obj1 failed, so no new objects
         assert len(batch_result.success) == 0
         assert len(batch_result.failed) == 1
         assert "obj1" in batch_result.failed
@@ -1020,23 +1024,8 @@ class TestStorageManager:
             service_message="Invalid item",
         )
 
-        # Stub metadata update
-        dynamodb_stubber.add_response(
-            "put_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "METADATA",
-                    "user_id": "test-user-123",
-                    "name": "bookmarks",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "count": 0,
-                    "usage": 0,
-                },
-            },
-        )
+        # Atomic metadata update (object failed, so count_delta=0, usage_delta=0)
+        dynamodb_stubber.add_response("update_item", {}, None)
 
         collection, batch_result = storage_manager.update_collection(
             "test-user-123", "bookmarks", objects
@@ -1396,23 +1385,8 @@ class TestStorageManager:
             service_message="Invalid item",
         )
 
-        # Stub metadata update
-        dynamodb_stubber.add_response(
-            "put_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "METADATA",
-                    "user_id": "test-user-123",
-                    "name": "bookmarks",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "count": 1,
-                    "usage": len("payload1"),
-                },
-            },
-        )
+        # Atomic metadata update (obj1 new+success, obj2 new but failed → count_delta=1)
+        dynamodb_stubber.add_response("update_item", {}, None)
 
         collection, batch_result = storage_manager.update_collection(
             "test-user-123", "bookmarks", objects
@@ -1484,23 +1458,8 @@ class TestStorageManager:
             None,
         )
 
-        # Stub metadata update
-        dynamodb_stubber.add_response(
-            "put_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "METADATA",
-                    "user_id": "test-user-123",
-                    "name": "bookmarks",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "count": 1,
-                    "usage": len("payload1"),
-                },
-            },
-        )
+        # Atomic metadata update (new object)
+        dynamodb_stubber.add_response("update_item", {}, None)
 
         collection, batch_result = storage_manager.update_collection(
             "test-user-123", "bookmarks", objects
@@ -2259,10 +2218,56 @@ class TestStorageManager:
         mock_timestamp,
         mock_get_current_timestamp,
     ):
-        """Test deleting all storage for a user"""
-        # Stub scan to return items
+        """Test deleting all storage for a user via list_collections + delete_collection (no scan)"""
+        # list_collections: GSI query returns one collection
         dynamodb_stubber.add_response(
-            "scan",
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "METADATA"},
+                        "user_id": {"S": "test-user-123"},
+                        "name": {"S": "bookmarks"},
+                        "modified": {"N": "1234567880.00"},
+                        "count": {"N": "1"},
+                        "usage": {"N": "100"},
+                    }
+                ]
+            },
+            {
+                "TableName": storage_table_name,
+                "IndexName": "UserCollectionsIndex",
+                "KeyConditionExpression": "user_id = :user_id",
+                "ExpressionAttributeValues": {":user_id": "test-user-123"},
+            },
+        )
+
+        # delete_collection("bookmarks"): verify collection exists
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567880.00"},
+                    "count": {"N": "1"},
+                    "usage": {"N": "100"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                },
+            },
+        )
+
+        # delete_collection("bookmarks"): query all items
+        dynamodb_stubber.add_response(
+            "query",
             {
                 "Items": [
                     {
@@ -2275,11 +2280,16 @@ class TestStorageManager:
                     },
                 ]
             },
-            None,
+            {
+                "TableName": storage_table_name,
+                "KeyConditionExpression": "PK = :pk",
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
+            },
         )
 
-        # Stub delete_item for each item
+        # delete METADATA
         dynamodb_stubber.add_response("delete_item", {}, None)
+        # delete obj1
         dynamodb_stubber.add_response("delete_item", {}, None)
 
         modified = storage_manager.delete_all_storage("test-user-123")
@@ -2294,31 +2304,133 @@ class TestStorageManager:
         mock_timestamp,
         mock_get_current_timestamp,
     ):
-        """Test deleting all storage with pagination"""
-        # Stub first scan page with LastEvaluatedKey
+        """Test deleting all storage for a user with multiple collections via paginated GSI query"""
+        # list_collections page 1: returns bookmarks, with LastEvaluatedKey
         dynamodb_stubber.add_response(
-            "scan",
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "METADATA"},
+                        "user_id": {"S": "test-user-123"},
+                        "name": {"S": "bookmarks"},
+                        "modified": {"N": "1234567880.00"},
+                        "count": {"N": "1"},
+                        "usage": {"N": "100"},
+                    }
+                ],
+                "LastEvaluatedKey": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "user_id": {"S": "test-user-123"},
+                },
+            },
+            {
+                "TableName": storage_table_name,
+                "IndexName": "UserCollectionsIndex",
+                "KeyConditionExpression": "user_id = :user_id",
+                "ExpressionAttributeValues": {":user_id": "test-user-123"},
+            },
+        )
+
+        # list_collections page 2: returns history, no more pages
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#history"},
+                        "SK": {"S": "METADATA"},
+                        "user_id": {"S": "test-user-123"},
+                        "name": {"S": "history"},
+                        "modified": {"N": "1234567880.00"},
+                        "count": {"N": "0"},
+                        "usage": {"N": "0"},
+                    }
+                ]
+            },
+            {
+                "TableName": storage_table_name,
+                "IndexName": "UserCollectionsIndex",
+                "KeyConditionExpression": "user_id = :user_id",
+                "ExpressionAttributeValues": {":user_id": "test-user-123"},
+                "ExclusiveStartKey": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                    "user_id": "test-user-123",
+                },
+            },
+        )
+
+        # delete_collection("bookmarks"): verify exists
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567880.00"},
+                    "count": {"N": "1"},
+                    "usage": {"N": "100"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                },
+            },
+        )
+
+        # delete_collection("bookmarks"): query all items
+        dynamodb_stubber.add_response(
+            "query",
             {
                 "Items": [
                     {
                         "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "METADATA"},
                     },
-                ],
-                "LastEvaluatedKey": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
-                },
+                ]
             },
-            None,
+            {
+                "TableName": storage_table_name,
+                "KeyConditionExpression": "PK = :pk",
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
+            },
         )
 
-        # Stub delete_item for first page
+        # delete bookmarks METADATA
         dynamodb_stubber.add_response("delete_item", {}, None)
 
-        # Stub second scan page (no more items)
+        # delete_collection("history"): verify exists
         dynamodb_stubber.add_response(
-            "scan",
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#history"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "history"},
+                    "modified": {"N": "1234567880.00"},
+                    "count": {"N": "0"},
+                    "usage": {"N": "0"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#history",
+                    "SK": "METADATA",
+                },
+            },
+        )
+
+        # delete_collection("history"): query all items (only metadata)
+        dynamodb_stubber.add_response(
+            "query",
             {
                 "Items": [
                     {
@@ -2327,10 +2439,14 @@ class TestStorageManager:
                     },
                 ]
             },
-            None,
+            {
+                "TableName": storage_table_name,
+                "KeyConditionExpression": "PK = :pk",
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#history"},
+            },
         )
 
-        # Stub delete_item for second page
+        # delete history METADATA
         dynamodb_stubber.add_response("delete_item", {}, None)
 
         modified = storage_manager.delete_all_storage("test-user-123")
@@ -2413,8 +2529,8 @@ class TestStorageManager:
             },
         )
 
-        # Stub put_item for metadata update
-        dynamodb_stubber.add_response("put_item", {}, None)
+        # Collection exists → atomic update_item (no objects, count_delta=0)
+        dynamodb_stubber.add_response("update_item", {}, None)
 
         collection, batch_result = storage_manager.create_or_update_collection(
             "test-user-123", "bookmarks", [], if_unmodified_since=1234567890.00
@@ -2453,8 +2569,8 @@ class TestStorageManager:
             },
         )
 
-        # Stub put_item for metadata update
-        dynamodb_stubber.add_response("put_item", {}, None)
+        # Atomic metadata update (no objects, count_delta=0)
+        dynamodb_stubber.add_response("update_item", {}, None)
 
         collection, batch_result = storage_manager.update_collection(
             "test-user-123", "bookmarks", [], if_unmodified_since=1234567890.00
@@ -2594,23 +2710,8 @@ class TestStorageManager:
             },
         )
 
-        # Stub metadata update — usage must reflect net delta, not added size
-        dynamodb_stubber.add_response(
-            "put_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "METADATA",
-                    "user_id": "test-user-123",
-                    "name": "bookmarks",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "count": 2,
-                    "usage": expected_usage,
-                },
-            },
-        )
+        # Atomic metadata update — obj1 is an update (not new), so count stays at 1
+        dynamodb_stubber.add_response("update_item", {}, None)
 
         collection, batch_result = storage_manager.update_collection(
             "test-user-123", "bookmarks", objects
@@ -2619,4 +2720,484 @@ class TestStorageManager:
         assert (
             collection.usage == expected_usage
         ), f"Expected usage {expected_usage} (net delta), got {collection.usage}"
+        assert (
+            collection.count == 1
+        ), f"Overwriting existing BSO must not increment count; got {collection.count}"
         assert batch_result.success == ["obj1"]
+
+    # ── TDD: tests written before code fixes (these fail until fixed) ─────────
+
+    def test_update_collection_count_not_incremented_for_existing_bso(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """TDD: updating an existing BSO must not increment the collection count.
+
+        Before fix: new_count = collection.count + len(success) → wrong
+        After fix:  new_count = collection.count + new_objects_count
+        """
+        # Collection exists with count=1 (one BSO: obj1)
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567880.00"},
+                    "count": {"N": "1"},
+                    "usage": {"N": "10"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                },
+            },
+        )
+
+        objects = [
+            BasicStorageObject(
+                id="obj1",
+                payload="newpayload",
+                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+            )
+        ]
+
+        # obj1 already exists with 3-byte payload "old"
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "OBJECT#obj1"},
+                    "id": {"S": "obj1"},
+                    "payload": {"S": "old"},
+                    "modified": {"N": "1234567880.00"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                },
+            },
+        )
+
+        # Write updated object
+        dynamodb_stubber.add_response("put_item", {}, None)
+
+        # Atomic metadata update (update_item, not put_item)
+        dynamodb_stubber.add_response("update_item", {}, None)
+
+        collection, batch_result = storage_manager.update_collection(
+            "test-user-123", "bookmarks", objects
+        )
+
+        assert (
+            collection.count == 1
+        ), f"Updating existing BSO must not increment count; got {collection.count}"
+        assert batch_result.success == ["obj1"]
+
+    def test_delete_collection_with_pagination(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """TDD: delete_collection must paginate when items span multiple query pages.
+
+        Before fix: only first query page is deleted
+        After fix:  while LastEvaluatedKey loop deletes all pages
+        """
+        # Verify collection exists
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567880.00"},
+                    "count": {"N": "2"},
+                    "usage": {"N": "100"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                },
+            },
+        )
+
+        # First query page — returns METADATA + obj1, with more pages
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "METADATA"},
+                    },
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "OBJECT#obj1"},
+                    },
+                ],
+                "LastEvaluatedKey": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "OBJECT#obj1"},
+                },
+            },
+            {
+                "TableName": storage_table_name,
+                "KeyConditionExpression": "PK = :pk",
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
+            },
+        )
+
+        # Delete METADATA (page 1)
+        dynamodb_stubber.add_response("delete_item", {}, None)
+        # Delete obj1 (page 1)
+        dynamodb_stubber.add_response("delete_item", {}, None)
+
+        # Second query page — obj2 only, no more pages
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "OBJECT#obj2"},
+                    },
+                ]
+            },
+            {
+                "TableName": storage_table_name,
+                "KeyConditionExpression": "PK = :pk",
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
+                "ExclusiveStartKey": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                },
+            },
+        )
+
+        # Delete obj2 (page 2)
+        dynamodb_stubber.add_response("delete_item", {}, None)
+
+        modified = storage_manager.delete_collection("test-user-123", "bookmarks")
+        assert modified == mock_timestamp
+
+    def test_delete_all_storage_via_list_and_delete(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """TDD: delete_all_storage must use list_collections + delete_collection, not table.scan.
+
+        Before fix: calls table.scan (full table read)
+        After fix:  calls list_collections (GSI query) then delete_collection per collection
+        """
+        # list_collections: GSI query returns one collection
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "METADATA"},
+                        "user_id": {"S": "test-user-123"},
+                        "name": {"S": "bookmarks"},
+                        "modified": {"N": "1234567880.00"},
+                        "count": {"N": "1"},
+                        "usage": {"N": "100"},
+                    }
+                ]
+            },
+            {
+                "TableName": storage_table_name,
+                "IndexName": "UserCollectionsIndex",
+                "KeyConditionExpression": "user_id = :user_id",
+                "ExpressionAttributeValues": {":user_id": "test-user-123"},
+            },
+        )
+
+        # delete_collection("bookmarks"): verify exists
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567880.00"},
+                    "count": {"N": "1"},
+                    "usage": {"N": "100"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                },
+            },
+        )
+
+        # delete_collection("bookmarks"): query all items
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "METADATA"},
+                    },
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "OBJECT#obj1"},
+                    },
+                ]
+            },
+            {
+                "TableName": storage_table_name,
+                "KeyConditionExpression": "PK = :pk",
+                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
+            },
+        )
+
+        # delete METADATA
+        dynamodb_stubber.add_response("delete_item", {}, None)
+        # delete obj1
+        dynamodb_stubber.add_response("delete_item", {}, None)
+
+        modified = storage_manager.delete_all_storage("test-user-123")
+        assert modified == mock_timestamp
+
+    def test_delete_all_storage_skips_concurrently_deleted_collection(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test that delete_all_storage silently skips collections deleted concurrently.
+
+        If a collection is returned by list_collections but has already been deleted
+        by the time delete_collection runs, CollectionNotFoundException is caught and
+        the loop continues rather than failing.
+        """
+        # list_collections: GSI query returns one collection
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "METADATA"},
+                        "user_id": {"S": "test-user-123"},
+                        "name": {"S": "bookmarks"},
+                        "modified": {"N": "1234567880.00"},
+                        "count": {"N": "1"},
+                        "usage": {"N": "100"},
+                    }
+                ]
+            },
+            {
+                "TableName": storage_table_name,
+                "IndexName": "UserCollectionsIndex",
+                "KeyConditionExpression": "user_id = :user_id",
+                "ExpressionAttributeValues": {":user_id": "test-user-123"},
+            },
+        )
+
+        # delete_collection("bookmarks"): get_collection returns empty — concurrently deleted
+        dynamodb_stubber.add_response(
+            "get_item",
+            {},  # no Item → CollectionNotFoundException
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                },
+            },
+        )
+
+        # Should complete without raising, skipping the missing collection
+        modified = storage_manager.delete_all_storage("test-user-123")
+        assert modified == mock_timestamp
+
+    def test_create_or_update_collection_updates_existing_bso(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test create_or_update_collection when updating an already-existing BSO.
+
+        When the collection already exists and the incoming object ID matches an
+        existing BSO, the code fetches the existing object to compute usage delta
+        accurately (obj_delta = new_len - old_len) and does NOT increment new_objects_count.
+        """
+        new_payload = "newpayload"  # 10 bytes
+        old_payload = "old"  # 3 bytes
+
+        obj = BasicStorageObject(
+            id="obj1",
+            payload=new_payload,
+            modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+        )
+
+        # Collection existence check — found, so collection_exists=True
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "user_id": {"S": "test-user-123"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567880.00"},
+                    "count": {"N": "5"},
+                    "usage": {"N": "100"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                },
+            },
+        )
+
+        # get_storage_object("obj1") — object already exists (lines 221-223)
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "OBJECT#obj1"},
+                    "id": {"S": "obj1"},
+                    "payload": {"S": old_payload},
+                    "modified": {"N": "1234567880.00"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj1",
+                },
+            },
+        )
+
+        # put_item for the updated BSO
+        dynamodb_stubber.add_response("put_item", {}, None)
+
+        # update_item for metadata: new_objects_count=0 (no new BSOs), usage_delta=+7
+        dynamodb_stubber.add_response("update_item", {}, None)
+
+        collection, batch_result = storage_manager.create_or_update_collection(
+            "test-user-123", "bookmarks", [obj]
+        )
+
+        # Count stays at 5 (no new objects), usage increments by (10 - 3) = 7
+        assert collection.count == 5
+        assert collection.usage == 107
+        assert batch_result.success == ["obj1"]
+        assert batch_result.failed == {}
+
+    def test_create_or_update_collection_adds_new_bso_to_existing_collection(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+        mock_timestamp,
+        mock_get_current_timestamp,
+    ):
+        """Test create_or_update_collection when adding a brand-new BSO to an existing collection.
+
+        When collection_exists=True but the incoming object ID does not exist yet,
+        get_storage_object raises StorageObjectNotFoundException (lines 224-226).
+        This increments new_objects_count and sets obj_delta = len(payload).
+        """
+        new_payload = "brand_new"  # 9 bytes
+
+        obj = BasicStorageObject(
+            id="obj_new",
+            payload=new_payload,
+            modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+        )
+
+        # Collection existence check — found, so collection_exists=True
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "user_id": {"S": "test-user-123"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567880.00"},
+                    "count": {"N": "3"},
+                    "usage": {"N": "50"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "METADATA",
+                },
+            },
+        )
+
+        # get_storage_object("obj_new") — not found, triggers except StorageObjectNotFoundException
+        # (lines 224-226): obj_delta = len(payload), is_new_bso = True
+        dynamodb_stubber.add_response(
+            "get_item",
+            {},  # no Item → StorageObjectNotFoundException
+            {
+                "TableName": storage_table_name,
+                "Key": {
+                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                    "SK": "OBJECT#obj_new",
+                },
+            },
+        )
+
+        # put_item for the new BSO
+        dynamodb_stubber.add_response("put_item", {}, None)
+
+        # update_item for metadata: new_objects_count=1, usage_delta=9
+        dynamodb_stubber.add_response("update_item", {}, None)
+
+        collection, batch_result = storage_manager.create_or_update_collection(
+            "test-user-123", "bookmarks", [obj]
+        )
+
+        # Count goes from 3 → 4 (one new BSO), usage goes from 50 → 59 (+9 bytes)
+        assert collection.count == 4
+        assert collection.usage == 59
+        assert batch_result.success == ["obj_new"]
+        assert batch_result.failed == {}

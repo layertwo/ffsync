@@ -32,9 +32,42 @@ class TestDeleteAllRootRoute:
         """Test successful deletion of all storage via root endpoint"""
         event = build_storage_event(method="DELETE", path="/")
 
-        # Stub scan to return items
+        # list_collections: GSI query returns one collection
         dynamodb_stubber.add_response(
-            "scan",
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": f"USER#{TEST_USER_ID}#COLLECTION#bookmarks"},
+                        "SK": {"S": "METADATA"},
+                        "user_id": {"S": TEST_USER_ID},
+                        "name": {"S": "bookmarks"},
+                        "modified": {"N": "1234567880.00"},
+                        "count": {"N": "1"},
+                        "usage": {"N": "100"},
+                    }
+                ]
+            },
+        )
+
+        # delete_collection("bookmarks"): verify exists
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": f"USER#{TEST_USER_ID}#COLLECTION#bookmarks"},
+                    "SK": {"S": "METADATA"},
+                    "name": {"S": "bookmarks"},
+                    "modified": {"N": "1234567880.00"},
+                    "count": {"N": "1"},
+                    "usage": {"N": "100"},
+                }
+            },
+        )
+
+        # delete_collection("bookmarks"): query all items
+        dynamodb_stubber.add_response(
+            "query",
             {
                 "Items": [
                     {
@@ -45,7 +78,7 @@ class TestDeleteAllRootRoute:
             },
         )
 
-        # Stub delete_item
+        # Delete METADATA
         dynamodb_stubber.add_response("delete_item", {})
 
         response = storage_handler(event, sample_lambda_context, mock_service_provider)
@@ -61,8 +94,8 @@ class TestDeleteAllRootRoute:
         """Test deletion when storage is already empty"""
         event = build_storage_event(method="DELETE", path="/")
 
-        # Stub scan to return no items
-        dynamodb_stubber.add_response("scan", {"Items": [], "Count": 0})
+        # list_collections: GSI query returns no collections
+        dynamodb_stubber.add_response("query", {"Items": []})
 
         response = storage_handler(event, sample_lambda_context, mock_service_provider)
 
@@ -94,14 +127,14 @@ class TestDeleteAllRootRoute:
         self, mock_service_provider, dynamodb_stubber, sample_lambda_context
     ):
         """Test that DELETE / and DELETE /storage behave the same way"""
-        # Test DELETE /
+        # Test DELETE / — empty storage
         root_event = build_storage_event(method="DELETE", path="/")
-        dynamodb_stubber.add_response("scan", {"Items": [], "Count": 0})
+        dynamodb_stubber.add_response("query", {"Items": []})
         root_response = storage_handler(root_event, sample_lambda_context, mock_service_provider)
 
-        # Test DELETE /storage
+        # Test DELETE /storage — empty storage
         storage_event = build_storage_event(method="DELETE", path="/storage")
-        dynamodb_stubber.add_response("scan", {"Items": [], "Count": 0})
+        dynamodb_stubber.add_response("query", {"Items": []})
         storage_response = storage_handler(
             storage_event, sample_lambda_context, mock_service_provider
         )
@@ -122,8 +155,8 @@ class TestDeleteAllRootRoute:
         """Test handling of internal server errors"""
         event = build_storage_event(method="DELETE", path="/")
 
-        # Stub scan to raise an exception
-        dynamodb_stubber.add_client_error("scan", service_error_code="InternalServerError")
+        # Stub GSI query (list_collections) to raise an exception
+        dynamodb_stubber.add_client_error("query", service_error_code="InternalServerError")
 
         response = storage_handler(event, sample_lambda_context, mock_service_provider)
 
