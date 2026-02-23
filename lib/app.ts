@@ -1,11 +1,34 @@
 #!/usr/bin/env node
 import {App} from "aws-cdk-lib";
 
-import {ACCOUNT_ID, REGION} from "./config";
-import {PipelineStack} from "./stacks/pipeline";
+import {ACCOUNT_ID, REGION, StageType} from "./config";
+import {GitHubOidcStack} from "./stacks/github-oidc";
+import {MonitoringStack} from "./stacks/monitoring";
+import {ServiceStack} from "./stacks/service";
 
 const app = new App();
 
-new PipelineStack(app, "Pipeline", {env: {account: ACCOUNT_ID, region: REGION}});
+const env = {account: ACCOUNT_ID, region: REGION};
+
+new GitHubOidcStack(app, "GitHubOidcStack", {
+    env,
+    githubOrg: "layertwo",
+    githubRepo: "ffsync",
+});
+
+[StageType.PROD].forEach((stageType) => {
+    const serviceStack = new ServiceStack(app, `Service-${stageType.toLowerCase()}`, {
+        env,
+        stageType,
+    });
+
+    new MonitoringStack(app, `Monitoring-${stageType.toLowerCase()}`, {
+        env,
+        stageType,
+        storageApi: serviceStack.storageApi,
+        storageHandler: serviceStack.storageHandler,
+        storageTable: serviceStack.storageTable,
+    });
+});
 
 app.synth();
