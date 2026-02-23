@@ -1,6 +1,7 @@
 """Storage manager for DynamoDB operations"""
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Dict, List, Optional
 
 from botocore.exceptions import ClientError
@@ -179,66 +180,113 @@ class StorageManager:
                 f"Batch size {total_bytes} bytes exceeds maximum {MAX_POST_BYTES} bytes"
             )
 
+        # Detect whether the collection already exists (needed for count/usage accounting)
+        try:
+            existing_collection = self.get_collection(user_id, collection_name)
+            collection_exists = True
+        except CollectionNotFoundException:
+            collection_exists = False
+            existing_collection = None
+
         # Check optimistic concurrency control (Requirements 5.1, 5.2, 5.3)
-        if if_unmodified_since is not None:
-            try:
-                existing_collection = self.get_collection(user_id, collection_name)
-                existing_modified_ts = existing_collection.modified.timestamp()
+        if if_unmodified_since is not None and existing_collection is not None:
+            existing_modified_ts = existing_collection.modified.timestamp()
 
-                # if_unmodified_since=0 means "create only if not exists"
-                if if_unmodified_since == 0:
-                    raise PreconditionFailedException(
-                        f"Collection '{collection_name}' already exists (create-only mode)"
-                    )
+            # if_unmodified_since=0 means "create only if not exists"
+            if if_unmodified_since == 0:
+                raise PreconditionFailedException(
+                    f"Collection '{collection_name}' already exists (create-only mode)"
+                )
 
-                # Check if collection was modified after if_unmodified_since
-                if existing_modified_ts > if_unmodified_since:
-                    raise PreconditionFailedException(
-                        f"Collection '{collection_name}' was modified since {if_unmodified_since}"
-                    )
-            except CollectionNotFoundException:
-                # Collection doesn't exist, which is fine for creation
-                pass
+            # Check if collection was modified after if_unmodified_since
+            if existing_modified_ts > if_unmodified_since:
+                raise PreconditionFailedException(
+                    f"Collection '{collection_name}' was modified since {if_unmodified_since}"
+                )
 
         modified_timestamp = get_current_timestamp()
         modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
 
-        # Calculate usage
-        usage = sum(len(obj.payload) for obj in objects)
-        count = len(objects)
-
-        # Create/update collection metadata
-        collection_data = CollectionData(
-            name=collection_name, modified=modified, count=count, usage=usage
-        )
-        metadata_item = self._encode_collection_data(user_id, collection_data)
-
-        self.table.put_item(Item=metadata_item)
-
-        # Add objects if provided
+        # Write objects first, tracking new vs updated and actual usage delta
         success = []
         failed = {}
+        new_objects_count = 0
+        usage_delta = 0
 
-        if objects:
-            for obj in objects:
-                try:
-                    # Create object with updated timestamp
-                    updated_obj = BasicStorageObject(
-                        id=obj.id,
-                        payload=obj.payload,
-                        modified=modified,
-                        sortindex=obj.sortindex,
-                        ttl=obj.ttl,
-                    )
-                    obj_item = self._encode_basic_storage_object(
-                        user_id, collection_name, updated_obj
-                    )
+        for obj in objects:
+            try:
+                is_new_bso = False
+                if collection_exists:
+                    # Check if object already exists to compute accurate usage delta
+                    try:
+                        existing_obj = self.get_storage_object(user_id, collection_name, obj.id)
+                        obj_delta = len(obj.payload) - len(existing_obj.payload)
+                    except StorageObjectNotFoundException:
+                        obj_delta = len(obj.payload)
+                        is_new_bso = True
+                else:
+                    # Collection is new — every object is new by definition
+                    obj_delta = len(obj.payload)
+                    is_new_bso = True
 
-                    self.table.put_item(Item=obj_item)
-                    success.append(obj.id)
-                except Exception as e:
-                    failed[obj.id] = [str(e)]
+                updated_obj = BasicStorageObject(
+                    id=obj.id,
+                    payload=obj.payload,
+                    modified=modified,
+                    sortindex=obj.sortindex,
+                    ttl=obj.ttl,
+                )
+                obj_item = self._encode_basic_storage_object(
+                    user_id, collection_name, updated_obj
+                )
+                self.table.put_item(Item=obj_item)
+                success.append(obj.id)
+                usage_delta += obj_delta
+                if is_new_bso:
+                    new_objects_count += 1  # only count new BSOs that were successfully written
+            except Exception as e:
+                failed[obj.id] = [str(e)]
 
+        # Write collection metadata after objects so counts reflect actual success
+        if collection_exists:
+            # Atomically update existing metadata with ADD to avoid race conditions
+            new_count = existing_collection.count + new_objects_count
+            new_usage = existing_collection.usage + usage_delta
+            self.table.update_item(
+                Key={
+                    "PK": self._collection_pk(user_id, collection_name),
+                    "SK": self._metadata_sk(),
+                },
+                UpdateExpression="SET #modified = :modified, #name = :name, #user_id = :user_id"
+                " ADD #count :count_delta, #usage :usage_delta",
+                ExpressionAttributeNames={
+                    "#modified": "modified",
+                    "#name": "name",
+                    "#user_id": "user_id",
+                    "#count": "count",
+                    "#usage": "usage",
+                },
+                ExpressionAttributeValues={
+                    ":modified": Decimal(str(modified_timestamp)),
+                    ":name": collection_name,
+                    ":user_id": user_id,
+                    ":count_delta": new_objects_count,
+                    ":usage_delta": usage_delta,
+                },
+            )
+        else:
+            # New collection — write full metadata with put_item
+            new_count = new_objects_count
+            new_usage = usage_delta
+            collection_data = CollectionData(
+                name=collection_name, modified=modified, count=new_count, usage=new_usage
+            )
+            metadata_item = self._encode_collection_data(user_id, collection_data)
+            self.table.put_item(Item=metadata_item)
+
+        collection_data = CollectionData(
+            name=collection_name, modified=modified, count=new_count, usage=new_usage
+        )
         batch_result = BatchResult(success=success, failed=failed, modified=modified)
 
         return collection_data, batch_result
@@ -300,15 +348,18 @@ class StorageManager:
         success = []
         failed = {}
         usage_delta = 0
+        new_objects_count = 0  # only count genuinely new BSOs
 
         for obj in objects:
             try:
                 # Determine usage delta: subtract old payload size if BSO already exists
+                is_new_bso = False
                 try:
                     existing_obj = self.get_storage_object(user_id, collection_name, obj.id)
                     obj_delta = len(obj.payload) - len(existing_obj.payload)
                 except StorageObjectNotFoundException:
                     obj_delta = len(obj.payload)
+                    is_new_bso = True
 
                 # Create object with updated timestamp
                 updated_obj = BasicStorageObject(
@@ -323,20 +374,41 @@ class StorageManager:
                 self.table.put_item(Item=obj_item)
                 success.append(obj.id)
                 usage_delta += obj_delta
+                if is_new_bso:
+                    new_objects_count += 1  # only count new BSOs that were successfully written
             except Exception as e:
                 failed[obj.id] = [str(e)]
 
-        # Update collection metadata
+        # Atomically update collection metadata with ADD to avoid race conditions
         new_usage = collection.usage + usage_delta
-        new_count = collection.count + len(success)
+        new_count = collection.count + new_objects_count
+
+        self.table.update_item(
+            Key={
+                "PK": self._collection_pk(user_id, collection_name),
+                "SK": self._metadata_sk(),
+            },
+            UpdateExpression="SET #modified = :modified, #name = :name, #user_id = :user_id"
+            " ADD #count :count_delta, #usage :usage_delta",
+            ExpressionAttributeNames={
+                "#modified": "modified",
+                "#name": "name",
+                "#user_id": "user_id",
+                "#count": "count",
+                "#usage": "usage",
+            },
+            ExpressionAttributeValues={
+                ":modified": Decimal(str(modified_timestamp)),
+                ":name": collection_name,
+                ":user_id": user_id,
+                ":count_delta": new_objects_count,
+                ":usage_delta": usage_delta,
+            },
+        )
 
         collection_data = CollectionData(
             name=collection_name, modified=modified, count=new_count, usage=new_usage
         )
-        metadata_item = self._encode_collection_data(user_id, collection_data)
-
-        self.table.put_item(Item=metadata_item)
-
         batch_result = BatchResult(success=success, failed=failed, modified=modified)
 
         return collection_data, batch_result
@@ -360,17 +432,27 @@ class StorageManager:
         modified = get_current_timestamp()
         pk = self._collection_pk(user_id, collection_name)
 
-        # Query all items in the collection
+        # Query all items in the collection, paginating through all results
         response = self.table.query(
             KeyConditionExpression="PK = :pk",
             ExpressionAttributeValues={":pk": pk},
         )
 
-        # Delete all items
         for item in response.get("Items", []):
             self.table.delete_item(
                 Key={"PK": item["PK"], "SK": item["SK"]},
             )
+
+        while "LastEvaluatedKey" in response:
+            response = self.table.query(
+                KeyConditionExpression="PK = :pk",
+                ExpressionAttributeValues={":pk": pk},
+                ExclusiveStartKey=response["LastEvaluatedKey"],
+            )
+            for item in response.get("Items", []):
+                self.table.delete_item(
+                    Key={"PK": item["PK"], "SK": item["SK"]},
+                )
 
         return modified
 
@@ -679,6 +761,9 @@ class StorageManager:
     def delete_all_storage(self, user_id: str) -> float:
         """Delete all collections and BSOs for a user
 
+        Uses list_collections (GSI query) then delete_collection per collection,
+        avoiding an expensive full-table scan.
+
         Args:
             user_id: User ID for scoping
 
@@ -687,33 +772,13 @@ class StorageManager:
         """
         modified = get_current_timestamp()
 
-        # Scan all items for this user
-        response = self.table.scan(
-            FilterExpression="begins_with(PK, :user_prefix)",
-            ExpressionAttributeValues={
-                ":user_prefix": f"USER#{user_id}#",
-            },
-        )
-
-        # Delete all items
-        for item in response.get("Items", []):
-            self.table.delete_item(
-                Key={"PK": item["PK"], "SK": item["SK"]},
-            )
-
-        # Handle pagination if there are more items
-        while "LastEvaluatedKey" in response:
-            response = self.table.scan(
-                FilterExpression="begins_with(PK, :user_prefix)",
-                ExpressionAttributeValues={
-                    ":user_prefix": f"USER#{user_id}#",
-                },
-                ExclusiveStartKey=response["LastEvaluatedKey"],
-            )
-            for item in response.get("Items", []):
-                self.table.delete_item(
-                    Key={"PK": item["PK"], "SK": item["SK"]},
-                )
+        collections = self.list_collections(user_id)
+        for collection in collections:
+            try:
+                self.delete_collection(user_id, collection.name)
+            except CollectionNotFoundException:
+                # Collection was deleted concurrently; skip it
+                pass
 
         return modified
 
