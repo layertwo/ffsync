@@ -122,7 +122,7 @@ tools/                        # CLI tools for testing
 | AWS Lambda Powertools | Logging, APIGatewayRestResolver | Lambda |
 | dataclasses-json | Model serialization | Lambda |
 | PyJWT | JWT token handling | Lambda |
-| mohawk | HAWK authentication | Lambda |
+| cryptography | HAWK authentication (implemented directly) | Lambda |
 | boto3 | AWS SDK (DynamoDB, Secrets Manager) | Lambda |
 
 ## Gotchas
@@ -133,7 +133,13 @@ tools/                        # CLI tools for testing
 - **HAWK credentials**: Expire after 300 seconds - clients must refresh via Token Service
 - **Test structure**: Must mirror `src/` structure (e.g., `tests/routes/bso/test_read.py` ↔ `src/routes/bso/read.py`)
 - **Fixtures**: Use `mock_service_provider`, `mock_storage_manager` from `conftest.py`
-- **DynamoDB GSI**: `list_collections` uses `UserCollectionsIndex` GSI for efficient queries - collection metadata items include `user_id` attribute
+- **DynamoDB GSI**: `list_collections` uses `UserCollectionsIndex` GSI for efficient queries — collection metadata items include `user_id` attribute
+- **Never use `table.scan()` for user-scoped operations**: Scans read the entire table. Always use the GSI via `list_collections(user_id)` to query a single user's collections.
+- **Always paginate `table.query()` calls**: DynamoDB returns at most 1 MB per call. Follow `LastEvaluatedKey` in a loop (see `list_collections` for the pattern) or results will be silently truncated.
+- **Atomic metadata updates**: Use `update_item` with `ADD` for count/usage fields on existing collections — never `put_item`, which creates a read-modify-write race condition.
+- **BSO usage delta**: When updating a BSO in an existing collection, fetch the existing object first (`get_storage_object`) to compute the accurate usage delta (`new_len - old_len`).
+- **mypy type narrowing**: Use `if x is not None:` directly to narrow `Optional[T]` types. Derived boolean flags (`found = x is not None; if found: x.attr`) are not tracked by mypy and produce `union-attr` errors.
+- **DynamoDB stubber format**: `dynamodb_stubber.add_response()` expects DynamoDB wire format (`{"S": "...", "N": "..."}`) for response bodies — the resource layer auto-deserializes. Pass `None` as the third argument to skip expected-params validation.
 
 ### TypeScript/CDK
 - **Strict mode**: All code paths must return values
