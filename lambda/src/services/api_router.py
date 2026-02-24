@@ -2,7 +2,7 @@ import time
 from typing import Any, Sequence
 
 from aws_lambda_powertools import Logger
-from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.event_handler import APIGatewayRestResolver, CORSConfig, Response
 from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler, NextMiddleware
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
@@ -110,8 +110,9 @@ class ApiRouter:
         self,
         routes: list[BaseRoute],
         middlewares: Sequence[BaseMiddlewareHandler[Any]],
+        cors: CORSConfig | None = None,
     ):
-        self.app = APIGatewayRestResolver()
+        self.app = APIGatewayRestResolver(cors=cors)
         self._routes = routes
         self._middlewares = middlewares
 

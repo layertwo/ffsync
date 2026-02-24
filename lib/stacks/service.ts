@@ -327,6 +327,9 @@ export class ServiceStack extends Stack {
 
         openApiJson = openApiJson.replace(/CDK_LAMBDA_FUNCTION_ARN/g, handler.functionArn);
         openApiJson = openApiJson.replace(/CDK_API_ROLE_ARN/g, this.apiExecuteRole.roleArn);
+        openApiJson = openApiJson.replace(
+            /CDK_CORS_ORIGIN/g, `https://${this.stageBaseDomain}`,
+        );
 
         // Add HAWK authorizer to Storage API
         if (service === Service.STORAGE) {
