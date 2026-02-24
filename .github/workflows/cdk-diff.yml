@@ -46,6 +46,10 @@ jobs:
         working-directory: smithy
         run: ./gradlew smithyBuild
 
+      - name: Build frontend
+        working-directory: frontend
+        run: npm ci && npm run build
+
       - name: Build TypeScript
         run: npm run build
 

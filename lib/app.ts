@@ -2,6 +2,7 @@
 import {App} from "aws-cdk-lib";
 
 import {ACCOUNT_ID, REGION, StageType} from "./config";
+import {FrontendStack} from "./stacks/frontend";
 import {GitHubOidcStack} from "./stacks/github-oidc";
 import {MonitoringStack} from "./stacks/monitoring";
 import {ServiceStack} from "./stacks/service";
@@ -28,6 +29,11 @@ new GitHubOidcStack(app, "GitHubOidcStack", {
         storageApi: serviceStack.storageApi,
         storageHandler: serviceStack.storageHandler,
         storageTable: serviceStack.storageTable,
+    });
+
+    new FrontendStack(app, `Frontend-${stageType.toLowerCase()}`, {
+        env,
+        stageType,
     });
 });
 
