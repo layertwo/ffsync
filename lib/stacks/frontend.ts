@@ -6,6 +6,9 @@ import {IStringParameter} from "aws-cdk-lib/aws-ssm";
 import {Certificate, DnsValidatedCertificate} from "aws-cdk-lib/aws-certificatemanager";
 import {
     Distribution,
+    Function as CfFunction,
+    FunctionCode,
+    FunctionEventType,
     PriceClass,
     SecurityPolicyProtocol,
     ViewerProtocolPolicy,
@@ -73,10 +76,40 @@ export class FrontendStack extends Stack {
     }
 
     private buildDistribution(): Distribution {
+        const configJson = JSON.stringify({
+            auth_server_base_url: `https://${this.props.authApiDomain}`,
+            oauth_server_base_url: `https://${this.props.authApiDomain}`,
+            profile_server_base_url: `https://${this.props.authApiDomain}`,
+            sync_tokenserver_base_url: `https://${this.props.authApiDomain}`,
+        });
+
+        const wellKnownFn = new CfFunction(this, "WellKnownFunction", {
+            code: FunctionCode.fromInline([
+                "function handler(event) {",
+                "  if (event.request.uri === '/.well-known/fxa-client-configuration') {",
+                "    return {",
+                "      statusCode: 200,",
+                "      statusDescription: 'OK',",
+                "      headers: {",
+                "        'content-type': { value: 'application/json' },",
+                "        'cache-control': { value: 'public, max-age=3600' }",
+                "      },",
+                `      body: '${configJson}'`,
+                "    };",
+                "  }",
+                "  return event.request;",
+                "}",
+            ].join("\n")),
+        });
+
         const distribution = new Distribution(this, "Distribution", {
             defaultBehavior: {
                 origin: S3BucketOrigin.withOriginAccessControl(this.bucket),
                 viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                functionAssociations: [{
+                    function: wellKnownFn,
+                    eventType: FunctionEventType.VIEWER_REQUEST,
+                }],
             },
             domainNames: [this.domainName],
             certificate: this.certificate,
@@ -118,12 +151,6 @@ export class FrontendStack extends Stack {
                     redirectUri: `https://${this.domainName}`,
                     authServerUrl: `https://${this.props.authApiDomain}`,
                     scopes: ["openid", "profile", "email"],
-                }),
-                Source.jsonData(".well-known/fxa-client-configuration", {
-                    auth_server_base_url: `https://${this.props.authApiDomain}`,
-                    oauth_server_base_url: `https://${this.props.authApiDomain}`,
-                    profile_server_base_url: `https://${this.props.authApiDomain}`,
-                    sync_tokenserver_base_url: `https://${this.props.authApiDomain}`,
                 }),
             ],
             destinationBucket: this.bucket,
