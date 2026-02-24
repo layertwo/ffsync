@@ -1,10 +1,23 @@
 import { sanitizeExternal } from "./sanitize"
 
+export function getTokenServerBaseUrl(
+  tokenServerUrl?: string,
+  authServerUrl?: string
+): string {
+  const url = tokenServerUrl ?? authServerUrl
+  if (!url) {
+    throw new Error(
+      "No Token Server URL configured. Set tokenServerUrl or authServerUrl in config.json."
+    )
+  }
+  return url
+}
+
 export async function validateWithTokenServer(
-  tokenServerUrl: string,
+  baseUrl: string,
   accessToken: string
 ): Promise<void> {
-  const url = `${tokenServerUrl}/1.0/sync/1.5`
+  const url = `${baseUrl}/1.0/sync/1.5`
 
   let response: Response
   try {

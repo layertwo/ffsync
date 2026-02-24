@@ -2,7 +2,8 @@ export interface AppConfig {
   oidcProviderUrl: string
   clientId: string
   redirectUri: string
-  tokenServerUrl: string
+  tokenServerUrl?: string
+  authServerUrl?: string
   scopes: string[]
 }
 

@@ -29,7 +29,7 @@ describe("FrontendStack", () => {
         const stack = new FrontendStack(app, "TestFrontend", {
             env: {account: "123456789012", region: "us-west-2"},
             stageType: StageType.PROD,
-            tokenApiDomain: "api.example.com",
+            authApiDomain: "api.example.com",
             oidcProviderUrl: StringParameter.fromStringParameterName(helperStack, "OidcParam", "/test/oidc-url"),
             clientId: StringParameter.fromStringParameterName(helperStack, "ClientIdParam", "/test/client-id"),
         });

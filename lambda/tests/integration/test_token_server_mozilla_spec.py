@@ -75,7 +75,7 @@ class TestGetMethodTokenIssuance:
         }
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             # Mock DynamoDB operations
             # 1. UserManager.create_user() (optimistic create)
@@ -174,7 +174,7 @@ class TestGetMethodTokenIssuance:
         }
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             # Mock DynamoDB operations
             dynamodb_stubber.add_response(
@@ -260,7 +260,7 @@ class TestClientStateHistory:
         }
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             # Mock DynamoDB: create user with state1
             dynamodb_stubber.add_response(
@@ -303,7 +303,7 @@ class TestClientStateHistory:
         }
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             # Mock DynamoDB: create fails (user exists), then get user
             dynamodb_stubber.add_client_error(
@@ -420,7 +420,7 @@ class TestClientStateHistory:
         }
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             # Mock DynamoDB: create fails, then get user with history
             dynamodb_stubber.add_client_error(
@@ -507,7 +507,7 @@ class TestClientStateHistory:
         }
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             # Mock DynamoDB: create fails, then get user with non-empty history
             dynamodb_stubber.add_client_error(
@@ -584,7 +584,7 @@ class TestNewErrorStatuses:
         from src.shared.exceptions import InvalidTimestampError
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token",
+            "src.services.jwt_verifier.JWTVerifier.validate_token",
             side_effect=InvalidTimestampError("Token timestamp differs too much from server time"),
         ):
             response = token_handler(token_event, sample_lambda_context, mock_service_provider)
@@ -690,7 +690,7 @@ class TestNewErrorStatuses:
         from src.shared.exceptions import NewUsersDisabledError
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             with patch(
                 "src.services.user_manager.UserManager.get_or_create_user",
@@ -748,7 +748,7 @@ class TestResponseHeaders:
         }
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             # Mock DynamoDB operations
             dynamodb_stubber.add_response(
@@ -947,7 +947,7 @@ class TestNodeReset:
         }
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             # Mock DynamoDB: create user
             dynamodb_stubber.add_response(
@@ -991,7 +991,7 @@ class TestNodeReset:
         }
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             # Mock DynamoDB: create fails, get user, update user
             dynamodb_stubber.add_client_error(
@@ -1108,7 +1108,7 @@ class TestNodeReset:
         }
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             dynamodb_stubber.add_response(
                 "put_item",
@@ -1153,7 +1153,7 @@ class TestNodeReset:
         }
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             dynamodb_stubber.add_client_error(
                 "put_item",

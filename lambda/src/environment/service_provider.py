@@ -4,6 +4,19 @@ from functools import cached_property
 import boto3
 from aws_lambda_powertools.event_handler import CORSConfig
 
+from src.routes.auth.account_create import AccountCreateRoute
+from src.routes.auth.account_keys import AccountKeysRoute
+from src.routes.auth.account_login import AccountLoginRoute
+from src.routes.auth.account_profile import AccountProfileRoute
+from src.routes.auth.account_status import AccountStatusRoute
+from src.routes.auth.jwks import JWKSRoute
+from src.routes.auth.oauth_authorization import OAuthAuthorizationRoute
+from src.routes.auth.oauth_destroy import OAuthDestroyRoute
+from src.routes.auth.oauth_token import OAuthTokenRoute
+from src.routes.auth.oidc_discovery import OIDCDiscoveryRoute
+from src.routes.auth.scoped_key_data import ScopedKeyDataRoute
+from src.routes.auth.session_destroy import SessionDestroyRoute
+from src.routes.auth.session_status import SessionStatusRoute
 from src.routes.bso.delete import DeleteBSORoute
 from src.routes.bso.read import ReadBSORoute
 from src.routes.bso.update import UpdateBSORoute
@@ -21,7 +34,12 @@ from src.routes.storage.delete_all import DeleteAllStorageRoute
 from src.routes.storage.delete_root import DeleteAllRootRoute
 from src.routes.token.request import GetTokenRoute
 from src.services.api_router import ApiRouter, RequestLoggingMiddleware, WeaveTimestampMiddleware
+from src.services.auth_account_manager import AuthAccountManager
+from src.services.fxa_token_manager import FxATokenManager
 from src.services.hawk_service import HawkService
+from src.services.jwt_service import JWTService
+from src.services.jwt_verifier import JWTVerifier
+from src.services.oauth_code_manager import OAuthCodeManager
 from src.services.oidc_validator import OIDCValidator
 from src.services.storage_manager import StorageManager
 from src.services.token_generator import TokenGenerator
@@ -150,9 +168,53 @@ class ServiceProvider:
         """Create token generator with base URL from environment"""
         return TokenGenerator(storage_domain=self.storage_domain, hawk_service=self.hawk_service)
 
+    # Auth API properties
+
     @cached_property
-    def token_api_router(self):
-        """Create API router for Token API with RequestTokenRoute"""
+    def auth_table_name(self):
+        return os.environ.get("AUTH_TABLE_NAME")
+
+    @cached_property
+    def auth_table(self):
+        """DynamoDB Table for auth accounts, sessions, and OAuth codes"""
+        resource = self.session.resource("dynamodb")
+        return resource.Table(self.auth_table_name)
+
+    @cached_property
+    def auth_signing_key_id(self) -> str:
+        return os.environ["AUTH_SIGNING_KEY_ID"]
+
+    @cached_property
+    def kms_client(self):  # pragma: nocover
+        return self.session.client("kms")
+
+    @cached_property
+    def auth_account_manager(self) -> AuthAccountManager:
+        return AuthAccountManager(table=self.auth_table)
+
+    @cached_property
+    def fxa_token_manager(self) -> FxATokenManager:
+        return FxATokenManager(table=self.auth_table)
+
+    @cached_property
+    def oauth_code_manager(self) -> OAuthCodeManager:
+        return OAuthCodeManager(table=self.auth_table)
+
+    @cached_property
+    def jwt_service(self) -> JWTService:
+        return JWTService(
+            kms_client=self.kms_client,
+            signing_key_id=self.auth_signing_key_id,
+            issuer=f"https://auth.{self.base_domain}",
+        )
+
+    @cached_property
+    def jwt_verifier(self) -> JWTVerifier:
+        return JWTVerifier(jwt_service=self.jwt_service)
+
+    @cached_property
+    def auth_api_router(self):
+        """Create API router for Auth API with all FxA-compatible routes"""
         cors = CORSConfig(
             allow_origin=f"https://{self.base_domain}",
             allow_headers=["Authorization", "Content-Type", "X-Client-State"],
@@ -160,12 +222,53 @@ class ServiceProvider:
         )
         return ApiRouter(
             routes=[
+                # Token endpoint (sync token issuance)
                 GetTokenRoute(
-                    oidc_validator=self.oidc_validator,
+                    oidc_validator=self.jwt_verifier,
                     user_manager=self.user_manager,
                     token_generator=self.token_generator,
                     retry_after_seconds=self.retry_after_seconds,
                 ),
+                # Account routes
+                AccountStatusRoute(account_manager=self.auth_account_manager),
+                AccountCreateRoute(
+                    account_manager=self.auth_account_manager,
+                    token_manager=self.fxa_token_manager,
+                    oidc_validator=self.oidc_validator,
+                ),
+                AccountLoginRoute(
+                    account_manager=self.auth_account_manager,
+                    token_manager=self.fxa_token_manager,
+                ),
+                AccountKeysRoute(
+                    account_manager=self.auth_account_manager,
+                    token_manager=self.fxa_token_manager,
+                ),
+                AccountProfileRoute(
+                    account_manager=self.auth_account_manager,
+                    token_manager=self.fxa_token_manager,
+                ),
+                ScopedKeyDataRoute(
+                    account_manager=self.auth_account_manager,
+                    token_manager=self.fxa_token_manager,
+                ),
+                # Session routes
+                SessionStatusRoute(token_manager=self.fxa_token_manager),
+                SessionDestroyRoute(token_manager=self.fxa_token_manager),
+                # OAuth routes
+                OAuthAuthorizationRoute(
+                    token_manager=self.fxa_token_manager,
+                    oauth_code_manager=self.oauth_code_manager,
+                ),
+                OAuthTokenRoute(
+                    oauth_code_manager=self.oauth_code_manager,
+                    jwt_service=self.jwt_service,
+                    account_manager=self.auth_account_manager,
+                ),
+                OAuthDestroyRoute(oauth_code_manager=self.oauth_code_manager),
+                # Discovery routes
+                OIDCDiscoveryRoute(jwt_service=self.jwt_service),
+                JWKSRoute(jwt_service=self.jwt_service),
             ],
             middlewares=[WeaveTimestampMiddleware()],
             cors=cors,

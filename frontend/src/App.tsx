@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { Routes, Route, useSearchParams } from "react-router"
 import type { AppConfig, AppState, OIDCConfiguration } from "@/lib/types"
 import { checkBrowserCompatibility } from "@/lib/browser-check"
 import { loadConfig } from "@/lib/config"
@@ -9,15 +10,19 @@ import {
   initiateOAuthFlow,
   validateCallback,
 } from "@/lib/oauth"
-import { validateWithTokenServer } from "@/lib/token-server"
+import {
+  getTokenServerBaseUrl,
+  validateWithTokenServer,
+} from "@/lib/token-server"
 import * as session from "@/lib/session"
 import { LandingPage } from "@/components/LandingPage"
 import { LoadingPage } from "@/components/LoadingPage"
 import { SuccessPage } from "@/components/SuccessPage"
 import { ErrorPage } from "@/components/ErrorPage"
 import { BrowserWarning } from "@/components/BrowserWarning"
+import { SignInPage } from "@/components/SignInPage"
 
-export default function App() {
+function ManualSetupFlow() {
   const [appState, setAppState] = useState<AppState>({ kind: "initializing" })
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [oidc, setOidc] = useState<OIDCConfiguration | null>(null)
@@ -102,9 +107,13 @@ export default function App() {
           kind: "processing",
           message: "Validating with Token Server...",
         })
-        await validateWithTokenServer(cfg.tokenServerUrl, tokens.access_token)
+        const baseUrl = getTokenServerBaseUrl(
+          cfg.tokenServerUrl,
+          cfg.authServerUrl
+        )
+        await validateWithTokenServer(baseUrl, tokens.access_token)
 
-        const tokenServerUri = `${cfg.tokenServerUrl}/1.0/sync/1.5`
+        const tokenServerUri = `${baseUrl}/1.0/sync/1.5`
         session.clearAll()
         setAppState({ kind: "success", tokenServerUri })
       } catch (err) {
@@ -126,15 +135,11 @@ export default function App() {
   }
 
   if (!compatibility.allSupported) {
-    return (
-      <Layout>
-        <BrowserWarning compatibility={compatibility} />
-      </Layout>
-    )
+    return <BrowserWarning compatibility={compatibility} />
   }
 
   return (
-    <Layout>
+    <>
       {appState.kind === "initializing" && (
         <LoadingPage message="Loading configuration..." />
       )}
@@ -158,6 +163,60 @@ export default function App() {
           onRestart={handleRestart}
         />
       )}
+    </>
+  )
+}
+
+function FxAFlow() {
+  const [searchParams] = useSearchParams()
+  const [config, setConfig] = useState<AppConfig | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const initialized = useRef(false)
+
+  useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
+    loadConfig().then(setConfig).catch((err) => setError(String(err)))
+  }, [])
+
+  if (error) {
+    return (
+      <ErrorPage
+        title="Configuration Error"
+        message={error}
+        onRestart={() => window.location.reload()}
+      />
+    )
+  }
+
+  if (!config) {
+    return <LoadingPage message="Loading configuration..." />
+  }
+
+  return (
+    <SignInPage
+      config={config}
+      action={searchParams.get("action") ?? "signin"}
+      service={searchParams.get("service") ?? undefined}
+      state={searchParams.get("state") ?? undefined}
+      codeChallenge={searchParams.get("code_challenge") ?? undefined}
+      clientId={searchParams.get("client_id") ?? config.clientId}
+      scope={
+        searchParams.get("scope") ??
+        "https://identity.mozilla.com/apps/oldsync profile"
+      }
+    />
+  )
+}
+
+export default function App() {
+  return (
+    <Layout>
+      <Routes>
+        <Route path="/signin" element={<FxAFlow />} />
+        <Route path="/signup" element={<FxAFlow />} />
+        <Route path="*" element={<ManualSetupFlow />} />
+      </Routes>
     </Layout>
   )
 }

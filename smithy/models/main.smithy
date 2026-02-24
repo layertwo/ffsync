@@ -52,10 +52,10 @@ service StorageService {
 
 @cors(
     origin: "CDK_CORS_ORIGIN"
-    additionalAllowedHeaders: ["Authorization", "X-Client-State"]
+    additionalAllowedHeaders: ["Authorization", "Content-Type", "X-Client-State"]
 )
 @restJson1
-@documentation("Firefox Sync Token Server - Issues authentication tokens for accessing the Storage API")
+@documentation("Firefox Sync Auth Server - FxA-compatible authentication and token issuance")
 @integration(
     type: "aws_proxy"
     uri: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/CDK_LAMBDA_FUNCTION_ARN/invocations"
@@ -64,10 +64,17 @@ service StorageService {
     timeoutInMillis: 29000
 )
 @requestValidator("full")
-service TokenService {
+service AuthService {
     version: "1.0"
+    resources: [
+        Account
+        Session
+        OAuth
+    ]
     operations: [
         GetToken
+        OIDCDiscovery
+        JWKS
     ]
     errors: [
         AuthenticationException

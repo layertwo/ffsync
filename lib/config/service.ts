@@ -1,4 +1,4 @@
 export enum Service {
-    TOKEN = "token",
+    AUTH = "auth",
     STORAGE = "storage",
 }

@@ -1,7 +1,7 @@
 """AWS service fixtures with botocore stubbing"""
 
 from typing import Generator
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import boto3
 import pytest
@@ -112,6 +112,8 @@ def boto_resource_patch(
     def client(service, *args, **kwargs):
         if service == "dynamodb":
             return dynamodb_client
+        if service == "kms":
+            return MagicMock()
 
         raise ValueError(f"client for {service} not recognized")
 

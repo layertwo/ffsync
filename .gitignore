@@ -12,3 +12,4 @@ __pycache__
 lambda/.coverage
 lambda/coverage.xml
 *.tsbuildinfo
+docs/
