@@ -56,7 +56,7 @@ describe("FrontendStack", () => {
         // DnsValidatedCertificate creates a custom resource instead of a native
         // AWS::CertificateManager::Certificate resource.
         template.hasResourceProperties("AWS::CloudFormation::CustomResource", {
-            DomainName: "ffsync.layertwo.dev",
+            DomainName: "prod.ffsync.layertwo.dev",
             Region: "us-east-1",
         });
     });

@@ -29,7 +29,7 @@ export class FrontendStack extends Stack {
     private readonly certificate: Certificate;
     public readonly distribution: Distribution;
 
-    private get endpoint(): string {
+    private get domainName(): string {
         return `${this.props.stageType.toLowerCase()}.${BASE_DOMAIN}`;
     }
 
@@ -62,7 +62,7 @@ export class FrontendStack extends Stack {
         // certificate creation in a single stack. CloudFront requires us-east-1.
         // TODO: Migrate to a separate us-east-1 certificate stack when upgrading CDK.
         return new DnsValidatedCertificate(this, "Certificate", {
-            domainName: this.endpoint,
+            domainName: this.domainName,
             hostedZone: this.hostedZone,
             region: "us-east-1",
         });
@@ -74,7 +74,7 @@ export class FrontendStack extends Stack {
                 origin: S3BucketOrigin.withOriginAccessControl(this.bucket),
                 viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
             },
-            domainNames: [BASE_DOMAIN],
+            domainNames: [this.domainName],
             certificate: this.certificate,
             defaultRootObject: "index.html",
             minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021,
@@ -100,7 +100,7 @@ export class FrontendStack extends Stack {
             new RecordSet(this, `${recordType}RecordSet`, {
                 recordType,
                 zone: this.hostedZone,
-                recordName: this.endpoint,
+                recordName: this.domainName,
                 target: RecordTarget.fromAlias(new CloudFrontTarget(distribution)),
             });
         });
