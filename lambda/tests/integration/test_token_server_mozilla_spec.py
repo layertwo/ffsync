@@ -27,7 +27,6 @@ class TestGetMethodTokenIssuance:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -42,16 +41,6 @@ class TestGetMethodTokenIssuance:
 
         **Validates: Requirement 1.1**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         # Mock OIDC token validation
         user_id = "test-user-get-method"
         client_state = "test-client-state-123"
@@ -149,7 +138,6 @@ class TestGetMethodTokenIssuance:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -157,16 +145,6 @@ class TestGetMethodTokenIssuance:
 
         **Validates: Requirement 1.1**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         user_id = "test-user-spec"
         mock_oidc_token = "mock.oidc.token"
 
@@ -238,7 +216,6 @@ class TestClientStateHistory:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -252,16 +229,6 @@ class TestClientStateHistory:
 
         **Validates: Requirements 13.2, 13.8**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         user_id = "test-user-state-change"
         mock_oidc_token = "mock.oidc.token"
 
@@ -321,11 +288,6 @@ class TestClientStateHistory:
             uid_1 = body_1["uid"]
 
         # Second request with client_state "state2" (different)
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         token_event_2 = {
             "httpMethod": "GET",
             "path": "/1.0/sync/1.5",
@@ -416,7 +378,6 @@ class TestClientStateHistory:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -429,16 +390,6 @@ class TestClientStateHistory:
 
         **Validates: Requirement 13.6**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         user_id = "test-user-reused-state"
         mock_oidc_token = "mock.oidc.token"
 
@@ -513,7 +464,6 @@ class TestClientStateHistory:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -526,16 +476,6 @@ class TestClientStateHistory:
 
         **Validates: Requirement 13.7**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         user_id = "test-user-empty-state"
         mock_oidc_token = "mock.oidc.token"
 
@@ -614,7 +554,6 @@ class TestNewErrorStatuses:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -626,16 +565,6 @@ class TestNewErrorStatuses:
 
         **Validates: Requirement 6.6, 18.2**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         mock_oidc_token = "mock.oidc.token"
 
         token_event = {
@@ -670,7 +599,6 @@ class TestNewErrorStatuses:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -694,7 +622,6 @@ class TestNewErrorStatuses:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -715,7 +642,6 @@ class TestNewErrorStatuses:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
         monkeypatch,
     ):
@@ -731,16 +657,6 @@ class TestNewErrorStatuses:
         """
         # Set environment variable to disable new users
         monkeypatch.setenv("NEW_USERS_ENABLED", "false")
-
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
 
         user_id = "test-user-new-disabled"
         mock_oidc_token = "mock.oidc.token"
@@ -796,7 +712,6 @@ class TestResponseHeaders:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -804,16 +719,6 @@ class TestResponseHeaders:
 
         **Validates: Requirement 14.1**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         user_id = "test-user-timestamp-200"
         mock_oidc_token = "mock.oidc.token"
 
@@ -888,7 +793,6 @@ class TestResponseHeaders:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -896,16 +800,6 @@ class TestResponseHeaders:
 
         **Validates: Requirement 14.2**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         # Request without Authorization header (triggers 401)
         token_event = {
             "httpMethod": "GET",
@@ -937,7 +831,6 @@ class TestResponseHeaders:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -945,16 +838,6 @@ class TestResponseHeaders:
 
         **Validates: Requirement 16.1**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         # Request without Authorization header (triggers 401)
         token_event = {
             "httpMethod": "GET",
@@ -984,7 +867,6 @@ class TestResponseHeaders:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -992,16 +874,6 @@ class TestResponseHeaders:
 
         **Validates: Requirements 14.2, 16.1**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         # Request without Authorization header
         token_event = {
             "httpMethod": "GET",
@@ -1032,7 +904,6 @@ class TestNodeReset:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -1045,16 +916,6 @@ class TestNodeReset:
 
         **Validates: Requirement 2.4**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         user_id = "test-user-node-reset"
         mock_oidc_token = "mock.oidc.token"
 
@@ -1115,11 +976,6 @@ class TestNodeReset:
             api_endpoint_1 = body_1["api_endpoint"]
 
         # Second request with client_state "state2"
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         token_event_2 = {
             "httpMethod": "GET",
             "path": "/1.0/sync/1.5",
@@ -1214,7 +1070,6 @@ class TestNodeReset:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -1222,16 +1077,6 @@ class TestNodeReset:
 
         **Validates: Requirement 2.4**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         user_id = "test-user-endpoint-reset"
         mock_oidc_token = "mock.oidc.token"
 
@@ -1293,11 +1138,6 @@ class TestNodeReset:
             assert "/1.5/" in api_endpoint_1
 
         # Second request with different client state
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         token_event_2 = {
             "httpMethod": "GET",
             "path": "/1.0/sync/1.5",

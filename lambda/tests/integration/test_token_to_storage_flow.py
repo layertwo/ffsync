@@ -30,7 +30,6 @@ class TestTokenServerToStorageServerFlow:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -51,16 +50,6 @@ class TestTokenServerToStorageServerFlow:
         **Validates: Requirements 4.5, 12.1, 12.2, 12.3**
         """
         # ===== Step 1-6: Token Server Issues HAWK Credentials =====
-
-        # Mock OIDC configuration retrieval
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
 
         # Mock OIDC token validation (we'll mock the entire validation process)
         user_id = "test-user-123"
@@ -257,7 +246,6 @@ class TestTokenServerToStorageServerFlow:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """
@@ -270,16 +258,6 @@ class TestTokenServerToStorageServerFlow:
 
         **Validates: Requirement 4.5**
         """
-        # Mock OIDC configuration
-        oidc_config = {
-            "provider_url": "https://auth.example.com",
-            "client_id": "test-client-id",
-        }
-        secretsmanager_stubber.add_response(
-            "get_secret_value",
-            {"SecretString": json.dumps(oidc_config)},
-        )
-
         # Mock OIDC token validation
         user_id = "test-user-456"
         mock_oidc_token = "mock.oidc.token"
@@ -410,7 +388,6 @@ class TestTokenServerToStorageServerFlow:
         self,
         mock_service_provider,
         dynamodb_stubber,
-        secretsmanager_stubber,
         sample_lambda_context,
     ):
         """

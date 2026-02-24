@@ -26,8 +26,13 @@ def token_users_table_name():
 
 
 @pytest.fixture
-def oidc_secret_arn():
-    return "arn:aws:secretsmanager:us-east-1:123456789012:secret:test-oidc-config"
+def oidc_provider_url():
+    return "https://auth.example.com"
+
+
+@pytest.fixture
+def oidc_client_id():
+    return "test-client-id"
 
 
 @pytest.fixture
@@ -50,7 +55,8 @@ def setup_environment(
     storage_table_name,
     token_users_table_name,
     token_cache_table_name,
-    oidc_secret_arn,
+    oidc_provider_url,
+    oidc_client_id,
     base_domain,
 ):
     """Mock environment variables"""
@@ -61,7 +67,8 @@ def setup_environment(
     monkeypatch.setenv("STORAGE_TABLE_NAME", storage_table_name)
     monkeypatch.setenv("TOKEN_USERS_TABLE_NAME", token_users_table_name)
     monkeypatch.setenv("TOKEN_CACHE_TABLE_NAME", token_cache_table_name)
-    monkeypatch.setenv("OIDC_SECRET_ARN", oidc_secret_arn)
+    monkeypatch.setenv("OIDC_PROVIDER_URL", oidc_provider_url)
+    monkeypatch.setenv("OIDC_CLIENT_ID", oidc_client_id)
     monkeypatch.setenv("BASE_DOMAIN", base_domain)
     monkeypatch.setenv("CLOCK_SKEW_TOLERANCE", "300")
     monkeypatch.setenv("HAWK_TIMESTAMP_SKEW_TOLERANCE", "60")
@@ -69,37 +76,9 @@ def setup_environment(
     monkeypatch.setenv("TOKEN_DURATION", "300")
 
 
-class MockServiceProvider(ServiceProvider):
-    def __init__(self, boto_session):
-        """
-        Args:
-            boto_session: The test boto3.Session
-        """
-        self._mock_session = boto_session
-
-    @property
-    def session(self):
-        """Override to return test session"""
-        return self._mock_session
-
-
 @pytest.fixture
 def mock_service_provider(boto_session):
-    """
-    Fixture providing MockServiceProvider with stubbed AWS clients.
-
-    The secretsmanager_client is injected into the provider's __dict__,
-    bypassing the @cached_property so the stubbed client is used.
-
-    Usage:
-        def test_integration(mock_service_provider, secretsmanager_stubber):
-            # Add stubbed Secrets Manager responses
-            secretsmanager_stubber.add_response('get_secret_value', {...})
-
-            # Pass directly to lambda handler
-            result = lambda_handler(event, context, service_provider=mock_service_provider)
-    """
-    return MockServiceProvider(boto_session)
+    return ServiceProvider()
 
 
 @pytest.fixture

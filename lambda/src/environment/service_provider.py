@@ -1,4 +1,3 @@
-import json
 import os
 from functools import cached_property
 
@@ -91,8 +90,12 @@ class ServiceProvider:
     # Token API properties
 
     @cached_property
-    def oidc_secret_arn(self):
-        return os.environ.get("OIDC_SECRET_ARN")
+    def oidc_provider_url(self) -> str:
+        return os.environ["OIDC_PROVIDER_URL"]
+
+    @cached_property
+    def oidc_client_id(self) -> str:
+        return os.environ["OIDC_CLIENT_ID"]
 
     @cached_property
     def base_domain(self):
@@ -101,22 +104,6 @@ class ServiceProvider:
     @cached_property
     def storage_domain(self) -> str:
         return f"storage.{self.base_domain}"
-
-    @cached_property
-    def secretsmanager_client(self):  # pragma: nocover
-        """Create Secrets Manager client"""
-        return self.session.client("secretsmanager")
-
-    @cached_property
-    def oidc_config(self) -> dict:
-        """
-        Fetch OIDC configuration from Secrets Manager.
-
-        Returns:
-            dict with 'provider_url' and 'client_id' keys
-        """
-        response = self.secretsmanager_client.get_secret_value(SecretId=self.oidc_secret_arn)
-        return json.loads(response["SecretString"])
 
     @cached_property
     def clock_skew_tolerance(self) -> int:
@@ -149,10 +136,10 @@ class ServiceProvider:
 
     @cached_property
     def oidc_validator(self) -> OIDCValidator:
-        """Create OIDC validator with configuration from Secrets Manager"""
+        """Create OIDC validator with configuration from environment variables"""
         return OIDCValidator(
-            provider_url=self.oidc_config["provider_url"],
-            client_id=self.oidc_config["client_id"],
+            provider_url=self.oidc_provider_url,
+            client_id=self.oidc_client_id,
             clock_skew_tolerance=self.clock_skew_tolerance,
             cache_ttl_seconds=self.oidc_cache_ttl_seconds,
         )

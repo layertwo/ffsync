@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Runtime config (generated at deploy time, copied from .example for local dev)
+public/config.json
