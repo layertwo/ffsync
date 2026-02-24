@@ -13,10 +13,10 @@
                 }
             }
         },
-        "token": {
+        "auth": {
             "plugins": {
                 "openapi": {
-                    "service": "layertwo.ffsync#TokenService",
+                    "service": "layertwo.ffsync#AuthService",
                     "protocol": "aws.protocols#restJson1",
                     "version": "3.0.2",
                     "apiGatewayType": "REST",

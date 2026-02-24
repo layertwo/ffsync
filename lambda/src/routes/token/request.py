@@ -6,7 +6,6 @@ from dataclasses import asdict
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
-from src.services.oidc_validator import OIDCValidator
 from src.services.token_generator import TokenGenerator
 from src.services.user_manager import UserManager
 from src.shared.base_route import BaseRoute
@@ -33,12 +32,12 @@ class GetTokenRoute(BaseRoute):
 
     def __init__(
         self,
-        oidc_validator: OIDCValidator,
+        oidc_validator,
         user_manager: UserManager,
         token_generator: TokenGenerator,
         retry_after_seconds: int = 30,
     ):
-        self.oidc_validator = oidc_validator
+        self.oidc_validator = oidc_validator  # OIDCValidator or JWTVerifier
         self.user_manager = user_manager
         self.token_generator = token_generator
         self.retry_after_seconds = retry_after_seconds

@@ -1,0 +1,119 @@
+import { deriveSessionTokenId } from "./fxa-crypto"
+
+interface AccountStatusResponse {
+  exists: boolean
+}
+
+interface AccountResponse {
+  uid: string
+  sessionToken: string
+  keyFetchToken: string
+  verified: boolean
+}
+
+interface OAuthCodeResponse {
+  code: string
+  state: string
+  redirect: string
+}
+
+async function authFetch<T>(
+  url: string,
+  options: RequestInit
+): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(url, options)
+  } catch {
+    throw new Error(`Network error connecting to auth server at ${url}`)
+  }
+
+  if (!response.ok) {
+    let detail = ""
+    try {
+      const body = await response.json()
+      detail = body.message ?? body.error ?? response.statusText
+    } catch {
+      detail = response.statusText
+    }
+    throw new Error(
+      `Auth server error (${response.status}): ${detail}`
+    )
+  }
+
+  return (await response.json()) as T
+}
+
+export async function checkAccountStatus(
+  authServerUrl: string,
+  email: string
+): Promise<AccountStatusResponse> {
+  const params = new URLSearchParams({ email })
+  return authFetch<AccountStatusResponse>(
+    `${authServerUrl}/v1/account/status?${params}`,
+    { method: "GET" }
+  )
+}
+
+export async function createAccount(
+  authServerUrl: string,
+  email: string,
+  authPW: string,
+  oidcToken: string
+): Promise<AccountResponse> {
+  return authFetch<AccountResponse>(
+    `${authServerUrl}/v1/account/create`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${oidcToken}`,
+      },
+      body: JSON.stringify({ email, authPW }),
+    }
+  )
+}
+
+export async function login(
+  authServerUrl: string,
+  email: string,
+  authPW: string
+): Promise<AccountResponse> {
+  return authFetch<AccountResponse>(
+    `${authServerUrl}/v1/account/login?keys=true`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, authPW }),
+    }
+  )
+}
+
+export async function requestOAuthCode(
+  authServerUrl: string,
+  sessionToken: string,
+  clientId: string,
+  scope: string,
+  state: string,
+  codeChallenge: string
+): Promise<OAuthCodeResponse> {
+  const tokenId = await deriveSessionTokenId(sessionToken)
+  return authFetch<OAuthCodeResponse>(
+    `${authServerUrl}/v1/oauth/authorization`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Hawk id="${tokenId}"`,
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        scope,
+        state,
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
+        access_type: "offline",
+      }),
+    }
+  )
+}

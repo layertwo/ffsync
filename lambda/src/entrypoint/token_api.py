@@ -32,4 +32,4 @@ def lambda_handler(
     """
     if service_provider is None:  # pragma: nocover
         service_provider = ServiceProvider()
-    return service_provider.token_api_router.handler(event, context)
+    return service_provider.auth_api_router.handler(event, context)

@@ -22,6 +22,7 @@ import {
     TableEncryption,
 } from "aws-cdk-lib/aws-dynamodb";
 import {Role, ServicePrincipal} from "aws-cdk-lib/aws-iam";
+import {Key, KeySpec, KeyUsage} from "aws-cdk-lib/aws-kms";
 import {Architecture, IFunction, Runtime} from "aws-cdk-lib/aws-lambda";
 import {LogGroup, RetentionDays} from "aws-cdk-lib/aws-logs";
 import {
@@ -55,15 +56,17 @@ export class ServiceStack extends Stack {
         return `${this.props.stageType.toLowerCase()}.${BASE_DOMAIN}`;
     }
 
-    public get tokenApiDomain(): string {
-        return `${Service.TOKEN}.${this.props.stageType}.${BASE_DOMAIN}`;
+    public get authApiDomain(): string {
+        return `${Service.AUTH}.${this.props.stageType}.${BASE_DOMAIN}`;
     }
 
-    // Token Service
+    // Auth Service
     public readonly tokenUsersTable: Table;
     public readonly tokenCacheTable: Table;
-    public readonly tokenHandler: IFunction;
-    public readonly tokenApi: SpecRestApi;
+    public readonly authTable: Table;
+    public readonly signingKey: Key;
+    public readonly authHandler: IFunction;
+    public readonly authApi: SpecRestApi;
 
     // Storage Service
     public readonly storageTable: Table;
@@ -92,15 +95,19 @@ export class ServiceStack extends Stack {
         // Tables
         this.tokenUsersTable = this.buildTokenUsersTable();
         this.tokenCacheTable = this.buildTokenCacheTable();
+        this.authTable = this.buildAuthTable();
         this.storageTable = this.buildStorageTable();
+
+        // KMS
+        this.signingKey = this.buildSigningKey();
 
         // Handlers
         this.hawkAuthorizerHandler = this.buildHawkAuthorizerHandler();
-        this.tokenHandler = this.buildTokenApiHandler();
+        this.authHandler = this.buildAuthApiHandler();
         this.storageHandler = this.buildStorageApiHandler();
 
         // APIs
-        this.tokenApi = this.buildApi(Service.TOKEN, this.tokenHandler);
+        this.authApi = this.buildApi(Service.AUTH, this.authHandler);
         this.storageApi = this.buildApi(Service.STORAGE, this.storageHandler);
     }
 
@@ -175,6 +182,29 @@ export class ServiceStack extends Stack {
         return table;
     }
 
+    private buildAuthTable(): Table {
+        return new Table(this, "AuthTable", {
+            tableName: `ffsync-auth-${this.props.stageType.toLowerCase()}`,
+            partitionKey: {name: "PK", type: AttributeType.STRING},
+            billingMode: BillingMode.PAY_PER_REQUEST,
+            encryption: TableEncryption.AWS_MANAGED,
+            timeToLiveAttribute: "expiry",
+            pointInTimeRecoverySpecification: {
+                pointInTimeRecoveryEnabled: true,
+            },
+            removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
+        });
+    }
+
+    private buildSigningKey(): Key {
+        return new Key(this, "AuthSigningKey", {
+            alias: `ffsync-auth-signing-${this.props.stageType.toLowerCase()}`,
+            keySpec: KeySpec.RSA_2048,
+            keyUsage: KeyUsage.SIGN_VERIFY,
+            description: "Signs OAuth JWTs for the FxA auth server",
+        });
+    }
+
     private buildHawkAuthorizerHandler(): PythonFunction {
         const fn = new PythonFunction(this, "HawkAuthorizerHandler", {
             entry: path.join(__dirname, "../../lambda"),
@@ -225,14 +255,14 @@ export class ServiceStack extends Stack {
         return fn;
     }
 
-    private buildTokenApiHandler(): PythonFunction {
-        const fn = new PythonFunction(this, "TokenApiHandler", {
+    private buildAuthApiHandler(): PythonFunction {
+        const fn = new PythonFunction(this, "AuthApiHandler", {
             entry: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
             runtime: Runtime.PYTHON_3_14,
             architecture: Architecture.ARM_64,
-            handler: "token_api_handler",
-            functionName: `ffsync-token-api-${this.props.stageType.toLowerCase()}`,
+            handler: "auth_api_handler",
+            functionName: `ffsync-auth-api-${this.props.stageType.toLowerCase()}`,
             timeout: Duration.seconds(29),
             memorySize: 512,
             environment: {
@@ -242,6 +272,8 @@ export class ServiceStack extends Stack {
                 OIDC_CLIENT_ID: this.clientIdParam.stringValue,
                 TOKEN_USERS_TABLE_NAME: this.tokenUsersTable.tableName,
                 TOKEN_CACHE_TABLE_NAME: this.tokenCacheTable.tableName,
+                AUTH_TABLE_NAME: this.authTable.tableName,
+                AUTH_SIGNING_KEY_ID: this.signingKey.keyId,
                 CLOCK_SKEW_TOLERANCE: "300",
                 OIDC_CACHE_TTL_SECONDS: "3600",
                 HAWK_TIMESTAMP_SKEW_TOLERANCE: "60",
@@ -253,6 +285,9 @@ export class ServiceStack extends Stack {
         // Grant permissions
         this.tokenUsersTable.grantReadWriteData(fn);
         this.tokenCacheTable.grantReadWriteData(fn);
+        this.authTable.grantReadWriteData(fn);
+        this.signingKey.grantSign(fn);
+        this.signingKey.grant(fn, "kms:GetPublicKey");
         fn.grantInvoke(this.apiExecuteRole);
 
         return fn;

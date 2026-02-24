@@ -88,7 +88,7 @@ class TestTokenServerToStorageServerFlow:
         )
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             # Mock DynamoDB operations for user management
             # Note: Stubs are consumed in order, so we must match the exact sequence
@@ -288,7 +288,7 @@ class TestTokenServerToStorageServerFlow:
         }
 
         with patch(
-            "src.services.oidc_validator.OIDCValidator.validate_token", return_value=mock_claims
+            "src.services.jwt_verifier.JWTVerifier.validate_token", return_value=mock_claims
         ):
             # Mock user lookup (existing user)
             # UserManager.get_or_create_user() tries create_user() first, which will fail

@@ -4,7 +4,6 @@ const REQUIRED_FIELDS: (keyof AppConfig)[] = [
   "oidcProviderUrl",
   "clientId",
   "redirectUri",
-  "tokenServerUrl",
 ]
 
 export async function loadConfig(): Promise<AppConfig> {
@@ -23,12 +22,23 @@ export async function loadConfig(): Promise<AppConfig> {
     )
   }
 
+  if (!config.tokenServerUrl && !config.authServerUrl) {
+    throw new Error(
+      "Configuration must include either tokenServerUrl or authServerUrl."
+    )
+  }
+
   if (!config.scopes || config.scopes.length === 0) {
     config.scopes = ["openid", "profile", "email"]
   }
 
   config.oidcProviderUrl = config.oidcProviderUrl.replace(/\/+$/, "")
-  config.tokenServerUrl = config.tokenServerUrl.replace(/\/+$/, "")
+  if (config.tokenServerUrl) {
+    config.tokenServerUrl = config.tokenServerUrl.replace(/\/+$/, "")
+  }
+  if (config.authServerUrl) {
+    config.authServerUrl = config.authServerUrl.replace(/\/+$/, "")
+  }
 
   return config
 }

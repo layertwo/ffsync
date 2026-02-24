@@ -74,6 +74,8 @@ def setup_environment(
     monkeypatch.setenv("HAWK_TIMESTAMP_SKEW_TOLERANCE", "60")
     monkeypatch.setenv("RETRY_AFTER_SECONDS", "30")
     monkeypatch.setenv("TOKEN_DURATION", "300")
+    monkeypatch.setenv("AUTH_TABLE_NAME", "test-auth-table")
+    monkeypatch.setenv("AUTH_SIGNING_KEY_ID", "test-signing-key-id")
 
 
 @pytest.fixture

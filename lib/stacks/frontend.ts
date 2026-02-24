@@ -20,7 +20,7 @@ import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
 
 export interface FrontendStackProps extends StackProps {
     stageType: StageType;
-    tokenApiDomain: string;
+    authApiDomain: string;
     oidcProviderUrl: IStringParameter;
     clientId: IStringParameter;
 }
@@ -116,8 +116,14 @@ export class FrontendStack extends Stack {
                     oidcProviderUrl: this.props.oidcProviderUrl.stringValue,
                     clientId: this.props.clientId.stringValue,
                     redirectUri: `https://${this.domainName}`,
-                    tokenServerUrl: `https://${this.props.tokenApiDomain}`,
+                    authServerUrl: `https://${this.props.authApiDomain}`,
                     scopes: ["openid", "profile", "email"],
+                }),
+                Source.jsonData(".well-known/fxa-client-configuration", {
+                    auth_server_base_url: `https://${this.props.authApiDomain}`,
+                    oauth_server_base_url: `https://${this.props.authApiDomain}`,
+                    profile_server_base_url: `https://${this.props.authApiDomain}`,
+                    sync_tokenserver_base_url: `https://${this.props.authApiDomain}`,
                 }),
             ],
             destinationBucket: this.bucket,
