@@ -34,6 +34,9 @@ new GitHubOidcStack(app, "GitHubOidcStack", {
     new FrontendStack(app, `Frontend-${stageType.toLowerCase()}`, {
         env,
         stageType,
+        tokenApiDomain: serviceStack.tokenApiDomain,
+        oidcProviderUrl: serviceStack.oidcProviderUrlParam,
+        clientId: serviceStack.clientIdParam,
     });
 });
 

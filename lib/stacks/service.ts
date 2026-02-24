@@ -32,7 +32,7 @@ import {
     RecordType,
 } from "aws-cdk-lib/aws-route53";
 import {ApiGateway} from "aws-cdk-lib/aws-route53-targets";
-import {Secret} from "aws-cdk-lib/aws-secretsmanager";
+import {IStringParameter, StringParameter} from "aws-cdk-lib/aws-ssm";
 
 import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
 import {Service} from "../config/service";
@@ -48,8 +48,15 @@ export class ServiceStack extends Stack {
     private readonly hostedZone: IHostedZone;
     private readonly apiExecuteRole: Role;
 
+    public readonly oidcProviderUrlParam: IStringParameter;
+    public readonly clientIdParam: IStringParameter;
+
     private get stageBaseDomain(): string {
         return `${this.props.stageType.toLowerCase()}.${BASE_DOMAIN}`;
+    }
+
+    public get tokenApiDomain(): string {
+        return `${Service.TOKEN}.${this.props.stageType}.${BASE_DOMAIN}`;
     }
 
     // Token Service
@@ -74,6 +81,13 @@ export class ServiceStack extends Stack {
             zoneName: BASE_DOMAIN,
         });
         this.apiExecuteRole = this.buildApiExecuteRole();
+
+        this.oidcProviderUrlParam = StringParameter.fromStringParameterName(
+            this, "OidcProviderUrl", `/ffsync/${props.stageType.toLowerCase()}/oidc-provider-url`,
+        );
+        this.clientIdParam = StringParameter.fromStringParameterName(
+            this, "ClientId", `/ffsync/${props.stageType.toLowerCase()}/client-id`,
+        );
 
         // Tables
         this.tokenUsersTable = this.buildTokenUsersTable();
@@ -212,11 +226,6 @@ export class ServiceStack extends Stack {
     }
 
     private buildTokenApiHandler(): PythonFunction {
-        const oidcSecret = new Secret(this, "OidcSecret", {
-            secretName: `ffsync-oidc-config-${this.props.stageType.toLowerCase()}`,
-            description: "OIDC provider configuration for Token Server",
-        });
-
         const fn = new PythonFunction(this, "TokenApiHandler", {
             entry: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
@@ -229,7 +238,8 @@ export class ServiceStack extends Stack {
             environment: {
                 STAGE: this.props.stageType.toLowerCase(),
                 BASE_DOMAIN: this.stageBaseDomain,
-                OIDC_SECRET_ARN: oidcSecret.secretArn,
+                OIDC_PROVIDER_URL: this.oidcProviderUrlParam.stringValue,
+                OIDC_CLIENT_ID: this.clientIdParam.stringValue,
                 TOKEN_USERS_TABLE_NAME: this.tokenUsersTable.tableName,
                 TOKEN_CACHE_TABLE_NAME: this.tokenCacheTable.tableName,
                 CLOCK_SKEW_TOLERANCE: "300",
@@ -241,7 +251,6 @@ export class ServiceStack extends Stack {
         });
 
         // Grant permissions
-        oidcSecret.grantRead(fn);
         this.tokenUsersTable.grantReadWriteData(fn);
         this.tokenCacheTable.grantReadWriteData(fn);
         fn.grantInvoke(this.apiExecuteRole);

@@ -82,34 +82,6 @@ def dynamodb_table(boto_session, dynamodb_stubber, storage_table_name):
     return table
 
 
-@pytest.fixture
-def secretsmanager_client(boto_session):
-    """
-    Provides a Secrets Manager client for stubbing.
-
-    This client is created once and can be stubbed, then injected
-    into the ServiceProvider via MockServiceProvider.
-    """
-    return boto_session.client("secretsmanager")
-
-
-@pytest.fixture
-def secretsmanager_stubber(secretsmanager_client):
-    """
-    Provides a Secrets Manager client with botocore Stubber for testing.
-
-    Usage:
-        def test_secrets(secretsmanager_stubber):
-            secretsmanager_stubber.add_response(
-                'get_secret_value',
-                {'SecretString': '{"key": "value"}'},
-                {'SecretId': 'my-secret-arn'}
-            )
-    """
-    with Stubber(secretsmanager_client) as stubber:
-        yield stubber
-
-
 @pytest.fixture(autouse=True)
 def boto_session(aws_region_name, aws_access_key_id, aws_secret_access_key, aws_session_token):
     # Load internal service models before creating a boto session
@@ -135,13 +107,11 @@ def boto_session_patch(boto_session):
 
 @pytest.fixture(autouse=True)
 def boto_resource_patch(
-    boto_session, boto_session_patch, dynamodb_client, dynamodb_resource, secretsmanager_client
+    boto_session, boto_session_patch, dynamodb_client, dynamodb_resource
 ) -> Generator:
     def client(service, *args, **kwargs):
         if service == "dynamodb":
             return dynamodb_client
-        if service == "secretsmanager":
-            return secretsmanager_client
 
         raise ValueError(f"client for {service} not recognized")
 

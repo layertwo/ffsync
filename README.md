@@ -17,12 +17,15 @@ API Gateway (REST)
             │
             ├── DynamoDB  ─ collections & BSOs (per-user partition key)
             │     └── GSI: UserCollectionsIndex (user_id → collection metadata)
-            ├── Secrets Manager ─ OIDC config / HAWK credentials
             └── CloudWatch ─ metrics & alarms (via Monitoring stack)
+
+CloudFront ─ serves frontend SPA from S3
+      │
+      └── S3 Bucket ─ frontend assets + generated config.json
 
 CDK Stacks (TypeScript / AWS CDK):
   lib/stacks/service.ts     ─ core API Gateway + Lambda + DynamoDB resources
-  lib/stacks/pipeline.ts    ─ CodePipeline CI/CD deployment
+  lib/stacks/frontend.ts    ─ CloudFront + S3 frontend deployment
   lib/stacks/monitoring.ts  ─ CloudWatch dashboard & alarms
 ```
 
@@ -49,13 +52,18 @@ cd lambda && pip install -r requirements.txt && cd ..
 cdk bootstrap aws://<ACCOUNT_ID>/<REGION>
 ```
 
-### 3. Configure the stack
+### 3. Create SSM Parameters (first time per stage)
 
-Copy and edit the config file:
+The OIDC provider URL and client ID are stored as SSM Parameters, created outside of CDK:
 
 ```bash
-cp lib/config/default.ts lib/config/local.ts
-# Edit lib/config/local.ts — set your domain, OIDC issuer URL, etc.
+aws ssm put-parameter --name /ffsync/prod/oidc-provider-url \
+  --value "https://your-oidc-provider/application/o/firefox-sync/" \
+  --type String
+
+aws ssm put-parameter --name /ffsync/prod/client-id \
+  --value "your-oauth-client-id" \
+  --type String
 ```
 
 ### 4. Synthesize and deploy
@@ -64,6 +72,8 @@ cp lib/config/default.ts lib/config/local.ts
 cdk synth    # verify the CloudFormation template renders cleanly
 cdk deploy   # deploy all stacks to your AWS account
 ```
+
+The frontend `config.json` is generated automatically at deploy time from SSM Parameters and cross-stack references.
 
 ### 5. Point Firefox at your server
 
@@ -78,7 +88,8 @@ identity.sync.tokenserver.uri = https://<your-api-domain>/token/1.0/sync/1.5
 | Variable | Description | Default |
 |---|---|---|
 | `BASE_DOMAIN` | Root domain for the API Gateway custom domain | required |
-| `OIDC_SECRET_ARN` | ARN of the Secrets Manager secret holding OIDC configuration | required |
+| `OIDC_PROVIDER_URL` | OIDC provider URL (from SSM Parameter at deploy time) | required |
+| `OIDC_CLIENT_ID` | OAuth client ID (from SSM Parameter at deploy time) | required |
 | `STORAGE_TABLE_NAME` | DynamoDB table name for BSO/collection storage | set by CDK |
 | `TOKEN_USERS_TABLE_NAME` | DynamoDB table for token-to-user mapping | set by CDK |
 | `TOKEN_CACHE_TABLE_NAME` | DynamoDB table for token caching | set by CDK |

@@ -1,8 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import {App} from "aws-cdk-lib";
+import {App, Stack} from "aws-cdk-lib";
 import {Template} from "aws-cdk-lib/assertions";
+import {StringParameter} from "aws-cdk-lib/aws-ssm";
 
 import {StageType} from "../lib/config";
 import {FrontendStack} from "../lib/stacks/frontend";
@@ -22,9 +23,15 @@ afterAll(() => {
 describe("FrontendStack", () => {
     test("synthesizes expected resources", () => {
         const app = new App();
+        const helperStack = new Stack(app, "HelperStack", {
+            env: {account: "123456789012", region: "us-west-2"},
+        });
         const stack = new FrontendStack(app, "TestFrontend", {
             env: {account: "123456789012", region: "us-west-2"},
             stageType: StageType.PROD,
+            tokenApiDomain: "api.example.com",
+            oidcProviderUrl: StringParameter.fromStringParameterName(helperStack, "OidcParam", "/test/oidc-url"),
+            clientId: StringParameter.fromStringParameterName(helperStack, "ClientIdParam", "/test/client-id"),
         });
 
         const template = Template.fromStack(stack);

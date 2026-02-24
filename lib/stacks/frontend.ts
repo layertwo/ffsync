@@ -2,6 +2,7 @@ import {Construct} from "constructs";
 import * as path from "path";
 
 import {Duration, RemovalPolicy, Stack, StackProps} from "aws-cdk-lib";
+import {IStringParameter} from "aws-cdk-lib/aws-ssm";
 import {Certificate, DnsValidatedCertificate} from "aws-cdk-lib/aws-certificatemanager";
 import {
     Distribution,
@@ -19,6 +20,9 @@ import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
 
 export interface FrontendStackProps extends StackProps {
     stageType: StageType;
+    tokenApiDomain: string;
+    oidcProviderUrl: IStringParameter;
+    clientId: IStringParameter;
 }
 
 export class FrontendStack extends Stack {
@@ -106,7 +110,16 @@ export class FrontendStack extends Stack {
         });
 
         new BucketDeployment(this, "DeployFrontend", {
-            sources: [Source.asset(path.join(__dirname, "../../frontend/dist"))],
+            sources: [
+                Source.asset(path.join(__dirname, "../../frontend/dist")),
+                Source.jsonData("config.json", {
+                    oidcProviderUrl: this.props.oidcProviderUrl.stringValue,
+                    clientId: this.props.clientId.stringValue,
+                    redirectUri: `https://${this.domainName}`,
+                    tokenServerUrl: `https://${this.props.tokenApiDomain}`,
+                    scopes: ["openid", "profile", "email"],
+                }),
+            ],
             destinationBucket: this.bucket,
             distribution,
             distributionPaths: ["/*"],
