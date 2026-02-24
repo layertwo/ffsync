@@ -2,6 +2,7 @@ import os
 from functools import cached_property
 
 import boto3
+from aws_lambda_powertools.event_handler import CORSConfig
 
 from src.routes.bso.delete import DeleteBSORoute
 from src.routes.bso.read import ReadBSORoute
@@ -152,6 +153,11 @@ class ServiceProvider:
     @cached_property
     def token_api_router(self):
         """Create API router for Token API with RequestTokenRoute"""
+        cors = CORSConfig(
+            allow_origin=f"https://{self.base_domain}",
+            allow_headers=["Authorization", "Content-Type", "X-Client-State"],
+            max_age=3600,
+        )
         return ApiRouter(
             routes=[
                 GetTokenRoute(
@@ -162,6 +168,7 @@ class ServiceProvider:
                 ),
             ],
             middlewares=[WeaveTimestampMiddleware()],
+            cors=cors,
         )
 
     # HAWK Authorizer properties

@@ -50,6 +50,10 @@ service StorageService {
     ]
 }
 
+@cors(
+    origin: "CDK_CORS_ORIGIN"
+    additionalAllowedHeaders: ["Authorization", "X-Client-State"]
+)
 @restJson1
 @documentation("Firefox Sync Token Server - Issues authentication tokens for accessing the Storage API")
 @integration(
