@@ -106,10 +106,7 @@ export class ServiceStack extends Stack {
             pointInTimeRecoverySpecification: {
                 pointInTimeRecoveryEnabled: true,
             },
-            removalPolicy:
-                this.props.stageType === StageType.PROD
-                    ? RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
-                    : RemovalPolicy.DESTROY,
+            removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
         });
 
         // Add GSI for efficient user collection queries
@@ -141,10 +138,7 @@ export class ServiceStack extends Stack {
             pointInTimeRecoverySpecification: {
                 pointInTimeRecoveryEnabled: true,
             },
-            removalPolicy:
-                this.props.stageType === StageType.PROD
-                    ? RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
-                    : RemovalPolicy.DESTROY,
+            removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
         });
     }
 
@@ -161,10 +155,7 @@ export class ServiceStack extends Stack {
             pointInTimeRecoverySpecification: {
                 pointInTimeRecoveryEnabled: true,
             },
-            removalPolicy:
-                this.props.stageType === StageType.PROD
-                    ? RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
-                    : RemovalPolicy.DESTROY,
+            removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
         });
 
         return table;

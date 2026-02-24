@@ -5,6 +5,7 @@ cdk.out
 *.js
 !.prettierrc.js
 
+smithy/.gradle/
 smithy/build
 build/
 __pycache__
