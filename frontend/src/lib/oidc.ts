@@ -2,26 +2,26 @@ import * as session from "./session"
 import type { OIDCConfiguration } from "./types"
 
 export async function discoverOIDC(
-  authServerUrl: string
+  providerUrl: string
 ): Promise<OIDCConfiguration> {
   const cached = session.getOIDCConfig()
   if (cached) {
     return JSON.parse(cached) as OIDCConfiguration
   }
 
-  const url = `${authServerUrl}/v1/oidc/config`
+  const url = `${providerUrl}/.well-known/openid-configuration`
   let response: Response
   try {
     response = await fetch(url)
   } catch {
     throw new Error(
-      `Could not reach the auth server at ${authServerUrl}. Check your network connection and server URL.`
+      `Could not reach the OIDC provider at ${providerUrl}. Check your network connection and provider URL.`
     )
   }
 
   if (!response.ok) {
     throw new Error(
-      `OIDC discovery failed (${response.status}) from ${url}. Verify the auth server URL is correct.`
+      `OIDC discovery failed (${response.status}) from ${url}. Verify the OIDC provider URL is correct.`
     )
   }
 
