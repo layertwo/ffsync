@@ -14,6 +14,7 @@ from src.routes.auth.oauth_authorization import OAuthAuthorizationRoute
 from src.routes.auth.oauth_destroy import OAuthDestroyRoute
 from src.routes.auth.oauth_token import OAuthTokenRoute
 from src.routes.auth.oidc_discovery import OIDCDiscoveryRoute
+from src.routes.auth.oidc_exchange import OIDCCodeExchangeRoute, OIDCProviderConfigRoute
 from src.routes.auth.scoped_key_data import ScopedKeyDataRoute
 from src.routes.auth.session_destroy import SessionDestroyRoute
 from src.routes.auth.session_status import SessionStatusRoute
@@ -269,6 +270,12 @@ class ServiceProvider:
                 # Discovery routes
                 OIDCDiscoveryRoute(jwt_service=self.jwt_service),
                 JWKSRoute(jwt_service=self.jwt_service),
+                # OIDC proxy routes (server-side token exchange)
+                OIDCProviderConfigRoute(oidc_validator=self.oidc_validator),
+                OIDCCodeExchangeRoute(
+                    oidc_validator=self.oidc_validator,
+                    account_manager=self.auth_account_manager,
+                ),
             ],
             middlewares=[WeaveTimestampMiddleware()],
             cors=cors,

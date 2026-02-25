@@ -6,10 +6,10 @@ import { loadConfig } from "@/lib/config"
 import { discoverOIDC } from "@/lib/oidc"
 import {
   detectCallback,
-  exchangeCodeForToken,
   initiateOAuthFlow,
   validateCallback,
 } from "@/lib/oauth"
+import { exchangeOIDCCode } from "@/lib/auth-client"
 import {
   getTokenServerBaseUrl,
   validateWithTokenServer,
@@ -65,7 +65,7 @@ function ManualSetupFlow() {
           kind: "processing",
           message: "Discovering OIDC endpoints...",
         })
-        const oidcConfig = await discoverOIDC(cfg.oidcProviderUrl)
+        const oidcConfig = await discoverOIDC(cfg.authServerUrl!)
         setOidc(oidcConfig)
 
         const callbackParams = detectCallback()
@@ -85,7 +85,7 @@ function ManualSetupFlow() {
 
     async function handleCallback(
       cfg: AppConfig,
-      oidcConfig: OIDCConfiguration,
+      _oidcConfig: OIDCConfiguration,
       params: URLSearchParams
     ) {
       try {
@@ -97,11 +97,22 @@ function ManualSetupFlow() {
         })
         const code = validateCallback(params)
 
+        const codeVerifier = session.getCodeVerifier()
+        if (!codeVerifier) {
+          throw new Error("Missing code verifier. The session may have expired. Please try again.")
+        }
+
         setAppState({
           kind: "processing",
-          message: "Exchanging authorization code for token...",
+          message: "Exchanging authorization code...",
         })
-        const tokens = await exchangeCodeForToken(cfg, oidcConfig, code)
+        const result = await exchangeOIDCCode(
+          cfg.authServerUrl!,
+          code,
+          codeVerifier,
+          cfg.redirectUri
+        )
+        session.removeCodeVerifier()
 
         setAppState({
           kind: "processing",
@@ -111,7 +122,7 @@ function ManualSetupFlow() {
           cfg.tokenServerUrl,
           cfg.authServerUrl
         )
-        await validateWithTokenServer(baseUrl, tokens.access_token)
+        await validateWithTokenServer(baseUrl, result.access_token)
 
         const tokenServerUri = `${baseUrl}/1.0/sync/1.5`
         session.clearAll()

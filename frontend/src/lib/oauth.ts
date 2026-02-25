@@ -1,7 +1,7 @@
-import type { AppConfig, OIDCConfiguration, TokenResponse } from "./types"
+import type { AppConfig, OIDCConfiguration } from "./types"
 import { generatePKCE } from "./pkce"
-import * as session from "./session"
 import { sanitizeExternal } from "./sanitize"
+import * as session from "./session"
 
 export function initiateOAuthFlow(
   config: AppConfig,
@@ -68,53 +68,3 @@ export function validateCallback(params: URLSearchParams): string {
   return code
 }
 
-export async function exchangeCodeForToken(
-  config: AppConfig,
-  oidc: OIDCConfiguration,
-  code: string
-): Promise<TokenResponse> {
-  const codeVerifier = session.getCodeVerifier()
-  if (!codeVerifier) {
-    throw new Error(
-      "Missing code verifier. The session may have expired. Please try again."
-    )
-  }
-
-  const body = new URLSearchParams({
-    grant_type: "authorization_code",
-    client_id: config.clientId,
-    code,
-    redirect_uri: config.redirectUri,
-    code_verifier: codeVerifier,
-  })
-
-  let response: Response
-  try {
-    response = await fetch(oidc.tokenEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-    })
-  } catch {
-    throw new Error(
-      "Network error during token exchange. Check your connection and try again."
-    )
-  }
-
-  if (!response.ok) {
-    let detail = ""
-    try {
-      const err = await response.json()
-      detail = sanitizeExternal(
-        err.error_description ?? err.error ?? "", 500
-      )
-    } catch {
-      detail = response.statusText
-    }
-    throw new Error(`Token exchange failed (${response.status}): ${detail}`)
-  }
-
-  session.removeCodeVerifier()
-
-  return (await response.json()) as TokenResponse
-}
