@@ -14,7 +14,11 @@ from src.routes.auth.oauth_authorization import OAuthAuthorizationRoute
 from src.routes.auth.oauth_destroy import OAuthDestroyRoute
 from src.routes.auth.oauth_token import OAuthTokenRoute
 from src.routes.auth.oidc_discovery import OIDCDiscoveryRoute
-from src.routes.auth.oidc_proxy import OIDCProxyConfigRoute, OIDCProxyTokenRoute, OIDCProxyUserinfoRoute
+from src.routes.auth.oidc_proxy import (
+    OIDCProxyConfigRoute,
+    OIDCProxyTokenRoute,
+    OIDCProxyUserinfoRoute,
+)
 from src.routes.auth.scoped_key_data import ScopedKeyDataRoute
 from src.routes.auth.session_destroy import SessionDestroyRoute
 from src.routes.auth.session_status import SessionStatusRoute

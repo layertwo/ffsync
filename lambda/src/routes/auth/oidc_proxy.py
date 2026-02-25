@@ -31,12 +31,14 @@ class OIDCProxyConfigRoute(BaseRoute):
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json.dumps({
-                    "issuer": config.issuer,
-                    "authorization_endpoint": config.authorization_endpoint,
-                    "token_endpoint": f"{self._auth_server_base_url}/v1/oidc/token",
-                    "userinfo_endpoint": f"{self._auth_server_base_url}/v1/oidc/userinfo",
-                }),
+                body=json.dumps(
+                    {
+                        "issuer": config.issuer,
+                        "authorization_endpoint": config.authorization_endpoint,
+                        "token_endpoint": f"{self._auth_server_base_url}/v1/oidc/token",
+                        "userinfo_endpoint": f"{self._auth_server_base_url}/v1/oidc/userinfo",
+                    }
+                ),
             )
         except Exception:
             return Response(
