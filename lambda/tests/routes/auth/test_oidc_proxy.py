@@ -53,6 +53,7 @@ class TestOIDCProxyConfigRoute:
         )
         response = route.handle(event)
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["issuer"] == "https://idp.example.com"
         assert body["authorization_endpoint"] == "https://idp.example.com/authorize"
@@ -70,6 +71,7 @@ class TestOIDCProxyConfigRoute:
         )
         response = route.handle(event)
         assert response.status_code == 502
+        assert response.body is not None
         body = json.loads(response.body)
         assert "error" in body
 
@@ -105,6 +107,7 @@ class TestOIDCProxyTokenRoute:
         )
         response = route.handle(event)
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["access_token"] == "tok123"
 
@@ -132,6 +135,7 @@ class TestOIDCProxyTokenRoute:
         )
         response = route.handle(event)
         assert response.status_code == 400
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["error"] == "invalid_grant"
 
@@ -180,6 +184,7 @@ class TestOIDCProxyUserinfoRoute:
         )
         response = route.handle(event)
         assert response.status_code == 200
+        assert response.body is not None
         body = json.loads(response.body)
         assert body["email"] == "user@example.com"
 
