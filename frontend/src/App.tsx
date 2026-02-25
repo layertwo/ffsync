@@ -213,9 +213,8 @@ export default function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/signin" element={<FxAFlow />} />
-        <Route path="/signup" element={<FxAFlow />} />
-        <Route path="*" element={<ManualSetupFlow />} />
+        <Route path="/manual" element={<ManualSetupFlow />} />
+        <Route path="*" element={<FxAFlow />} />
       </Routes>
     </Layout>
   )
