@@ -241,12 +241,11 @@ export function SignInPage({
 
   function handleStartOIDC() {
     discoverOIDC(config.authServerUrl!).then((oidcConfig: OIDCConfiguration) => {
-      const currentUrl = new URL(window.location.href)
-      const redirectConfig = {
-        ...config,
-        redirectUri: `${currentUrl.origin}${currentUrl.pathname}${currentUrl.search}`,
+      // Stash Firefox's query params so they survive the OIDC redirect round-trip
+      if (window.location.search) {
+        session.storeFxAParams(window.location.search)
       }
-      initiateOAuthFlow(redirectConfig, oidcConfig)
+      initiateOAuthFlow(config, oidcConfig)
     }).catch((err: unknown) => {
       handleError(err instanceof Error ? err.message : String(err))
     })

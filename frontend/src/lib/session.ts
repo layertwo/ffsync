@@ -2,6 +2,7 @@ const KEYS = {
   codeVerifier: "ffsync_code_verifier",
   state: "ffsync_state",
   oidcConfig: "ffsync_oidc_config",
+  fxaParams: "ffsync_fxa_params",
 } as const
 
 export function storeCodeVerifier(verifier: string): void {
@@ -36,8 +37,21 @@ export function getOIDCConfig(): string | null {
   return sessionStorage.getItem(KEYS.oidcConfig)
 }
 
+export function storeFxAParams(params: string): void {
+  sessionStorage.setItem(KEYS.fxaParams, params)
+}
+
+export function getFxAParams(): string | null {
+  return sessionStorage.getItem(KEYS.fxaParams)
+}
+
+export function removeFxAParams(): void {
+  sessionStorage.removeItem(KEYS.fxaParams)
+}
+
 export function clearAll(): void {
   sessionStorage.removeItem(KEYS.codeVerifier)
   sessionStorage.removeItem(KEYS.state)
   sessionStorage.removeItem(KEYS.oidcConfig)
+  sessionStorage.removeItem(KEYS.fxaParams)
 }
