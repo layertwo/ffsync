@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Routes, Route, useSearchParams, Link } from "react-router"
+import { Routes, Route, useSearchParams } from "react-router"
 import type { AppConfig, AppState, OIDCConfiguration } from "@/lib/types"
 import { checkBrowserCompatibility } from "@/lib/browser-check"
 import { loadConfig } from "@/lib/config"
