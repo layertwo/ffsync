@@ -11,7 +11,7 @@
 | src/entrypoint/storage\_api.py          |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/token\_api.py            |        5 |        0 |        0 |        0 |     100% |           |
 | src/environment/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
-| src/environment/service\_provider.py    |      140 |        0 |        0 |        0 |     100% |           |
+| src/environment/service\_provider.py    |      141 |        0 |        0 |        0 |     100% |           |
 | src/routes/\_\_init\_\_.py              |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/account\_create.py      |       65 |        0 |       14 |        0 |     100% |           |
@@ -24,6 +24,7 @@
 | src/routes/auth/oauth\_destroy.py       |       26 |        0 |        4 |        0 |     100% |           |
 | src/routes/auth/oauth\_token.py         |       85 |        0 |       28 |        0 |     100% |           |
 | src/routes/auth/oidc\_discovery.py      |       14 |        0 |        0 |        0 |     100% |           |
+| src/routes/auth/oidc\_proxy.py          |       52 |        0 |        2 |        0 |     100% |           |
 | src/routes/auth/scoped\_key\_data.py    |       47 |        0 |       12 |        0 |     100% |           |
 | src/routes/auth/session\_destroy.py     |       33 |        0 |        6 |        0 |     100% |           |
 | src/routes/auth/session\_status.py      |       27 |        0 |        4 |        0 |     100% |           |
@@ -68,7 +69,7 @@
 | src/shared/token.py                     |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                      |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                     |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                               | **2725** |    **0** |  **496** |    **0** | **100%** |           |
+| **TOTAL**                               | **2778** |    **0** |  **498** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
