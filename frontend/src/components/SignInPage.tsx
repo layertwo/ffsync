@@ -118,12 +118,12 @@ export function SignInPage({
 
       const code = validateCallback(params)
 
-      const oidcConfig = await discoverOIDC(config.oidcProviderUrl)
+      const oidcConfig = await discoverOIDC(config.authServerUrl!)
       const tokens = await exchangeCodeForToken(config, oidcConfig, code)
       const accessToken = tokens.access_token
 
       const email = await extractEmailFromToken(
-        config.oidcProviderUrl,
+        oidcConfig.userinfoEndpoint,
         accessToken
       )
 
@@ -240,13 +240,12 @@ export function SignInPage({
   }
 
   function handleStartOIDC() {
-    discoverOIDC(config.oidcProviderUrl).then((oidcConfig: OIDCConfiguration) => {
-      const currentUrl = new URL(window.location.href)
-      const redirectConfig = {
-        ...config,
-        redirectUri: `${currentUrl.origin}${currentUrl.pathname}${currentUrl.search}`,
+    discoverOIDC(config.authServerUrl!).then((oidcConfig: OIDCConfiguration) => {
+      // Stash Firefox's query params so they survive the OIDC redirect round-trip
+      if (window.location.search) {
+        session.storeFxAParams(window.location.search)
       }
-      initiateOAuthFlow(redirectConfig, oidcConfig)
+      initiateOAuthFlow(config, oidcConfig)
     }).catch((err: unknown) => {
       handleError(err instanceof Error ? err.message : String(err))
     })
@@ -356,12 +355,12 @@ export function SignInPage({
 }
 
 async function extractEmailFromToken(
-  providerUrl: string,
+  userinfoEndpoint: string,
   accessToken: string
 ): Promise<string> {
   let response: Response
   try {
-    response = await fetch(`${providerUrl}/userinfo`, {
+    response = await fetch(userinfoEndpoint, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
   } catch {
