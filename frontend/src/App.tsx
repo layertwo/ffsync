@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Routes, Route, useSearchParams } from "react-router"
+import { Routes, Route, useSearchParams, Link } from "react-router"
 import type { AppConfig, AppState, OIDCConfiguration } from "@/lib/types"
 import { checkBrowserCompatibility } from "@/lib/browser-check"
 import { loadConfig } from "@/lib/config"
@@ -213,9 +213,8 @@ export default function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/signin" element={<FxAFlow />} />
-        <Route path="/signup" element={<FxAFlow />} />
-        <Route path="*" element={<ManualSetupFlow />} />
+        <Route path="/manual" element={<ManualSetupFlow />} />
+        <Route path="*" element={<FxAFlow />} />
       </Routes>
     </Layout>
   )

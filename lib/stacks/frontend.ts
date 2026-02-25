@@ -81,6 +81,7 @@ export class FrontendStack extends Stack {
             oauth_server_base_url: `https://${this.props.authApiDomain}`,
             profile_server_base_url: `https://${this.props.authApiDomain}`,
             sync_tokenserver_base_url: `https://${this.props.authApiDomain}`,
+            content_url: `https://${this.domainName}`,
         });
 
         const wellKnownFn = new CfFunction(this, "WellKnownFunction", {

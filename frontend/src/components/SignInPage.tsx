@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { Link } from "react-router"
 import { LogIn, CheckCircle2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -274,6 +275,12 @@ export function SignInPage({
             <LogIn className="mr-2 h-4 w-4" />
             Continue with identity provider
           </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            <Link to="/manual" className="underline hover:text-foreground">
+              Manual setup
+            </Link>{" "}
+            — configure Firefox Sync via about:config instead
+          </p>
         </CardContent>
       </Card>
     )
