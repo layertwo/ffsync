@@ -44,6 +44,32 @@ async function authFetch<T>(
   return (await response.json()) as T
 }
 
+interface OIDCCodeExchangeResponse {
+  email: string
+  access_token: string
+  account_exists: boolean
+}
+
+export async function exchangeOIDCCode(
+  authServerUrl: string,
+  code: string,
+  codeVerifier: string,
+  redirectUri: string
+): Promise<OIDCCodeExchangeResponse> {
+  return authFetch<OIDCCodeExchangeResponse>(
+    `${authServerUrl}/v1/oidc/exchange`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code,
+        code_verifier: codeVerifier,
+        redirect_uri: redirectUri,
+      }),
+    }
+  )
+}
+
 export async function checkAccountStatus(
   authServerUrl: string,
   email: string

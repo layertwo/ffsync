@@ -14,15 +14,14 @@ import type { AppConfig, OIDCConfiguration } from "@/lib/types"
 import { discoverOIDC } from "@/lib/oidc"
 import {
   detectCallback,
-  exchangeCodeForToken,
   initiateOAuthFlow,
   validateCallback,
 } from "@/lib/oauth"
 import * as session from "@/lib/session"
 import { stretchPassword } from "@/lib/fxa-crypto"
 import {
-  checkAccountStatus,
   createAccount,
+  exchangeOIDCCode,
   login,
   requestOAuthCode,
 } from "@/lib/auth-client"
@@ -118,31 +117,34 @@ export function SignInPage({
 
       const code = validateCallback(params)
 
-      const oidcConfig = await discoverOIDC(config.authServerUrl!)
-      const tokens = await exchangeCodeForToken(config, oidcConfig, code)
-      const accessToken = tokens.access_token
-
-      const email = await extractEmailFromToken(
-        oidcConfig.userinfoEndpoint,
-        accessToken
-      )
-
       if (!config.authServerUrl) {
         handleError("authServerUrl is not configured.")
         return
       }
 
+      const codeVerifier = session.getCodeVerifier()
+      if (!codeVerifier) {
+        handleError("Missing code verifier. The session may have expired. Please try again.")
+        return
+      }
+
       setSignInState({
         step: "processing",
-        message: "Checking account status...",
+        message: "Exchanging authorization code...",
       })
-      const status = await checkAccountStatus(config.authServerUrl, email)
+      const result = await exchangeOIDCCode(
+        config.authServerUrl,
+        code,
+        codeVerifier,
+        config.redirectUri
+      )
+      session.removeCodeVerifier()
 
       setSignInState({
         step: "sync-password",
-        email,
-        oidcToken: accessToken,
-        accountExists: status.exists,
+        email: result.email,
+        oidcToken: result.access_token,
+        accountExists: result.account_exists,
       })
     } catch (err) {
       handleError(err instanceof Error ? err.message : String(err))
@@ -240,7 +242,11 @@ export function SignInPage({
   }
 
   function handleStartOIDC() {
-    discoverOIDC(config.authServerUrl!).then((oidcConfig: OIDCConfiguration) => {
+    if (!config.authServerUrl) {
+      handleError("authServerUrl is not configured.")
+      return
+    }
+    discoverOIDC(config.authServerUrl).then((oidcConfig: OIDCConfiguration) => {
       // Stash Firefox's query params so they survive the OIDC redirect round-trip
       if (window.location.search) {
         session.storeFxAParams(window.location.search)
@@ -354,31 +360,3 @@ export function SignInPage({
   return null
 }
 
-async function extractEmailFromToken(
-  userinfoEndpoint: string,
-  accessToken: string
-): Promise<string> {
-  let response: Response
-  try {
-    response = await fetch(userinfoEndpoint, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-  } catch {
-    throw new Error("Failed to fetch user info from identity provider.")
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      `Identity provider userinfo failed (${response.status}).`
-    )
-  }
-
-  const data = await response.json()
-  if (!data.email) {
-    throw new Error(
-      "Identity provider did not return an email address. Ensure the 'email' scope is granted."
-    )
-  }
-
-  return data.email as string
-}

@@ -8,24 +8,7 @@ export interface AppConfig {
 }
 
 export interface OIDCConfiguration {
-  issuer: string
   authorizationEndpoint: string
-  tokenEndpoint: string
-  userinfoEndpoint: string
-}
-
-export interface TokenResponse {
-  access_token: string
-  token_type: string
-  expires_in: number
-  scope?: string
-  id_token?: string
-  refresh_token?: string
-}
-
-export interface OAuthError {
-  error: string
-  error_description?: string
 }
 
 export type AppState =

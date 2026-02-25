@@ -75,6 +75,8 @@ service AuthService {
         GetToken
         OIDCDiscovery
         JWKS
+        OIDCProviderConfig
+        OIDCCodeExchange
     ]
     errors: [
         AuthenticationException

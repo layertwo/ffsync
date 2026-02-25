@@ -15,29 +15,26 @@ export async function discoverOIDC(
     response = await fetch(url)
   } catch {
     throw new Error(
-      `Could not reach the auth server at ${authServerUrl}. Check your network connection and server URL.`
+      `Could not reach the auth server at ${authServerUrl}. Check your network connection.`
     )
   }
 
   if (!response.ok) {
     throw new Error(
-      `OIDC discovery failed (${response.status}) from ${url}. Verify the auth server URL is correct.`
+      `OIDC config request failed (${response.status}) from ${url}.`
     )
   }
 
   const data = await response.json()
 
-  if (!data.authorization_endpoint || !data.token_endpoint) {
+  if (!data.authorization_endpoint) {
     throw new Error(
-      "OIDC discovery document is missing required endpoints (authorization_endpoint, token_endpoint)."
+      "OIDC config response is missing authorization_endpoint."
     )
   }
 
   const config: OIDCConfiguration = {
-    issuer: data.issuer,
     authorizationEndpoint: data.authorization_endpoint,
-    tokenEndpoint: data.token_endpoint,
-    userinfoEndpoint: data.userinfo_endpoint,
   }
 
   session.storeOIDCConfig(JSON.stringify(config))
