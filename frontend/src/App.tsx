@@ -65,7 +65,7 @@ function ManualSetupFlow() {
           kind: "processing",
           message: "Discovering OIDC endpoints...",
         })
-        const oidcConfig = await discoverOIDC(cfg.oidcProviderUrl)
+        const oidcConfig = await discoverOIDC(cfg.authServerUrl!)
         setOidc(oidcConfig)
 
         const callbackParams = detectCallback()

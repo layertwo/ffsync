@@ -11,6 +11,7 @@ export interface OIDCConfiguration {
   issuer: string
   authorizationEndpoint: string
   tokenEndpoint: string
+  userinfoEndpoint: string
 }
 
 export interface TokenResponse {
