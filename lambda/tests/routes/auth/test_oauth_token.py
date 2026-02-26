@@ -615,9 +615,7 @@ class TestOAuthTokenFxaCredentials:
         response = route_no_tm.handle(event)
         assert response.status_code == 400
 
-    def test_account_not_found_returns_400(
-        self, route, mock_token_manager, mock_account_manager
-    ):
+    def test_account_not_found_returns_400(self, route, mock_token_manager, mock_account_manager):
         mock_token_manager.verify_session_hawk.return_value = "uid1"
         mock_account_manager.get_account_by_uid.return_value = None
         event = APIGatewayProxyEvent(
