@@ -25,11 +25,17 @@ def mock_account_manager():
 
 
 @pytest.fixture
-def route(mock_oauth_code_manager, mock_jwt_service, mock_account_manager):
+def mock_token_manager():
+    return MagicMock()
+
+
+@pytest.fixture
+def route(mock_oauth_code_manager, mock_jwt_service, mock_account_manager, mock_token_manager):
     return OAuthTokenRoute(
         oauth_code_manager=mock_oauth_code_manager,
         jwt_service=mock_jwt_service,
         account_manager=mock_account_manager,
+        token_manager=mock_token_manager,
     )
 
 
@@ -508,6 +514,124 @@ class TestOAuthTokenErrors:
                 "path": "/v1/oauth/token",
                 "headers": {},
                 "body": None,
+            }
+        )
+        response = route.handle(event)
+        assert response.status_code == 400
+
+
+class TestOAuthTokenFxaCredentials:
+    def test_success_returns_access_token(
+        self, route, mock_token_manager, mock_jwt_service, mock_account_manager
+    ):
+        mock_token_manager.verify_session_hawk.return_value = "uid1"
+        mock_jwt_service.sign_jwt.return_value = "fxa-cred-jwt"
+        mock_account_manager.get_account_by_uid.return_value = {
+            "uid": "uid1",
+            "oidcSub": "sub1",
+        }
+
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/v1/oauth/token",
+                "headers": {"authorization": 'Hawk id="tok"'},
+                "body": json.dumps(
+                    {
+                        "grant_type": "fxa-credentials",
+                        "client_id": "client1",
+                        "scope": "profile",
+                    }
+                ),
+            }
+        )
+        response = route.handle(event)
+        assert response.status_code == 200
+        body = json.loads(response.body)
+        assert body["access_token"] == "fxa-cred-jwt"
+        assert body["token_type"] == "bearer"
+        assert body["scope"] == "profile"
+        assert "refresh_token" not in body
+
+    def test_missing_auth_returns_401(self, route, mock_token_manager):
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/v1/oauth/token",
+                "headers": {},
+                "body": json.dumps(
+                    {
+                        "grant_type": "fxa-credentials",
+                        "client_id": "c",
+                        "scope": "profile",
+                    }
+                ),
+            }
+        )
+        response = route.handle(event)
+        assert response.status_code == 401
+
+    def test_invalid_session_returns_401(self, route, mock_token_manager):
+        mock_token_manager.verify_session_hawk.return_value = None
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/v1/oauth/token",
+                "headers": {"authorization": 'Hawk id="bad"'},
+                "body": json.dumps(
+                    {
+                        "grant_type": "fxa-credentials",
+                        "client_id": "c",
+                        "scope": "profile",
+                    }
+                ),
+            }
+        )
+        response = route.handle(event)
+        assert response.status_code == 401
+
+    def test_returns_400_when_token_manager_not_configured(
+        self, mock_oauth_code_manager, mock_jwt_service, mock_account_manager
+    ):
+        route_no_tm = OAuthTokenRoute(
+            oauth_code_manager=mock_oauth_code_manager,
+            jwt_service=mock_jwt_service,
+            account_manager=mock_account_manager,
+        )
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/v1/oauth/token",
+                "headers": {"authorization": 'Hawk id="tok"'},
+                "body": json.dumps(
+                    {
+                        "grant_type": "fxa-credentials",
+                        "client_id": "c",
+                        "scope": "profile",
+                    }
+                ),
+            }
+        )
+        response = route_no_tm.handle(event)
+        assert response.status_code == 400
+
+    def test_account_not_found_returns_400(
+        self, route, mock_token_manager, mock_account_manager
+    ):
+        mock_token_manager.verify_session_hawk.return_value = "uid1"
+        mock_account_manager.get_account_by_uid.return_value = None
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/v1/oauth/token",
+                "headers": {"authorization": 'Hawk id="tok"'},
+                "body": json.dumps(
+                    {
+                        "grant_type": "fxa-credentials",
+                        "client_id": "c",
+                        "scope": "profile",
+                    }
+                ),
             }
         )
         response = route.handle(event)

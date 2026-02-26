@@ -7,6 +7,7 @@ import time
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.auth_account_manager import AuthAccountManager
+from src.services.fxa_token_manager import FxATokenManager
 from src.services.jwt_service import JWTService
 from src.services.oauth_code_manager import OAuthCodeManager
 from src.shared.base_route import BaseRoute
@@ -23,10 +24,12 @@ class OAuthTokenRoute(BaseRoute):
         oauth_code_manager: OAuthCodeManager,
         jwt_service: JWTService,
         account_manager: AuthAccountManager,
+        token_manager: FxATokenManager | None = None,
     ):
         self._oauth_code_manager = oauth_code_manager
         self._jwt_service = jwt_service
         self._account_manager = account_manager
+        self._token_manager = token_manager
 
     def bind(self, app: APIGatewayRestResolver):
         @app.post("/v1/oauth/token")
@@ -51,6 +54,8 @@ class OAuthTokenRoute(BaseRoute):
             return self._handle_authorization_code(body)
         elif grant_type == "refresh_token":
             return self._handle_refresh_token(body)
+        elif grant_type == "fxa-credentials":
+            return self._handle_fxa_credentials(event, body)
         else:
             return self._error(400, 107, f"Unsupported grant_type: {grant_type}")
 
@@ -175,6 +180,56 @@ class OAuthTokenRoute(BaseRoute):
                     "expires_in": ttl,
                     "scope": scope,
                     "refresh_token": new_refresh_token,
+                    "auth_at": int(time.time()),
+                }
+            ),
+        )
+
+    def _handle_fxa_credentials(self, event, body: dict) -> Response:
+        """Issue an access token using Hawk-authenticated session credentials."""
+        if self._token_manager is None:
+            return self._error(400, 107, "fxa-credentials grant not supported")
+
+        headers = event.headers or {}
+        auth_header = headers.get("authorization", "")
+        if not auth_header:
+            return self._error(401, 110, "Missing or invalid authorization")
+
+        host = headers.get("host", "localhost")
+        port = headers.get("x-forwarded-port", "443")
+        method = event.http_method
+        path = event.path
+
+        uid = self._token_manager.verify_session_hawk(auth_header, method, path, host, port)
+        if uid is None:
+            return self._error(401, 110, "Invalid or expired session token")
+
+        scope = body.get("scope", "profile")
+        client_id = body.get("client_id", "")
+
+        account = self._account_manager.get_account_by_uid(uid)
+        if account is None:
+            return self._error(400, 110, "Account not found")
+
+        sub = account["oidcSub"]
+        ttl = min(int(body.get("ttl", DEFAULT_TTL)), MAX_TTL)
+
+        access_token = self._jwt_service.sign_jwt(
+            sub=sub,
+            scope=scope,
+            ttl=ttl,
+            client_id=client_id,
+        )
+
+        return Response(
+            status_code=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "access_token": access_token,
+                    "token_type": "bearer",
+                    "expires_in": ttl,
+                    "scope": scope,
                     "auth_at": int(time.time()),
                 }
             ),

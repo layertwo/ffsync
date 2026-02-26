@@ -265,6 +265,7 @@ class ServiceProvider:
                     oauth_code_manager=self.oauth_code_manager,
                     jwt_service=self.jwt_service,
                     account_manager=self.auth_account_manager,
+                    token_manager=self.fxa_token_manager,
                 ),
                 OAuthDestroyRoute(oauth_code_manager=self.oauth_code_manager),
                 # Discovery routes
