@@ -1,16 +1,16 @@
 """OIDC exchange routes — GET /v1/oidc/config and POST /v1/oidc/exchange"""
 
 import json
-import logging
 
 import requests as http_requests
+from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.oidc_validator import OIDCValidator
 from src.shared.base_route import BaseRoute
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 
 class OIDCProviderConfigRoute(BaseRoute):

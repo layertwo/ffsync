@@ -1,4 +1,4 @@
-import { deriveSessionTokenId } from "./fxa-crypto"
+import { buildHawkHeader } from "./fxa-crypto"
 
 interface AccountStatusResponse {
   exists: boolean
@@ -123,14 +123,15 @@ export async function requestOAuthCode(
   state: string,
   codeChallenge: string
 ): Promise<OAuthCodeResponse> {
-  const tokenId = await deriveSessionTokenId(sessionToken)
+  const url = `${authServerUrl}/v1/oauth/authorization`
+  const authorization = await buildHawkHeader(sessionToken, "POST", url)
   return authFetch<OAuthCodeResponse>(
-    `${authServerUrl}/v1/oauth/authorization`,
+    url,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Hawk id="${tokenId}"`,
+        Authorization: authorization,
       },
       body: JSON.stringify({
         client_id: clientId,

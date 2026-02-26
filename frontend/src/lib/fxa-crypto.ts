@@ -44,6 +44,41 @@ export async function deriveSessionTokenId(sessionTokenHex: string): Promise<str
   return toHex(derived.slice(0, 32))
 }
 
+export async function buildHawkHeader(
+  sessionTokenHex: string,
+  method: string,
+  url: string
+): Promise<string> {
+  const tokenBytes = hexToBytes(sessionTokenHex)
+  const derived = await hkdf(tokenBytes.buffer, "identity.mozilla.com/picl/v1/sessionToken", 96)
+
+  const tokenId = toHex(derived.slice(0, 32))
+  const reqHMACKey = derived.slice(32, 64)
+
+  const parsedUrl = new URL(url)
+  const host = parsedUrl.hostname
+  const port = parsedUrl.port || (parsedUrl.protocol === "https:" ? "443" : "80")
+  const path = parsedUrl.pathname + parsedUrl.search
+
+  const ts = Math.floor(Date.now() / 1000).toString()
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(6))
+  const nonce = toHex(nonceBytes.buffer)
+
+  const canonical = `hawk.1.header\n${ts}\n${nonce}\n${method}\n${path}\n${host}\n${port}\n\n\n`
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    reqHMACKey,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  )
+  const mac = await crypto.subtle.sign("HMAC", key, encode(canonical))
+  const macB64 = btoa(String.fromCharCode(...new Uint8Array(mac)))
+
+  return `Hawk id="${tokenId}", ts="${ts}", nonce="${nonce}", mac="${macB64}"`
+}
+
 export async function stretchPassword(
   email: string,
   password: string
