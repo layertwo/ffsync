@@ -58,7 +58,7 @@
 | src/services/jwt\_verifier.py           |       58 |        0 |       14 |        0 |     100% |           |
 | src/services/oauth\_code\_manager.py    |       63 |        0 |       16 |        0 |     100% |           |
 | src/services/oidc\_validator.py         |       90 |        0 |       14 |        0 |     100% |           |
-| src/services/storage\_manager.py        |      275 |        0 |       86 |        0 |     100% |           |
+| src/services/storage\_manager.py        |      280 |        0 |       86 |        0 |     100% |           |
 | src/services/token\_generator.py        |       20 |        0 |        0 |        0 |     100% |           |
 | src/services/user\_manager.py           |       91 |        0 |       26 |        0 |     100% |           |
 | src/shared/\_\_init\_\_.py              |        0 |        0 |        0 |        0 |     100% |           |
@@ -69,7 +69,7 @@
 | src/shared/token.py                     |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                      |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                     |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                               | **2847** |    **0** |  **526** |    **0** | **100%** |           |
+| **TOTAL**                               | **2852** |    **0** |  **526** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
