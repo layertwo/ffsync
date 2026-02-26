@@ -1,6 +1,11 @@
 """Tests for lambda entrypoint"""
 
 from src.entrypoint import storage_api_handler
+from src.services.token_generator import TokenGenerator
+
+TEST_USER_ID = "test-user-123"
+TEST_GENERATION = 0
+TEST_UID = str(TokenGenerator.generate_uid(TEST_USER_ID, TEST_GENERATION))
 
 
 def test_storage_api_happ_path(mock_service_provider, dynamodb_stubber, sample_lambda_context):
@@ -32,11 +37,16 @@ def test_storage_api_happ_path(mock_service_provider, dynamodb_stubber, sample_l
 
     event = {
         "httpMethod": "GET",
-        "path": "/1.5/12345/storage/bookmarks/item123",
-        "pathParameters": {"uid": "12345", "collectionName": "bookmarks", "objectId": "item123"},
+        "path": f"/1.5/{TEST_UID}/storage/bookmarks/item123",
+        "pathParameters": {"uid": TEST_UID, "collectionName": "bookmarks", "objectId": "item123"},
         "headers": {},
         "body": None,
         "queryStringParameters": None,
+        "requestContext": {
+            "requestId": "test-request-id",
+            "accountId": "123456789012",
+            "authorizer": {"user_id": TEST_USER_ID, "generation": str(TEST_GENERATION)},
+        },
     }
 
     # Use dependency injection - no patching needed!

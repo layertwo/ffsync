@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
+from src.services.token_generator import TokenGenerator
+
 # ============================================================================
 # HAWK Authentication Fixtures
 # ============================================================================
@@ -144,6 +146,7 @@ def build_storage_event(
     method: str,
     path: str,
     user_id: str = "test-user-123",
+    generation: int = 0,
     headers: Optional[Dict[str, str]] = None,
     body: Optional[Any] = None,
     query_params: Optional[Dict[str, str]] = None,
@@ -156,6 +159,7 @@ def build_storage_event(
         method: HTTP method (GET, POST, PUT, DELETE)
         path: Request path (e.g., "/storage/bookmarks/item123")
         user_id: Authenticated user ID (from Lambda Authorizer context)
+        generation: User generation number (used to compute uid)
         headers: HTTP headers
         body: Request body (will be JSON-encoded if dict/list)
         query_params: Query string parameters
@@ -171,13 +175,15 @@ def build_storage_event(
     if body is not None and isinstance(body, (dict, list)):
         body = json.dumps(body)
 
-    merged_params = {"uid": "12345"}
+    uid = str(TokenGenerator.generate_uid(user_id, generation))
+
+    merged_params = {"uid": uid}
     if path_params:
         merged_params.update(path_params)
 
     return {
         "httpMethod": method,
-        "path": f"/1.5/12345{path}",
+        "path": f"/1.5/{uid}{path}",
         "pathParameters": merged_params,
         "headers": headers,
         "body": body,
@@ -185,7 +191,10 @@ def build_storage_event(
         "requestContext": {
             "requestId": "test-request-id",
             "accountId": "123456789012",
-            "authorizer": {"user_id": user_id},
+            "authorizer": {
+                "user_id": user_id,
+                "generation": str(generation),
+            },
         },
     }
 

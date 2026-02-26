@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from src.environment.service_provider import ServiceProvider
+from src.services.token_generator import TokenGenerator
 from src.shared.models import (
     BasicStorageObject,
     BatchResult,
@@ -140,11 +141,12 @@ def make_event_with_auth(event_dict: dict, user_id: str = "test-user-123") -> di
 @pytest.fixture
 def sample_lambda_event(test_user_id):
     """Sample Lambda event structure"""
+    uid = str(TokenGenerator.generate_uid(test_user_id, 0))
     return {
         "httpMethod": "GET",
-        "path": "/1.5/12345/storage/test_collection/test_object",
+        "path": f"/1.5/{uid}/storage/test_collection/test_object",
         "pathParameters": {
-            "uid": "12345",
+            "uid": uid,
             "collectionName": "test_collection",
             "objectId": "test_object",
         },
@@ -154,7 +156,7 @@ def sample_lambda_event(test_user_id):
         "requestContext": {
             "requestId": "test-request-id",
             "accountId": "123456789012",
-            "authorizer": {"user_id": test_user_id},
+            "authorizer": {"user_id": test_user_id, "generation": "0"},
         },
     }
 
@@ -207,12 +209,13 @@ def sample_batch_result():
 
 
 @pytest.fixture
-def post_event_with_body():
+def post_event_with_body(test_user_id):
     """Sample POST event with body"""
+    uid = str(TokenGenerator.generate_uid(test_user_id, 0))
     return {
         "httpMethod": "POST",
-        "path": "/1.5/12345/storage/test_collection",
-        "pathParameters": {"uid": "12345", "collectionName": "test_collection"},
+        "path": f"/1.5/{uid}/storage/test_collection",
+        "pathParameters": {"uid": uid, "collectionName": "test_collection"},
         "headers": {"Content-Type": "application/json"},
         "body": json.dumps({"objects": [{"id": "obj1", "payload": "data1", "sortindex": 100}]}),
         "queryStringParameters": None,
@@ -220,13 +223,14 @@ def post_event_with_body():
 
 
 @pytest.fixture
-def delete_event():
+def delete_event(test_user_id):
     """Sample DELETE event"""
+    uid = str(TokenGenerator.generate_uid(test_user_id, 0))
     return {
         "httpMethod": "DELETE",
-        "path": "/1.5/12345/storage/test_collection/test_object",
+        "path": f"/1.5/{uid}/storage/test_collection/test_object",
         "pathParameters": {
-            "uid": "12345",
+            "uid": uid,
             "collectionName": "test_collection",
             "objectId": "test_object",
         },

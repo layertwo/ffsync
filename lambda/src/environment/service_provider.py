@@ -34,7 +34,12 @@ from src.routes.info.read_usage import ReadCollectionUsageRoute
 from src.routes.storage.delete_all import DeleteAllStorageRoute
 from src.routes.storage.delete_root import DeleteAllRootRoute
 from src.routes.token.request import GetTokenRoute
-from src.services.api_router import ApiRouter, RequestLoggingMiddleware, WeaveTimestampMiddleware
+from src.services.api_router import (
+    ApiRouter,
+    RequestLoggingMiddleware,
+    UidValidationMiddleware,
+    WeaveTimestampMiddleware,
+)
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.fxa_token_manager import FxATokenManager
 from src.services.hawk_service import HawkService
@@ -104,7 +109,11 @@ class ServiceProvider:
                 UpdateBSORoute(self.storage_manager),
                 DeleteBSORoute(self.storage_manager),
             ],
-            middlewares=[RequestLoggingMiddleware(), WeaveTimestampMiddleware()],
+            middlewares=[
+                RequestLoggingMiddleware(),
+                UidValidationMiddleware(),
+                WeaveTimestampMiddleware(),
+            ],
         )
 
     # Token API properties
