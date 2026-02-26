@@ -206,25 +206,26 @@ function FxAFlow() {
 
   // After OIDC redirect, original Firefox params are lost from the URL.
   // Restore from session storage (stored before OIDC redirect in SignInPage).
+  // All FxA params (state, code_challenge, keys_jwk, etc.) must be restored
+  // so Firefox can match the OAuth flow it started in beginOAuthFlow().
   const storedFxAParams = session.getFxAParams()
   const fxaParams = storedFxAParams
     ? new URLSearchParams(storedFxAParams)
     : searchParams
-  const keysJwk = fxaParams.get("keys_jwk") ?? undefined
 
   return (
     <SignInPage
       config={config}
-      action={searchParams.get("action") ?? "signin"}
-      service={searchParams.get("service") ?? undefined}
-      state={searchParams.get("state") ?? undefined}
-      codeChallenge={searchParams.get("code_challenge") ?? undefined}
-      clientId={searchParams.get("client_id") ?? config.clientId}
+      action={fxaParams.get("action") ?? "signin"}
+      service={fxaParams.get("service") ?? undefined}
+      state={fxaParams.get("state") ?? undefined}
+      codeChallenge={fxaParams.get("code_challenge") ?? undefined}
+      clientId={fxaParams.get("client_id") ?? config.clientId}
       scope={
-        searchParams.get("scope") ??
+        fxaParams.get("scope") ??
         "https://identity.mozilla.com/apps/oldsync profile"
       }
-      keysJwk={keysJwk}
+      keysJwk={fxaParams.get("keys_jwk") ?? undefined}
     />
   )
 }
