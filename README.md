@@ -22,7 +22,7 @@
 | src/routes/auth/jwks.py                 |       14 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/oauth\_authorization.py |       49 |        0 |       12 |        0 |     100% |           |
 | src/routes/auth/oauth\_destroy.py       |       26 |        0 |        4 |        0 |     100% |           |
-| src/routes/auth/oauth\_token.py         |       89 |        0 |       30 |        0 |     100% |           |
+| src/routes/auth/oauth\_token.py         |      116 |        0 |       40 |        0 |     100% |           |
 | src/routes/auth/oidc\_discovery.py      |       14 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/oidc\_exchange.py       |       76 |        0 |       10 |        0 |     100% |           |
 | src/routes/auth/scoped\_key\_data.py    |       48 |        0 |       12 |        0 |     100% |           |
@@ -69,7 +69,7 @@
 | src/shared/token.py                     |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                      |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                     |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                               | **2808** |    **0** |  **508** |    **0** | **100%** |           |
+| **TOTAL**                               | **2835** |    **0** |  **518** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
