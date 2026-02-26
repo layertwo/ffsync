@@ -502,13 +502,27 @@ class TestVerifySessionHawk:
             yield mock
 
     def _build_hawk_header(
-        self, token_id_hex, req_hmac_key_hex, method, path, host, port, ts="1000000", nonce="abc123"
+        self,
+        token_id_hex,
+        req_hmac_key_hex,
+        method,
+        path,
+        host,
+        port,
+        ts="1000000",
+        nonce="abc123",
+        payload_hash=None,
     ):
         """Build a valid Hawk header with correct HMAC."""
-        canonical = f"hawk.1.header\n{ts}\n{nonce}\n{method}\n{path}\n{host}\n{port}\n\n\n"
+        hash_value = payload_hash or ""
+        canonical = (
+            f"hawk.1.header\n{ts}\n{nonce}\n{method}\n{path}\n{host}\n{port}\n{hash_value}\n\n"
+        )
         req_hmac_key = bytes.fromhex(req_hmac_key_hex)
         mac = hmac.new(req_hmac_key, canonical.encode("ascii"), hashlib.sha256).digest()
         mac_b64 = base64.b64encode(mac).decode("ascii")
+        if payload_hash:
+            return f'Hawk id="{token_id_hex}", ts="{ts}", nonce="{nonce}", hash="{payload_hash}", mac="{mac_b64}"'
         return f'Hawk id="{token_id_hex}", ts="{ts}", nonce="{nonce}", mac="{mac_b64}"'
 
     def test_returns_uid_for_valid_hawk(
@@ -685,6 +699,106 @@ class TestVerifySessionHawk:
         result = manager.verify_session_hawk(auth_header, "GET", "/path", "host", "443")
         assert result is None
 
+    def test_returns_uid_with_payload_hash(
+        self,
+        manager,
+        dynamodb_stubber,
+        storage_table_name,
+        sample_uid,
+        mock_time,
+    ):
+        """verify_session_hawk returns uid when Hawk header includes a payload hash"""
+        token_id_hex = "aa" * 32
+        req_hmac_key_hex = "bb" * 32
+        payload_hash = base64.b64encode(
+            hashlib.sha256(b'{"grant_type":"fxa-credentials"}').digest()
+        ).decode("ascii")
+
+        auth_header = self._build_hawk_header(
+            token_id_hex,
+            req_hmac_key_hex,
+            "POST",
+            "/v1/oauth/token",
+            "localhost",
+            "443",
+            payload_hash=payload_hash,
+        )
+
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": f"SESSION#{token_id_hex}"},
+                    "uid": {"S": sample_uid},
+                    "verified": {"BOOL": True},
+                    "expiry": {"N": "1002592000"},
+                    "reqHMACkey": {"S": req_hmac_key_hex},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": f"SESSION#{token_id_hex}"},
+            },
+        )
+
+        result = manager.verify_session_hawk(
+            auth_header, "POST", "/v1/oauth/token", "localhost", "443"
+        )
+
+        assert result == sample_uid
+
+    def test_returns_none_for_wrong_payload_hash(
+        self,
+        manager,
+        dynamodb_stubber,
+        storage_table_name,
+        sample_uid,
+        mock_time,
+    ):
+        """verify_session_hawk returns None when payload hash in header doesn't match MAC"""
+        token_id_hex = "aa" * 32
+        req_hmac_key_hex = "bb" * 32
+
+        # Build header with one hash but compute MAC with a different hash
+        real_hash = base64.b64encode(hashlib.sha256(b"real payload").digest()).decode("ascii")
+        wrong_hash = base64.b64encode(hashlib.sha256(b"wrong payload").digest()).decode("ascii")
+
+        # Build a valid header with real_hash, then swap the hash field to wrong_hash
+        auth_header = self._build_hawk_header(
+            token_id_hex,
+            req_hmac_key_hex,
+            "POST",
+            "/v1/oauth/token",
+            "localhost",
+            "443",
+            payload_hash=real_hash,
+        )
+        # Replace the hash value in the header with the wrong one
+        auth_header = auth_header.replace(real_hash, wrong_hash, 1)
+
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": f"SESSION#{token_id_hex}"},
+                    "uid": {"S": sample_uid},
+                    "verified": {"BOOL": True},
+                    "expiry": {"N": "1002592000"},
+                    "reqHMACkey": {"S": req_hmac_key_hex},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": f"SESSION#{token_id_hex}"},
+            },
+        )
+
+        result = manager.verify_session_hawk(
+            auth_header, "POST", "/v1/oauth/token", "localhost", "443"
+        )
+
+        assert result is None
+
 
 class TestVerifyKeyfetchHawk:
     """Tests for verify_keyfetch_hawk method"""
@@ -704,13 +818,27 @@ class TestVerifyKeyfetchHawk:
             yield mock
 
     def _build_hawk_header(
-        self, token_id_hex, req_hmac_key_hex, method, path, host, port, ts="1000000", nonce="abc123"
+        self,
+        token_id_hex,
+        req_hmac_key_hex,
+        method,
+        path,
+        host,
+        port,
+        ts="1000000",
+        nonce="abc123",
+        payload_hash=None,
     ):
         """Build a valid Hawk header with correct HMAC."""
-        canonical = f"hawk.1.header\n{ts}\n{nonce}\n{method}\n{path}\n{host}\n{port}\n\n\n"
+        hash_value = payload_hash or ""
+        canonical = (
+            f"hawk.1.header\n{ts}\n{nonce}\n{method}\n{path}\n{host}\n{port}\n{hash_value}\n\n"
+        )
         req_hmac_key = bytes.fromhex(req_hmac_key_hex)
         mac = hmac.new(req_hmac_key, canonical.encode("ascii"), hashlib.sha256).digest()
         mac_b64 = base64.b64encode(mac).decode("ascii")
+        if payload_hash:
+            return f'Hawk id="{token_id_hex}", ts="{ts}", nonce="{nonce}", hash="{payload_hash}", mac="{mac_b64}"'
         return f'Hawk id="{token_id_hex}", ts="{ts}", nonce="{nonce}", mac="{mac_b64}"'
 
     def test_returns_token_data_for_valid_hawk(
@@ -945,6 +1073,57 @@ class TestVerifyKeyfetchHawk:
             auth_header, "GET", "/v1/account/keys", "localhost", "443"
         )
         assert result is None
+
+    def test_returns_token_data_with_payload_hash(
+        self,
+        manager,
+        dynamodb_stubber,
+        storage_table_name,
+        sample_uid,
+        mock_time,
+    ):
+        """verify_keyfetch_hawk returns uid and keyFetchToken when Hawk header includes a payload hash"""
+        token_id_hex = "aa" * 32
+        req_hmac_key_hex = "bb" * 32
+        raw_token_hex = "cc" * 32
+        payload_hash = base64.b64encode(hashlib.sha256(b"some payload").digest()).decode("ascii")
+
+        auth_header = self._build_hawk_header(
+            token_id_hex,
+            req_hmac_key_hex,
+            "POST",
+            "/v1/account/keys",
+            "localhost",
+            "443",
+            payload_hash=payload_hash,
+        )
+
+        dynamodb_stubber.add_response(
+            "delete_item",
+            {
+                "Attributes": {
+                    "PK": {"S": f"KEYFETCH#{token_id_hex}"},
+                    "uid": {"S": sample_uid},
+                    "keyFetchToken": {"S": raw_token_hex},
+                    "reqHMACkey": {"S": req_hmac_key_hex},
+                    "expiry": {"N": "1000300"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": f"KEYFETCH#{token_id_hex}"},
+                "ReturnValues": "ALL_OLD",
+                "ConditionExpression": "attribute_exists(PK)",
+            },
+        )
+
+        result = manager.verify_keyfetch_hawk(
+            auth_header, "POST", "/v1/account/keys", "localhost", "443"
+        )
+
+        assert result is not None
+        assert result["uid"] == sample_uid
+        assert result["keyFetchToken"] == raw_token_hex
 
 
 class TestDeleteSession:

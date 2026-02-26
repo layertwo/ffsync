@@ -19,7 +19,8 @@ SESSION_PREFIX = "SESSION"
 KEYFETCH_PREFIX = "KEYFETCH"
 
 HAWK_HEADER_PATTERN = re.compile(
-    r'id="(?P<id>[^"]+)".*ts="(?P<ts>[^"]+)".*nonce="(?P<nonce>[^"]+)".*mac="(?P<mac>[^"]+)"'
+    r'id="(?P<id>[^"]+)".*ts="(?P<ts>[^"]+)".*nonce="(?P<nonce>[^"]+)"'
+    r'(?:.*hash="(?P<hash>[^"]+)")?.*mac="(?P<mac>[^"]+)"'
 )
 
 
@@ -160,7 +161,10 @@ class FxATokenManager:
         req_hmac_key = bytes.fromhex(req_hmac_key_hex)
 
         # Construct canonical string per Hawk spec
-        canonical = f"hawk.1.header\n{ts}\n{nonce}\n{method}\n{path}\n{host}\n{port}\n\n\n"
+        payload_hash = match.group("hash") or ""
+        canonical = (
+            f"hawk.1.header\n{ts}\n{nonce}\n{method}\n{path}\n{host}\n{port}\n{payload_hash}\n\n"
+        )
 
         # Compute expected MAC
         computed_mac = hmac.new(req_hmac_key, canonical.encode("ascii"), hashlib.sha256).digest()
@@ -231,7 +235,10 @@ class FxATokenManager:
         req_hmac_key = bytes.fromhex(req_hmac_key_hex)
 
         # Construct canonical string per Hawk spec
-        canonical = f"hawk.1.header\n{ts}\n{nonce}\n{method}\n{path}\n{host}\n{port}\n\n\n"
+        payload_hash = match.group("hash") or ""
+        canonical = (
+            f"hawk.1.header\n{ts}\n{nonce}\n{method}\n{path}\n{host}\n{port}\n{payload_hash}\n\n"
+        )
 
         # Compute expected MAC
         computed_mac = hmac.new(req_hmac_key, canonical.encode("ascii"), hashlib.sha256).digest()
