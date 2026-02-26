@@ -60,6 +60,7 @@ class DeleteCollectionRoute(BaseRoute):
                 status_code=200,
                 content_type="application/json",
                 body=json_dumps(response_body),
+                headers={"X-Last-Modified": str(round(modified_timestamp, 2))},
             )
 
         except ValidationException as e:

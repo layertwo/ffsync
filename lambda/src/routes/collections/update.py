@@ -94,8 +94,9 @@ class UpdateCollectionRoute(BaseRoute):
 
             # Return Mozilla-compliant response format
             # {"modified": timestamp, "success": [...], "failed": {...}}
+            modified_ts = collection_data.modified.timestamp()
             response_body = {
-                "modified": collection_data.modified.timestamp(),
+                "modified": modified_ts,
                 "success": batch_result.success,
                 "failed": batch_result.failed,
             }
@@ -104,6 +105,7 @@ class UpdateCollectionRoute(BaseRoute):
                 status_code=200,
                 content_type="application/json",
                 body=json_dumps(response_body),
+                headers={"X-Last-Modified": str(round(modified_ts, 2))},
             )
 
         except ValidationException as e:

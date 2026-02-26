@@ -124,6 +124,7 @@ class UpdateBSORoute(BaseRoute):
                 status_code=200,
                 content_type="application/json",
                 body=json_dumps(modified),
+                headers={"X-Last-Modified": str(round(modified, 2))},
             )
 
         except ValidationException as e:
