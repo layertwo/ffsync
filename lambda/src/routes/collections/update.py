@@ -46,9 +46,20 @@ class UpdateCollectionRoute(BaseRoute):
             except ValidationError as e:
                 raise ValidationException(str(e))
 
-            # Parse objects from request body
+            # Parse objects from request body (per SyncStorage API v1.5 spec,
+            # body is a direct JSON array of BSOs)
             try:
                 body_data = json.loads(body)
+
+                # Handle direct array of objects (Mozilla API format)
+                if isinstance(body_data, list):
+                    objects_data = body_data
+                # Handle wrapped objects for backwards compatibility
+                elif isinstance(body_data, dict) and "objects" in body_data:
+                    objects_data = body_data["objects"]
+                else:
+                    raise ValidationException("Invalid request body: expected JSON array of BSOs")
+
                 objects = [
                     BasicStorageObject(
                         id=obj["id"],
@@ -59,7 +70,7 @@ class UpdateCollectionRoute(BaseRoute):
                             0, tz=timezone.utc
                         ),  # Will be set by DynamoDB service
                     )
-                    for obj in body_data["objects"]
+                    for obj in objects_data
                 ]
             except (json.JSONDecodeError, KeyError) as e:
                 raise ValidationException(f"Invalid request body: {e}")
@@ -81,13 +92,12 @@ class UpdateCollectionRoute(BaseRoute):
                 if_unmodified_since=if_unmodified_since,
             )
 
-            # Convert to dict using dataclass serialization
-            collection_dict = collection_data.to_dict()
-            batch_dict = batch_result.to_dict()
-
+            # Return Mozilla-compliant response format
+            # {"modified": timestamp, "success": [...], "failed": {...}}
             response_body = {
-                "collection": collection_dict,
-                "batchResult": batch_dict,
+                "modified": collection_data.modified.timestamp(),
+                "success": batch_result.success,
+                "failed": batch_result.failed,
             }
 
             return Response(

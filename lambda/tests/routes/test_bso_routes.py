@@ -87,12 +87,12 @@ class TestReadBSORoute:
 
         assert response.body is not None
         body = json.loads(response.body)
-        assert body["object"]["id"] == "item123"
-        assert body["object"]["payload"] == "bookmark_data"
-        assert body["object"]["modified"] == 1234567890.12
-        assert body["object"]["sortindex"] == 100
+        assert body["id"] == "item123"
+        assert body["payload"] == "bookmark_data"
+        assert body["modified"] == 1234567890.12
+        assert body["sortindex"] == 100
         # TTL is write-only per Mozilla spec (Requirement 11.4) - should not be in response
-        assert "ttl" not in body["object"]
+        assert "ttl" not in body
         assert response.headers["X-Last-Modified"] == "1234567890.12"
 
     def test_handle_success_without_optional_fields(self, mock_storage_manager):
@@ -124,8 +124,8 @@ class TestReadBSORoute:
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
-        assert "sortindex" not in body["object"]
-        assert "ttl" not in body["object"]
+        assert "sortindex" not in body
+        assert "ttl" not in body
 
     def test_handle_validation_exception(self, mock_storage_manager):
         """Test handling of ValidationException"""
@@ -257,7 +257,7 @@ class TestUpdateBSORoute:
                 "objectId": "item123",
             },
             "headers": {},
-            "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+            "body": json.dumps({"id": "item123", "payload": "data"}),
             "requestContext": {"authorizer": {"user_id": "test-user-123"}},
         }
         result = app.resolve(event, MagicMock())
@@ -276,12 +276,10 @@ class TestUpdateBSORoute:
                 },
                 "body": json.dumps(
                     {
-                        "object": {
-                            "id": "item123",
-                            "payload": "updated_data",
-                            "sortindex": 200,
-                            "ttl": 7200,
-                        }
+                        "id": "item123",
+                        "payload": "updated_data",
+                        "sortindex": 200,
+                        "ttl": 7200,
                     }
                 ),
                 "headers": {},
@@ -303,8 +301,7 @@ class TestUpdateBSORoute:
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
-        assert body["object"]["id"] == "item123"
-        assert body["object"]["payload"] == "updated_data"
+        assert body == 1234567891.0
 
     def test_handle_invalid_json(self, mock_storage_manager):
         """Test handling of invalid JSON body"""
@@ -327,8 +324,8 @@ class TestUpdateBSORoute:
 
         assert response.status_code == 400
 
-    def test_handle_missing_object_key(self, mock_storage_manager):
-        """Test handling of missing 'object' key in body"""
+    def test_handle_non_object_body(self, mock_storage_manager):
+        """Test handling of non-object JSON body (e.g. array or string)"""
         route = UpdateBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -338,7 +335,7 @@ class TestUpdateBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "item",
                 },
-                "body": json.dumps({"payload": "data"}),
+                "body": json.dumps([1, 2, 3]),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -359,7 +356,7 @@ class TestUpdateBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps({"object": {"id": "different_id", "payload": "data"}}),
+                "body": json.dumps({"id": "different_id", "payload": "data"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -380,7 +377,7 @@ class TestUpdateBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                "body": json.dumps({"id": "item123", "payload": "data"}),
                 "headers": {"X-If-Unmodified-Since": "1234567890"},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -410,7 +407,7 @@ class TestUpdateBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                "body": json.dumps({"id": "item123", "payload": "data"}),
                 "headers": {"X-If-Unmodified-Since": "invalid"},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -431,7 +428,7 @@ class TestUpdateBSORoute:
                     "collectionName": "nonexistent",
                     "objectId": "item123",
                 },
-                "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                "body": json.dumps({"id": "item123", "payload": "data"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -456,7 +453,7 @@ class TestUpdateBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "nonexistent",
                 },
-                "body": json.dumps({"object": {"id": "nonexistent", "payload": "data"}}),
+                "body": json.dumps({"id": "nonexistent", "payload": "data"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -481,7 +478,7 @@ class TestUpdateBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                "body": json.dumps({"id": "item123", "payload": "data"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -506,7 +503,7 @@ class TestUpdateBSORoute:
                     "collectionName": "invalid!",
                     "objectId": "item123",
                 },
-                "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                "body": json.dumps({"id": "item123", "payload": "data"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -529,7 +526,7 @@ class TestUpdateBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "item",
                 },
-                "body": json.dumps({"object": {"id": "item", "payload": "data"}}),
+                "body": json.dumps({"id": "item", "payload": "data"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -750,7 +747,7 @@ class TestUpdateBSORouteUnauthorized:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                "body": json.dumps({"id": "item123", "payload": "data"}),
                 "headers": {},
                 "requestContext": {"authorizer": {}},
             }
@@ -827,7 +824,7 @@ class TestReadBSORouteConditionalGET:
         assert response.status_code == 200
         assert response.body is not None
         body = json.loads(response.body)
-        assert body["object"]["id"] == "item123"
+        assert body["id"] == "item123"
 
     def test_handle_if_modified_since_invalid_format(self, mock_storage_manager):
         """Test 400 Bad Request for invalid X-If-Modified-Since header"""
@@ -965,7 +962,7 @@ class TestUpdateBSORouteInvalidCollectionName:
                         "collectionName": "invalid name!",
                         "objectId": "item123",
                     },
-                    "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
+                    "body": json.dumps({"id": "item123", "payload": "data"}),
                     "headers": {},
                 }
             )
@@ -1040,7 +1037,7 @@ class TestUpdateBSORouteValidation:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps({"object": {"id": "item123", "payload": large_payload}}),
+                "body": json.dumps({"id": "item123", "payload": large_payload}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -1066,7 +1063,7 @@ class TestUpdateBSORouteValidation:
                     "collectionName": "bookmarks",
                     "objectId": long_id,
                 },
-                "body": json.dumps({"object": {"id": long_id, "payload": "data"}}),
+                "body": json.dumps({"id": long_id, "payload": "data"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -1092,7 +1089,7 @@ class TestUpdateBSORouteValidation:
                     "collectionName": "bookmarks",
                     "objectId": invalid_id,
                 },
-                "body": json.dumps({"object": {"id": invalid_id, "payload": "data"}}),
+                "body": json.dumps({"id": invalid_id, "payload": "data"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -1116,9 +1113,7 @@ class TestUpdateBSORouteValidation:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps(
-                    {"object": {"id": "item123", "payload": "data", "sortindex": "not_an_int"}}
-                ),
+                "body": json.dumps({"id": "item123", "payload": "data", "sortindex": "not_an_int"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -1142,9 +1137,7 @@ class TestUpdateBSORouteValidation:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps(
-                    {"object": {"id": "item123", "payload": "data", "sortindex": 1000000000}}
-                ),
+                "body": json.dumps({"id": "item123", "payload": "data", "sortindex": 1000000000}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -1168,9 +1161,7 @@ class TestUpdateBSORouteValidation:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps(
-                    {"object": {"id": "item123", "payload": "data", "ttl": "not_an_int"}}
-                ),
+                "body": json.dumps({"id": "item123", "payload": "data", "ttl": "not_an_int"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -1194,7 +1185,7 @@ class TestUpdateBSORouteValidation:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps({"object": {"id": "item123", "payload": "data", "ttl": -100}}),
+                "body": json.dumps({"id": "item123", "payload": "data", "ttl": -100}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -1218,9 +1209,7 @@ class TestUpdateBSORouteValidation:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps(
-                    {"object": {"id": "item123", "payload": "data", "ttl": 1000000000}}
-                ),
+                "body": json.dumps({"id": "item123", "payload": "data", "ttl": 1000000000}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -1232,3 +1221,42 @@ class TestUpdateBSORouteValidation:
         assert response.body is not None
         body = json.loads(response.body)
         assert "TTL" in body["error"] and "exceeds" in body["error"]
+
+    def test_handle_no_payload(self, mock_storage_manager):
+        """Test successful update without payload (partial update)"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
+                "body": json.dumps({"sortindex": 50}),
+                "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        updated_bso = BasicStorageObject(
+            id="item123",
+            payload="existing_data",
+            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            sortindex=50,
+            ttl=None,
+        )
+        mock_storage_manager.update_storage_object.return_value = updated_bso
+
+        response = route.handle(event)
+
+        assert response.status_code == 200
+        mock_storage_manager.update_storage_object.assert_called_once_with(
+            "test-user-123",
+            "bookmarks",
+            "item123",
+            if_unmodified_since=None,
+            payload=None,
+            sortindex=50,
+            ttl=None,
+        )
