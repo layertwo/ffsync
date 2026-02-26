@@ -11,9 +11,9 @@
         "watch": "tsc -w"
     },
     "dependencies": {
-        "@aws-cdk/aws-lambda-python-alpha": "^2.239.0-alpha.0",
+        "@aws-cdk/aws-lambda-python-alpha": "^2.240.0-alpha.0",
         "aws-cdk": "^2.1106.0",
-        "aws-cdk-lib": "^2.239.0",
+        "aws-cdk-lib": "^2.240.0",
         "cdk-monitoring-constructs": "^9.19.2",
         "constructs": "^10.5.1",
         "env-var": "^7.0.0",
