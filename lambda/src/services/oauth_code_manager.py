@@ -34,6 +34,7 @@ class OAuthCodeManager:
         scope: str,
         code_challenge: str,
         code_challenge_method: str,
+        keys_jwe: str = "",
     ) -> str:
         """Create an authorization code and store in DynamoDB.
 
@@ -51,6 +52,7 @@ class OAuthCodeManager:
                 "scope": scope,
                 "codeChallenge": code_challenge,
                 "codeChallengeMethod": code_challenge_method,
+                "keysJwe": keys_jwe,
                 "expiry": now + self._code_ttl,
             }
         )
@@ -90,6 +92,7 @@ class OAuthCodeManager:
             "scope": item["scope"],
             "codeChallenge": item["codeChallenge"],
             "codeChallengeMethod": item["codeChallengeMethod"],
+            "keysJwe": item.get("keysJwe", ""),
         }
 
     def create_refresh_token(self, uid: str, client_id: str, scope: str) -> str:

@@ -10,7 +10,7 @@ export function toHex(buffer: ArrayBuffer): string {
     .join("")
 }
 
-async function hkdf(
+export async function hkdf(
   ikm: ArrayBuffer,
   info: string,
   length: number = 32
@@ -30,7 +30,7 @@ async function hkdf(
   )
 }
 
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
+export function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(hex.length / 2) as Uint8Array<ArrayBuffer>
   for (let i = 0; i < hex.length; i += 2) {
     bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16)
@@ -44,13 +44,14 @@ export async function deriveSessionTokenId(sessionTokenHex: string): Promise<str
   return toHex(derived.slice(0, 32))
 }
 
-export async function buildHawkHeader(
-  sessionTokenHex: string,
+export async function buildHawkHeaderWithInfo(
+  tokenHex: string,
   method: string,
-  url: string
+  url: string,
+  infoString: string
 ): Promise<string> {
-  const tokenBytes = hexToBytes(sessionTokenHex)
-  const derived = await hkdf(tokenBytes.buffer, "identity.mozilla.com/picl/v1/sessionToken", 96)
+  const tokenBytes = hexToBytes(tokenHex)
+  const derived = await hkdf(tokenBytes.buffer, infoString, 96)
 
   const tokenId = toHex(derived.slice(0, 32))
   const reqHMACKey = derived.slice(32, 64)
@@ -77,6 +78,19 @@ export async function buildHawkHeader(
   const macB64 = btoa(String.fromCharCode(...new Uint8Array(mac)))
 
   return `Hawk id="${tokenId}", ts="${ts}", nonce="${nonce}", mac="${macB64}"`
+}
+
+export async function buildHawkHeader(
+  sessionTokenHex: string,
+  method: string,
+  url: string
+): Promise<string> {
+  return buildHawkHeaderWithInfo(
+    sessionTokenHex,
+    method,
+    url,
+    "identity.mozilla.com/picl/v1/sessionToken"
+  )
 }
 
 export async function stretchPassword(

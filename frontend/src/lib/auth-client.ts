@@ -17,7 +17,7 @@ interface OAuthCodeResponse {
   redirect: string
 }
 
-async function authFetch<T>(
+export async function authFetch<T>(
   url: string,
   options: RequestInit
 ): Promise<T> {
@@ -121,10 +121,22 @@ export async function requestOAuthCode(
   clientId: string,
   scope: string,
   state: string,
-  codeChallenge: string
+  codeChallenge: string,
+  keysJwe?: string
 ): Promise<OAuthCodeResponse> {
   const url = `${authServerUrl}/v1/oauth/authorization`
   const authorization = await buildHawkHeader(sessionToken, "POST", url)
+  const bodyObj: Record<string, string> = {
+    client_id: clientId,
+    scope,
+    state,
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
+    access_type: "offline",
+  }
+  if (keysJwe) {
+    bodyObj.keys_jwe = keysJwe
+  }
   return authFetch<OAuthCodeResponse>(
     url,
     {
@@ -133,14 +145,7 @@ export async function requestOAuthCode(
         "Content-Type": "application/json",
         Authorization: authorization,
       },
-      body: JSON.stringify({
-        client_id: clientId,
-        scope,
-        state,
-        code_challenge: codeChallenge,
-        code_challenge_method: "S256",
-        access_type: "offline",
-      }),
+      body: JSON.stringify(bodyObj),
     }
   )
 }

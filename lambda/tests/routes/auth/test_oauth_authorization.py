@@ -192,6 +192,40 @@ class TestOAuthAuthorization:
             scope="openid",
             code_challenge="ch",
             code_challenge_method="S256",
+            keys_jwe="",
+        )
+
+    def test_passes_keys_jwe_to_code_manager(
+        self, route, mock_token_manager, mock_oauth_code_manager
+    ):
+        mock_token_manager.verify_session_hawk.return_value = "uid1"
+        mock_oauth_code_manager.create_authorization_code.return_value = "code"
+
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/v1/oauth/authorization",
+                "headers": {"authorization": 'Hawk id="tok"'},
+                "body": json.dumps(
+                    {
+                        "client_id": "client1",
+                        "scope": "openid",
+                        "state": "st",
+                        "code_challenge": "ch",
+                        "code_challenge_method": "S256",
+                        "keys_jwe": "encrypted-jwe-payload",
+                    }
+                ),
+            }
+        )
+        route.handle(event)
+        mock_oauth_code_manager.create_authorization_code.assert_called_once_with(
+            uid="uid1",
+            client_id="client1",
+            scope="openid",
+            code_challenge="ch",
+            code_challenge_method="S256",
+            keys_jwe="encrypted-jwe-payload",
         )
 
 
