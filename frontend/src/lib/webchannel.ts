@@ -43,17 +43,48 @@ export function listenFromFirefox(
   return () => window.removeEventListener("WebChannelMessageToContent", handler)
 }
 
+export interface LoginData {
+  email: string
+  uid: string
+  sessionToken: string
+  keyFetchToken: string
+  unwrapBKey: string
+  verified: boolean
+  declinedSyncEngines: string[]
+  offeredSyncEngines: string[]
+  verifiedCanLinkAccount: boolean
+}
+
+export function sendLogin(data: LoginData): void {
+  sendToFirefox("fxaccounts:login", {
+    ...data,
+    services: {
+      sync: {},
+    },
+  })
+}
+
 export function sendOAuthLogin(
   code: string,
   state: string,
-  declinedSyncEngines: string[] = []
+  declinedSyncEngines: string[] = [],
+  offeredSyncEngines: string[] = []
 ): void {
   sendToFirefox("fxaccounts:oauth_login", {
     code,
     state,
     redirect: "urn:ietf:wg:oauth:2.0:oob",
+    action: "signin",
     declinedSyncEngines,
+    offeredSyncEngines,
   })
+}
+
+export function sendCanLinkAccount(
+  ok: boolean,
+  messageId?: string
+): void {
+  sendToFirefox("fxaccounts:can_link_account", { ok }, messageId)
 }
 
 export function sendFxAStatus(

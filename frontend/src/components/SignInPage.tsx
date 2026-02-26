@@ -27,7 +27,9 @@ import {
 } from "@/lib/auth-client"
 import {
   listenFromFirefox,
+  sendCanLinkAccount,
   sendFxAStatus,
+  sendLogin,
   sendOAuthLogin,
 } from "@/lib/webchannel"
 import { generatePKCE } from "@/lib/pkce"
@@ -68,6 +70,15 @@ export function SignInPage({
   const [passwordLoading, setPasswordLoading] = useState(false)
   const initialized = useRef(false)
 
+  const syncEngines = [
+    "bookmarks",
+    "history",
+    "passwords",
+    "tabs",
+    "prefs",
+    "addons",
+  ]
+
   const handleError = useCallback((msg: string) => {
     console.error(`[ffsync] FxA sign-in error: ${msg}`)
     setSignInState({ step: "error", message: msg })
@@ -82,17 +93,12 @@ export function SignInPage({
         sendFxAStatus(
           {
             choose_what_to_sync: true,
-            engines: [
-              "bookmarks",
-              "history",
-              "passwords",
-              "tabs",
-              "prefs",
-              "addons",
-            ],
+            engines: syncEngines,
           },
           messageId
         )
+      } else if (command === "fxaccounts:can_link_account") {
+        sendCanLinkAccount(true, messageId)
       }
     })
 
@@ -245,9 +251,24 @@ export function SignInPage({
         message: "Completing sign-in...",
       })
 
-      sendOAuthLogin(oauthResult.code, oauthResult.state)
+      // Send fxaccounts:login first so Firefox stores the account data
+      // (uid, sessionToken, etc.) that oauthLogin reads back.
+      sendLogin({
+        email,
+        uid,
+        sessionToken,
+        keyFetchToken,
+        unwrapBKey,
+        verified: true,
+        declinedSyncEngines: [],
+        offeredSyncEngines: syncEngines,
+        verifiedCanLinkAccount: true,
+      })
 
-      void uid
+      // Then send fxaccounts:oauth_login so Firefox exchanges the code
+      // at /v1/oauth/token and receives keys_jwe with the scoped sync keys.
+      sendOAuthLogin(oauthResult.code, oauthResult.state, [], syncEngines)
+
       void codeVerifier
       void service
       void action
