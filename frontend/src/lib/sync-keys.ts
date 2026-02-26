@@ -24,6 +24,7 @@ interface ScopedKeyData {
 }
 
 interface ScopedKeyJWK {
+  scope: string
   kid: string
   k: string
   kty: string
@@ -148,7 +149,8 @@ function toBase64url(buffer: ArrayBuffer): string {
 
 export async function deriveScopedSyncKey(
   kBHex: string,
-  keyRotationTimestamp: number
+  keyRotationTimestamp: number,
+  scope: string
 ): Promise<ScopedKeyJWK> {
   const kB = hexToBytes(kBHex)
 
@@ -159,8 +161,15 @@ export async function deriveScopedSyncKey(
   const kBHash = await crypto.subtle.digest("SHA-256", kB)
   const fingerprint = toBase64url(kBHash.slice(0, 16))
 
+  // Firefox validates kid timestamp as milliseconds via new Date(ts)
+  // and rejects ts <= 0, so ensure it's in milliseconds.
+  const tsMs = keyRotationTimestamp < 1e12
+    ? keyRotationTimestamp * 1000
+    : keyRotationTimestamp
+
   return {
-    kid: `${keyRotationTimestamp}-${fingerprint}`,
+    scope,
+    kid: `${tsMs}-${fingerprint}`,
     k: toBase64url(syncKeyMaterial),
     kty: "oct",
   }
@@ -226,7 +235,7 @@ export async function deriveAndEncryptSyncKeys(
     throw new Error(`No scoped key data returned for ${syncScope}`)
   }
 
-  const scopedKey = await deriveScopedSyncKey(kBHex, metadata.keyRotationTimestamp)
+  const scopedKey = await deriveScopedSyncKey(kBHex, metadata.keyRotationTimestamp, syncScope)
 
   // 6. Encrypt as JWE for Firefox
   const keysBundle: Record<string, ScopedKeyJWK> = {
