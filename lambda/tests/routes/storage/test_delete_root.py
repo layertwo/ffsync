@@ -4,23 +4,26 @@ import json
 from typing import Any
 
 from src.entrypoint.storage_api import lambda_handler as storage_handler
+from src.services.token_generator import TokenGenerator
 
 TEST_USER_ID = "test-user-123"
+TEST_GENERATION = 0
+TEST_UID = str(TokenGenerator.generate_uid(TEST_USER_ID, TEST_GENERATION))
 
 
 def build_storage_event(method: str, path: str, user_id: str = TEST_USER_ID) -> dict:
     """Build a storage API event with authentication context"""
     return {
         "httpMethod": method,
-        "path": f"/1.5/12345{path}",
-        "pathParameters": {"uid": "12345"},
+        "path": f"/1.5/{TEST_UID}{path}",
+        "pathParameters": {"uid": TEST_UID},
         "headers": {},
         "body": None,
         "queryStringParameters": None,
         "requestContext": {
             "requestId": "test-request-id",
             "accountId": "123456789012",
-            "authorizer": {"user_id": user_id},
+            "authorizer": {"user_id": user_id, "generation": str(TEST_GENERATION)},
         },
     }
 
@@ -109,8 +112,8 @@ class TestDeleteAllRootRoute:
         """Test handling when user_id is missing from authorizer context"""
         event: dict[str, Any] = {
             "httpMethod": "DELETE",
-            "path": "/1.5/12345",
-            "pathParameters": {"uid": "12345"},
+            "path": f"/1.5/{TEST_UID}",
+            "pathParameters": {"uid": TEST_UID},
             "headers": {},
             "body": None,
             "queryStringParameters": None,

@@ -4,7 +4,13 @@ from unittest.mock import MagicMock, patch
 
 from aws_lambda_powertools.event_handler import Response
 
-from src.services.api_router import ApiRouter, RequestLoggingMiddleware, WeaveTimestampMiddleware
+from src.services.api_router import (
+    ApiRouter,
+    RequestLoggingMiddleware,
+    UidValidationMiddleware,
+    WeaveTimestampMiddleware,
+)
+from src.services.token_generator import TokenGenerator
 
 
 def test_api_router_initialization():
@@ -304,3 +310,162 @@ def test_request_logging_middleware_never_logs_payloads():
             log_message = str(call)
             assert "sensitive encrypted data" not in log_message
             assert "body" not in str(call[1].get("extra", {}))
+
+
+class TestUidValidationMiddleware:
+    """Tests for UidValidationMiddleware"""
+
+    def test_matching_uid_passes_through(self):
+        """Test that a matching uid allows the request to proceed"""
+        middleware = UidValidationMiddleware()
+        mock_app = MagicMock()
+
+        user_id = "test-user-123"
+        generation = 0
+        expected_uid = str(TokenGenerator.generate_uid(user_id, generation))
+
+        mock_app.current_event = {
+            "requestContext": {
+                "authorizer": {"user_id": user_id, "generation": str(generation)},
+            },
+            "pathParameters": {"uid": expected_uid},
+        }
+        mock_response = Response(status_code=200, body='{"ok": true}')
+        mock_next = MagicMock(return_value=mock_response)
+
+        result = middleware.handler(mock_app, mock_next)
+
+        mock_next.assert_called_once_with(mock_app)
+        assert result.status_code == 200
+
+    def test_mismatched_uid_returns_403(self):
+        """Test that a mismatched uid returns 403"""
+        middleware = UidValidationMiddleware()
+        mock_app = MagicMock()
+
+        user_id = "test-user-123"
+        generation = 0
+
+        mock_app.current_event = {
+            "requestContext": {
+                "authorizer": {"user_id": user_id, "generation": str(generation)},
+            },
+            "pathParameters": {"uid": "wrong-uid"},
+        }
+        mock_next = MagicMock()
+
+        result = middleware.handler(mock_app, mock_next)
+
+        mock_next.assert_not_called()
+        assert result.status_code == 403
+        assert result.body is not None
+        assert "uid mismatch" in result.body
+
+    def test_missing_generation_skips_validation(self):
+        """Test that missing generation in authorizer skips validation"""
+        middleware = UidValidationMiddleware()
+        mock_app = MagicMock()
+
+        mock_app.current_event = {
+            "requestContext": {
+                "authorizer": {"user_id": "test-user-123"},
+            },
+            "pathParameters": {"uid": "any-uid"},
+        }
+        mock_response = Response(status_code=200, body='{"ok": true}')
+        mock_next = MagicMock(return_value=mock_response)
+
+        result = middleware.handler(mock_app, mock_next)
+
+        mock_next.assert_called_once_with(mock_app)
+        assert result.status_code == 200
+
+    def test_missing_uid_skips_validation(self):
+        """Test that missing uid path parameter skips validation"""
+        middleware = UidValidationMiddleware()
+        mock_app = MagicMock()
+
+        mock_app.current_event = {
+            "requestContext": {
+                "authorizer": {"user_id": "test-user-123", "generation": "0"},
+            },
+            "pathParameters": {},
+        }
+        mock_response = Response(status_code=200, body='{"ok": true}')
+        mock_next = MagicMock(return_value=mock_response)
+
+        result = middleware.handler(mock_app, mock_next)
+
+        mock_next.assert_called_once_with(mock_app)
+        assert result.status_code == 200
+
+    def test_missing_user_id_skips_validation(self):
+        """Test that missing user_id in authorizer skips validation"""
+        middleware = UidValidationMiddleware()
+        mock_app = MagicMock()
+
+        mock_app.current_event = {
+            "requestContext": {
+                "authorizer": {"generation": "0"},
+            },
+            "pathParameters": {"uid": "some-uid"},
+        }
+        mock_response = Response(status_code=200, body='{"ok": true}')
+        mock_next = MagicMock(return_value=mock_response)
+
+        result = middleware.handler(mock_app, mock_next)
+
+        mock_next.assert_called_once_with(mock_app)
+        assert result.status_code == 200
+
+    def test_null_path_parameters_skips_validation(self):
+        """Test that null pathParameters skips validation"""
+        middleware = UidValidationMiddleware()
+        mock_app = MagicMock()
+
+        mock_app.current_event = {
+            "requestContext": {
+                "authorizer": {"user_id": "test-user-123", "generation": "0"},
+            },
+            "pathParameters": None,
+        }
+        mock_response = Response(status_code=200, body='{"ok": true}')
+        mock_next = MagicMock(return_value=mock_response)
+
+        result = middleware.handler(mock_app, mock_next)
+
+        mock_next.assert_called_once_with(mock_app)
+        assert result.status_code == 200
+
+    def test_different_generation_produces_different_uid(self):
+        """Test that different generation values produce different expected uids"""
+        middleware = UidValidationMiddleware()
+        mock_app = MagicMock()
+
+        user_id = "test-user-123"
+        gen0_uid = str(TokenGenerator.generate_uid(user_id, 0))
+        gen1_uid = str(TokenGenerator.generate_uid(user_id, 1))
+
+        # Request with gen0 uid but gen1 in authorizer should fail
+        mock_app.current_event = {
+            "requestContext": {
+                "authorizer": {"user_id": user_id, "generation": "1"},
+            },
+            "pathParameters": {"uid": gen0_uid},
+        }
+        mock_next = MagicMock()
+
+        result = middleware.handler(mock_app, mock_next)
+
+        mock_next.assert_not_called()
+        assert result.status_code == 403
+
+        # But gen1 uid with gen1 in authorizer should pass
+        mock_app.current_event["pathParameters"]["uid"] = gen1_uid
+        mock_response = Response(status_code=200, body='{"ok": true}')
+        mock_next_pass = MagicMock(return_value=mock_response)
+
+        result = middleware.handler(mock_app, mock_next_pass)
+
+        mock_next_pass.assert_called_once_with(mock_app)
+        assert result.status_code == 200

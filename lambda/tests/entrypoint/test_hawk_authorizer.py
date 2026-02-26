@@ -120,6 +120,7 @@ class TestLambdaHandlerSuccess:
         assert "context" in result
         assert result["context"]["user_id"] == "user123"
         assert result["context"]["hawk_id"] == valid_hawk_id
+        assert result["context"]["generation"] == "5"
         assert "authenticated_at" in result["context"]
 
     def test_lambda_handler_calls_validate_with_correct_params(

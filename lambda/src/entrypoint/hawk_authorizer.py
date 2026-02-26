@@ -107,6 +107,7 @@ def lambda_handler(
             context={
                 "user_id": credentials.user_id,
                 "hawk_id": credentials.hawk_id,
+                "generation": str(credentials.generation),
                 "authenticated_at": str(round(time.time(), 2)),
             },
             usage_identifier_key=credentials.user_id,

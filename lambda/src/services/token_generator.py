@@ -22,7 +22,8 @@ class TokenGenerator:
         self._storage_domain = storage_domain
         self._hawk_service = hawk_service
 
-    def generate_uid(self, user_id: str, generation: int) -> int:
+    @staticmethod
+    def generate_uid(user_id: str, generation: int) -> int:
         """Generate numeric user ID from user identifier and generation
 
         Creates a numeric UID by hashing user_id + generation.
