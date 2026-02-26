@@ -1113,9 +1113,7 @@ class TestUpdateBSORouteValidation:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps(
-                    {"id": "item123", "payload": "data", "sortindex": "not_an_int"}
-                ),
+                "body": json.dumps({"id": "item123", "payload": "data", "sortindex": "not_an_int"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -1139,9 +1137,7 @@ class TestUpdateBSORouteValidation:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps(
-                    {"id": "item123", "payload": "data", "sortindex": 1000000000}
-                ),
+                "body": json.dumps({"id": "item123", "payload": "data", "sortindex": 1000000000}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -1165,9 +1161,7 @@ class TestUpdateBSORouteValidation:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps(
-                    {"id": "item123", "payload": "data", "ttl": "not_an_int"}
-                ),
+                "body": json.dumps({"id": "item123", "payload": "data", "ttl": "not_an_int"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -1215,9 +1209,7 @@ class TestUpdateBSORouteValidation:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "body": json.dumps(
-                    {"id": "item123", "payload": "data", "ttl": 1000000000}
-                ),
+                "body": json.dumps({"id": "item123", "payload": "data", "ttl": 1000000000}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
