@@ -82,7 +82,7 @@ def lambda_handler(
         path = authorizer_event.path
         query_params = (event.get("queryStringParameters") or {}) or None
         if query_params:
-            qs = "&".join(f"{k}={v}" for k, v in sorted(query_params.items()))
+            qs = "&".join(f"{k}={v}" for k, v in query_params.items())
             path = f"{path}?{qs}"
         domain_name = (
             authorizer_event.request_context.domain_name if authorizer_event.request_context else ""
