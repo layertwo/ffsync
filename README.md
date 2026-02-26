@@ -30,14 +30,14 @@
 | src/routes/auth/session\_status.py      |       27 |        0 |        4 |        0 |     100% |           |
 | src/routes/bso/\_\_init\_\_.py          |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/delete.py                |       40 |        0 |        2 |        0 |     100% |           |
-| src/routes/bso/read.py                  |       60 |        0 |       14 |        0 |     100% |           |
-| src/routes/bso/update.py                |       87 |        0 |       10 |        0 |     100% |           |
+| src/routes/bso/read.py                  |       59 |        0 |       14 |        0 |     100% |           |
+| src/routes/bso/update.py                |       80 |        0 |       10 |        0 |     100% |           |
 | src/routes/collections/\_\_init\_\_.py  |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/collections/create.py        |       81 |        0 |       20 |        0 |     100% |           |
 | src/routes/collections/delete.py        |       41 |        0 |        4 |        0 |     100% |           |
 | src/routes/collections/list.py          |       24 |        0 |        2 |        0 |     100% |           |
 | src/routes/collections/read.py          |       83 |        0 |       28 |        0 |     100% |           |
-| src/routes/collections/update.py        |       55 |        0 |        4 |        0 |     100% |           |
+| src/routes/collections/update.py        |       58 |        0 |        8 |        0 |     100% |           |
 | src/routes/info/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/info/read\_collections.py    |       24 |        0 |        2 |        0 |     100% |           |
 | src/routes/info/read\_configuration.py  |       31 |        0 |        4 |        0 |     100% |           |
@@ -69,7 +69,7 @@
 | src/shared/token.py                     |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                      |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                     |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                               | **2852** |    **0** |  **522** |    **0** | **100%** |           |
+| **TOTAL**                               | **2847** |    **0** |  **526** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
