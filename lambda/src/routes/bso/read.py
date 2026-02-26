@@ -104,12 +104,10 @@ class ReadBSORoute(BaseRoute):
             if obj_dict.get("sortindex") is None:
                 del obj_dict["sortindex"]
 
-            response_body = {"object": obj_dict}
-
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json_dumps(response_body),
+                body=json_dumps(obj_dict),
                 headers={"X-Last-Modified": str(obj_dict["modified"])},
             )
 

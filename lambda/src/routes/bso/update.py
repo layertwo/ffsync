@@ -1,6 +1,4 @@
 import json
-from datetime import datetime, timezone
-from typing import Any
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -15,7 +13,6 @@ from src.shared.exceptions import (
     ValidationException,
 )
 from src.shared.models import (
-    BasicStorageObject,
     ValidationError,
     validate_bso_id,
     validate_collection_name,
@@ -58,55 +55,46 @@ class UpdateBSORoute(BaseRoute):
             except ValidationError as e:
                 raise ValidationException(str(e))
 
-            # Parse object from request body
+            # Parse BSO fields directly from request body (per SyncStorage API v1.5 spec)
             try:
-                body_data = json.loads(body)
-                obj_data = body_data["object"]
+                obj_data = json.loads(body)
+            except (json.JSONDecodeError, TypeError) as e:
+                raise ValidationException(f"Invalid request body: {e}")
 
-                # Validate BSO ID (Requirements 10.2, 10.3)
-                bso_id = obj_data["id"]
-                try:
-                    validate_bso_id(bso_id)
-                except ValidationError as e:
-                    raise ValidationException(str(e))
+            if not isinstance(obj_data, dict):
+                raise ValidationException("Invalid request body: expected JSON object")
 
-                # Validate that object ID in body matches path parameter
-                if bso_id != object_id:
-                    raise ValidationException("Object ID in body must match path parameter")
+            # Validate BSO ID from path parameter (Requirements 10.2, 10.3)
+            try:
+                validate_bso_id(object_id)
+            except ValidationError as e:
+                raise ValidationException(str(e))
 
-                # Validate payload size (Requirement 10.1)
-                payload = obj_data["payload"]
+            # If body contains id, validate it matches the path parameter
+            if "id" in obj_data and obj_data["id"] != object_id:
+                raise ValidationException("Object ID in body must match path parameter")
+
+            # Validate payload size if provided (Requirement 10.1)
+            payload = obj_data.get("payload")
+            if payload is not None:
                 try:
                     validate_payload_size(payload)
                 except ValidationError as e:
                     raise RequestTooLargeException(str(e))
 
-                # Validate sortindex if provided
-                sortindex = obj_data.get("sortindex")
-                try:
-                    validate_sortindex(sortindex)
-                except ValidationError as e:
-                    raise ValidationException(str(e))
+            # Validate sortindex if provided
+            sortindex = obj_data.get("sortindex")
+            try:
+                validate_sortindex(sortindex)
+            except ValidationError as e:
+                raise ValidationException(str(e))
 
-                # Validate TTL if provided
-                ttl = obj_data.get("ttl")
-                try:
-                    validate_ttl(ttl)
-                except ValidationError as e:
-                    raise ValidationException(str(e))
-
-                storage_object = BasicStorageObject(
-                    id=bso_id,
-                    payload=payload,
-                    sortindex=sortindex,
-                    ttl=ttl,
-                    modified=datetime.fromtimestamp(
-                        0, tz=timezone.utc
-                    ),  # Will be set by DynamoDB service
-                )
-
-            except (json.JSONDecodeError, KeyError) as e:
-                raise ValidationException(f"Invalid request body: {e}")
+            # Validate TTL if provided
+            ttl = obj_data.get("ttl")
+            try:
+                validate_ttl(ttl)
+            except ValidationError as e:
+                raise ValidationException(str(e))
 
             # Handle conditional update header (Requirements 5.1-5.3)
             if_unmodified_since = None
@@ -123,29 +111,19 @@ class UpdateBSORoute(BaseRoute):
                 collection_name,
                 object_id,
                 if_unmodified_since=if_unmodified_since,
-                payload=storage_object.payload,
-                sortindex=storage_object.sortindex,
-                ttl=storage_object.ttl,
+                payload=payload,
+                sortindex=sortindex,
+                ttl=ttl,
             )
 
-            # Convert to dict using dataclass serialization
-            obj_dict = updated_object.to_dict()
-
-            # Remove None values
-            if obj_dict.get("sortindex") is None:
-                del obj_dict["sortindex"]
-            if obj_dict.get("ttl") is None:
-                del obj_dict["ttl"]
-
-            response_body: dict[str, Any] = {
-                "object": obj_dict,
-                "modified": obj_dict["modified"],
-            }
+            # Per SyncStorage API v1.5 spec, PUT returns the new
+            # last-modified time for the collection as a plain number
+            modified = updated_object.modified.timestamp()
 
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json_dumps(response_body),
+                body=json_dumps(modified),
             )
 
         except ValidationException as e:
