@@ -7,7 +7,7 @@
 | src/\_\_init\_\_.py                     |        0 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/\_\_init\_\_.py          |        4 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/auth\_api.py             |        5 |        0 |        0 |        0 |     100% |           |
-| src/entrypoint/hawk\_authorizer.py      |       33 |        0 |        2 |        0 |     100% |           |
+| src/entrypoint/hawk\_authorizer.py      |       37 |        0 |        4 |        0 |     100% |           |
 | src/entrypoint/storage\_api.py          |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/token\_api.py            |        5 |        0 |        0 |        0 |     100% |           |
 | src/environment/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
@@ -69,7 +69,7 @@
 | src/shared/token.py                     |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                      |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                     |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                               | **2852** |    **0** |  **526** |    **0** | **100%** |           |
+| **TOTAL**                               | **2856** |    **0** |  **528** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
