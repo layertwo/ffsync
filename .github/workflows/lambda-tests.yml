@@ -1,5 +1,12 @@
 name: Lambda Tests
 
+env:
+  UV_SYSTEM_PYTHON: 1
+
+defaults:
+  run:
+    working-directory: ./lambda
+
 on:
   push:
     paths: ['lambda/**', '.github/workflows/lambda-tests.yml']
@@ -15,8 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.13', '3.14']
-    
+        python-version: ['3.14']
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -25,38 +32,34 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-          cache-dependency-path: 'lambda/requirements-dev.txt'
+
+      - name: Enable caching
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: |
-          cd lambda
-          pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          uv pip install --group dev .
 
       - name: Check code formatting with black
         run: |
-          cd lambda
           black --check --diff src/ tests/
 
       - name: Check import sorting with isort
         run: |
-          cd lambda
           isort --check-only --diff src/ tests/
 
       - name: Run flake8 linting
         run: |
-          cd lambda
           flake8 src/ tests/
 
       - name: Run mypy type checking
         run: |
-          cd lambda
           mypy
 
       - name: Run tests with coverage
         run: |
-          cd lambda
           pytest
         env:
           COVERAGE_FILE: .coverage.${{ matrix.python-version }}
@@ -75,7 +78,7 @@ jobs:
     permissions:
       pull-requests: write
       contents: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
