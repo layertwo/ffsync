@@ -978,6 +978,40 @@ class TestUpdateCollectionRoute:
 
         assert response.status_code == 400
 
+    def test_handle_direct_array_body(self, mock_storage_manager):
+        """Test batch update with direct JSON array body (SyncStorage API v1.5 format)"""
+        route = UpdateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
+                    "headers": {},
+                    "body": json.dumps([{"id": "obj1", "payload": "data"}]),
+                }
+            )
+        )
+
+        collection_data = CollectionData(
+            name="bookmarks",
+            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            count=1,
+            usage=512,
+        )
+        batch_result = BatchResult(
+            success=["obj1"],
+            failed={},
+            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+        )
+        mock_storage_manager.update_collection.return_value = (
+            collection_data,
+            batch_result,
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 200
+
     def test_handle_missing_objects_key(self, mock_storage_manager):
         """Test handling of missing 'objects' key in body"""
         route = UpdateCollectionRoute(mock_storage_manager)

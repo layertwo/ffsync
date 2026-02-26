@@ -1221,3 +1221,42 @@ class TestUpdateBSORouteValidation:
         assert response.body is not None
         body = json.loads(response.body)
         assert "TTL" in body["error"] and "exceeds" in body["error"]
+
+    def test_handle_no_payload(self, mock_storage_manager):
+        """Test successful update without payload (partial update)"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
+                "body": json.dumps({"sortindex": 50}),
+                "headers": {},
+                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            }
+        )
+
+        updated_bso = BasicStorageObject(
+            id="item123",
+            payload="existing_data",
+            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            sortindex=50,
+            ttl=None,
+        )
+        mock_storage_manager.update_storage_object.return_value = updated_bso
+
+        response = route.handle(event)
+
+        assert response.status_code == 200
+        mock_storage_manager.update_storage_object.assert_called_once_with(
+            "test-user-123",
+            "bookmarks",
+            "item123",
+            if_unmodified_since=None,
+            payload=None,
+            sortindex=50,
+            ttl=None,
+        )
