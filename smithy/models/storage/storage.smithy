@@ -43,7 +43,7 @@ resource QuotaInfo { read: GetQuotaInfo }
 resource ConfigurationInfo { read: GetConfigurationInfo }
 
 @idempotent
-@http(method: "DELETE", uri: "/storage")
+@http(method: "DELETE", uri: "/1.5/{uid}/storage")
 @documentation("Delete all storage data for the authenticated user")
 operation DeleteAllStorage {
     input: DeleteAllStorageInput
@@ -54,7 +54,7 @@ operation DeleteAllStorage {
 }
 
 @idempotent
-@http(method: "DELETE", uri: "/")
+@http(method: "DELETE", uri: "/1.5/{uid}")
 @documentation("Delete all storage data for the authenticated user (root endpoint)")
 operation DeleteAllRootStorage {
     input: DeleteAllRootStorageInput
@@ -65,7 +65,7 @@ operation DeleteAllRootStorage {
 }
 
 @readonly
-@http(method: "GET", uri: "/info/collections")
+@http(method: "GET", uri: "/1.5/{uid}/info/collections")
 @documentation("Get metadata for all collections")
 operation GetStorageInfo {
     input: GetStorageInfoInput
@@ -76,7 +76,7 @@ operation GetStorageInfo {
 }
 
 @readonly
-@http(method: "GET", uri: "/info/collection_counts")
+@http(method: "GET", uri: "/1.5/{uid}/info/collection_counts")
 @documentation("Get object counts for all collections")
 operation GetCollectionCounts {
     input: GetCollectionCountsInput
@@ -87,7 +87,7 @@ operation GetCollectionCounts {
 }
 
 @readonly
-@http(method: "GET", uri: "/info/collection_usage")
+@http(method: "GET", uri: "/1.5/{uid}/info/collection_usage")
 @documentation("Get storage usage for all collections")
 operation GetCollectionUsage {
     input: GetCollectionUsageInput
@@ -98,7 +98,7 @@ operation GetCollectionUsage {
 }
 
 @readonly
-@http(method: "GET", uri: "/info/quota")
+@http(method: "GET", uri: "/1.5/{uid}/info/quota")
 @documentation("Get storage quota information")
 operation GetQuotaInfo {
     input: GetQuotaInfoInput
@@ -109,7 +109,7 @@ operation GetQuotaInfo {
 }
 
 @readonly
-@http(method: "GET", uri: "/info/configuration")
+@http(method: "GET", uri: "/1.5/{uid}/info/configuration")
 @documentation("Get server configuration limits")
 operation GetConfigurationInfo {
     input: GetConfigurationInfoInput
@@ -165,7 +165,11 @@ list StringList {
 }
 
 @input
-structure DeleteAllStorageInput {}
+structure DeleteAllStorageInput {
+    @httpLabel
+    @required
+    uid: String
+}
 
 @output
 structure DeleteAllStorageOutput {
@@ -174,7 +178,11 @@ structure DeleteAllStorageOutput {
 }
 
 @input
-structure DeleteAllRootStorageInput {}
+structure DeleteAllRootStorageInput {
+    @httpLabel
+    @required
+    uid: String
+}
 
 @output
 structure DeleteAllRootStorageOutput {
@@ -183,7 +191,11 @@ structure DeleteAllRootStorageOutput {
 }
 
 // Info Operations
-structure GetStorageInfoInput {}
+structure GetStorageInfoInput {
+    @httpLabel
+    @required
+    uid: String
+}
 
 structure GetStorageInfoOutput {
     @documentation("Map of collection names to their last modified timestamps")
@@ -196,21 +208,33 @@ map CollectionTimestamps {
     value: Timestamp
 }
 
-structure GetCollectionCountsInput {}
+structure GetCollectionCountsInput {
+    @httpLabel
+    @required
+    uid: String
+}
 
 structure GetCollectionCountsOutput {
     @documentation("Map of collection names to object counts")
     counts: CollectionCounts
 }
 
-structure GetCollectionUsageInput {}
+structure GetCollectionUsageInput {
+    @httpLabel
+    @required
+    uid: String
+}
 
 structure GetCollectionUsageOutput {
     @documentation("Map of collection names to usage in KB")
     usage: CollectionUsage
 }
 
-structure GetQuotaInfoInput {}
+structure GetQuotaInfoInput {
+    @httpLabel
+    @required
+    uid: String
+}
 
 structure GetQuotaInfoOutput {
     @documentation("Two-item list: [usage_kb, quota_kb or null]")
@@ -223,7 +247,11 @@ list QuotaArray {
     member: Long
 }
 
-structure GetConfigurationInfoInput {}
+structure GetConfigurationInfoInput {
+    @httpLabel
+    @required
+    uid: String
+}
 
 structure GetConfigurationInfoOutput {
     @documentation("Maximum number of records per POST request")

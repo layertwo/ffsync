@@ -20,7 +20,7 @@ resource Collection {
 }
 
 @readonly
-@http(method: "GET", uri: "/storage")
+@http(method: "GET", uri: "/1.5/{uid}/storage")
 @documentation("List all collections with their metadata")
 operation ListCollections {
     input: ListCollectionsInput
@@ -31,7 +31,11 @@ operation ListCollections {
 }
 
 // Collection CRUD Operations
-structure ListCollectionsInput {}
+structure ListCollectionsInput {
+    @httpLabel
+    @required
+    uid: String
+}
 
 structure ListCollectionsOutput {
     @documentation("List of collections with their metadata")
@@ -51,6 +55,10 @@ structure BatchObjectsPayload {
 
 @input
 structure CreateCollectionInput {
+    @httpLabel
+    @required
+    uid: String
+
     @httpLabel
     @required
     collectionName: CollectionName
@@ -76,7 +84,7 @@ structure CreateCollectionOutput {
 }
 
 @idempotent
-@http(method: "POST", uri: "/storage/{collectionName}")
+@http(method: "POST", uri: "/1.5/{uid}/storage/{collectionName}")
 @documentation("Create a new collection or batch create/update objects")
 operation CreateCollection {
     input: CreateCollectionInput
@@ -92,6 +100,10 @@ operation CreateCollection {
 
 @input
 structure GetCollectionInput {
+    @httpLabel
+    @required
+    uid: String
+
     @httpLabel
     @required
     collectionName: CollectionName
@@ -144,7 +156,7 @@ structure GetCollectionOutput {
 }
 
 @readonly
-@http(method: "GET", uri: "/storage/{collectionName}")
+@http(method: "GET", uri: "/1.5/{uid}/storage/{collectionName}")
 @documentation("Get collection metadata or retrieve objects with filtering")
 operation GetCollection {
     input: GetCollectionInput
@@ -158,6 +170,10 @@ operation GetCollection {
 
 @input
 structure UpdateCollectionInput {
+    @httpLabel
+    @required
+    uid: String
+
     @httpLabel
     @required
     collectionName: CollectionName
@@ -180,7 +196,7 @@ structure UpdateCollectionOutput {
 }
 
 @idempotent
-@http(method: "PUT", uri: "/storage/{collectionName}")
+@http(method: "PUT", uri: "/1.5/{uid}/storage/{collectionName}")
 @documentation("Update collection with batch objects")
 operation UpdateCollection {
     input: UpdateCollectionInput
@@ -196,7 +212,7 @@ operation UpdateCollection {
 }
 
 @idempotent
-@http(method: "DELETE", uri: "/storage/{collectionName}")
+@http(method: "DELETE", uri: "/1.5/{uid}/storage/{collectionName}")
 @documentation("Delete an entire collection")
 operation DeleteCollection {
     input: DeleteCollectionInput
@@ -210,6 +226,10 @@ operation DeleteCollection {
 
 @input
 structure DeleteCollectionInput {
+    @httpLabel
+    @required
+    uid: String
+
     @httpLabel
     @required
     collectionName: CollectionName

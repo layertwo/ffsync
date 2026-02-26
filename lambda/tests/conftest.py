@@ -142,8 +142,9 @@ def sample_lambda_event(test_user_id):
     """Sample Lambda event structure"""
     return {
         "httpMethod": "GET",
-        "path": "/storage/test_collection/test_object",
+        "path": "/1.5/12345/storage/test_collection/test_object",
         "pathParameters": {
+            "uid": "12345",
             "collectionName": "test_collection",
             "objectId": "test_object",
         },
@@ -210,8 +211,8 @@ def post_event_with_body():
     """Sample POST event with body"""
     return {
         "httpMethod": "POST",
-        "path": "/storage/test_collection",
-        "pathParameters": {"collectionName": "test_collection"},
+        "path": "/1.5/12345/storage/test_collection",
+        "pathParameters": {"uid": "12345", "collectionName": "test_collection"},
         "headers": {"Content-Type": "application/json"},
         "body": json.dumps({"objects": [{"id": "obj1", "payload": "data1", "sortindex": 100}]}),
         "queryStringParameters": None,
@@ -223,8 +224,9 @@ def delete_event():
     """Sample DELETE event"""
     return {
         "httpMethod": "DELETE",
-        "path": "/storage/test_collection/test_object",
+        "path": "/1.5/12345/storage/test_collection/test_object",
         "pathParameters": {
+            "uid": "12345",
             "collectionName": "test_collection",
             "objectId": "test_object",
         },

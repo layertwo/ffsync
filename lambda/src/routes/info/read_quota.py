@@ -17,8 +17,8 @@ class ReadQuotaInfoRoute(BaseRoute):
         self.quota_kb = quota_kb
 
     def bind(self, app: APIGatewayRestResolver):
-        @app.get("/info/quota")
-        def handle_request():
+        @app.get("/1.5/<uid>/info/quota")
+        def handle_request(uid: str):
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:

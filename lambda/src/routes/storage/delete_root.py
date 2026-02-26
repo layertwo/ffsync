@@ -13,8 +13,8 @@ class DeleteAllRootRoute(BaseRoute):
         self.storage_manager = storage_manager
 
     def bind(self, app: APIGatewayRestResolver):
-        @app.delete("/")
-        def handle_request():
+        @app.delete("/1.5/<uid>")
+        def handle_request(uid: str):
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:

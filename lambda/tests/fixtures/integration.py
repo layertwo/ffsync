@@ -171,10 +171,14 @@ def build_storage_event(
     if body is not None and isinstance(body, (dict, list)):
         body = json.dumps(body)
 
+    merged_params = {"uid": "12345"}
+    if path_params:
+        merged_params.update(path_params)
+
     return {
         "httpMethod": method,
-        "path": path,
-        "pathParameters": path_params or {},
+        "path": f"/1.5/12345{path}",
+        "pathParameters": merged_params,
         "headers": headers,
         "body": body,
         "queryStringParameters": query_params,

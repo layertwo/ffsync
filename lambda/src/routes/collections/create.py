@@ -24,8 +24,8 @@ class CreateCollectionRoute(BaseRoute):
         self.storage_manager = storage_manager
 
     def bind(self, app: APIGatewayRestResolver):
-        @app.post("/storage/<collectionName>")
-        def handle_request(collectionName: str):
+        @app.post("/1.5/<uid>/storage/<collectionName>")
+        def handle_request(uid: str, collectionName: str):
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:

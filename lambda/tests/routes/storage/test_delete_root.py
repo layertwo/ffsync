@@ -12,8 +12,8 @@ def build_storage_event(method: str, path: str, user_id: str = TEST_USER_ID) -> 
     """Build a storage API event with authentication context"""
     return {
         "httpMethod": method,
-        "path": path,
-        "pathParameters": None,
+        "path": f"/1.5/12345{path}",
+        "pathParameters": {"uid": "12345"},
         "headers": {},
         "body": None,
         "queryStringParameters": None,
@@ -109,8 +109,8 @@ class TestDeleteAllRootRoute:
         """Test handling when user_id is missing from authorizer context"""
         event: dict[str, Any] = {
             "httpMethod": "DELETE",
-            "path": "/",
-            "pathParameters": None,
+            "path": "/1.5/12345",
+            "pathParameters": {"uid": "12345"},
             "headers": {},
             "body": None,
             "queryStringParameters": None,
