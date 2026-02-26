@@ -38,8 +38,8 @@ class TestReadCollectionsInfoRoute:
         event: dict[str, Any] = with_auth(
             {
                 "httpMethod": "GET",
-                "path": "/info/collections",
-                "pathParameters": None,
+                "path": "/1.5/12345/info/collections",
+                "pathParameters": {"uid": "12345"},
                 "headers": {},
                 "body": None,
             }
@@ -134,8 +134,8 @@ class TestReadCollectionCountsRoute:
         event: dict[str, Any] = with_auth(
             {
                 "httpMethod": "GET",
-                "path": "/info/collection_counts",
-                "pathParameters": None,
+                "path": "/1.5/12345/info/collection_counts",
+                "pathParameters": {"uid": "12345"},
                 "headers": {},
                 "body": None,
             }
@@ -221,8 +221,8 @@ class TestReadCollectionUsageRoute:
         event: dict[str, Any] = with_auth(
             {
                 "httpMethod": "GET",
-                "path": "/info/collection_usage",
-                "pathParameters": None,
+                "path": "/1.5/12345/info/collection_usage",
+                "pathParameters": {"uid": "12345"},
                 "headers": {},
                 "body": None,
             }
@@ -308,8 +308,8 @@ class TestReadQuotaInfoRoute:
         event: dict[str, Any] = with_auth(
             {
                 "httpMethod": "GET",
-                "path": "/info/quota",
-                "pathParameters": None,
+                "path": "/1.5/12345/info/quota",
+                "pathParameters": {"uid": "12345"},
                 "headers": {},
                 "body": None,
             }
@@ -520,8 +520,8 @@ class TestReadConfigurationRoute:
 
         event: dict[str, Any] = {
             "httpMethod": "GET",
-            "path": "/info/configuration",
-            "pathParameters": None,
+            "path": "/1.5/12345/info/configuration",
+            "pathParameters": {"uid": "12345"},
             "headers": {},
             "body": None,
         }

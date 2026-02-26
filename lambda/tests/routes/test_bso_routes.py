@@ -41,8 +41,12 @@ class TestReadBSORoute:
         # Test through the resolver
         event = {
             "httpMethod": "GET",
-            "path": "/storage/bookmarks/item123",
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+            "path": "/1.5/12345/storage/bookmarks/item123",
+            "pathParameters": {
+                "uid": "12345",
+                "collectionName": "bookmarks",
+                "objectId": "item123",
+            },
             "headers": {},
             "body": None,
             "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -56,7 +60,11 @@ class TestReadBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
@@ -93,7 +101,11 @@ class TestReadBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "history", "objectId": "obj456"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "history",
+                    "objectId": "obj456",
+                },
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
@@ -121,7 +133,11 @@ class TestReadBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "invalid!@#", "objectId": "item"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "invalid!@#",
+                    "objectId": "item",
+                },
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
@@ -143,7 +159,11 @@ class TestReadBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "nonexistent", "objectId": "item"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "nonexistent",
+                    "objectId": "item",
+                },
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
@@ -165,7 +185,11 @@ class TestReadBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "nonexistent",
+                },
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
@@ -187,7 +211,11 @@ class TestReadBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item",
+                },
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
@@ -222,8 +250,12 @@ class TestUpdateBSORoute:
 
         event = {
             "httpMethod": "PUT",
-            "path": "/storage/bookmarks/item123",
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+            "path": "/1.5/12345/storage/bookmarks/item123",
+            "pathParameters": {
+                "uid": "12345",
+                "collectionName": "bookmarks",
+                "objectId": "item123",
+            },
             "headers": {},
             "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
             "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -237,7 +269,11 @@ class TestUpdateBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "body": json.dumps(
                     {
                         "object": {
@@ -276,7 +312,11 @@ class TestUpdateBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item",
+                },
                 "body": "invalid json{",
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -293,7 +333,11 @@ class TestUpdateBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item",
+                },
                 "body": json.dumps({"payload": "data"}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -310,7 +354,11 @@ class TestUpdateBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "body": json.dumps({"object": {"id": "different_id", "payload": "data"}}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -327,7 +375,11 @@ class TestUpdateBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
                 "headers": {"X-If-Unmodified-Since": "1234567890"},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -353,7 +405,11 @@ class TestUpdateBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
                 "headers": {"X-If-Unmodified-Since": "invalid"},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -370,7 +426,11 @@ class TestUpdateBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "nonexistent", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "nonexistent",
+                    "objectId": "item123",
+                },
                 "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -391,7 +451,11 @@ class TestUpdateBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "nonexistent",
+                },
                 "body": json.dumps({"object": {"id": "nonexistent", "payload": "data"}}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -412,7 +476,11 @@ class TestUpdateBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -433,7 +501,11 @@ class TestUpdateBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "invalid!", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "invalid!",
+                    "objectId": "item123",
+                },
                 "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -452,7 +524,11 @@ class TestUpdateBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item",
+                },
                 "body": json.dumps({"object": {"id": "item", "payload": "data"}}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -478,8 +554,12 @@ class TestDeleteBSORoute:
 
         event = {
             "httpMethod": "DELETE",
-            "path": "/storage/bookmarks/item123",
-            "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+            "path": "/1.5/12345/storage/bookmarks/item123",
+            "pathParameters": {
+                "uid": "12345",
+                "collectionName": "bookmarks",
+                "objectId": "item123",
+            },
             "headers": {},
             "body": None,
             "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -493,7 +573,11 @@ class TestDeleteBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
@@ -516,7 +600,11 @@ class TestDeleteBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "invalid!", "objectId": "item"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "invalid!",
+                    "objectId": "item",
+                },
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
@@ -533,7 +621,11 @@ class TestDeleteBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "nonexistent", "objectId": "item"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "nonexistent",
+                    "objectId": "item",
+                },
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
@@ -552,7 +644,11 @@ class TestDeleteBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "nonexistent"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "nonexistent",
+                },
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
@@ -571,7 +667,11 @@ class TestDeleteBSORoute:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item",
+                },
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
         )
@@ -592,7 +692,11 @@ class TestReadBSORouteUnauthorized:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "headers": {},
                 "requestContext": {"authorizer": {}},
             }
@@ -615,7 +719,11 @@ class TestDeleteBSORouteUnauthorized:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "requestContext": {"authorizer": {}},
             }
         )
@@ -637,7 +745,11 @@ class TestUpdateBSORouteUnauthorized:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "body": json.dumps({"object": {"id": "item123", "payload": "data"}}),
                 "headers": {},
                 "requestContext": {"authorizer": {}},
@@ -670,7 +782,11 @@ class TestReadBSORouteConditionalGET:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "headers": {"x-if-modified-since": "1234567890.12"},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -696,7 +812,11 @@ class TestReadBSORouteConditionalGET:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "headers": {"x-if-modified-since": "1234567890.12"},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -715,7 +835,11 @@ class TestReadBSORouteConditionalGET:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "headers": {"x-if-modified-since": "invalid"},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -734,7 +858,11 @@ class TestReadBSORouteConditionalGET:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "headers": {"x-if-modified-since": "-123.45"},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
             }
@@ -753,7 +881,11 @@ class TestReadBSORouteConditionalGET:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "headers": {
                     "x-if-modified-since": "1234567890.12",
                     "x-if-unmodified-since": "1234567890.12",
@@ -780,7 +912,11 @@ class TestReadBSORouteInvalidInputs:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "invalid name!", "objectId": "item123"},
+                    "pathParameters": {
+                        "uid": "12345",
+                        "collectionName": "invalid name!",
+                        "objectId": "item123",
+                    },
                     "headers": {},
                 }
             )
@@ -798,7 +934,11 @@ class TestReadBSORouteInvalidInputs:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks", "objectId": "invalid\x01id"},
+                    "pathParameters": {
+                        "uid": "12345",
+                        "collectionName": "bookmarks",
+                        "objectId": "invalid\x01id",
+                    },
                     "headers": {},
                 }
             )
@@ -821,6 +961,7 @@ class TestUpdateBSORouteInvalidCollectionName:
             with_auth(
                 {
                     "pathParameters": {
+                        "uid": "12345",
                         "collectionName": "invalid name!",
                         "objectId": "item123",
                     },
@@ -846,7 +987,11 @@ class TestDeleteBSORouteInvalidInputs:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "invalid name!", "objectId": "item123"},
+                    "pathParameters": {
+                        "uid": "12345",
+                        "collectionName": "invalid name!",
+                        "objectId": "item123",
+                    },
                 }
             )
         )
@@ -863,7 +1008,11 @@ class TestDeleteBSORouteInvalidInputs:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks", "objectId": "invalid\x01id"},
+                    "pathParameters": {
+                        "uid": "12345",
+                        "collectionName": "bookmarks",
+                        "objectId": "invalid\x01id",
+                    },
                 }
             )
         )
@@ -886,7 +1035,11 @@ class TestUpdateBSORouteValidation:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "body": json.dumps({"object": {"id": "item123", "payload": large_payload}}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -908,7 +1061,11 @@ class TestUpdateBSORouteValidation:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": long_id},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": long_id,
+                },
                 "body": json.dumps({"object": {"id": long_id, "payload": "data"}}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -930,7 +1087,11 @@ class TestUpdateBSORouteValidation:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": invalid_id},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": invalid_id,
+                },
                 "body": json.dumps({"object": {"id": invalid_id, "payload": "data"}}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -950,7 +1111,11 @@ class TestUpdateBSORouteValidation:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "body": json.dumps(
                     {"object": {"id": "item123", "payload": "data", "sortindex": "not_an_int"}}
                 ),
@@ -972,7 +1137,11 @@ class TestUpdateBSORouteValidation:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "body": json.dumps(
                     {"object": {"id": "item123", "payload": "data", "sortindex": 1000000000}}
                 ),
@@ -994,7 +1163,11 @@ class TestUpdateBSORouteValidation:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "body": json.dumps(
                     {"object": {"id": "item123", "payload": "data", "ttl": "not_an_int"}}
                 ),
@@ -1016,7 +1189,11 @@ class TestUpdateBSORouteValidation:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "body": json.dumps({"object": {"id": "item123", "payload": "data", "ttl": -100}}),
                 "headers": {},
                 "requestContext": {"authorizer": {"user_id": "test-user-123"}},
@@ -1036,7 +1213,11 @@ class TestUpdateBSORouteValidation:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
                 "body": json.dumps(
                     {"object": {"id": "item123", "payload": "data", "ttl": 1000000000}}
                 ),

@@ -32,8 +32,8 @@ def test_storage_api_happ_path(mock_service_provider, dynamodb_stubber, sample_l
 
     event = {
         "httpMethod": "GET",
-        "path": "/storage/bookmarks/item123",
-        "pathParameters": {"collectionName": "bookmarks", "objectId": "item123"},
+        "path": "/1.5/12345/storage/bookmarks/item123",
+        "pathParameters": {"uid": "12345", "collectionName": "bookmarks", "objectId": "item123"},
         "headers": {},
         "body": None,
         "queryStringParameters": None,

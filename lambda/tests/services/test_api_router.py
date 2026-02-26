@@ -197,7 +197,7 @@ def test_request_logging_middleware_logs_request_and_response():
         mock_app = MagicMock()
         mock_app.current_event = {
             "httpMethod": "GET",
-            "path": "/storage/bookmarks",
+            "path": "/1.5/12345/storage/bookmarks",
             "requestContext": {"authorizer": {"user_id": "user123"}},
         }
         mock_response = Response(status_code=200, body='{"test": "data"}')
@@ -210,14 +210,14 @@ def test_request_logging_middleware_logs_request_and_response():
         first_call = mock_logger.info.call_args_list[0]
         assert first_call[0][0] == "Request received"
         assert first_call[1]["extra"]["method"] == "GET"
-        assert first_call[1]["extra"]["path"] == "/storage/bookmarks"
+        assert first_call[1]["extra"]["path"] == "/1.5/12345/storage/bookmarks"
         assert first_call[1]["extra"]["user_id"] == "user123"
 
         # Verify request completed was logged
         second_call = mock_logger.info.call_args_list[1]
         assert second_call[0][0] == "Request completed"
         assert second_call[1]["extra"]["method"] == "GET"
-        assert second_call[1]["extra"]["path"] == "/storage/bookmarks"
+        assert second_call[1]["extra"]["path"] == "/1.5/12345/storage/bookmarks"
         assert second_call[1]["extra"]["user_id"] == "user123"
         assert second_call[1]["extra"]["status_code"] == 200
         assert "duration_ms" in second_call[1]["extra"]
@@ -233,7 +233,7 @@ def test_request_logging_middleware_logs_anonymous_user():
         mock_app = MagicMock()
         mock_app.current_event = {
             "httpMethod": "GET",
-            "path": "/info/configuration",
+            "path": "/1.5/12345/info/configuration",
             "requestContext": {},
         }
         mock_response = Response(status_code=200, body='{"test": "data"}')
@@ -253,7 +253,7 @@ def test_request_logging_middleware_logs_errors():
         mock_app = MagicMock()
         mock_app.current_event = {
             "httpMethod": "POST",
-            "path": "/storage/bookmarks",
+            "path": "/1.5/12345/storage/bookmarks",
             "requestContext": {"authorizer": {"user_id": "user123"}},
         }
         test_exception = ValueError("Test error")
@@ -274,7 +274,7 @@ def test_request_logging_middleware_logs_errors():
         error_call = mock_logger.error.call_args
         assert error_call[0][0] == "Request failed"
         assert error_call[1]["extra"]["method"] == "POST"
-        assert error_call[1]["extra"]["path"] == "/storage/bookmarks"
+        assert error_call[1]["extra"]["path"] == "/1.5/12345/storage/bookmarks"
         assert error_call[1]["extra"]["user_id"] == "user123"
         assert error_call[1]["extra"]["error_type"] == "ValueError"
         assert error_call[1]["extra"]["error_message"] == "Test error"
@@ -290,7 +290,7 @@ def test_request_logging_middleware_never_logs_payloads():
         # Event with body containing sensitive data
         mock_app.current_event = {
             "httpMethod": "PUT",
-            "path": "/storage/bookmarks/abc123",
+            "path": "/1.5/12345/storage/bookmarks/abc123",
             "body": '{"payload": "sensitive encrypted data", "sortindex": 100}',
             "requestContext": {"authorizer": {"user_id": "user123"}},
         }

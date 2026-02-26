@@ -38,14 +38,14 @@ def authorizer_event(valid_hawk_id, current_timestamp):
         "methodArn": "arn:aws:execute-api:us-east-1:123456789012:abcdef123/prod/GET/storage/bookmarks",
         "identitySource": "",
         "authorizationToken": "",
-        "resource": "/storage/bookmarks",
-        "path": "/storage/bookmarks",
+        "resource": "/1.5/12345/storage/bookmarks",
+        "path": "/1.5/12345/storage/bookmarks",
         "httpMethod": "GET",
         "headers": {
             "Authorization": f'Hawk id="{valid_hawk_id}", ts="{current_timestamp}", nonce="abc123", mac="test_mac"'
         },
         "queryStringParameters": {},
-        "pathParameters": {},
+        "pathParameters": {"uid": "12345"},
         "stageVariables": {},
         "requestContext": {
             "domainName": "api.example.com",

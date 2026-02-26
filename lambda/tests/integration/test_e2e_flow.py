@@ -51,7 +51,7 @@ class TestHawkAuthorizerToStorageAPIFlow:
         timestamp = int(time.time())
         nonce = "test-nonce-123"
         method = "GET"
-        path = "/storage/bookmarks"
+        path = "/1.5/12345/storage/bookmarks"
         host = "storage.sync.example.com"
         port = 443
 
@@ -173,7 +173,7 @@ class TestHawkAuthorizerToStorageAPIFlow:
         timestamp = int(time.time())
         nonce = "test-nonce-123"
         method = "GET"
-        path = "/storage/bookmarks"
+        path = "/1.5/12345/storage/bookmarks"
         host = "storage.sync.example.com"
         port = 443
 
@@ -225,7 +225,7 @@ class TestHawkAuthorizerToStorageAPIFlow:
             "type": "REQUEST",
             "methodArn": "arn:aws:execute-api:us-east-1:123456789012:abcdef123/prod/GET/storage",
             "headers": {"Host": "storage.sync.example.com"},
-            "requestContext": {"path": "/storage/bookmarks", "httpMethod": "GET"},
+            "requestContext": {"path": "/1.5/12345/storage/bookmarks", "httpMethod": "GET"},
         }
 
         # Authorizer should reject missing header

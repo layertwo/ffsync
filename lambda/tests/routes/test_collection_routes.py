@@ -44,8 +44,8 @@ class TestCreateCollectionRoute:
         event: dict[str, Any] = with_auth(
             {
                 "httpMethod": "POST",
-                "path": "/storage/bookmarks",
-                "pathParameters": {"collectionName": "bookmarks"},
+                "path": "/1.5/12345/storage/bookmarks",
+                "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                 "headers": {},
                 "body": None,
             }
@@ -60,7 +60,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {},
                     "body": json.dumps(
                         {
@@ -107,7 +107,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "tabs"},
+                    "pathParameters": {"uid": "12345", "collectionName": "tabs"},
                     "headers": {},
                     "body": json.dumps(
                         [{"id": "tab1", "payload": "data1"}, {"id": "tab2", "payload": "data2"}]
@@ -143,7 +143,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "history"},
+                    "pathParameters": {"uid": "12345", "collectionName": "history"},
                     "headers": {},
                     "body": None,
                 }
@@ -175,7 +175,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {"X-If-Unmodified-Since": "1234567889.00"},
                     "body": json.dumps({"objects": []}),
                 }
@@ -201,7 +201,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {"X-If-Unmodified-Since": "1234567891.00"},
                     "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
                 }
@@ -243,7 +243,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {},
                     "body": "invalid json{",
                 }
@@ -261,7 +261,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "invalid!"},
+                    "pathParameters": {"uid": "12345", "collectionName": "invalid!"},
                     "headers": {},
                     "body": None,
                 }
@@ -283,7 +283,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {},
                     "body": None,
                 }
@@ -303,7 +303,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {},
                     "body": None,
                 }
@@ -323,7 +323,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {"x-weave-records": "150"},  # Exceeds 100 limit
                     "body": json.dumps([]),
                 }
@@ -344,7 +344,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {"x-weave-bytes": "3000000"},  # Exceeds 2MB limit
                     "body": json.dumps([]),
                 }
@@ -365,7 +365,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {"x-weave-records": "invalid"},
                     "body": json.dumps([]),
                 }
@@ -383,7 +383,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {"x-weave-bytes": "invalid"},
                     "body": json.dumps([]),
                 }
@@ -401,7 +401,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {"x-weave-records": "5"},  # Says 5 records
                     "body": json.dumps([{"id": "obj1", "payload": "data"}]),  # But only 1
                 }
@@ -419,7 +419,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {"x-weave-bytes": "1000"},  # Valid bytes
                     "body": json.dumps([{"id": "obj1", "payload": "data"}]),
                 }
@@ -453,7 +453,7 @@ class TestCreateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {"x-weave-records": "1"},  # Matches actual count
                     "body": json.dumps([{"id": "obj1", "payload": "data"}]),
                 }
@@ -501,8 +501,8 @@ class TestReadCollectionRoute:
         event = with_auth(
             {
                 "httpMethod": "GET",
-                "path": "/storage/bookmarks",
-                "pathParameters": {"collectionName": "bookmarks"},
+                "path": "/1.5/12345/storage/bookmarks",
+                "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                 "queryStringParameters": None,
                 "headers": {},
                 "body": None,
@@ -518,7 +518,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": None,
                     "headers": {},
                 }
@@ -548,7 +548,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": {
                         "newer": "1234567880.00",
                         "limit": "10",
@@ -591,7 +591,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "history"},
+                    "pathParameters": {"uid": "12345", "collectionName": "history"},
                     "queryStringParameters": {"limit": "5", "offset": "10"},
                     "headers": {},
                 }
@@ -632,7 +632,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "tabs"},
+                    "pathParameters": {"uid": "12345", "collectionName": "tabs"},
                     "queryStringParameters": {"ids": "obj1,obj2", "full": "1"},
                     "headers": {},
                 }
@@ -669,7 +669,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "invalid!"},
+                    "pathParameters": {"uid": "12345", "collectionName": "invalid!"},
                     "queryStringParameters": None,
                     "headers": {},
                 }
@@ -689,7 +689,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "nonexistent"},
+                    "pathParameters": {"uid": "12345", "collectionName": "nonexistent"},
                     "queryStringParameters": None,
                     "headers": {},
                 }
@@ -719,7 +719,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": None,
                     "headers": {},
                 }
@@ -739,7 +739,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": None,
                     "headers": {"x-if-modified-since": "1234567890.12"},
                 }
@@ -764,7 +764,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": None,
                     "headers": {"x-if-modified-since": "1234567880.00"},
                 }
@@ -789,7 +789,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": None,
                     "headers": {
                         "x-if-modified-since": "1234567890.12",
@@ -810,7 +810,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": None,
                     "headers": {"x-if-modified-since": "invalid"},
                 }
@@ -828,7 +828,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": None,
                     "headers": {"x-if-modified-since": "-1.0"},
                 }
@@ -846,7 +846,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": None,
                     "headers": {},
                 }
@@ -871,7 +871,7 @@ class TestReadCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": None,
                     "headers": {},
                 }
@@ -917,8 +917,8 @@ class TestUpdateCollectionRoute:
         event = with_auth(
             {
                 "httpMethod": "PUT",
-                "path": "/storage/bookmarks",
-                "pathParameters": {"collectionName": "bookmarks"},
+                "path": "/1.5/12345/storage/bookmarks",
+                "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                 "headers": {},
                 "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
             }
@@ -933,7 +933,7 @@ class TestUpdateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {},
                     "body": json.dumps({"objects": [{"id": "obj1", "payload": "updated"}]}),
                 }
@@ -967,7 +967,7 @@ class TestUpdateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {},
                     "body": "invalid json{",
                 }
@@ -985,7 +985,7 @@ class TestUpdateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {},
                     "body": json.dumps({"data": []}),
                 }
@@ -1003,7 +1003,7 @@ class TestUpdateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {"X-If-Unmodified-Since": "1234567890"},
                     "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
                 }
@@ -1037,7 +1037,7 @@ class TestUpdateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {"X-If-Unmodified-Since": "1234567890"},
                     "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
                 }
@@ -1074,7 +1074,7 @@ class TestUpdateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {"X-If-Unmodified-Since": "invalid"},
                     "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
                 }
@@ -1092,7 +1092,7 @@ class TestUpdateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "invalid!"},
+                    "pathParameters": {"uid": "12345", "collectionName": "invalid!"},
                     "headers": {},
                     "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
                 }
@@ -1112,7 +1112,7 @@ class TestUpdateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "nonexistent"},
+                    "pathParameters": {"uid": "12345", "collectionName": "nonexistent"},
                     "headers": {},
                     "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
                 }
@@ -1134,7 +1134,7 @@ class TestUpdateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {},
                     "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
                 }
@@ -1154,7 +1154,7 @@ class TestUpdateCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "headers": {},
                     "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
                 }
@@ -1181,8 +1181,8 @@ class TestDeleteCollectionRoute:
         event = with_auth(
             {
                 "httpMethod": "DELETE",
-                "path": "/storage/bookmarks",
-                "pathParameters": {"collectionName": "bookmarks"},
+                "path": "/1.5/12345/storage/bookmarks",
+                "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                 "queryStringParameters": None,
                 "headers": {},
                 "body": None,
@@ -1198,7 +1198,7 @@ class TestDeleteCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": None,
                 }
             )
@@ -1221,7 +1221,7 @@ class TestDeleteCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "invalid!"},
+                    "pathParameters": {"uid": "12345", "collectionName": "invalid!"},
                     "queryStringParameters": None,
                 }
             )
@@ -1240,7 +1240,7 @@ class TestDeleteCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "nonexistent"},
+                    "pathParameters": {"uid": "12345", "collectionName": "nonexistent"},
                     "queryStringParameters": None,
                 }
             )
@@ -1261,7 +1261,7 @@ class TestDeleteCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": None,
                 }
             )
@@ -1280,7 +1280,7 @@ class TestDeleteCollectionRoute:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "bookmarks"},
+                    "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                     "queryStringParameters": {"ids": "obj1,obj2,obj3"},
                 }
             )
@@ -1312,8 +1312,8 @@ class TestListCollectionsRoute:
         event: dict[str, Any] = with_auth(
             {
                 "httpMethod": "GET",
-                "path": "/storage",
-                "pathParameters": None,
+                "path": "/1.5/12345/storage",
+                "pathParameters": {"uid": "12345"},
                 "queryStringParameters": None,
                 "headers": {},
                 "body": None,
@@ -1386,7 +1386,7 @@ class TestCreateCollectionRouteUnauthorized:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks"},
+                "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                 "body": json.dumps({"objects": []}),
                 "headers": {},
                 "requestContext": {"authorizer": {}},
@@ -1410,7 +1410,7 @@ class TestDeleteCollectionRouteUnauthorized:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks"},
+                "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                 "requestContext": {"authorizer": {}},
             }
         )
@@ -1453,7 +1453,7 @@ class TestReadCollectionRouteUnauthorized:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks"},
+                "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                 "requestContext": {"authorizer": {}},
             }
         )
@@ -1475,7 +1475,7 @@ class TestUpdateCollectionRouteUnauthorized:
 
         event = APIGatewayProxyEvent(
             {
-                "pathParameters": {"collectionName": "bookmarks"},
+                "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                 "body": json.dumps({"objects": []}),
                 "headers": {},
                 "requestContext": {"authorizer": {}},
@@ -1500,7 +1500,7 @@ class TestCreateCollectionRouteInvalidCollectionName:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "invalid name!"},
+                    "pathParameters": {"uid": "12345", "collectionName": "invalid name!"},
                     "headers": {},
                     "body": None,
                 }
@@ -1523,7 +1523,7 @@ class TestReadCollectionRouteInvalidCollectionName:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "invalid name!"},
+                    "pathParameters": {"uid": "12345", "collectionName": "invalid name!"},
                     "queryStringParameters": None,
                     "headers": {},
                 }
@@ -1546,7 +1546,7 @@ class TestUpdateCollectionRouteInvalidCollectionName:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "invalid name!"},
+                    "pathParameters": {"uid": "12345", "collectionName": "invalid name!"},
                     "headers": {},
                     "body": json.dumps({"objects": [{"id": "obj1", "payload": "data"}]}),
                 }
@@ -1569,7 +1569,7 @@ class TestDeleteCollectionRouteInvalidCollectionName:
         event = APIGatewayProxyEvent(
             with_auth(
                 {
-                    "pathParameters": {"collectionName": "invalid name!"},
+                    "pathParameters": {"uid": "12345", "collectionName": "invalid name!"},
                     "queryStringParameters": None,
                 }
             )

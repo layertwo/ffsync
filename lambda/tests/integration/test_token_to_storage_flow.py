@@ -152,7 +152,7 @@ class TestTokenServerToStorageServerFlow:
         timestamp = int(time.time())
         nonce = "test-nonce-integration"
         method = "GET"
-        path = "/storage/bookmarks"
+        path = "/1.5/12345/storage/bookmarks"
         host = "storage.sync.example.com"
         port = 443
 
@@ -414,7 +414,7 @@ class TestTokenServerToStorageServerFlow:
         timestamp = int(time.time())
         nonce = "test-nonce-expired"
         method = "GET"
-        path = "/storage/bookmarks"
+        path = "/1.5/12345/storage/bookmarks"
         host = "storage.sync.example.com"
         port = 443
 
@@ -481,7 +481,7 @@ class TestTokenServerToStorageServerFlow:
         timestamp = int(time.time())
         nonce = "test-nonce-invalid"
         method = "GET"
-        path = "/storage/bookmarks"
+        path = "/1.5/12345/storage/bookmarks"
 
         # Use wrong MAC (not computed from the request)
         invalid_mac = "invalid-mac-signature"
@@ -549,7 +549,7 @@ class TestTokenServerToStorageServerFlow:
         timestamp = int(time.time())
         nonce = "test-nonce-gen"
         method = "GET"
-        path = "/storage/bookmarks"
+        path = "/1.5/12345/storage/bookmarks"
 
         normalized = hawk_service.build_normalized_string(
             str(timestamp), nonce, method, path, "storage.sync.example.com", "443"

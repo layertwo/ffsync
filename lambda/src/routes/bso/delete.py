@@ -19,8 +19,8 @@ class DeleteBSORoute(BaseRoute):
         self.storage_manager = storage_manager
 
     def bind(self, app: APIGatewayRestResolver):
-        @app.delete("/storage/<collectionName>/<objectId>")
-        def handle_request(collectionName: str, objectId: str):
+        @app.delete("/1.5/<uid>/storage/<collectionName>/<objectId>")
+        def handle_request(uid: str, collectionName: str, objectId: str):
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:

@@ -50,7 +50,7 @@ structure BasicStorageObjectInput {
 }
 
 @readonly
-@http(method: "GET", uri: "/storage/{collectionName}/{objectId}")
+@http(method: "GET", uri: "/1.5/{uid}/storage/{collectionName}/{objectId}")
 @documentation("Get a specific storage object")
 operation GetBasicStorageObject {
     input: GetBasicStorageObjectInput
@@ -63,7 +63,7 @@ operation GetBasicStorageObject {
 }
 
 @idempotent
-@http(method: "PUT", uri: "/storage/{collectionName}/{objectId}")
+@http(method: "PUT", uri: "/1.5/{uid}/storage/{collectionName}/{objectId}")
 @documentation("Update a storage object")
 operation UpdateBasicStorageObject {
     input: UpdateBasicStorageObjectInput
@@ -79,7 +79,7 @@ operation UpdateBasicStorageObject {
 }
 
 @idempotent
-@http(method: "DELETE", uri: "/storage/{collectionName}/{objectId}")
+@http(method: "DELETE", uri: "/1.5/{uid}/storage/{collectionName}/{objectId}")
 @documentation("Delete a specific storage object")
 operation DeleteBasicStorageObject {
     input: DeleteBasicStorageObjectInput
@@ -92,6 +92,10 @@ operation DeleteBasicStorageObject {
 }
 
 structure GetBasicStorageObjectInput {
+    @httpLabel
+    @required
+    uid: String
+
     @httpLabel
     @required
     collectionName: CollectionName
@@ -110,6 +114,10 @@ structure GetBasicStorageObjectOutput {
 }
 
 structure UpdateBasicStorageObjectInput {
+    @httpLabel
+    @required
+    uid: String
+
     @httpLabel
     @required
     collectionName: CollectionName
@@ -135,6 +143,10 @@ structure UpdateBasicStorageObjectOutput {
 }
 
 structure DeleteBasicStorageObjectInput {
+    @httpLabel
+    @required
+    uid: String
+
     @httpLabel
     @required
     collectionName: CollectionName

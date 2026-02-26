@@ -15,8 +15,8 @@ class DeleteCollectionRoute(BaseRoute):
         self.dynamodb_service = dynamodb_service
 
     def bind(self, app: APIGatewayRestResolver):
-        @app.delete("/storage/<collectionName>")
-        def handle_request(collectionName: str):
+        @app.delete("/1.5/<uid>/storage/<collectionName>")
+        def handle_request(uid: str, collectionName: str):
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:
