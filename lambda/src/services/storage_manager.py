@@ -616,6 +616,7 @@ class StorageManager:
         from src.shared.exceptions import PreconditionFailedException
 
         # Get existing object to verify it exists
+        is_new_bso = False
         try:
             existing_obj = self.get_storage_object(user_id, collection_name, object_id)
 
@@ -636,6 +637,7 @@ class StorageManager:
                     )
         except StorageObjectNotFoundException:
             # Object doesn't exist
+            is_new_bso = True
             if if_unmodified_since is not None and if_unmodified_since != 0:
                 # Can't check precondition on non-existent object
                 raise PreconditionFailedException(
@@ -670,6 +672,36 @@ class StorageManager:
                 user_id=user_id, collection_name=collection_name, obj=obj
             )
         )
+
+        # Upsert collection metadata so list_collections reflects this write.
+        # DynamoDB update_item creates the item if it doesn't exist, and ADD
+        # initialises missing numeric attributes to 0 before adding.
+        usage_delta = len(payload) - len(existing_obj.payload)
+        count_delta = 1 if is_new_bso else 0
+
+        self.table.update_item(
+            Key={
+                "PK": self._collection_pk(user_id, collection_name),
+                "SK": self._metadata_sk(),
+            },
+            UpdateExpression="SET #modified = :modified, #name = :name, #user_id = :user_id"
+            " ADD #count :count_delta, #usage :usage_delta",
+            ExpressionAttributeNames={
+                "#modified": "modified",
+                "#name": "name",
+                "#user_id": "user_id",
+                "#count": "count",
+                "#usage": "usage",
+            },
+            ExpressionAttributeValues={
+                ":modified": Decimal(str(modified_timestamp)),
+                ":name": collection_name,
+                ":user_id": user_id,
+                ":count_delta": count_delta,
+                ":usage_delta": usage_delta,
+            },
+        )
+
         return obj
 
     def delete_storage_object(self, user_id: str, collection_name: str, object_id: str) -> float:

@@ -785,6 +785,9 @@ class TestStorageManager:
             },
         )
 
+        # Stub update_item for collection metadata upsert
+        dynamodb_stubber.add_response("update_item", {}, None)
+
         updated_obj = storage_manager.update_storage_object(
             "test-user-123", "bookmarks", "obj123", payload="new_payload"
         )
@@ -816,6 +819,9 @@ class TestStorageManager:
             {},
             None,  # Don't validate params
         )
+
+        # Stub update_item for collection metadata upsert
+        dynamodb_stubber.add_response("update_item", {}, None)
 
         obj = storage_manager.update_storage_object(
             "test-user-123", "bookmarks", "nonexistent", payload="new"
@@ -1233,6 +1239,9 @@ class TestStorageManager:
             None,  # Don't validate params due to dynamic expiry field
         )
 
+        # Stub update_item for collection metadata upsert
+        dynamodb_stubber.add_response("update_item", {}, None)
+
         updated_obj = storage_manager.update_storage_object(
             "test-user-123", "bookmarks", "obj123", payload="new_payload", sortindex=150, ttl=7200
         )
@@ -1505,6 +1514,9 @@ class TestStorageManager:
             None,
         )
 
+        # Stub update_item for collection metadata upsert
+        dynamodb_stubber.add_response("update_item", {}, None)
+
         updated_obj = storage_manager.update_storage_object("test-user-123", "bookmarks", "obj123")
 
         assert updated_obj.ttl == 3600
@@ -1546,6 +1558,9 @@ class TestStorageManager:
             {},
             None,
         )
+
+        # Stub update_item for collection metadata upsert
+        dynamodb_stubber.add_response("update_item", {}, None)
 
         updated_obj = storage_manager.update_storage_object("test-user-123", "bookmarks", "obj123")
 
@@ -1641,6 +1656,9 @@ class TestStorageManager:
             },
         )
 
+        # Stub update_item for collection metadata upsert
+        dynamodb_stubber.add_response("update_item", {}, None)
+
         updated_obj = storage_manager.update_storage_object(
             "test-user-123", "bookmarks", "obj123", sortindex=200
         )
@@ -1686,6 +1704,9 @@ class TestStorageManager:
             {},
             None,
         )
+
+        # Stub update_item for collection metadata upsert
+        dynamodb_stubber.add_response("update_item", {}, None)
 
         updated_obj = storage_manager.update_storage_object(
             "test-user-123", "bookmarks", "obj123", payload="updated_payload"
@@ -1742,6 +1763,9 @@ class TestStorageManager:
                 },
             },
         )
+
+        # Stub update_item for collection metadata upsert
+        dynamodb_stubber.add_response("update_item", {}, None)
 
         updated_obj = storage_manager.update_storage_object("test-user-123", "bookmarks", "obj123")
 
@@ -2610,6 +2634,9 @@ class TestStorageManager:
 
         # Stub put_item for update
         dynamodb_stubber.add_response("put_item", {}, None)
+
+        # Stub update_item for collection metadata upsert
+        dynamodb_stubber.add_response("update_item", {}, None)
 
         obj = storage_manager.update_storage_object(
             "test-user-123",
