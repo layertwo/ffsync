@@ -31,6 +31,7 @@ import {
   sendOAuthLogin,
 } from "@/lib/webchannel"
 import { generatePKCE } from "@/lib/pkce"
+import { deriveAndEncryptSyncKeys } from "@/lib/sync-keys"
 import { SyncPasswordForm } from "@/components/SyncPasswordForm"
 
 type SignInState =
@@ -48,6 +49,7 @@ interface SignInPageProps {
   codeChallenge?: string
   clientId: string
   scope: string
+  keysJwk?: string
 }
 
 export function SignInPage({
@@ -58,6 +60,7 @@ export function SignInPage({
   codeChallenge: fxaCodeChallenge,
   clientId: fxaClientId,
   scope: fxaScope,
+  keysJwk,
 }: SignInPageProps) {
   const [signInState, setSignInState] = useState<SignInState>({
     step: "oidc-login",
@@ -211,13 +214,30 @@ export function SignInPage({
         codeVerifier = pkce.codeVerifier
       }
 
+      let keysJwe: string | undefined
+      if (keysJwk) {
+        setSignInState({
+          step: "processing",
+          message: "Deriving sync encryption keys...",
+        })
+        keysJwe = await deriveAndEncryptSyncKeys({
+          authServerUrl: config.authServerUrl,
+          keyFetchTokenHex: keyFetchToken,
+          unwrapBKeyHex: unwrapBKey,
+          sessionTokenHex: sessionToken,
+          keysJwkB64: keysJwk,
+          scope: fxaScope,
+        })
+      }
+
       const oauthResult = await requestOAuthCode(
         config.authServerUrl,
         sessionToken,
         fxaClientId,
         fxaScope,
         oauthState,
-        codeChallenge
+        codeChallenge,
+        keysJwe
       )
 
       setSignInState({
@@ -228,8 +248,6 @@ export function SignInPage({
       sendOAuthLogin(oauthResult.code, oauthResult.state)
 
       void uid
-      void keyFetchToken
-      void unwrapBKey
       void codeVerifier
       void service
       void action

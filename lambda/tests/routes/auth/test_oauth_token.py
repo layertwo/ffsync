@@ -52,6 +52,7 @@ class TestOAuthTokenAuthorizationCode:
             "scope": "https://identity.mozilla.com/apps/oldsync",
             "codeChallenge": "challenge",
             "codeChallengeMethod": "S256",
+            "keysJwe": "some-jwe",
         }
         mock_jwt_service.sign_jwt.return_value = "jwt-access-token"
         mock_oauth_code_manager.create_refresh_token.return_value = "refresh-tok"
@@ -83,6 +84,54 @@ class TestOAuthTokenAuthorizationCode:
         assert body["token_type"] == "bearer"
         assert "expires_in" in body
         assert body["scope"] == "https://identity.mozilla.com/apps/oldsync"
+        assert body["keys_jwe"] == "some-jwe"
+
+    @patch(
+        "src.routes.auth.oauth_token.OAuthCodeManager.verify_code_challenge",
+        return_value=True,
+    )
+    def test_omits_keys_jwe_when_empty(
+        self,
+        mock_verify,
+        route,
+        mock_oauth_code_manager,
+        mock_jwt_service,
+        mock_account_manager,
+    ):
+        mock_oauth_code_manager.consume_authorization_code.return_value = {
+            "uid": "uid1",
+            "clientId": "client1",
+            "scope": "openid",
+            "codeChallenge": "challenge",
+            "codeChallengeMethod": "S256",
+            "keysJwe": "",
+        }
+        mock_jwt_service.sign_jwt.return_value = "jwt"
+        mock_oauth_code_manager.create_refresh_token.return_value = "refresh"
+        mock_account_manager.get_account_by_uid.return_value = {
+            "uid": "uid1",
+            "oidcSub": "sub1",
+        }
+
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/v1/oauth/token",
+                "headers": {},
+                "body": json.dumps(
+                    {
+                        "grant_type": "authorization_code",
+                        "code": "code",
+                        "code_verifier": "verifier",
+                        "client_id": "client1",
+                    }
+                ),
+            }
+        )
+        response = route.handle(event)
+        assert response.status_code == 200
+        body = json.loads(response.body)
+        assert "keys_jwe" not in body
 
     def test_invalid_code_returns_400(self, route, mock_oauth_code_manager):
         mock_oauth_code_manager.consume_authorization_code.return_value = None

@@ -204,6 +204,14 @@ function FxAFlow() {
     return <LoadingPage message="Loading configuration..." />
   }
 
+  // After OIDC redirect, original Firefox params are lost from the URL.
+  // Restore from session storage (stored before OIDC redirect in SignInPage).
+  const storedFxAParams = session.getFxAParams()
+  const fxaParams = storedFxAParams
+    ? new URLSearchParams(storedFxAParams)
+    : searchParams
+  const keysJwk = fxaParams.get("keys_jwk") ?? undefined
+
   return (
     <SignInPage
       config={config}
@@ -216,6 +224,7 @@ function FxAFlow() {
         searchParams.get("scope") ??
         "https://identity.mozilla.com/apps/oldsync profile"
       }
+      keysJwk={keysJwk}
     />
   )
 }

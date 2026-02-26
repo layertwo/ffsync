@@ -64,6 +64,7 @@ class OAuthAuthorizationRoute(BaseRoute):
 
         code_challenge = body.get("code_challenge", "")
         code_challenge_method = body.get("code_challenge_method", "S256")
+        keys_jwe = body.get("keys_jwe", "")
 
         code = self._oauth_code_manager.create_authorization_code(
             uid=uid,
@@ -71,6 +72,7 @@ class OAuthAuthorizationRoute(BaseRoute):
             scope=scope,
             code_challenge=code_challenge,
             code_challenge_method=code_challenge_method,
+            keys_jwe=keys_jwe,
         )
 
         return Response(

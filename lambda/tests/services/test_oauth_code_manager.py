@@ -47,7 +47,21 @@ class TestCreateAuthorizationCode:
         assert item["scope"] == "openid"
         assert item["codeChallenge"] == "challenge123"
         assert item["codeChallengeMethod"] == "S256"
+        assert item["keysJwe"] == ""
         assert "expiry" in item
+
+    def test_stores_keys_jwe_in_dynamo(self, manager, mock_table):
+        manager.create_authorization_code(
+            uid="uid1",
+            client_id="client1",
+            scope="openid",
+            code_challenge="challenge123",
+            code_challenge_method="S256",
+            keys_jwe="some-jwe-value",
+        )
+        mock_table.put_item.assert_called_once()
+        item = mock_table.put_item.call_args.kwargs["Item"]
+        assert item["keysJwe"] == "some-jwe-value"
 
     def test_different_calls_produce_different_codes(self, manager):
         code1 = manager.create_authorization_code(
@@ -79,6 +93,7 @@ class TestConsumeAuthorizationCode:
                 "scope": "openid",
                 "codeChallenge": "challenge",
                 "codeChallengeMethod": "S256",
+                "keysJwe": "jwe-value",
                 "expiry": 1000600,
             }
         }
@@ -88,11 +103,30 @@ class TestConsumeAuthorizationCode:
         assert result["clientId"] == "client1"
         assert result["scope"] == "openid"
         assert result["codeChallenge"] == "challenge"
+        assert result["keysJwe"] == "jwe-value"
         mock_table.delete_item.assert_called_once()
         # Verify it's called with ReturnValues and ConditionExpression
         call_kwargs = mock_table.delete_item.call_args.kwargs
         assert call_kwargs["ReturnValues"] == "ALL_OLD"
         assert call_kwargs["ConditionExpression"] == "attribute_exists(PK)"
+
+    @patch("src.services.oauth_code_manager.time")
+    def test_returns_empty_keys_jwe_when_missing(self, mock_time, manager, mock_table):
+        mock_time.time.return_value = 1000000.0
+        mock_table.delete_item.return_value = {
+            "Attributes": {
+                "PK": "OAUTHCODE#abc123",
+                "uid": "uid1",
+                "clientId": "client1",
+                "scope": "openid",
+                "codeChallenge": "challenge",
+                "codeChallengeMethod": "S256",
+                "expiry": 1000600,
+            }
+        }
+        result = manager.consume_authorization_code("abc123")
+        assert result is not None
+        assert result["keysJwe"] == ""
 
     def test_returns_none_for_unknown_code(self, manager, mock_table):
         mock_table.delete_item.side_effect = ClientError(

@@ -104,19 +104,23 @@ class OAuthTokenRoute(BaseRoute):
             scope=scope,
         )
 
+        response_body: dict = {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_in": ttl,
+            "scope": scope,
+            "refresh_token": refresh_token,
+            "auth_at": int(time.time()),
+        }
+
+        keys_jwe = code_data.get("keysJwe", "")
+        if keys_jwe:
+            response_body["keys_jwe"] = keys_jwe
+
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json.dumps(
-                {
-                    "access_token": access_token,
-                    "token_type": "bearer",
-                    "expires_in": ttl,
-                    "scope": scope,
-                    "refresh_token": refresh_token,
-                    "auth_at": int(time.time()),
-                }
-            ),
+            body=json.dumps(response_body),
         )
 
     def _handle_refresh_token(self, body: dict) -> Response:
