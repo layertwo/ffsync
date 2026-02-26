@@ -78,7 +78,12 @@ def lambda_handler(
 
         # Extract request details using typed properties
         method = authorizer_event.http_method
+        # Hawk MAC must be computed over the full resource URI including query string
         path = authorizer_event.path
+        query_params = (event.get("queryStringParameters") or {}) or None
+        if query_params:
+            qs = "&".join(f"{k}={v}" for k, v in sorted(query_params.items()))
+            path = f"{path}?{qs}"
         domain_name = (
             authorizer_event.request_context.domain_name if authorizer_event.request_context else ""
         )
