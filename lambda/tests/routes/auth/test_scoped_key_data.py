@@ -1,6 +1,7 @@
 """Unit tests for ScopedKeyData route"""
 
 import json
+from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
@@ -121,6 +122,34 @@ class TestScopedKeyData:
         )
         response = route.handle(event)
         assert response.status_code == 401
+
+    def test_handles_decimal_created_at_from_dynamodb(
+        self, route, mock_token_manager, mock_account_manager
+    ):
+        mock_token_manager.verify_session_hawk.return_value = "uid1"
+        mock_account_manager.get_account_by_uid.return_value = {
+            "uid": "uid1",
+            "createdAt": Decimal("1234567890"),
+            "keyRotationSecret": "ab" * 32,
+        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/v1/account/scoped-key-data",
+                "headers": {"authorization": 'Hawk id="tokenid"'},
+                "body": json.dumps(
+                    {
+                        "client_id": "client1",
+                        "scope": "https://identity.mozilla.com/apps/oldsync",
+                    }
+                ),
+            }
+        )
+        response = route.handle(event)
+        assert response.status_code == 200
+        body = json.loads(response.body)
+        scope_key = "https://identity.mozilla.com/apps/oldsync"
+        assert body[scope_key]["keyRotationTimestamp"] == 1234567890.0
 
     def test_missing_scope_returns_400(self, route, mock_token_manager):
         mock_token_manager.verify_session_hawk.return_value = "uid1"

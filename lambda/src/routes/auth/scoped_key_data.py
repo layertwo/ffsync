@@ -7,6 +7,7 @@ from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.fxa_token_manager import FxATokenManager
 from src.shared.base_route import BaseRoute
+from src.shared.utils import json_dumps
 
 
 class ScopedKeyDataRoute(BaseRoute):
@@ -75,7 +76,7 @@ class ScopedKeyDataRoute(BaseRoute):
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json.dumps(result),
+            body=json_dumps(result),
         )
 
     @staticmethod
