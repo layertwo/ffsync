@@ -9,6 +9,8 @@ on:
       - '.github/workflows/cdk-diff.yml'
       - 'package.json'
       - 'package-lock.json'
+      - 'cdk.json'
+      - 'cdk.context.json'
 
 concurrency:
   group: cdk-diff-${{ github.event.pull_request.number }}
@@ -70,4 +72,5 @@ jobs:
         uses: corymhall/cdk-diff-action@v2
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
+          failOnDestructiveChanges: false
           cdkOutDir: build/cdk.out
