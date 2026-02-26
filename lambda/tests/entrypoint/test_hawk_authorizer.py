@@ -187,6 +187,45 @@ class TestLambdaHandlerSuccess:
 
         assert result["principalId"] == "user123"
 
+    def test_lambda_handler_includes_query_string_in_path(
+        self,
+        authorizer_event,
+        lambda_context,
+        mock_service_provider,
+        token_cache_stubber,
+        valid_hawk_id,
+    ):
+        """Test that query string parameters are included in the path for MAC verification"""
+        authorizer_event["queryStringParameters"] = {"batch": "true", "commit": "true"}
+        authorizer_event["httpMethod"] = "POST"
+
+        token_cache_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": f"TOKEN#{valid_hawk_id}"},
+                    "hawk_key": {"S": "a" * 64},
+                    "user_id": {"S": "user123"},
+                    "generation": {"N": "5"},
+                    "expiry": {"N": str(int(time.time()) + 300)},
+                    "created_at": {"N": str(int(time.time()))},
+                }
+            },
+            {"Key": {"PK": f"TOKEN#{valid_hawk_id}"}, "TableName": "test-token-cache-table"},
+        )
+
+        # Capture the path passed to verify_mac
+        mock_service_provider.hawk_service.verify_mac = MagicMock(return_value=True)
+        result = lambda_handler(authorizer_event, lambda_context, mock_service_provider)
+
+        assert result["principalId"] == "user123"
+        # Verify that verify_mac was called with path including query string
+        call_args = mock_service_provider.hawk_service.verify_mac.call_args
+        uri_arg = call_args[0][5]  # 6th positional arg is uri
+        assert "?" in uri_arg
+        assert "batch=true" in uri_arg
+        assert "commit=true" in uri_arg
+
 
 class TestLambdaHandlerAuthenticationFailures:
     """Tests for authentication failures"""
