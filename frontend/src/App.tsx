@@ -212,6 +212,11 @@ function FxAFlow() {
   const fxaParams = storedFxAParams
     ? new URLSearchParams(storedFxAParams)
     : searchParams
+  console.log("[ffsync] FxA params source:", storedFxAParams ? "session" : "url", {
+    hasState: !!fxaParams.get("state"),
+    hasCodeChallenge: !!fxaParams.get("code_challenge"),
+    hasKeysJwk: !!fxaParams.get("keys_jwk"),
+  })
 
   return (
     <SignInPage

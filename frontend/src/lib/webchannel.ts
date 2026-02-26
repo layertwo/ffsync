@@ -18,6 +18,7 @@ export function sendToFirefox(
     id: FXA_WEBCHANNEL_ID,
     message: { command, data, messageId },
   }
+  console.log(`[ffsync:webchannel] → ${command}`, data)
   window.dispatchEvent(
     new CustomEvent("WebChannelMessageToChrome", {
       detail: JSON.stringify(detail),
@@ -37,6 +38,7 @@ export function listenFromFirefox(
     const parsed =
       typeof detail === "string" ? JSON.parse(detail) : detail
     const { command, data, messageId } = parsed.message
+    console.log(`[ffsync:webchannel] ← ${command}`, data)
     callback(command, data ?? {}, messageId)
   }
   window.addEventListener("WebChannelMessageToContent", handler)

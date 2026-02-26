@@ -214,6 +214,12 @@ export function SignInPage({
       const oauthState = fxaState ?? crypto.randomUUID()
       let codeChallenge = fxaCodeChallenge ?? ""
       let codeVerifier: string | undefined
+      console.log("[ffsync] OAuth params:", {
+        hasState: !!fxaState,
+        hasCodeChallenge: !!fxaCodeChallenge,
+        hasKeysJwk: !!keysJwk,
+        oauthState: oauthState.slice(0, 8) + "...",
+      })
       if (!fxaCodeChallenge) {
         const pkce = await generatePKCE()
         codeChallenge = pkce.codeChallenge
@@ -251,6 +257,7 @@ export function SignInPage({
         message: "Completing sign-in...",
       })
 
+      console.log("[ffsync] OAuth code obtained, sending webchannel messages")
       // Send fxaccounts:login first so Firefox stores the account data
       // (uid, sessionToken, etc.) that oauthLogin reads back.
       sendLogin({
