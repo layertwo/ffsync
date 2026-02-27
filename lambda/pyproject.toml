@@ -22,7 +22,7 @@ dev = [
     "flake8==7.3.0",
     "Flake8-pyproject==1.2.4",
     "mypy==1.19.1",
-    "types-boto3==1.42.57",
+    "types-boto3==1.42.59",
     "hypothesis>=6.0.0",
     "types-requests==2.32.4.20260107"
 ]
