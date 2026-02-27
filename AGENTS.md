@@ -77,8 +77,8 @@ lambda/                       # Python Lambda functions
 │   ├── shared/               # Shared utilities (models, exceptions, base_route)
 │   └── environment/          # Dependency injection (service_provider)
 ├── tests/                    # Mirror structure of src/
-├── pyproject.toml            # Python tooling config (pytest, black, isort, flake8, mypy)
-└── requirements.txt          # Production dependencies
+├── pyproject.toml            # Python dependencies and tooling config (pytest, black, isort, flake8, mypy)
+└── uv.lock                   # Locked dependency versions (used by CDK PythonFunction bundling)
 
 smithy/                       # API contract definitions
 └── models/                   # Smithy models (storage, token, errors)
@@ -122,7 +122,8 @@ tools/                        # CLI tools for testing
 | AWS Lambda Powertools | Logging, APIGatewayRestResolver | Lambda |
 | dataclasses-json | Model serialization | Lambda |
 | PyJWT | JWT token handling | Lambda |
-| cryptography | HAWK authentication (implemented directly) | Lambda |
+| mohawk | HAWK authentication | Lambda |
+| cryptography | Cryptographic operations | Lambda |
 | boto3 | AWS SDK (DynamoDB, Secrets Manager) | Lambda |
 
 ## Gotchas
