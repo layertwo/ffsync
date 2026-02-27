@@ -52,8 +52,8 @@
 | src/services/api\_router.py             |       59 |        0 |        6 |        0 |     100% |           |
 | src/services/auth\_account\_manager.py  |       49 |        0 |        6 |        0 |     100% |           |
 | src/services/fxa\_crypto.py             |       38 |        0 |        0 |        0 |     100% |           |
-| src/services/fxa\_token\_manager.py     |      116 |        0 |       32 |        0 |     100% |           |
-| src/services/hawk\_service.py           |      106 |        0 |       24 |        0 |     100% |           |
+| src/services/fxa\_token\_manager.py     |      116 |        0 |       34 |        0 |     100% |           |
+| src/services/hawk\_service.py           |      101 |        0 |       16 |        0 |     100% |           |
 | src/services/jwt\_service.py            |       51 |        0 |        6 |        0 |     100% |           |
 | src/services/jwt\_verifier.py           |       58 |        0 |       14 |        0 |     100% |           |
 | src/services/oauth\_code\_manager.py    |       63 |        0 |       16 |        0 |     100% |           |
@@ -69,7 +69,7 @@
 | src/shared/token.py                     |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                      |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                     |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                               | **2858** |    **0** |  **528** |    **0** | **100%** |           |
+| **TOTAL**                               | **2853** |    **0** |  **522** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
