@@ -54,7 +54,7 @@ export async function buildHawkHeaderWithInfo(
   const derived = await hkdf(tokenBytes.buffer, infoString, 96)
 
   const tokenId = toHex(derived.slice(0, 32))
-  const reqHMACKey = derived.slice(32, 64)
+  const reqHMACKeyHex = toHex(derived.slice(32, 64))
 
   const parsedUrl = new URL(url)
   const host = parsedUrl.hostname
@@ -69,7 +69,7 @@ export async function buildHawkHeaderWithInfo(
 
   const key = await crypto.subtle.importKey(
     "raw",
-    reqHMACKey,
+    encode(reqHMACKeyHex),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
