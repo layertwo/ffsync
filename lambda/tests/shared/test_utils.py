@@ -5,12 +5,14 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.shared.utils import (
     DecimalEncoder,
     datetime_decoder,
     datetime_encoder,
     decimal_to_float,
+    extract_hawk_request_params,
     float_to_decimal,
     get_weave_timestamp,
     json_dumps,
@@ -129,3 +131,70 @@ class TestJsonDumps:
         assert "10" in result
         assert "hello" in result
         assert "3.14" in result
+
+
+class TestExtractHawkRequestParams:
+    """Test extract_hawk_request_params helper"""
+
+    def test_extracts_domain_name_from_request_context(self):
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/v1/oauth/token",
+                "headers": {"host": "wrong.example.com"},
+                "requestContext": {"domainName": "auth.prod.ffsync.layertwo.dev"},
+            }
+        )
+        method, path, host, port = extract_hawk_request_params(event)
+        assert method == "POST"
+        assert path == "/v1/oauth/token"
+        assert host == "auth.prod.ffsync.layertwo.dev"
+        assert port == "443"
+
+    def test_appends_query_string_to_path(self):
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "POST",
+                "path": "/v1/session/destroy",
+                "headers": {},
+                "queryStringParameters": {"service": "sync"},
+                "requestContext": {"domainName": "auth.example.com"},
+            }
+        )
+        method, path, host, port = extract_hawk_request_params(event)
+        assert path == "/v1/session/destroy?service=sync"
+
+    def test_falls_back_to_host_header_when_no_request_context(self):
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/v1/session/status",
+                "headers": {"host": "fallback.example.com"},
+            }
+        )
+        method, path, host, port = extract_hawk_request_params(event)
+        assert host == "fallback.example.com"
+
+    def test_falls_back_to_localhost_when_no_host_or_context(self):
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/v1/session/status",
+                "headers": {},
+            }
+        )
+        method, path, host, port = extract_hawk_request_params(event)
+        assert host == "localhost"
+
+    def test_no_query_string_when_none(self):
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/v1/session/status",
+                "headers": {},
+                "queryStringParameters": None,
+                "requestContext": {"domainName": "auth.example.com"},
+            }
+        )
+        _, path, _, _ = extract_hawk_request_params(event)
+        assert path == "/v1/session/status"
