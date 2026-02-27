@@ -1,5 +1,5 @@
 """
-Integration test for Token Server → Storage Server flow.
+Integration test for Token Server -> Storage Server flow.
 
 Tests the complete end-to-end flow:
 1. Token Server receives OIDC token and generates HAWK credentials
@@ -20,7 +20,11 @@ from botocore.stub import ANY
 from src.entrypoint.hawk_authorizer import lambda_handler as authorizer_handler
 from src.entrypoint.storage_api import lambda_handler as storage_handler
 from src.entrypoint.token_api import lambda_handler as token_handler
-from tests.fixtures.integration import build_authorizer_event, build_storage_event
+from tests.fixtures.integration import (
+    build_authorizer_event,
+    build_hawk_auth_header,
+    build_storage_event,
+)
 
 
 class TestTokenServerToStorageServerFlow:
@@ -33,7 +37,7 @@ class TestTokenServerToStorageServerFlow:
         sample_lambda_context,
     ):
         """
-        Test complete flow: Token issuance → HAWK authentication → Storage access.
+        Test complete flow: Token issuance -> HAWK authentication -> Storage access.
 
         Flow:
         1. Client sends OIDC token to Token Server
@@ -147,24 +151,13 @@ class TestTokenServerToStorageServerFlow:
 
         # ===== Step 7-10: Storage Server Validates HAWK Credentials =====
 
-        # Build valid HAWK Authorization header
-        hawk_service = mock_service_provider.hawk_service
-        timestamp = int(time.time())
-        nonce = "test-nonce-integration"
+        # Build valid HAWK Authorization header using mohawk.Sender
         method = "GET"
         path = "/1.5/12345/storage/bookmarks"
         host = "storage.sync.example.com"
         port = 443
 
-        # Calculate valid MAC using the HAWK key from Token Server
-        normalized = hawk_service.build_normalized_string(
-            str(timestamp), nonce, method, path, host, str(port)
-        )
-        mac = hawk_service.calculate_mac(hawk_key, normalized)
-
-        authorization_header = (
-            f'Hawk id="{hawk_id}", ' f'ts="{timestamp}", ' f'nonce="{nonce}", ' f'mac="{mac}"'
-        )
+        authorization_header = build_hawk_auth_header(hawk_id, hawk_key, method, path, host, port)
 
         # Build HAWK authorizer event
         authorizer_event = build_authorizer_event(
@@ -193,6 +186,17 @@ class TestTokenServerToStorageServerFlow:
             expected_params={
                 "TableName": "test-token-cache-table",
                 "Key": {"PK": f"TOKEN#{hawk_id}"},  # Table resource format (no type descriptors)
+            },
+        )
+
+        # Nonce replay protection: put_item for nonce record
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            expected_params={
+                "TableName": "test-token-cache-table",
+                "Item": ANY,
+                "ConditionExpression": "attribute_not_exists(PK)",
             },
         )
 
@@ -410,45 +414,21 @@ class TestTokenServerToStorageServerFlow:
         hawk_id = hawk_service.generate_hawk_id(user_id, generation, expiry)
         hawk_key = hawk_service.generate_hawk_key()
 
-        # Build HAWK Authorization header with expired token
-        timestamp = int(time.time())
-        nonce = "test-nonce-expired"
+        # Build HAWK Authorization header with expired token using mohawk.Sender
         method = "GET"
         path = "/1.5/12345/storage/bookmarks"
         host = "storage.sync.example.com"
         port = 443
 
-        normalized = hawk_service.build_normalized_string(
-            str(timestamp), nonce, method, path, host, str(port)
-        )
-        mac = hawk_service.calculate_mac(hawk_key, normalized)
-
-        authorization_header = (
-            f'Hawk id="{hawk_id}", ' f'ts="{timestamp}", ' f'nonce="{nonce}", ' f'mac="{mac}"'
-        )
+        authorization_header = build_hawk_auth_header(hawk_id, hawk_key, method, path, host, port)
 
         authorizer_event = build_authorizer_event(
             method=method, path=path, authorization_header=authorization_header
         )
 
-        # Mock cache retrieval (token exists in cache but is expired)
-        dynamodb_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": f"TOKEN#{hawk_id}"},
-                    "hawk_key": {"S": hawk_key},
-                    "user_id": {"S": user_id},
-                    "generation": {"N": str(generation)},
-                    "expiry": {"N": str(expiry)},
-                    "created_at": {"N": str(int(time.time()) - 200)},
-                }
-            },
-            expected_params={
-                "TableName": "test-token-cache-table",
-                "Key": {"PK": f"TOKEN#{hawk_id}"},  # Table resource format (no type descriptors)
-            },
-        )
+        # The expiry check happens BEFORE mohawk Receiver is called
+        # (in _extract_hawk_id -> decode_hawk_id -> validate_hawk_id_expiry)
+        # so no DynamoDB stub is needed - it rejects early
 
         # Authorizer should reject expired token
         with pytest.raises(Exception, match="Unauthorized"):
@@ -545,19 +525,12 @@ class TestTokenServerToStorageServerFlow:
         hawk_id = hawk_service.generate_hawk_id(user_id, generation, expiry)
         hawk_key = hawk_service.generate_hawk_key()
 
-        # Build valid HAWK Authorization header
-        timestamp = int(time.time())
-        nonce = "test-nonce-gen"
+        # Build valid HAWK Authorization header using mohawk.Sender
         method = "GET"
         path = "/1.5/12345/storage/bookmarks"
 
-        normalized = hawk_service.build_normalized_string(
-            str(timestamp), nonce, method, path, "storage.sync.example.com", "443"
-        )
-        mac = hawk_service.calculate_mac(hawk_key, normalized)
-
-        authorization_header = (
-            f'Hawk id="{hawk_id}", ' f'ts="{timestamp}", ' f'nonce="{nonce}", ' f'mac="{mac}"'
+        authorization_header = build_hawk_auth_header(
+            hawk_id, hawk_key, method, path, "storage.sync.example.com", 443
         )
 
         authorizer_event = build_authorizer_event(

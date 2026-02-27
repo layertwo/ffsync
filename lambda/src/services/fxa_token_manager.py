@@ -1,12 +1,10 @@
 """FxA Token Manager for session tokens and key-fetch tokens in DynamoDB"""
 
-import base64
-import hashlib
-import hmac
-import re
 import time
 from typing import Optional
 
+import mohawk
+import mohawk.exc
 from botocore.exceptions import ClientError
 
 from src.services import fxa_crypto
@@ -17,11 +15,6 @@ KEY_FETCH_TOKEN_INFO = "identity.mozilla.com/picl/v1/keyFetchToken"
 
 SESSION_PREFIX = "SESSION"
 KEYFETCH_PREFIX = "KEYFETCH"
-
-HAWK_HEADER_PATTERN = re.compile(
-    r'id="(?P<id>[^"]+)".*ts="(?P<ts>[^"]+)".*nonce="(?P<nonce>[^"]+)"'
-    r'(?:.*hash="(?P<hash>[^"]+)")?.*mac="(?P<mac>[^"]+)"'
-)
 
 
 class FxATokenManager:
@@ -106,6 +99,49 @@ class FxATokenManager:
 
         return item["uid"]
 
+    def _seen_nonce(self, sender_id, nonce, timestamp):
+        """Check if a nonce has been seen before (replay protection).
+
+        Uses DynamoDB conditional write: if the nonce record already exists,
+        the request is a replay. Records auto-expire via DynamoDB TTL.
+        """
+        try:
+            self.table.put_item(
+                Item={
+                    _PK: f"NONCE#{sender_id}#{nonce}#{timestamp}",
+                    "expiry": int(time.time()) + 120,
+                },
+                ConditionExpression=f"attribute_not_exists({_PK})",
+            )
+            return False  # New nonce
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return True  # Replay detected
+            raise
+
+    def _verify_hawk(self, authorization_header, method, path, host, port, credentials_map):
+        """Verify Hawk signature using mohawk.Receiver.
+
+        Returns True on success, False on any authentication failure.
+        The credentials_map callback handles credential lookup and may
+        populate external state (e.g. uid) via closure side effects.
+        """
+        if not authorization_header:
+            return False
+        try:
+            mohawk.Receiver(
+                credentials_map,
+                authorization_header,
+                f"https://{host}:{port}{path}",
+                method,
+                seen_nonce=self._seen_nonce,
+                accept_untrusted_content=True,
+                timestamp_skew_in_seconds=60,
+            )
+            return True
+        except mohawk.exc.HawkFail:
+            return False
+
     def verify_session_hawk(
         self,
         authorization_header: str,
@@ -114,67 +150,25 @@ class FxATokenManager:
         host: str,
         port: str,
     ) -> Optional[str]:
-        """Verify Hawk HMAC signature for session-authenticated routes.
+        """Verify Hawk HMAC signature for session-authenticated routes."""
+        uid_holder = {}
 
-        1. Parse Hawk header fields (id, ts, nonce, mac)
-        2. Look up SESSION#{id} to get uid and reqHMACkey
-        3. Check expiry
-        4. Construct canonical string
-        5. Compute HMAC-SHA256(reqHMACkey, canonical_string)
-        6. Constant-time compare with provided mac
-        7. Return uid on success, None on failure
+        def credentials_map(sender_id):
+            response = self.table.get_item(Key={_PK: f"{SESSION_PREFIX}#{sender_id}"})
+            if "Item" not in response:
+                raise mohawk.exc.CredentialsLookupError("Session not found")
+            item = response["Item"]
+            if item.get("expiry", 0) < int(time.time()):
+                raise mohawk.exc.CredentialsLookupError("Session expired")
+            key = item.get("reqHMACkey")
+            if not key:
+                raise mohawk.exc.CredentialsLookupError("Missing HMAC key")
+            uid_holder["uid"] = item["uid"]
+            return {"id": sender_id, "key": key, "algorithm": "sha256"}
 
-        Args:
-            authorization_header: Full Authorization header value
-            method: HTTP method (GET, POST, etc.)
-            path: Request path
-            host: Request host
-            port: Request port
-
-        Returns:
-            uid on success, None on failure
-        """
-        match = HAWK_HEADER_PATTERN.search(authorization_header)
-        if not match:
+        if not self._verify_hawk(authorization_header, method, path, host, port, credentials_map):
             return None
-
-        token_id_hex = match.group("id")
-        ts = match.group("ts")
-        nonce = match.group("nonce")
-        mac_b64 = match.group("mac")
-
-        # Look up session record
-        response = self.table.get_item(Key={_PK: f"{SESSION_PREFIX}#{token_id_hex}"})
-        if "Item" not in response:
-            return None
-
-        item = response["Item"]
-
-        # Check expiry
-        if item.get("expiry", 0) < int(time.time()):
-            return None
-
-        req_hmac_key_hex = item.get("reqHMACkey")
-        if not req_hmac_key_hex:
-            return None
-
-        req_hmac_key = bytes.fromhex(req_hmac_key_hex)
-
-        # Construct canonical string per Hawk spec
-        payload_hash = match.group("hash") or ""
-        canonical = (
-            f"hawk.1.header\n{ts}\n{nonce}\n{method}\n{path}\n{host}\n{port}\n{payload_hash}\n\n"
-        )
-
-        # Compute expected MAC
-        computed_mac = hmac.new(req_hmac_key, canonical.encode("ascii"), hashlib.sha256).digest()
-        computed_mac_b64 = base64.b64encode(computed_mac).decode("ascii")
-
-        # Constant-time compare
-        if not hmac.compare_digest(computed_mac_b64, mac_b64):
-            return None
-
-        return item["uid"]
+        return uid_holder.get("uid")
 
     def verify_keyfetch_hawk(
         self,
@@ -188,69 +182,41 @@ class FxATokenManager:
 
         Atomically consumes the key-fetch token (single-use) while verifying
         the Hawk HMAC signature.
-
-        Args:
-            authorization_header: Full Authorization header value
-            method: HTTP method (GET, POST, etc.)
-            path: Request path
-            host: Request host
-            port: Request port
-
-        Returns:
-            Dict with uid and keyFetchToken on success, None on failure
         """
-        match = HAWK_HEADER_PATTERN.search(authorization_header)
-        if not match:
+        result_holder = {}
+
+        def credentials_map(sender_id):
+            try:
+                response = self.table.delete_item(
+                    Key={_PK: f"{KEYFETCH_PREFIX}#{sender_id}"},
+                    ReturnValues="ALL_OLD",
+                    ConditionExpression="attribute_exists(PK)",
+                )
+            except ClientError as e:
+                if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                    raise mohawk.exc.CredentialsLookupError("Token not found")
+                raise
+            item = response.get("Attributes")
+            if not item:
+                raise mohawk.exc.CredentialsLookupError("Token not found")
+            if item.get("expiry", 0) < int(time.time()):
+                raise mohawk.exc.CredentialsLookupError("Token expired")
+            key = item.get("reqHMACkey")
+            if not key:
+                raise mohawk.exc.CredentialsLookupError("Missing HMAC key")
+            result_holder["uid"] = item["uid"]
+            result_holder["keyFetchToken"] = item["keyFetchToken"]
+            return {"id": sender_id, "key": key, "algorithm": "sha256"}
+
+        if not self._verify_hawk(authorization_header, method, path, host, port, credentials_map):
             return None
 
-        token_id_hex = match.group("id")
-        ts = match.group("ts")
-        nonce = match.group("nonce")
-        mac_b64 = match.group("mac")
-
-        # Atomically consume the key-fetch token
-        try:
-            response = self.table.delete_item(
-                Key={_PK: f"{KEYFETCH_PREFIX}#{token_id_hex}"},
-                ReturnValues="ALL_OLD",
-                ConditionExpression="attribute_exists(PK)",
-            )
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                return None
-            raise
-
-        item = response.get("Attributes")
-        if not item:
-            return None
-
-        # Check expiry
-        if item.get("expiry", 0) < int(time.time()):
-            return None
-
-        req_hmac_key_hex = item.get("reqHMACkey")
-        if not req_hmac_key_hex:
-            return None
-
-        req_hmac_key = bytes.fromhex(req_hmac_key_hex)
-
-        # Construct canonical string per Hawk spec
-        payload_hash = match.group("hash") or ""
-        canonical = (
-            f"hawk.1.header\n{ts}\n{nonce}\n{method}\n{path}\n{host}\n{port}\n{payload_hash}\n\n"
-        )
-
-        # Compute expected MAC
-        computed_mac = hmac.new(req_hmac_key, canonical.encode("ascii"), hashlib.sha256).digest()
-        computed_mac_b64 = base64.b64encode(computed_mac).decode("ascii")
-
-        # Constant-time compare
-        if not hmac.compare_digest(computed_mac_b64, mac_b64):
+        if "uid" not in result_holder:
             return None
 
         return {
-            "uid": item["uid"],
-            "keyFetchToken": item["keyFetchToken"],
+            "uid": result_holder["uid"],
+            "keyFetchToken": result_holder["keyFetchToken"],
         }
 
     def create_key_fetch_token(self, uid: str) -> bytes:

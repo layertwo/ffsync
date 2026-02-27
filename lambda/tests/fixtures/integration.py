@@ -4,9 +4,37 @@ import json
 import time
 from typing import Any, Dict, List, Optional
 
+import mohawk
 import pytest
 
 from src.services.token_generator import TokenGenerator
+
+# ============================================================================
+# HAWK Header Builder
+# ============================================================================
+
+
+def build_hawk_auth_header(hawk_id, hawk_key, method, path, host, port, **kwargs):
+    """Build a Hawk Authorization header using mohawk.Sender.
+
+    Args:
+        hawk_id: Hawk credential ID
+        hawk_key: Hawk credential key (string, used as-is)
+        method: HTTP method (GET, POST, etc.)
+        path: Request path
+        host: Request host
+        port: Request port (string or int)
+        **kwargs: Additional arguments passed to mohawk.Sender
+    """
+    sender = mohawk.Sender(
+        credentials={"id": hawk_id, "key": hawk_key, "algorithm": "sha256"},
+        url=f"https://{host}:{port}{path}",
+        method=method,
+        always_hash_content=False,
+        **kwargs,
+    )
+    return sender.request_header
+
 
 # ============================================================================
 # HAWK Authentication Fixtures

@@ -5,9 +5,10 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
-from botocore.stub import Stubber
+from botocore.stub import ANY, Stubber
 
 from src.entrypoint.hawk_authorizer import lambda_handler
+from tests.fixtures.integration import build_hawk_auth_header
 
 
 def generate_hawk_id(user_id: str, generation: int, expiry: int) -> str:
@@ -24,14 +25,24 @@ def valid_hawk_id():
 
 
 @pytest.fixture
+def hawk_key():
+    """Shared secret for HAWK authentication"""
+    return "a" * 64
+
+
+@pytest.fixture
 def current_timestamp():
     """Get current timestamp for HAWK header"""
     return str(int(time.time()))
 
 
 @pytest.fixture
-def authorizer_event(valid_hawk_id, current_timestamp):
-    """Create a sample API Gateway authorizer REQUEST event (Powertools format)"""
+def authorizer_event(valid_hawk_id, hawk_key):
+    """Create a sample API Gateway authorizer REQUEST event with valid Hawk header"""
+    # Build a valid Hawk header for the default path/method/host
+    auth_header = build_hawk_auth_header(
+        valid_hawk_id, hawk_key, "GET", "/1.5/12345/storage/bookmarks", "api.example.com", 443
+    )
     return {
         "version": "1.0",
         "type": "REQUEST",
@@ -41,9 +52,7 @@ def authorizer_event(valid_hawk_id, current_timestamp):
         "resource": "/1.5/12345/storage/bookmarks",
         "path": "/1.5/12345/storage/bookmarks",
         "httpMethod": "GET",
-        "headers": {
-            "Authorization": f'Hawk id="{valid_hawk_id}", ts="{current_timestamp}", nonce="abc123", mac="test_mac"'
-        },
+        "headers": {"Authorization": auth_header},
         "queryStringParameters": {},
         "pathParameters": {"uid": "12345"},
         "stageVariables": {},
@@ -72,6 +81,37 @@ def token_cache_stubber(boto_session):
         yield stubber
 
 
+def stub_token_cache(stubber, hawk_id, hawk_key, generation=5):
+    """Helper to add a token cache DynamoDB stub response"""
+    stubber.add_response(
+        "get_item",
+        {
+            "Item": {
+                "PK": {"S": f"TOKEN#{hawk_id}"},
+                "hawk_key": {"S": hawk_key},
+                "user_id": {"S": "user123"},
+                "generation": {"N": str(generation)},
+                "expiry": {"N": str(int(time.time()) + 300)},
+                "created_at": {"N": str(int(time.time()))},
+            }
+        },
+        {"Key": {"PK": f"TOKEN#{hawk_id}"}, "TableName": "test-token-cache-table"},
+    )
+
+
+def stub_nonce(stubber):
+    """Helper to add a nonce replay protection DynamoDB stub response"""
+    stubber.add_response(
+        "put_item",
+        {},
+        {
+            "TableName": "test-token-cache-table",
+            "Item": ANY,
+            "ConditionExpression": "attribute_not_exists(PK)",
+        },
+    )
+
+
 class TestLambdaHandlerSuccess:
     """Tests for successful authorization"""
 
@@ -82,28 +122,12 @@ class TestLambdaHandlerSuccess:
         mock_service_provider,
         token_cache_stubber,
         valid_hawk_id,
+        hawk_key,
     ):
         """Test successful HAWK authorization"""
-        # Stub DynamoDB get_item response
-        token_cache_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": f"TOKEN#{valid_hawk_id}"},
-                    "hawk_key": {"S": "a" * 64},
-                    "user_id": {"S": "user123"},
-                    "generation": {"N": "5"},
-                    "expiry": {"N": str(int(time.time()) + 300)},
-                    "created_at": {"N": str(int(time.time()))},
-                }
-            },
-            {"Key": {"PK": f"TOKEN#{valid_hawk_id}"}, "TableName": "test-token-cache-table"},
-        )
+        stub_token_cache(token_cache_stubber, valid_hawk_id, hawk_key)
+        stub_nonce(token_cache_stubber)
 
-        # Mock verify_mac to return True (since tests use fake MAC values)
-        mock_service_provider.hawk_service.verify_mac = MagicMock(return_value=True)
-
-        # Use dependency injection - no patching needed!
         result = lambda_handler(authorizer_event, lambda_context, mock_service_provider)
 
         # Verify result structure
@@ -130,101 +154,94 @@ class TestLambdaHandlerSuccess:
         mock_service_provider,
         token_cache_stubber,
         valid_hawk_id,
+        hawk_key,
     ):
         """Test that validate is called with correct parameters"""
-        token_cache_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": f"TOKEN#{valid_hawk_id}"},
-                    "hawk_key": {"S": "a" * 64},
-                    "user_id": {"S": "user123"},
-                    "generation": {"N": "5"},
-                    "expiry": {"N": str(int(time.time()) + 300)},
-                    "created_at": {"N": str(int(time.time()))},
-                }
-            },
-            {"Key": {"PK": f"TOKEN#{valid_hawk_id}"}, "TableName": "test-token-cache-table"},
-        )
+        stub_token_cache(token_cache_stubber, valid_hawk_id, hawk_key)
+        stub_nonce(token_cache_stubber)
 
-        mock_service_provider.hawk_service.verify_mac = MagicMock(return_value=True)
         result = lambda_handler(authorizer_event, lambda_context, mock_service_provider)
 
         assert result["principalId"] == "user123"
 
     def test_lambda_handler_case_insensitive_authorization_header(
         self,
-        authorizer_event,
         lambda_context,
         mock_service_provider,
         token_cache_stubber,
         valid_hawk_id,
-        current_timestamp,
+        hawk_key,
     ):
         """Test that Authorization header is case-insensitive (Powertools feature)"""
-        # Use lowercase 'authorization' header
-        authorizer_event["headers"] = {
-            "authorization": f'Hawk id="{valid_hawk_id}", ts="{current_timestamp}", nonce="abc123", mac="test_mac"'
+        # Build a fresh event with lowercase 'authorization' header
+        auth_header = build_hawk_auth_header(
+            valid_hawk_id, hawk_key, "GET", "/1.5/12345/storage/bookmarks", "api.example.com", 443
+        )
+        event = {
+            "version": "1.0",
+            "type": "REQUEST",
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:abcdef123/prod/GET/storage/bookmarks",
+            "identitySource": "",
+            "authorizationToken": "",
+            "resource": "/1.5/12345/storage/bookmarks",
+            "path": "/1.5/12345/storage/bookmarks",
+            "httpMethod": "GET",
+            "headers": {"authorization": auth_header},
+            "queryStringParameters": {},
+            "pathParameters": {"uid": "12345"},
+            "stageVariables": {},
+            "requestContext": {
+                "domainName": "api.example.com",
+                "accountId": "123456789012",
+            },
         }
 
-        token_cache_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": f"TOKEN#{valid_hawk_id}"},
-                    "hawk_key": {"S": "a" * 64},
-                    "user_id": {"S": "user123"},
-                    "generation": {"N": "5"},
-                    "expiry": {"N": str(int(time.time()) + 300)},
-                    "created_at": {"N": str(int(time.time()))},
-                }
-            },
-            {"Key": {"PK": f"TOKEN#{valid_hawk_id}"}, "TableName": "test-token-cache-table"},
-        )
+        stub_token_cache(token_cache_stubber, valid_hawk_id, hawk_key)
+        stub_nonce(token_cache_stubber)
 
-        mock_service_provider.hawk_service.verify_mac = MagicMock(return_value=True)
-        result = lambda_handler(authorizer_event, lambda_context, mock_service_provider)
+        result = lambda_handler(event, lambda_context, mock_service_provider)
 
         assert result["principalId"] == "user123"
 
     def test_lambda_handler_includes_query_string_in_path(
         self,
-        authorizer_event,
         lambda_context,
         mock_service_provider,
         token_cache_stubber,
         valid_hawk_id,
+        hawk_key,
     ):
         """Test that query string parameters are included in the path for MAC verification"""
-        authorizer_event["queryStringParameters"] = {"batch": "true", "commit": "true"}
-        authorizer_event["httpMethod"] = "POST"
-
-        token_cache_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": f"TOKEN#{valid_hawk_id}"},
-                    "hawk_key": {"S": "a" * 64},
-                    "user_id": {"S": "user123"},
-                    "generation": {"N": "5"},
-                    "expiry": {"N": str(int(time.time()) + 300)},
-                    "created_at": {"N": str(int(time.time()))},
-                }
-            },
-            {"Key": {"PK": f"TOKEN#{valid_hawk_id}"}, "TableName": "test-token-cache-table"},
+        # Build header with query string included in the path
+        path_with_qs = "/1.5/12345/storage/bookmarks?batch=true&commit=true"
+        auth_header = build_hawk_auth_header(
+            valid_hawk_id, hawk_key, "POST", path_with_qs, "api.example.com", 443
         )
+        event = {
+            "version": "1.0",
+            "type": "REQUEST",
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:abcdef123/prod/POST/storage/bookmarks",
+            "identitySource": "",
+            "authorizationToken": "",
+            "resource": "/1.5/12345/storage/bookmarks",
+            "path": "/1.5/12345/storage/bookmarks",
+            "httpMethod": "POST",
+            "headers": {"Authorization": auth_header},
+            "queryStringParameters": {"batch": "true", "commit": "true"},
+            "pathParameters": {"uid": "12345"},
+            "stageVariables": {},
+            "requestContext": {
+                "domainName": "api.example.com",
+                "accountId": "123456789012",
+            },
+        }
 
-        # Capture the path passed to verify_mac
-        mock_service_provider.hawk_service.verify_mac = MagicMock(return_value=True)
-        result = lambda_handler(authorizer_event, lambda_context, mock_service_provider)
+        stub_token_cache(token_cache_stubber, valid_hawk_id, hawk_key)
+        stub_nonce(token_cache_stubber)
+
+        result = lambda_handler(event, lambda_context, mock_service_provider)
 
         assert result["principalId"] == "user123"
-        # Verify that verify_mac was called with path including query string
-        call_args = mock_service_provider.hawk_service.verify_mac.call_args
-        uri_arg = call_args[0][5]  # 6th positional arg is uri
-        assert "?" in uri_arg
-        assert "batch=true" in uri_arg
-        assert "commit=true" in uri_arg
 
 
 class TestLambdaHandlerAuthenticationFailures:
@@ -259,24 +276,16 @@ class TestLambdaHandlerAuthenticationFailures:
         mock_service_provider,
         token_cache_stubber,
         valid_hawk_id,
+        hawk_key,
     ):
         """Test handling of invalid HAWK signature"""
-        token_cache_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": f"TOKEN#{valid_hawk_id}"},
-                    "hawk_key": {"S": "a" * 64},
-                    "user_id": {"S": "user123"},
-                    "generation": {"N": "5"},
-                    "expiry": {"N": str(int(time.time()) + 300)},
-                    "created_at": {"N": str(int(time.time()))},
-                }
-            },
-            {"Key": {"PK": f"TOKEN#{valid_hawk_id}"}, "TableName": "test-token-cache-table"},
-        )
+        # Replace the valid header with one that has a wrong MAC
+        authorizer_event["headers"][
+            "Authorization"
+        ] = f'Hawk id="{valid_hawk_id}", ts="{int(time.time())}", nonce="abc123", mac="invalid_mac"'
 
-        # Don't mock verify_mac - let it fail naturally with invalid MAC
+        stub_token_cache(token_cache_stubber, valid_hawk_id, hawk_key)
+
         with pytest.raises(Exception) as exc_info:
             lambda_handler(authorizer_event, lambda_context, mock_service_provider)
 
@@ -303,22 +312,11 @@ class TestLambdaHandlerAuthenticationFailures:
         mock_service_provider,
         token_cache_stubber,
         valid_hawk_id,
+        hawk_key,
     ):
         """Test handling of invalid generation number"""
-        token_cache_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": f"TOKEN#{valid_hawk_id}"},
-                    "hawk_key": {"S": "a" * 64},
-                    "user_id": {"S": "user123"},
-                    "generation": {"N": "10"},  # Different generation
-                    "expiry": {"N": str(int(time.time()) + 300)},
-                    "created_at": {"N": str(int(time.time()))},
-                }
-            },
-            {"Key": {"PK": f"TOKEN#{valid_hawk_id}"}, "TableName": "test-token-cache-table"},
-        )
+        # Stub with different generation (10 vs 5 in hawk_id)
+        stub_token_cache(token_cache_stubber, valid_hawk_id, hawk_key, generation=10)
 
         with pytest.raises(Exception) as exc_info:
             lambda_handler(authorizer_event, lambda_context, mock_service_provider)
@@ -414,63 +412,72 @@ class TestLambdaHandlerEdgeCases:
 
     def test_lambda_handler_missing_request_context(
         self,
-        authorizer_event,
         lambda_context,
         mock_service_provider,
         token_cache_stubber,
         valid_hawk_id,
+        hawk_key,
     ):
         """Test handling when requestContext is missing or has no domainName"""
-        authorizer_event["requestContext"] = {}
-
-        token_cache_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": f"TOKEN#{valid_hawk_id}"},
-                    "hawk_key": {"S": "a" * 64},
-                    "user_id": {"S": "user123"},
-                    "generation": {"N": "5"},
-                    "expiry": {"N": str(int(time.time()) + 300)},
-                    "created_at": {"N": str(int(time.time()))},
-                }
-            },
-            {"Key": {"PK": f"TOKEN#{valid_hawk_id}"}, "TableName": "test-token-cache-table"},
+        # When domainName is empty, host defaults to "" and port to 443
+        auth_header = build_hawk_auth_header(
+            valid_hawk_id, hawk_key, "GET", "/1.5/12345/storage/bookmarks", "", 443
         )
+        event = {
+            "version": "1.0",
+            "type": "REQUEST",
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:abcdef123/prod/GET/storage/bookmarks",
+            "identitySource": "",
+            "authorizationToken": "",
+            "resource": "/1.5/12345/storage/bookmarks",
+            "path": "/1.5/12345/storage/bookmarks",
+            "httpMethod": "GET",
+            "headers": {"Authorization": auth_header},
+            "queryStringParameters": {},
+            "pathParameters": {"uid": "12345"},
+            "stageVariables": {},
+            "requestContext": {},
+        }
 
-        mock_service_provider.hawk_service.verify_mac = MagicMock(return_value=True)
-        result = lambda_handler(authorizer_event, lambda_context, mock_service_provider)
+        stub_token_cache(token_cache_stubber, valid_hawk_id, hawk_key)
+        stub_nonce(token_cache_stubber)
+
+        result = lambda_handler(event, lambda_context, mock_service_provider)
 
         assert result["principalId"] == "user123"
 
     def test_lambda_handler_partial_request_context(
         self,
-        authorizer_event,
         lambda_context,
         mock_service_provider,
         token_cache_stubber,
         valid_hawk_id,
+        hawk_key,
     ):
         """Test handling when requestContext has partial data"""
-        authorizer_event["httpMethod"] = "POST"
-        authorizer_event["requestContext"] = {}
-
-        token_cache_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": f"TOKEN#{valid_hawk_id}"},
-                    "hawk_key": {"S": "a" * 64},
-                    "user_id": {"S": "user123"},
-                    "generation": {"N": "5"},
-                    "expiry": {"N": str(int(time.time()) + 300)},
-                    "created_at": {"N": str(int(time.time()))},
-                }
-            },
-            {"Key": {"PK": f"TOKEN#{valid_hawk_id}"}, "TableName": "test-token-cache-table"},
+        # When domainName is empty, host defaults to "" and port to 443
+        auth_header = build_hawk_auth_header(
+            valid_hawk_id, hawk_key, "POST", "/1.5/12345/storage/bookmarks", "", 443
         )
+        event = {
+            "version": "1.0",
+            "type": "REQUEST",
+            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:abcdef123/prod/POST/storage/bookmarks",
+            "identitySource": "",
+            "authorizationToken": "",
+            "resource": "/1.5/12345/storage/bookmarks",
+            "path": "/1.5/12345/storage/bookmarks",
+            "httpMethod": "POST",
+            "headers": {"Authorization": auth_header},
+            "queryStringParameters": {},
+            "pathParameters": {"uid": "12345"},
+            "stageVariables": {},
+            "requestContext": {},
+        }
 
-        mock_service_provider.hawk_service.verify_mac = MagicMock(return_value=True)
-        result = lambda_handler(authorizer_event, lambda_context, mock_service_provider)
+        stub_token_cache(token_cache_stubber, valid_hawk_id, hawk_key)
+        stub_nonce(token_cache_stubber)
+
+        result = lambda_handler(event, lambda_context, mock_service_provider)
 
         assert result["principalId"] == "user123"

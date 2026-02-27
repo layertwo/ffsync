@@ -14,10 +14,15 @@ import json
 import time
 
 import pytest
+from botocore.stub import ANY
 
 from src.entrypoint.hawk_authorizer import lambda_handler as authorizer_handler
 from src.entrypoint.storage_api import lambda_handler as storage_handler
-from tests.fixtures.integration import build_authorizer_event, build_storage_event
+from tests.fixtures.integration import (
+    build_authorizer_event,
+    build_hawk_auth_header,
+    build_storage_event,
+)
 
 
 class TestHawkAuthorizerToStorageAPIFlow:
@@ -47,27 +52,15 @@ class TestHawkAuthorizerToStorageAPIFlow:
         dynamodb_stubber.add_response("put_item", {})
         hawk_service.store_token_in_cache(credentials)
 
-        # Build valid HAWK Authorization header
-        timestamp = int(time.time())
-        nonce = "test-nonce-123"
+        # Build valid HAWK Authorization header using mohawk.Sender
         method = "GET"
         path = "/1.5/12345/storage/bookmarks"
         host = "storage.sync.example.com"
         port = 443
 
-        # Calculate valid MAC
-        normalized = hawk_service.build_normalized_string(
-            str(timestamp), nonce, method, path, host, str(port)
-        )
-        # hawk_key is guaranteed to be present after generate_hawk_credentials
         assert credentials.hawk_key is not None
-        mac = hawk_service.calculate_mac(credentials.hawk_key, normalized)
-
-        authorization_header = (
-            f'Hawk id="{credentials.hawk_id}", '
-            f'ts="{timestamp}", '
-            f'nonce="{nonce}", '
-            f'mac="{mac}"'
+        authorization_header = build_hawk_auth_header(
+            credentials.hawk_id, credentials.hawk_key, method, path, host, port
         )
 
         # Step 1: Call HAWK authorizer
@@ -87,6 +80,17 @@ class TestHawkAuthorizerToStorageAPIFlow:
                     "expiry": {"N": str(expiry)},
                     "created_at": {"N": str(int(time.time()))},
                 }
+            },
+        )
+
+        # Nonce replay protection: put_item for nonce record
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            {
+                "TableName": "test-token-cache-table",
+                "Item": ANY,
+                "ConditionExpression": "attribute_not_exists(PK)",
             },
         )
 
@@ -166,44 +170,21 @@ class TestHawkAuthorizerToStorageAPIFlow:
         hawk_id = hawk_service.generate_hawk_id(user_id, generation, expiry)
         hawk_key = hawk_service.generate_hawk_key()
 
-        # Store in cache (even though expired) - stub the put_item call
-        dynamodb_stubber.add_response("put_item", {})
-
-        # Build HAWK Authorization header with expired token
-        timestamp = int(time.time())
-        nonce = "test-nonce-123"
+        # Build HAWK Authorization header with expired token using mohawk.Sender
         method = "GET"
         path = "/1.5/12345/storage/bookmarks"
         host = "storage.sync.example.com"
         port = 443
 
-        normalized = hawk_service.build_normalized_string(
-            str(timestamp), nonce, method, path, host, str(port)
-        )
-        mac = hawk_service.calculate_mac(hawk_key, normalized)
-
-        authorization_header = (
-            f'Hawk id="{hawk_id}", ' f'ts="{timestamp}", ' f'nonce="{nonce}", ' f'mac="{mac}"'
-        )
+        authorization_header = build_hawk_auth_header(hawk_id, hawk_key, method, path, host, port)
 
         authorizer_event = build_authorizer_event(
             method=method, path=path, authorization_header=authorization_header
         )
 
-        # Mock get_item for HAWK token retrieval (expired token)
-        dynamodb_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": f"TOKEN#{hawk_id}"},
-                    "hawk_key": {"S": hawk_key},
-                    "user_id": {"S": user_id},
-                    "generation": {"N": str(generation)},
-                    "expiry": {"N": str(expiry)},
-                    "created_at": {"N": str(int(time.time()) - 200)},
-                }
-            },
-        )
+        # The expiry check happens BEFORE mohawk Receiver is called
+        # (in _extract_hawk_id -> decode_hawk_id -> validate_hawk_id_expiry)
+        # so no DynamoDB stub is needed - it rejects early
 
         # Authorizer should reject expired token
         with pytest.raises(Exception, match="Unauthorized"):
