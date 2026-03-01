@@ -53,7 +53,7 @@ def json_dumps(obj, **kwargs) -> str:
     return json.dumps(obj, cls=DecimalEncoder, **kwargs)
 
 
-def extract_hawk_request_params(event) -> tuple[str, str, str, str]:
+def extract_hawk_request_params(event) -> tuple[str, str, str, int]:
     """Extract (method, path, host, port) for Hawk MAC verification.
 
     Uses request_context.domain_name (the custom domain) rather than
@@ -73,6 +73,4 @@ def extract_hawk_request_params(event) -> tuple[str, str, str, str]:
     except (KeyError, AttributeError):
         host = (event.headers or {}).get("host", "localhost")
 
-    port = "443"
-
-    return method, path, host, port
+    return method, path, host, 443

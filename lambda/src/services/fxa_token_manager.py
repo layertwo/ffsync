@@ -165,7 +165,7 @@ class FxATokenManager:
         method: str,
         path: str,
         host: str,
-        port: str,
+        port: int,
     ) -> Optional[str]:
         """Verify Hawk HMAC signature for session-authenticated routes."""
         uid_holder = {}
@@ -193,7 +193,7 @@ class FxATokenManager:
         method: str,
         path: str,
         host: str,
-        port: str,
+        port: int,
     ) -> Optional[dict]:
         """Verify Hawk HMAC signature for key-fetch token authenticated routes.
 

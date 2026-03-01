@@ -50,7 +50,7 @@ class HawkAuthMiddleware(BaseMiddlewareHandler):
         method, path, host, port = extract_hawk_request_params(event)
 
         if self._hawk_service:
-            self._validate_storage_hawk(event, auth_header, method, path, host, int(port))
+            self._validate_storage_hawk(event, auth_header, method, path, host, port)
         else:
             self._validate_session_hawk(event, auth_header, method, path, host, port)
 
