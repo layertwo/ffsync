@@ -5,6 +5,7 @@ on:
     branches: [mainline]
     paths:
       - 'lib/**'
+      - 'lambda/**'
       - 'smithy/**'
       - '.github/workflows/cdk-diff.yml'
       - 'package.json'
@@ -21,12 +22,9 @@ env:
   STAGE: "prod"
 
 jobs:
-  diff:
+  smithy:
     runs-on: ubuntu-24.04-arm
-    permissions:
-      contents: read
-      id-token: write
-      pull-requests: write
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
 
@@ -36,6 +34,27 @@ jobs:
           java-version: 17
           cache: gradle
 
+      - name: Build Smithy model
+        working-directory: smithy
+        run: ./gradlew smithyBuild
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: smithy-output
+          path: build/smithy
+          retention-days: 1
+
+  diff:
+    needs: smithy
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+
       - uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -44,13 +63,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Smithy model
-        working-directory: smithy
-        run: ./gradlew smithyBuild
-
-      - name: Build frontend
-        working-directory: frontend
-        run: npm ci && npm run build
+      - uses: actions/download-artifact@v8
+        with:
+          name: smithy-output
+          path: build/smithy
 
       - name: Build TypeScript
         run: npm run build
@@ -62,7 +78,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: CDK Synthesize
-        run: npx cdk synth --all --output build/cdk.out
+        run: npx cdk synth Service-prod Monitoring-prod --output build/cdk.out
 
       - name: CDK Diff
         uses: corymhall/cdk-diff-action@v2
