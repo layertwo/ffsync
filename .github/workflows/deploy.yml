@@ -15,7 +15,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     permissions:
       contents: read
@@ -47,10 +47,6 @@ jobs:
 
       - name: Build TypeScript
         run: npm run build
-
-      - uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
 
       - name: CDK synth
         run: npx cdk synth --all --output build/cdk.out
