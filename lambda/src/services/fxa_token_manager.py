@@ -1,8 +1,12 @@
 """FxA Token Manager for session tokens and key-fetch tokens in DynamoDB"""
 
+import hashlib
+import hmac as hmac_mod
 import re
 import time
+from base64 import b64encode
 from typing import Optional
+from urllib.parse import urlparse
 
 import mohawk
 import mohawk.exc
@@ -187,6 +191,7 @@ class FxATokenManager:
     ) -> Optional[str]:
         """Verify Hawk HMAC signature for session-authenticated routes."""
         uid_holder = {}
+        key_holder = {}
 
         def credentials_map(sender_id):
             logger.info(
@@ -206,6 +211,7 @@ class FxATokenManager:
             if not key:
                 raise mohawk.exc.CredentialsLookupError("Missing HMAC key")
             uid_holder["uid"] = item["uid"]
+            key_holder["key"] = key
             logger.info(
                 "Session Hawk credentials found",
                 extra={"key_prefix": key[:16], "key_len": len(key), "uid": item["uid"]},
@@ -213,6 +219,46 @@ class FxATokenManager:
             return {"id": sender_id, "key": key, "algorithm": "sha256"}
 
         if not self._verify_hawk(authorization_header, method, path, host, port, credentials_map):
+            # Manual MAC computation with both key formats for diagnostics
+            stored_key_hex = key_holder.get("key", "")
+            if stored_key_hex:
+                attrs = dict(_HAWK_ATTR_RE.findall(authorization_header or ""))
+                uri = f"https://{host}:{port}{path}"
+                parsed = urlparse(uri)
+                res_port = str(parsed.port or (443 if parsed.scheme == "https" else 80))
+                resource = parsed.path + ("?" + parsed.query if parsed.query else "")
+                normalized = (
+                    f"hawk.1.header\n{attrs.get('ts', '')}\n{attrs.get('nonce', '')}\n"
+                    f"{method}\n{resource}\n{parsed.hostname}\n{res_port}\n"
+                    f"{attrs.get('hash', '')}\n{attrs.get('ext', '')}\n"
+                )
+                # Format 1: hex string as ASCII bytes (what mohawk does)
+                mac_hex_ascii = b64encode(
+                    hmac_mod.new(
+                        stored_key_hex.encode("ascii"),
+                        normalized.encode("utf-8"),
+                        hashlib.sha256,
+                    ).digest()
+                ).decode("ascii")
+                # Format 2: raw bytes from hex decoding (what old code did)
+                mac_raw_bytes = b64encode(
+                    hmac_mod.new(
+                        bytes.fromhex(stored_key_hex),
+                        normalized.encode("utf-8"),
+                        hashlib.sha256,
+                    ).digest()
+                ).decode("ascii")
+                client_mac = attrs.get("mac", "")
+                logger.warning(
+                    "Manual MAC comparison",
+                    extra={
+                        "mac_hex_ascii_key": mac_hex_ascii,
+                        "mac_raw_bytes_key": mac_raw_bytes,
+                        "client_mac": client_mac,
+                        "hex_ascii_matches": mac_hex_ascii == client_mac,
+                        "raw_bytes_matches": mac_raw_bytes == client_mac,
+                    },
+                )
             return None
         return uid_holder.get("uid")
 
