@@ -58,6 +58,7 @@ class HawkAuthMiddleware(BaseMiddlewareHandler):
 
     def _validate_storage_hawk(self, event, auth_header, method, path, host, port):
         """Validate storage Hawk token and check URL uid matches authenticated user."""
+        assert self._hawk_service is not None
         try:
             creds = self._hawk_service.validate(auth_header, method, path, host, port)
         except Exception as e:
@@ -75,6 +76,7 @@ class HawkAuthMiddleware(BaseMiddlewareHandler):
 
     def _validate_session_hawk(self, event, auth_header, method, path, host, port):
         """Validate FxA session Hawk token."""
+        assert self._token_manager is not None
         uid = self._token_manager.verify_session_hawk(auth_header, method, path, host, port)
         if uid is None:
             raise HawkAuthenticationError("Invalid or expired session token")

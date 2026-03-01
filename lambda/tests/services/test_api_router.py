@@ -342,7 +342,7 @@ class TestHawkAuthMiddlewareUidValidation:
         event.path = f"/1.5/{expected_uid}/storage/bookmarks"
         event.query_string_parameters = None
         event.request_context.domain_name = "storage.example.com"
-        raw_event = {
+        raw_event: dict = {
             "requestContext": {},
             "pathParameters": {"uid": expected_uid},
         }
@@ -383,7 +383,7 @@ class TestHawkAuthMiddlewareUidValidation:
         event.path = "/1.5/wrong-uid/storage/bookmarks"
         event.query_string_parameters = None
         event.request_context.domain_name = "storage.example.com"
-        raw_event = {
+        raw_event: dict = {
             "requestContext": {},
             "pathParameters": {"uid": "wrong-uid"},
         }
@@ -424,7 +424,7 @@ class TestHawkAuthMiddlewareUidValidation:
         event.path = "/test"
         event.query_string_parameters = None
         event.request_context.domain_name = "storage.example.com"
-        raw_event = {
+        raw_event: dict = {
             "requestContext": {},
             "pathParameters": {},
         }
@@ -464,7 +464,7 @@ class TestHawkAuthMiddlewareUidValidation:
         event.path = "/test"
         event.query_string_parameters = None
         event.request_context.domain_name = "storage.example.com"
-        raw_event = {
+        raw_event: dict = {
             "requestContext": {},
             "pathParameters": None,
         }
@@ -507,7 +507,7 @@ class TestHawkAuthMiddlewareUidValidation:
         event.path = f"/1.5/{gen0_uid}/storage/bookmarks"
         event.query_string_parameters = None
         event.request_context.domain_name = "storage.example.com"
-        raw_event = {
+        raw_event: dict = {
             "requestContext": {},
             "pathParameters": {"uid": gen0_uid},
         }

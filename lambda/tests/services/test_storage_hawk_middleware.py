@@ -29,8 +29,8 @@ def _make_app(
     event.query_string_parameters = query_params
     event.request_context.domain_name = domain_name
     # Support dict-style access for event["requestContext"] injection
-    request_context = {}
-    raw_event = {
+    request_context: dict = {}
+    raw_event: dict = {
         "requestContext": request_context,
         "pathParameters": path_params,
     }
@@ -96,7 +96,7 @@ class TestHawkAuthMiddlewareSuccess:
         event.path = "/1.5/1/storage/tabs"
         event.query_string_parameters = None
         event.request_context.domain_name = "example.com"
-        raw_event = {"requestContext": {}, "pathParameters": None}
+        raw_event: dict = {"requestContext": {}, "pathParameters": None}
         event.__getitem__ = lambda self, key: raw_event[key]
         event.__setitem__ = lambda self, key, val: raw_event.__setitem__(key, val)
         event.get = lambda key, default=None: raw_event.get(key, default)
@@ -182,7 +182,7 @@ class TestHawkAuthMiddlewareHostFallback:
         app = MagicMock()
         # request_context without domain_name attribute triggers AttributeError
         rc = MagicMock(spec=[])
-        raw_event = {"requestContext": {}, "pathParameters": None}
+        raw_event: dict = {"requestContext": {}, "pathParameters": None}
         event = MagicMock()
         event.headers = {
             "Authorization": 'Hawk id="hid"',
@@ -239,7 +239,7 @@ class TestHawkAuthMiddlewareSessionMode:
         event.path = "/v1/session/status"
         event.query_string_parameters = None
         event.request_context.domain_name = "auth.example.com"
-        raw_event = {"requestContext": {}}
+        raw_event: dict = {"requestContext": {}}
         event.__getitem__ = lambda self, key: raw_event[key]
         event.__setitem__ = lambda self, key, val: raw_event.__setitem__(key, val)
         app.current_event = event
@@ -266,7 +266,7 @@ class TestHawkAuthMiddlewareSessionMode:
         event.path = "/v1/session/status"
         event.query_string_parameters = None
         event.request_context.domain_name = "auth.example.com"
-        raw_event = {"requestContext": {}}
+        raw_event: dict = {"requestContext": {}}
         event.__getitem__ = lambda self, key: raw_event[key]
         event.__setitem__ = lambda self, key, val: raw_event.__setitem__(key, val)
         app.current_event = event

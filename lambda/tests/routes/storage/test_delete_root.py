@@ -192,10 +192,10 @@ class TestDeleteAllRootRouteUnit:
     def test_missing_user_id_returns_401(self):
         """Route returns 401 when hawk_uid is not in requestContext."""
         route = DeleteAllRootRoute(storage_manager=MagicMock())
-        event = {
+        event: dict = {
             "requestContext": {},
         }
         response = route.handle(event)
         assert response.status_code == 401
-        body = json.loads(response.body)
+        body = json.loads(response.body)  # type: ignore[arg-type]
         assert body["error"] == "Unauthorized"
