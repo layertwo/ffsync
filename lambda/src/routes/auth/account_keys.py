@@ -8,6 +8,7 @@ from src.services.auth_account_manager import AuthAccountManager
 from src.services.fxa_crypto import derive_key_request_key, encrypt_key_bundle
 from src.services.fxa_token_manager import KEY_FETCH_TOKEN_INFO, FxATokenManager
 from src.shared.base_route import BaseRoute
+from src.shared.utils import extract_hawk_request_params
 
 
 class AccountKeysRoute(BaseRoute):
@@ -33,10 +34,7 @@ class AccountKeysRoute(BaseRoute):
         if not auth_header:
             return self._error(401, 110, "Missing or invalid authorization")
 
-        host = headers.get("host", "localhost")
-        port = headers.get("x-forwarded-port", "443")
-        method = event.http_method
-        path = event.path
+        method, path, host, port = extract_hawk_request_params(event)
 
         # Consume the key-fetch token with Hawk HMAC verification (single-use)
         token_data = self._token_manager.verify_keyfetch_hawk(auth_header, method, path, host, port)

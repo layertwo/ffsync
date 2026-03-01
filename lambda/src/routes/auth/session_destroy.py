@@ -7,6 +7,7 @@ from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.fxa_token_manager import FxATokenManager
 from src.shared.base_route import BaseRoute
+from src.shared.utils import extract_hawk_request_params
 
 HAWK_ID_PATTERN = re.compile(r'id="([^"]+)"')
 
@@ -28,10 +29,7 @@ class SessionDestroyRoute(BaseRoute):
         if not auth_header:
             return self._error(401, 110, "Missing or invalid authorization")
 
-        host = headers.get("host", "localhost")
-        port = headers.get("x-forwarded-port", "443")
-        method = event.http_method
-        path = event.path
+        method, path, host, port = extract_hawk_request_params(event)
 
         uid = self._token_manager.verify_session_hawk(auth_header, method, path, host, port)
         if uid is None:
