@@ -67,7 +67,7 @@
             <a id="nextFileLink" class="nav" href="z_9274c0911b8741a6_delete_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.1">coverage.py v7.13.1</a>,
-            created at 2026-03-01 06:35 +0000
+            created at 2026-03-01 20:41 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -116,7 +116,7 @@
     <p class="pln"><span class="n"><a id="t32" href="#t32">32</a></span><span class="t">        <span class="str">"""Create a new collection or batch create/update objects"""</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t33" href="#t33">33</a></span><span class="t">        <span class="key">try</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t34" href="#t34">34</a></span><span class="t">            <span class="com"># Extract user_id from authorizer context</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t35" href="#t35">35</a></span><span class="t">            <span class="nam">user_id</span> <span class="op">=</span> <span class="nam">event</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">"requestContext"</span><span class="op">,</span> <span class="op">{</span><span class="op">}</span><span class="op">)</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">"authorizer"</span><span class="op">,</span> <span class="op">{</span><span class="op">}</span><span class="op">)</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">"user_id"</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t35" href="#t35">35</a></span><span class="t">            <span class="nam">user_id</span> <span class="op">=</span> <span class="nam">event</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">"requestContext"</span><span class="op">,</span> <span class="op">{</span><span class="op">}</span><span class="op">)</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">"hawk_uid"</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t36" href="#t36">36</a></span><span class="t">            <span class="key">if</span> <span class="key">not</span> <span class="nam">user_id</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t37" href="#t37">37</a></span><span class="t">                <span class="key">return</span> <span class="nam">Response</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t38" href="#t38">38</a></span><span class="t">                    <span class="nam">status_code</span><span class="op">=</span><span class="num">401</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
@@ -280,7 +280,7 @@
             <a class="nav" href="z_9274c0911b8741a6_delete_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.1">coverage.py v7.13.1</a>,
-            created at 2026-03-01 06:35 +0000
+            created at 2026-03-01 20:41 +0000
         </p>
     </div>
 </footer>

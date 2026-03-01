@@ -5,14 +5,17 @@
 | Name                                    |    Stmts |     Miss |   Branch |   BrPart |    Cover |   Missing |
 |---------------------------------------- | -------: | -------: | -------: | -------: | -------: | --------: |
 | src/\_\_init\_\_.py                     |        0 |        0 |        0 |        0 |     100% |           |
-| src/entrypoint/\_\_init\_\_.py          |        5 |        0 |        0 |        0 |     100% |           |
+| src/entrypoint/\_\_init\_\_.py          |        4 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/auth\_api.py             |        5 |        0 |        0 |        0 |     100% |           |
-| src/entrypoint/hawk\_authorizer.py      |       37 |        0 |        4 |        0 |     100% |           |
 | src/entrypoint/profile\_api.py          |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/storage\_api.py          |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/token\_api.py            |        5 |        0 |        0 |        0 |     100% |           |
 | src/environment/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
-| src/environment/service\_provider.py    |      149 |        0 |        0 |        0 |     100% |           |
+| src/environment/service\_provider.py    |      165 |        0 |        0 |        0 |     100% |           |
+| src/middlewares/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
+| src/middlewares/hawk\_auth.py           |       45 |        0 |       12 |        0 |     100% |           |
+| src/middlewares/request\_logging.py     |       22 |        0 |        0 |        0 |     100% |           |
+| src/middlewares/weave\_timestamp.py     |        8 |        0 |        0 |        0 |     100% |           |
 | src/routes/\_\_init\_\_.py              |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/account\_create.py      |       65 |        0 |       14 |        0 |     100% |           |
@@ -20,14 +23,14 @@
 | src/routes/auth/account\_login.py       |       52 |        0 |       14 |        0 |     100% |           |
 | src/routes/auth/account\_status.py      |       18 |        0 |        2 |        0 |     100% |           |
 | src/routes/auth/jwks.py                 |       14 |        0 |        0 |        0 |     100% |           |
-| src/routes/auth/oauth\_authorization.py |       47 |        0 |       12 |        0 |     100% |           |
+| src/routes/auth/oauth\_authorization.py |       40 |        0 |        8 |        0 |     100% |           |
 | src/routes/auth/oauth\_destroy.py       |       26 |        0 |        4 |        0 |     100% |           |
 | src/routes/auth/oauth\_token.py         |      114 |        0 |       40 |        0 |     100% |           |
 | src/routes/auth/oidc\_discovery.py      |       14 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/oidc\_exchange.py       |       76 |        0 |       10 |        0 |     100% |           |
-| src/routes/auth/scoped\_key\_data.py    |       45 |        0 |       12 |        0 |     100% |           |
-| src/routes/auth/session\_destroy.py     |       31 |        0 |        6 |        0 |     100% |           |
-| src/routes/auth/session\_status.py      |       25 |        0 |        4 |        0 |     100% |           |
+| src/routes/auth/scoped\_key\_data.py    |       39 |        0 |        8 |        0 |     100% |           |
+| src/routes/auth/session\_destroy.py     |       24 |        0 |        2 |        0 |     100% |           |
+| src/routes/auth/session\_status.py      |       15 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/\_\_init\_\_.py          |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/delete.py                |       40 |        0 |        2 |        0 |     100% |           |
 | src/routes/bso/read.py                  |       59 |        0 |       14 |        0 |     100% |           |
@@ -51,7 +54,7 @@
 | src/routes/storage/delete\_root.py      |       24 |        0 |        2 |        0 |     100% |           |
 | src/routes/token/\_\_init\_\_.py        |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/token/request.py             |      111 |        0 |       22 |        0 |     100% |           |
-| src/services/api\_router.py             |       59 |        0 |        6 |        0 |     100% |           |
+| src/services/api\_router.py             |       27 |        0 |        4 |        0 |     100% |           |
 | src/services/auth\_account\_manager.py  |       49 |        0 |        6 |        0 |     100% |           |
 | src/services/fxa\_crypto.py             |       38 |        0 |        0 |        0 |     100% |           |
 | src/services/fxa\_token\_manager.py     |      122 |        0 |       34 |        0 |     100% |           |
@@ -64,14 +67,14 @@
 | src/services/token\_generator.py        |       20 |        0 |        0 |        0 |     100% |           |
 | src/services/user\_manager.py           |       91 |        0 |       26 |        0 |     100% |           |
 | src/shared/\_\_init\_\_.py              |        0 |        0 |        0 |        0 |     100% |           |
-| src/shared/base\_route.py               |        3 |        0 |        0 |        0 |     100% |           |
+| src/shared/base\_route.py               |        6 |        0 |        0 |        0 |     100% |           |
 | src/shared/exceptions.py                |      166 |        0 |        8 |        0 |     100% |           |
 | src/shared/models.py                    |       60 |        0 |       28 |        0 |     100% |           |
 | src/shared/oidc.py                      |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/token.py                     |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                      |       10 |        0 |        0 |        0 |     100% |           |
-| src/shared/utils.py                     |       34 |        0 |        4 |        0 |     100% |           |
-| **TOTAL**                               | **2874** |    **0** |  **524** |    **0** | **100%** |           |
+| src/shared/utils.py                     |       33 |        0 |        4 |        0 |     100% |           |
+| **TOTAL**                               | **2867** |    **0** |  **514** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
