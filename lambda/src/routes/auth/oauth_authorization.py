@@ -1,12 +1,12 @@
 """OAuthAuthorization route — POST /v1/oauth/authorization"""
 
 import json
+from typing import Sequence
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler
 
-from src.services.fxa_token_manager import FxATokenManager
 from src.services.oauth_code_manager import OAuthCodeManager
-from src.shared.auth import verify_session_hawk_or_error
 from src.shared.base_route import BaseRoute
 
 
@@ -15,23 +15,19 @@ class OAuthAuthorizationRoute(BaseRoute):
 
     def __init__(
         self,
-        token_manager: FxATokenManager,
         oauth_code_manager: OAuthCodeManager,
+        middlewares: Sequence[BaseMiddlewareHandler] = (),
     ):
-        self._token_manager = token_manager
         self._oauth_code_manager = oauth_code_manager
+        self.middlewares = middlewares
 
     def bind(self, app: APIGatewayRestResolver):
-        @app.post("/v1/oauth/authorization")
+        @app.post("/v1/oauth/authorization", middlewares=list(self.middlewares))
         def handle_oauth_authorization():
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:
-        # Authenticate via session token with Hawk HMAC verification
-        result = verify_session_hawk_or_error(event, self._token_manager)
-        if isinstance(result, Response):
-            return result
-        uid = result
+        uid = event["requestContext"]["hawk_uid"]
 
         # Parse body
         body_str = event.body

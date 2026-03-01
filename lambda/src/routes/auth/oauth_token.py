@@ -10,8 +10,8 @@ from src.services.auth_account_manager import AuthAccountManager
 from src.services.fxa_token_manager import FxATokenManager
 from src.services.jwt_service import JWTService
 from src.services.oauth_code_manager import OAuthCodeManager
-from src.shared.auth import verify_session_hawk_or_error
 from src.shared.base_route import BaseRoute
+from src.shared.utils import extract_hawk_request_params
 
 DEFAULT_TTL = 900  # 15 minutes
 MAX_TTL = 3600  # 1 hour maximum
@@ -191,10 +191,15 @@ class OAuthTokenRoute(BaseRoute):
         if self._token_manager is None:
             return self._error(400, 107, "fxa-credentials grant not supported")
 
-        result = verify_session_hawk_or_error(event, self._token_manager)
-        if isinstance(result, Response):
-            return result
-        uid = result
+        headers = event.headers or {}
+        auth_header = headers.get("authorization", "")
+        if not auth_header:
+            return self._error(401, 110, "Missing or invalid authorization")
+
+        method, path, host, port = extract_hawk_request_params(event)
+        uid = self._token_manager.verify_session_hawk(auth_header, method, path, host, port)
+        if uid is None:
+            return self._error(401, 110, "Invalid or expired session token")
 
         scope = body.get("scope", "profile")
         client_id = body.get("client_id", "")

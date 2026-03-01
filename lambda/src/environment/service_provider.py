@@ -1,8 +1,9 @@
+import json
 import os
 from functools import cached_property
 
 import boto3
-from aws_lambda_powertools.event_handler import CORSConfig
+from aws_lambda_powertools.event_handler import CORSConfig, Response
 
 from src.routes.auth.account_create import AccountCreateRoute
 from src.routes.auth.account_keys import AccountKeysRoute
@@ -36,9 +37,10 @@ from src.routes.storage.delete_root import DeleteAllRootRoute
 from src.routes.token.request import GetTokenRoute
 from src.services.api_router import (
     ApiRouter,
+    HawkAuthenticationError,
+    HawkAuthMiddleware,
     RequestLoggingMiddleware,
-    StorageHawkMiddleware,
-    UidValidationMiddleware,
+    UidMismatchError,
     WeaveTimestampMiddleware,
 )
 from src.services.auth_account_manager import AuthAccountManager
@@ -91,6 +93,38 @@ class ServiceProvider:
         return UserManager(table=self.token_users_table)
 
     @cached_property
+    def _storage_exception_handlers(self) -> dict:
+        def handle_hawk_auth(ex):
+            return Response(
+                status_code=401,
+                content_type="application/json",
+                body='{"error": "Unauthorized"}',
+            )
+
+        def handle_uid_mismatch(ex):
+            return Response(
+                status_code=403,
+                content_type="application/json",
+                body='{"error": "uid mismatch"}',
+            )
+
+        return {
+            HawkAuthenticationError: handle_hawk_auth,
+            UidMismatchError: handle_uid_mismatch,
+        }
+
+    @cached_property
+    def _auth_exception_handlers(self) -> dict:
+        def handle_hawk_auth(ex):
+            return Response(
+                status_code=401,
+                content_type="application/json",
+                body=json.dumps({"code": 401, "errno": 110, "message": str(ex)}),
+            )
+
+        return {HawkAuthenticationError: handle_hawk_auth}
+
+    @cached_property
     def storage_api_router(self):
         return ApiRouter(
             routes=[
@@ -111,11 +145,11 @@ class ServiceProvider:
                 DeleteBSORoute(self.storage_manager),
             ],
             middlewares=[
-                StorageHawkMiddleware(hawk_service=self.hawk_service),
+                HawkAuthMiddleware(hawk_service=self.hawk_service),
                 RequestLoggingMiddleware(),
-                UidValidationMiddleware(),
                 WeaveTimestampMiddleware(),
             ],
+            exception_handlers=self._storage_exception_handlers,
         )
 
     # Token API properties
@@ -225,6 +259,10 @@ class ServiceProvider:
         return JWTVerifier(jwt_service=self.jwt_service)
 
     @cached_property
+    def session_hawk_middleware(self) -> HawkAuthMiddleware:
+        return HawkAuthMiddleware(token_manager=self.fxa_token_manager)
+
+    @cached_property
     def cors_config(self) -> CORSConfig:
         return CORSConfig(
             allow_origin=f"https://{self.base_domain}",
@@ -254,15 +292,18 @@ class ServiceProvider:
                 ),
                 ScopedKeyDataRoute(
                     account_manager=self.auth_account_manager,
-                    token_manager=self.fxa_token_manager,
+                    middlewares=[self.session_hawk_middleware],
                 ),
                 # Session routes
-                SessionStatusRoute(token_manager=self.fxa_token_manager),
-                SessionDestroyRoute(token_manager=self.fxa_token_manager),
+                SessionStatusRoute(middlewares=[self.session_hawk_middleware]),
+                SessionDestroyRoute(
+                    token_manager=self.fxa_token_manager,
+                    middlewares=[self.session_hawk_middleware],
+                ),
                 # OAuth routes
                 OAuthAuthorizationRoute(
-                    token_manager=self.fxa_token_manager,
                     oauth_code_manager=self.oauth_code_manager,
+                    middlewares=[self.session_hawk_middleware],
                 ),
                 OAuthTokenRoute(
                     oauth_code_manager=self.oauth_code_manager,
@@ -283,6 +324,7 @@ class ServiceProvider:
             ],
             middlewares=[WeaveTimestampMiddleware()],
             cors=self.cors_config,
+            exception_handlers=self._auth_exception_handlers,
         )
 
     @cached_property

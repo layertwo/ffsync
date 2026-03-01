@@ -239,7 +239,7 @@ class TestDeleteAllStorageRoute:
     def test_handle_unauthorized_missing_user_id(
         self, mock_service_provider, dynamodb_stubber, sample_lambda_context
     ):
-        """Test handling when user_id is missing from authorizer context"""
+        """Test handling when hawk_uid is missing (no auth header -> middleware rejects)"""
         event: dict[str, Any] = {
             "httpMethod": "DELETE",
             "path": f"/1.5/{TEST_UID}/storage",
@@ -247,7 +247,7 @@ class TestDeleteAllStorageRoute:
             "headers": {},
             "body": None,
             "queryStringParameters": None,
-            "requestContext": {"authorizer": {}},
+            "requestContext": {},
         }
 
         response = storage_handler(event, sample_lambda_context, mock_service_provider)
@@ -276,10 +276,10 @@ class TestDeleteAllStorageRouteUnit:
     """Unit tests for DeleteAllStorageRoute.handle() called directly (bypassing middleware)"""
 
     def test_missing_user_id_returns_401(self):
-        """Route returns 401 when authorizer context has no user_id."""
+        """Route returns 401 when hawk_uid is not in requestContext."""
         route = DeleteAllStorageRoute(storage_manager=MagicMock())
         event = {
-            "requestContext": {"authorizer": {}},
+            "requestContext": {},
         }
         response = route.handle(event)
         assert response.status_code == 401

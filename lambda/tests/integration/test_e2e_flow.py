@@ -154,6 +154,41 @@ class TestHawkMiddlewareToStorageAPIFlow:
         assert storage_response["statusCode"] == 401
 
 
+class TestUidMismatch:
+    """Test that UID mismatch is rejected by middleware"""
+
+    def test_uid_mismatch_returns_403(self, mock_service_provider, sample_lambda_context):
+        """
+        Test that a request where the URL uid does not match the authenticated
+        user's expected uid returns 403 via the UidMismatchError exception handler.
+        """
+        user_id = "test-user-mismatch"
+        generation = 0
+        creds = HawkCredentials(
+            user_id=user_id,
+            generation=generation,
+            expiry=9999999999,
+            hawk_id="test-hawk-id",
+        )
+        mock_service_provider.hawk_service.validate = lambda *a, **kw: creds
+
+        # Build event with WRONG uid in URL path (doesn't match user_id+generation)
+        storage_event = build_storage_event(
+            method="GET",
+            path="/info/collections",
+            user_id=user_id,
+        )
+        # Override the pathParameters uid with wrong value
+        storage_event["pathParameters"]["uid"] = "wrong-uid-value"
+        storage_event["path"] = "/1.5/wrong-uid-value/info/collections"
+
+        response = storage_handler(storage_event, sample_lambda_context, mock_service_provider)
+
+        assert response["statusCode"] == 403
+        body = json.loads(response["body"])
+        assert body["error"] == "uid mismatch"
+
+
 class TestUserIsolation:
     """Test that users can only access their own data"""
 

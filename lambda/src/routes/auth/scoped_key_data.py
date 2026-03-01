@@ -1,12 +1,12 @@
 """ScopedKeyData route — POST /v1/account/scoped-key-data"""
 
 import json
+from typing import Sequence
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler
 
 from src.services.auth_account_manager import AuthAccountManager
-from src.services.fxa_token_manager import FxATokenManager
-from src.shared.auth import verify_session_hawk_or_error
 from src.shared.base_route import BaseRoute
 from src.shared.utils import json_dumps
 
@@ -17,22 +17,18 @@ class ScopedKeyDataRoute(BaseRoute):
     def __init__(
         self,
         account_manager: AuthAccountManager,
-        token_manager: FxATokenManager,
+        middlewares: Sequence[BaseMiddlewareHandler] = (),
     ):
         self._account_manager = account_manager
-        self._token_manager = token_manager
+        self.middlewares = middlewares
 
     def bind(self, app: APIGatewayRestResolver):
-        @app.post("/v1/account/scoped-key-data")
+        @app.post("/v1/account/scoped-key-data", middlewares=list(self.middlewares))
         def handle_scoped_key_data():
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:
-        # Authenticate via session token with Hawk HMAC verification
-        result = verify_session_hawk_or_error(event, self._token_manager)
-        if isinstance(result, Response):
-            return result
-        uid = result
+        uid = event["requestContext"]["hawk_uid"]
 
         # Parse body
         body_str = event.body
