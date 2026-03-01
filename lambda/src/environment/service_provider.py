@@ -223,13 +223,16 @@ class ServiceProvider:
         return JWTVerifier(jwt_service=self.jwt_service)
 
     @cached_property
-    def auth_api_router(self):
-        """Create API router for Auth API with all FxA-compatible routes"""
-        cors = CORSConfig(
+    def cors_config(self) -> CORSConfig:
+        return CORSConfig(
             allow_origin=f"https://{self.base_domain}",
             allow_headers=["Authorization", "Content-Type", "X-Client-State"],
             max_age=3600,
         )
+
+    @cached_property
+    def auth_api_router(self):
+        """Create API router for Auth API with all FxA-compatible routes"""
         return ApiRouter(
             routes=[
                 # Account routes
@@ -277,17 +280,12 @@ class ServiceProvider:
                 ),
             ],
             middlewares=[WeaveTimestampMiddleware()],
-            cors=cors,
+            cors=self.cors_config,
         )
 
     @cached_property
     def token_api_router(self):
         """Create API router for Token API (sync token issuance)"""
-        cors = CORSConfig(
-            allow_origin=f"https://{self.base_domain}",
-            allow_headers=["Authorization", "Content-Type", "X-Client-State"],
-            max_age=3600,
-        )
         return ApiRouter(
             routes=[
                 GetTokenRoute(
@@ -298,17 +296,12 @@ class ServiceProvider:
                 ),
             ],
             middlewares=[WeaveTimestampMiddleware()],
-            cors=cors,
+            cors=self.cors_config,
         )
 
     @cached_property
     def profile_api_router(self):
         """Create API router for Profile API (OAuth Bearer auth)"""
-        cors = CORSConfig(
-            allow_origin=f"https://{self.base_domain}",
-            allow_headers=["Authorization", "Content-Type", "X-Client-State"],
-            max_age=3600,
-        )
         return ApiRouter(
             routes=[
                 GetProfileRoute(
@@ -317,7 +310,7 @@ class ServiceProvider:
                 ),
             ],
             middlewares=[WeaveTimestampMiddleware()],
-            cors=cors,
+            cors=self.cors_config,
         )
 
     # HAWK Authorizer properties
