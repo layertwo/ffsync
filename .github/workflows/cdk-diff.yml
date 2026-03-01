@@ -14,6 +14,9 @@ on:
       - 'cdk.json'
       - 'cdk.context.json'
 
+permissions:
+  contents: read
+
 concurrency:
   group: cdk-diff-${{ github.event.pull_request.number }}
   cancel-in-progress: true
