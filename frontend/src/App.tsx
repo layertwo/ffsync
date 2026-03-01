@@ -36,7 +36,7 @@ function MainFlow() {
         const cfg = await loadConfig()
         setConfig(cfg)
 
-        // If Firefox is driving (WebChannel params present), go straight to sign-in
+        // If the browser is driving (WebChannel params present), go straight to sign-in
         const hasFxAParams = searchParams.has("action") ||
           searchParams.has("code_challenge") ||
           searchParams.has("service")
@@ -151,7 +151,7 @@ function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-lg px-4 py-8 sm:py-16">
         <header className="mb-8 text-center">
-          <h1 className="text-3xl font-bold tracking-tight">Firefox Sync</h1>
+          <h1 className="text-3xl font-bold tracking-tight">ffsync</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Self-hosted sync authentication
           </p>

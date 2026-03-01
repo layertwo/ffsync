@@ -51,7 +51,7 @@ export function DashboardPage({ email, autoconfigUri, onSignOut }: DashboardPage
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Your Firefox Sync server is configured and ready. Firefox will
+            Your ffsync server is configured and ready. Firefox will
             sync your data automatically.
           </p>
 

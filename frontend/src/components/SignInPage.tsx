@@ -313,7 +313,7 @@ export function SignInPage({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Sign in to Firefox Sync</CardTitle>
+          <CardTitle className="text-2xl">Sign in to ffsync</CardTitle>
           <CardDescription>
             First, verify your identity with your identity provider, then set
             your sync encryption password.
@@ -325,7 +325,7 @@ export function SignInPage({
             <ol className="list-decimal list-inside space-y-1.5 text-sm text-muted-foreground">
               <li>Verify your identity with your identity provider</li>
               <li>Set a sync password for encryption</li>
-              <li>Firefox Sync will be configured automatically</li>
+              <li>ffsync will be configured automatically</li>
             </ol>
           </div>
           <Button onClick={handleStartOIDC} size="lg" className="w-full">
@@ -370,7 +370,7 @@ export function SignInPage({
             <CardTitle className="text-2xl">Sync Setup Complete</CardTitle>
           </div>
           <CardDescription>
-            Firefox Sync has been configured. You can close this tab. Firefox
+            ffsync has been configured. You can close this tab. Firefox
             will now sync your data automatically.
           </CardDescription>
         </CardHeader>
