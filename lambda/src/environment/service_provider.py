@@ -145,8 +145,8 @@ class ServiceProvider:
                 DeleteBSORoute(self.storage_manager),
             ],
             middlewares=[
-                HawkAuthMiddleware(hawk_service=self.hawk_service),
                 RequestLoggingMiddleware(),
+                HawkAuthMiddleware(hawk_service=self.hawk_service),
                 WeaveTimestampMiddleware(),
             ],
             exception_handlers=self._storage_exception_handlers,
