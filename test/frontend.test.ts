@@ -30,6 +30,8 @@ describe("FrontendStack", () => {
             env: {account: "123456789012", region: "us-west-2"},
             stageType: StageType.PROD,
             authApiDomain: "api.example.com",
+            tokenApiDomain: "token.example.com",
+            profileApiDomain: "profile.example.com",
             oidcProviderUrl: StringParameter.fromStringParameterName(helperStack, "OidcParam", "/test/oidc-url"),
             clientId: StringParameter.fromStringParameterName(helperStack, "ClientIdParam", "/test/client-id"),
         });

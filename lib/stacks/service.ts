@@ -60,6 +60,14 @@ export class ServiceStack extends Stack {
         return `${Service.AUTH}.${this.props.stageType}.${BASE_DOMAIN}`;
     }
 
+    public get tokenApiDomain(): string {
+        return `${Service.TOKEN}.${this.props.stageType}.${BASE_DOMAIN}`;
+    }
+
+    public get profileApiDomain(): string {
+        return `${Service.PROFILE}.${this.props.stageType}.${BASE_DOMAIN}`;
+    }
+
     // Auth Service
     public readonly tokenUsersTable: Table;
     public readonly tokenCacheTable: Table;
@@ -67,6 +75,14 @@ export class ServiceStack extends Stack {
     public readonly signingKey: Key;
     public readonly authHandler: IFunction;
     public readonly authApi: SpecRestApi;
+
+    // Token Service
+    public readonly tokenHandler: IFunction;
+    public readonly tokenApi: SpecRestApi;
+
+    // Profile Service
+    public readonly profileHandler: IFunction;
+    public readonly profileApi: SpecRestApi;
 
     // Storage Service
     public readonly storageTable: Table;
@@ -104,10 +120,14 @@ export class ServiceStack extends Stack {
         // Handlers
         this.hawkAuthorizerHandler = this.buildHawkAuthorizerHandler();
         this.authHandler = this.buildAuthApiHandler();
+        this.tokenHandler = this.buildTokenApiHandler();
+        this.profileHandler = this.buildProfileApiHandler();
         this.storageHandler = this.buildStorageApiHandler();
 
         // APIs
         this.authApi = this.buildApi(Service.AUTH, this.authHandler);
+        this.tokenApi = this.buildApi(Service.TOKEN, this.tokenHandler);
+        this.profileApi = this.buildApi(Service.PROFILE, this.profileHandler);
         this.storageApi = this.buildApi(Service.STORAGE, this.storageHandler);
     }
 
@@ -277,15 +297,42 @@ export class ServiceStack extends Stack {
                 BASE_DOMAIN: this.stageBaseDomain,
                 OIDC_PROVIDER_URL: this.oidcProviderUrlParam.stringValue,
                 OIDC_CLIENT_ID: this.clientIdParam.stringValue,
-                TOKEN_USERS_TABLE_NAME: this.tokenUsersTable.tableName,
-                TOKEN_CACHE_TABLE_NAME: this.tokenCacheTable.tableName,
                 AUTH_TABLE_NAME: this.authTable.tableName,
                 AUTH_SIGNING_KEY_ID: this.signingKey.keyId,
                 CLOCK_SKEW_TOLERANCE: "300",
                 OIDC_CACHE_TTL_SECONDS: "3600",
                 HAWK_TIMESTAMP_SKEW_TOLERANCE: "60",
-                RETRY_AFTER_SECONDS: "30",
+            },
+        });
+
+        // Grant permissions
+        this.authTable.grantReadWriteData(fn);
+        this.signingKey.grantSign(fn);
+        this.signingKey.grant(fn, "kms:GetPublicKey");
+        fn.grantInvoke(this.apiExecuteRole);
+
+        return fn;
+    }
+
+    private buildTokenApiHandler(): PythonFunction {
+        const fn = new PythonFunction(this, "TokenApiHandler", {
+            entry: path.join(__dirname, "../../lambda"),
+            index: "src/entrypoint/__init__.py",
+            runtime: Runtime.PYTHON_3_14,
+            architecture: Architecture.ARM_64,
+            handler: "token_api_handler",
+            functionName: `ffsync-token-api-${this.props.stageType.toLowerCase()}`,
+            timeout: Duration.seconds(29),
+            memorySize: 512,
+            environment: {
+                STAGE: this.props.stageType.toLowerCase(),
+                BASE_DOMAIN: this.stageBaseDomain,
+                TOKEN_USERS_TABLE_NAME: this.tokenUsersTable.tableName,
+                TOKEN_CACHE_TABLE_NAME: this.tokenCacheTable.tableName,
+                AUTH_SIGNING_KEY_ID: this.signingKey.keyId,
+                HAWK_TIMESTAMP_SKEW_TOLERANCE: "60",
                 TOKEN_DURATION: "300",
+                RETRY_AFTER_SECONDS: "30",
             },
             bundling: {
                 assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/"],
@@ -295,8 +342,32 @@ export class ServiceStack extends Stack {
         // Grant permissions
         this.tokenUsersTable.grantReadWriteData(fn);
         this.tokenCacheTable.grantReadWriteData(fn);
-        this.authTable.grantReadWriteData(fn);
-        this.signingKey.grantSign(fn);
+        this.signingKey.grant(fn, "kms:GetPublicKey");
+        fn.grantInvoke(this.apiExecuteRole);
+
+        return fn;
+    }
+
+    private buildProfileApiHandler(): PythonFunction {
+        const fn = new PythonFunction(this, "ProfileApiHandler", {
+            entry: path.join(__dirname, "../../lambda"),
+            index: "src/entrypoint/__init__.py",
+            runtime: Runtime.PYTHON_3_14,
+            architecture: Architecture.ARM_64,
+            handler: "profile_api_handler",
+            functionName: `ffsync-profile-api-${this.props.stageType.toLowerCase()}`,
+            timeout: Duration.seconds(29),
+            memorySize: 512,
+            environment: {
+                STAGE: this.props.stageType.toLowerCase(),
+                BASE_DOMAIN: this.stageBaseDomain,
+                AUTH_TABLE_NAME: this.authTable.tableName,
+                AUTH_SIGNING_KEY_ID: this.signingKey.keyId,
+            },
+        });
+
+        // Grant permissions (read-only for auth table)
+        this.authTable.grantReadData(fn);
         this.signingKey.grant(fn, "kms:GetPublicKey");
         fn.grantInvoke(this.apiExecuteRole);
 

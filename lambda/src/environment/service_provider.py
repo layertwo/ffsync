@@ -7,7 +7,6 @@ from aws_lambda_powertools.event_handler import CORSConfig
 from src.routes.auth.account_create import AccountCreateRoute
 from src.routes.auth.account_keys import AccountKeysRoute
 from src.routes.auth.account_login import AccountLoginRoute
-from src.routes.auth.account_profile import AccountProfileRoute
 from src.routes.auth.account_status import AccountStatusRoute
 from src.routes.auth.jwks import JWKSRoute
 from src.routes.auth.oauth_authorization import OAuthAuthorizationRoute
@@ -31,6 +30,7 @@ from src.routes.info.read_configuration import ReadConfigurationRoute
 from src.routes.info.read_counts import ReadCollectionCountsRoute
 from src.routes.info.read_quota import ReadQuotaInfoRoute
 from src.routes.info.read_usage import ReadCollectionUsageRoute
+from src.routes.profile.get_profile import GetProfileRoute
 from src.routes.storage.delete_all import DeleteAllStorageRoute
 from src.routes.storage.delete_root import DeleteAllRootRoute
 from src.routes.token.request import GetTokenRoute
@@ -232,13 +232,6 @@ class ServiceProvider:
         )
         return ApiRouter(
             routes=[
-                # Token endpoint (sync token issuance)
-                GetTokenRoute(
-                    oidc_validator=self.jwt_verifier,
-                    user_manager=self.user_manager,
-                    token_generator=self.token_generator,
-                    retry_after_seconds=self.retry_after_seconds,
-                ),
                 # Account routes
                 AccountStatusRoute(account_manager=self.auth_account_manager),
                 AccountCreateRoute(
@@ -251,10 +244,6 @@ class ServiceProvider:
                     token_manager=self.fxa_token_manager,
                 ),
                 AccountKeysRoute(
-                    account_manager=self.auth_account_manager,
-                    token_manager=self.fxa_token_manager,
-                ),
-                AccountProfileRoute(
                     account_manager=self.auth_account_manager,
                     token_manager=self.fxa_token_manager,
                 ),
@@ -285,6 +274,46 @@ class ServiceProvider:
                 OIDCCodeExchangeRoute(
                     oidc_validator=self.oidc_validator,
                     account_manager=self.auth_account_manager,
+                ),
+            ],
+            middlewares=[WeaveTimestampMiddleware()],
+            cors=cors,
+        )
+
+    @cached_property
+    def token_api_router(self):
+        """Create API router for Token API (sync token issuance)"""
+        cors = CORSConfig(
+            allow_origin=f"https://{self.base_domain}",
+            allow_headers=["Authorization", "Content-Type", "X-Client-State"],
+            max_age=3600,
+        )
+        return ApiRouter(
+            routes=[
+                GetTokenRoute(
+                    oidc_validator=self.jwt_verifier,
+                    user_manager=self.user_manager,
+                    token_generator=self.token_generator,
+                    retry_after_seconds=self.retry_after_seconds,
+                ),
+            ],
+            middlewares=[WeaveTimestampMiddleware()],
+            cors=cors,
+        )
+
+    @cached_property
+    def profile_api_router(self):
+        """Create API router for Profile API (OAuth Bearer auth)"""
+        cors = CORSConfig(
+            allow_origin=f"https://{self.base_domain}",
+            allow_headers=["Authorization", "Content-Type", "X-Client-State"],
+            max_age=3600,
+        )
+        return ApiRouter(
+            routes=[
+                GetProfileRoute(
+                    jwt_verifier=self.jwt_verifier,
+                    auth_account_manager=self.auth_account_manager,
                 ),
             ],
             middlewares=[WeaveTimestampMiddleware()],

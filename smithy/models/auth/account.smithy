@@ -6,7 +6,7 @@ use smithy.framework#ValidationException
 
 @documentation("FxA account management resource")
 resource Account {
-    operations: [AccountCreate, AccountLogin, AccountStatus, AccountKeys, AccountProfile, ScopedKeyData]
+    operations: [AccountCreate, AccountLogin, AccountStatus, AccountKeys, ScopedKeyData]
 }
 
 // ============================================================================
@@ -144,36 +144,6 @@ structure AccountKeysOutput {
     @required
     @documentation("Encrypted key bundle as hex string (ciphertext + HMAC)")
     bundle: String
-}
-
-// ============================================================================
-// Account Profile
-// ============================================================================
-
-@readonly
-@http(method: "GET", uri: "/v1/account/profile")
-@documentation("Get basic account profile information")
-operation AccountProfile {
-    input: AccountProfileInput
-    output: AccountProfileOutput
-    errors: [AuthenticationException]
-}
-
-@input
-structure AccountProfileInput {}
-
-@output
-structure AccountProfileOutput {
-    @required
-    @documentation("Account email address")
-    email: String
-
-    @required
-    @documentation("Account unique identifier")
-    uid: String
-
-    @documentation("User locale")
-    locale: String
 }
 
 // ============================================================================
