@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 from src.routes.auth.account_create import AccountCreateRoute
 from src.routes.auth.account_keys import AccountKeysRoute
 from src.routes.auth.account_login import AccountLoginRoute
-from src.routes.auth.account_profile import AccountProfileRoute
 from src.routes.auth.account_status import AccountStatusRoute
 from src.routes.auth.jwks import JWKSRoute
 from src.routes.auth.oauth_authorization import OAuthAuthorizationRoute
@@ -74,11 +73,6 @@ class TestRouteDispatch:
     def test_account_keys_dispatches(self):
         route = AccountKeysRoute(account_manager=MagicMock(), token_manager=MagicMock())
         result = _router(route).handler(_make_event("GET", "/v1/account/keys"), _make_context())
-        assert result["statusCode"] == 401
-
-    def test_account_profile_dispatches(self):
-        route = AccountProfileRoute(account_manager=MagicMock(), token_manager=MagicMock())
-        result = _router(route).handler(_make_event("GET", "/v1/account/profile"), _make_context())
         assert result["statusCode"] == 401
 
     def test_scoped_key_data_dispatches(self):

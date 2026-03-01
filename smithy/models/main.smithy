@@ -72,12 +72,57 @@ service AuthService {
         OAuth
     ]
     operations: [
-        GetToken
         OIDCDiscovery
         JWKS
         OIDCProviderConfig
         OIDCCodeExchange
     ]
+    errors: [
+        AuthenticationException
+        ValidationException
+    ]
+}
+
+@cors(
+    origin: "CDK_CORS_ORIGIN"
+    additionalAllowedHeaders: ["Authorization", "Content-Type", "X-Client-State"]
+)
+@restJson1
+@documentation("Firefox Sync Token Server - Exchange OAuth tokens for HAWK credentials")
+@integration(
+    type: "aws_proxy"
+    uri: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/CDK_LAMBDA_FUNCTION_ARN/invocations"
+    httpMethod: "POST"
+    credentials: "CDK_API_ROLE_ARN"
+    timeoutInMillis: 29000
+)
+@requestValidator("full")
+service TokenService {
+    version: "1.0"
+    operations: [GetToken]
+    errors: [
+        AuthenticationException
+        ValidationException
+    ]
+}
+
+@cors(
+    origin: "CDK_CORS_ORIGIN"
+    additionalAllowedHeaders: ["Authorization", "Content-Type"]
+)
+@restJson1
+@documentation("Firefox Sync Profile Server - OAuth Bearer authenticated profile access")
+@integration(
+    type: "aws_proxy"
+    uri: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/CDK_LAMBDA_FUNCTION_ARN/invocations"
+    httpMethod: "POST"
+    credentials: "CDK_API_ROLE_ARN"
+    timeoutInMillis: 29000
+)
+@requestValidator("full")
+service ProfileService {
+    version: "1.0"
+    operations: [GetProfile]
     errors: [
         AuthenticationException
         ValidationException

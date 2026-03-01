@@ -1,10 +1,10 @@
-"""Tests for Auth API lambda entrypoint (formerly Token API)"""
+"""Tests for Token API lambda entrypoint"""
 
 import json
 
 import pytest
 
-from src.entrypoint import auth_api_handler
+from src.entrypoint import token_api_handler
 from src.services.api_router import ApiRouter
 from src.services.oidc_validator import OIDCValidator
 
@@ -38,7 +38,7 @@ class TestTokenApiAuthErrors:
             "queryStringParameters": None,
             "requestContext": {"requestId": "test-request-id"},
         }
-        result = auth_api_handler(event, sample_lambda_context, mock_service_provider)
+        result = token_api_handler(event, sample_lambda_context, mock_service_provider)
         assert result["statusCode"] == 401
 
     def test_missing_auth_header_error_format(self, mock_service_provider, sample_lambda_context):
@@ -51,7 +51,7 @@ class TestTokenApiAuthErrors:
             "queryStringParameters": None,
             "requestContext": {"requestId": "test-request-id"},
         }
-        result = auth_api_handler(event, sample_lambda_context, mock_service_provider)
+        result = token_api_handler(event, sample_lambda_context, mock_service_provider)
         body = json.loads(result["body"])
         assert body["status"] == "invalid-credentials"
         assert len(body["errors"]) == 1
@@ -68,7 +68,7 @@ class TestTokenApiAuthErrors:
             "queryStringParameters": None,
             "requestContext": {"requestId": "test-request-id"},
         }
-        result = auth_api_handler(event, sample_lambda_context, mock_service_provider)
+        result = token_api_handler(event, sample_lambda_context, mock_service_provider)
         assert result["statusCode"] == 400
 
     def test_malformed_auth_header_error_format(self, mock_service_provider, sample_lambda_context):
@@ -81,7 +81,7 @@ class TestTokenApiAuthErrors:
             "queryStringParameters": None,
             "requestContext": {"requestId": "test-request-id"},
         }
-        result = auth_api_handler(event, sample_lambda_context, mock_service_provider)
+        result = token_api_handler(event, sample_lambda_context, mock_service_provider)
         body = json.loads(result["body"])
         assert body["status"] == "invalid-request"
 
@@ -102,7 +102,7 @@ class TestTokenApiValidationErrors:
             "queryStringParameters": None,
             "requestContext": {"requestId": "test-request-id"},
         }
-        result = auth_api_handler(event, sample_lambda_context, mock_service_provider)
+        result = token_api_handler(event, sample_lambda_context, mock_service_provider)
         assert result["statusCode"] == 415
 
     def test_invalid_content_type_error_format(self, mock_service_provider, sample_lambda_context):
@@ -118,7 +118,7 @@ class TestTokenApiValidationErrors:
             "queryStringParameters": None,
             "requestContext": {"requestId": "test-request-id"},
         }
-        result = auth_api_handler(event, sample_lambda_context, mock_service_provider)
+        result = token_api_handler(event, sample_lambda_context, mock_service_provider)
         body = json.loads(result["body"])
         assert body["status"] == "unsupported-media-type"
 
@@ -134,9 +134,9 @@ class TestServiceProviderTokenApiProperties:
         assert validator.provider_url == "https://auth.example.com"
         assert validator.client_id == "test-client-id"
 
-    def test_auth_api_router_creates_router_with_routes(self, mock_service_provider):
-        """Test auth_api_router creates ApiRouter with all auth routes"""
-        router = mock_service_provider.auth_api_router
+    def test_token_api_router_creates_router_with_routes(self, mock_service_provider):
+        """Test token_api_router creates ApiRouter with token route"""
+        router = mock_service_provider.token_api_router
 
         assert isinstance(router, ApiRouter)
-        assert len(router._routes) > 1
+        assert len(router._routes) == 1

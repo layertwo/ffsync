@@ -1,45 +1,49 @@
-"""AccountProfile route — GET /v1/account/profile"""
+"""GetProfile route — GET /v1/profile (OAuth Bearer auth)"""
 
 import json
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.auth_account_manager import AuthAccountManager
-from src.services.fxa_token_manager import FxATokenManager
+from src.services.jwt_verifier import JWTVerifier
 from src.shared.base_route import BaseRoute
-from src.shared.utils import extract_hawk_request_params
+from src.shared.exceptions import InvalidTokenError
 
 
-class AccountProfileRoute(BaseRoute):
-    """Return basic profile info for the authenticated user."""
+class GetProfileRoute(BaseRoute):
+    """Return basic profile info for the authenticated user via OAuth Bearer token."""
 
     def __init__(
         self,
-        account_manager: AuthAccountManager,
-        token_manager: FxATokenManager,
+        jwt_verifier: JWTVerifier,
+        auth_account_manager: AuthAccountManager,
     ):
-        self._account_manager = account_manager
-        self._token_manager = token_manager
+        self._jwt_verifier = jwt_verifier
+        self._auth_account_manager = auth_account_manager
 
     def bind(self, app: APIGatewayRestResolver):
-        @app.get("/v1/account/profile")
-        def handle_account_profile():
+        @app.get("/v1/profile")
+        def handle_get_profile():
             return self.handle(app.current_event)
 
     def handle(self, event) -> Response:
-        # Authenticate via session token with Hawk HMAC verification
         headers = event.headers or {}
         auth_header = headers.get("authorization", "")
+
         if not auth_header:
             return self._error(401, 110, "Missing or invalid authorization")
 
-        method, path, host, port = extract_hawk_request_params(event)
+        if not auth_header.startswith("Bearer "):
+            return self._error(401, 110, "Missing or invalid authorization")
 
-        uid = self._token_manager.verify_session_hawk(auth_header, method, path, host, port)
-        if uid is None:
-            return self._error(401, 110, "Invalid or expired session token")
+        token = auth_header[len("Bearer ") :]
 
-        account = self._account_manager.get_account_by_uid(uid)
+        try:
+            claims = self._jwt_verifier.validate_token(token)
+        except InvalidTokenError:
+            return self._error(401, 110, "Invalid or expired token")
+
+        account = self._auth_account_manager.get_account_by_uid(claims.sub)
         if account is None:
             return self._error(401, 110, "Account not found")
 

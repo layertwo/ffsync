@@ -24,6 +24,8 @@ import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
 export interface FrontendStackProps extends StackProps {
     stageType: StageType;
     authApiDomain: string;
+    tokenApiDomain: string;
+    profileApiDomain: string;
     oidcProviderUrl: IStringParameter;
     clientId: IStringParameter;
 }
@@ -79,8 +81,8 @@ export class FrontendStack extends Stack {
         const configJson = JSON.stringify({
             auth_server_base_url: `https://${this.props.authApiDomain}`,
             oauth_server_base_url: `https://${this.props.authApiDomain}`,
-            profile_server_base_url: `https://${this.props.authApiDomain}`,
-            sync_tokenserver_base_url: `https://${this.props.authApiDomain}`,
+            profile_server_base_url: `https://${this.props.profileApiDomain}`,
+            sync_tokenserver_base_url: `https://${this.props.tokenApiDomain}`,
             content_url: `https://${this.domainName}`,
         });
 

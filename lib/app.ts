@@ -35,6 +35,8 @@ new GitHubOidcStack(app, "GitHubOidcStack", {
         env,
         stageType,
         authApiDomain: serviceStack.authApiDomain,
+        tokenApiDomain: serviceStack.tokenApiDomain,
+        profileApiDomain: serviceStack.profileApiDomain,
         oidcProviderUrl: serviceStack.oidcProviderUrlParam,
         clientId: serviceStack.clientIdParam,
     });

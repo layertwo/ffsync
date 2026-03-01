@@ -23,6 +23,28 @@
                     "disableCloudFormationSubstitution": true
                 }
             }
+        },
+        "token": {
+            "plugins": {
+                "openapi": {
+                    "service": "layertwo.ffsync#TokenService",
+                    "protocol": "aws.protocols#restJson1",
+                    "version": "3.0.2",
+                    "apiGatewayType": "REST",
+                    "disableCloudFormationSubstitution": true
+                }
+            }
+        },
+        "profile": {
+            "plugins": {
+                "openapi": {
+                    "service": "layertwo.ffsync#ProfileService",
+                    "protocol": "aws.protocols#restJson1",
+                    "version": "3.0.2",
+                    "apiGatewayType": "REST",
+                    "disableCloudFormationSubstitution": true
+                }
+            }
         }
     }
 }
