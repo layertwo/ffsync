@@ -19,7 +19,7 @@ def build_hawk_auth_header(hawk_id, hawk_key, method, path, host, port, **kwargs
 
     Args:
         hawk_id: Hawk credential ID
-        hawk_key: Hawk credential key (string, used as-is)
+        hawk_key: Hawk credential key (string or bytes, used as-is)
         method: HTTP method (GET, POST, etc.)
         path: Request path
         host: Request host

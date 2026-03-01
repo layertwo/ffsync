@@ -513,7 +513,12 @@ class TestVerifySessionHawk:
         req_hmac_key_hex = "bb" * 32
 
         auth_header = build_hawk_header(
-            token_id_hex, req_hmac_key_hex, "GET", "/v1/session/status", "localhost", "443"
+            token_id_hex,
+            bytes.fromhex(req_hmac_key_hex),
+            "GET",
+            "/v1/session/status",
+            "localhost",
+            "443",
         )
 
         dynamodb_stubber.add_response(
@@ -606,7 +611,12 @@ class TestVerifySessionHawk:
         req_hmac_key_hex = "bb" * 32
 
         auth_header = build_hawk_header(
-            token_id_hex, req_hmac_key_hex, "GET", "/v1/session/status", "localhost", "443"
+            token_id_hex,
+            bytes.fromhex(req_hmac_key_hex),
+            "GET",
+            "/v1/session/status",
+            "localhost",
+            "443",
         )
 
         dynamodb_stubber.add_response(
@@ -700,7 +710,12 @@ class TestVerifySessionHawk:
         # Build header without content hash (clients don't send hash when server
         # uses accept_untrusted_content=True)
         auth_header = build_hawk_header(
-            token_id_hex, req_hmac_key_hex, "POST", "/v1/oauth/token", "localhost", "443"
+            token_id_hex,
+            bytes.fromhex(req_hmac_key_hex),
+            "POST",
+            "/v1/oauth/token",
+            "localhost",
+            "443",
         )
 
         dynamodb_stubber.add_response(
@@ -721,6 +736,63 @@ class TestVerifySessionHawk:
         )
 
         # Nonce replay protection: put_item for nonce record
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Item": ANY,
+                "ConditionExpression": "attribute_not_exists(PK)",
+            },
+        )
+
+        result = manager.verify_session_hawk(
+            auth_header, "POST", "/v1/oauth/token", "localhost", "443"
+        )
+
+        assert result == sample_uid
+
+    def test_returns_uid_when_client_sends_content_hash(
+        self,
+        manager,
+        dynamodb_stubber,
+        storage_table_name,
+        sample_uid,
+        mock_time,
+    ):
+        """verify_session_hawk returns uid even when client includes content hash"""
+        token_id_hex = "aa" * 32
+        req_hmac_key_hex = "bb" * 32
+
+        # Build header WITH content hash (Firefox includes this for POST)
+        auth_header = build_hawk_header(
+            token_id_hex,
+            bytes.fromhex(req_hmac_key_hex),
+            "POST",
+            "/v1/oauth/token",
+            "localhost",
+            "443",
+            content='{"grant_type":"fxa-credentials"}',
+            content_type="application/json",
+        )
+
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": f"SESSION#{token_id_hex}"},
+                    "uid": {"S": sample_uid},
+                    "verified": {"BOOL": True},
+                    "expiry": {"N": "1002592000"},
+                    "reqHMACkey": {"S": req_hmac_key_hex},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": f"SESSION#{token_id_hex}"},
+            },
+        )
+
         dynamodb_stubber.add_response(
             "put_item",
             {},
@@ -768,7 +840,12 @@ class TestVerifySessionHawk:
         req_hmac_key_hex = "bb" * 32
 
         auth_header = build_hawk_header(
-            token_id_hex, req_hmac_key_hex, "GET", "/v1/session/status", "localhost", "443"
+            token_id_hex,
+            bytes.fromhex(req_hmac_key_hex),
+            "GET",
+            "/v1/session/status",
+            "localhost",
+            "443",
         )
 
         # Stub: credential lookup succeeds
@@ -816,7 +893,12 @@ class TestVerifySessionHawk:
         req_hmac_key_hex = "bb" * 32
 
         auth_header = build_hawk_header(
-            token_id_hex, req_hmac_key_hex, "GET", "/v1/session/status", "localhost", "443"
+            token_id_hex,
+            bytes.fromhex(req_hmac_key_hex),
+            "GET",
+            "/v1/session/status",
+            "localhost",
+            "443",
         )
 
         # Stub: credential lookup succeeds
@@ -882,7 +964,12 @@ class TestVerifyKeyfetchHawk:
         raw_token_hex = "cc" * 32
 
         auth_header = build_hawk_header(
-            token_id_hex, req_hmac_key_hex, "GET", "/v1/account/keys", "localhost", "443"
+            token_id_hex,
+            bytes.fromhex(req_hmac_key_hex),
+            "GET",
+            "/v1/account/keys",
+            "localhost",
+            "443",
         )
 
         dynamodb_stubber.add_response(
@@ -963,7 +1050,12 @@ class TestVerifyKeyfetchHawk:
         req_hmac_key_hex = "bb" * 32
 
         auth_header = build_hawk_header(
-            token_id_hex, req_hmac_key_hex, "GET", "/v1/account/keys", "localhost", "443"
+            token_id_hex,
+            bytes.fromhex(req_hmac_key_hex),
+            "GET",
+            "/v1/account/keys",
+            "localhost",
+            "443",
         )
 
         dynamodb_stubber.add_response(
@@ -1127,7 +1219,12 @@ class TestVerifyKeyfetchHawk:
 
         # Build header without content hash
         auth_header = build_hawk_header(
-            token_id_hex, req_hmac_key_hex, "POST", "/v1/account/keys", "localhost", "443"
+            token_id_hex,
+            bytes.fromhex(req_hmac_key_hex),
+            "POST",
+            "/v1/account/keys",
+            "localhost",
+            "443",
         )
 
         dynamodb_stubber.add_response(
@@ -1182,7 +1279,12 @@ class TestVerifyKeyfetchHawk:
         raw_token_hex = "cc" * 32
 
         auth_header = build_hawk_header(
-            token_id_hex, req_hmac_key_hex, "GET", "/v1/account/keys", "localhost", "443"
+            token_id_hex,
+            bytes.fromhex(req_hmac_key_hex),
+            "GET",
+            "/v1/account/keys",
+            "localhost",
+            "443",
         )
 
         # Stub: credential lookup succeeds (atomic delete)

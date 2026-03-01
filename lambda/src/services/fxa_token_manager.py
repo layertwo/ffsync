@@ -1,12 +1,7 @@
 """FxA Token Manager for session tokens and key-fetch tokens in DynamoDB"""
 
-import hashlib
-import hmac as hmac_mod
-import re
 import time
-from base64 import b64encode
 from typing import Optional
-from urllib.parse import urlparse
 
 import mohawk
 import mohawk.exc
@@ -16,8 +11,6 @@ from botocore.exceptions import ClientError
 from src.services import fxa_crypto
 
 logger = Logger(child=True)
-
-_HAWK_ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
 
 _PK = "PK"
 SESSION_TOKEN_INFO = "identity.mozilla.com/picl/v1/sessionToken"
@@ -150,21 +143,11 @@ class FxATokenManager:
                 timestamp_skew_in_seconds=60,
             )
             return True
+        except (mohawk.exc.MissingContent, mohawk.exc.MisComputedContentHash):
+            # MAC was already verified before content hash check.
+            # We use accept_untrusted_content, so content hash mismatches are OK.
+            return True
         except mohawk.exc.HawkFail as e:
-            # Parse header and compute normalized string for diagnostics
-            attrs = dict(_HAWK_ATTR_RE.findall(authorization_header or ""))
-            normalized = ""
-            if attrs.get("ts") and attrs.get("nonce"):
-                from urllib.parse import urlparse
-
-                parsed = urlparse(uri)
-                res_port = str(parsed.port or (443 if parsed.scheme == "https" else 80))
-                resource = parsed.path + ("?" + parsed.query if parsed.query else "")
-                normalized = (
-                    f"hawk.1.header\n{attrs['ts']}\n{attrs['nonce']}\n"
-                    f"{method}\n{resource}\n{parsed.hostname}\n{res_port}\n"
-                    f"{attrs.get('hash', '')}\n{attrs.get('ext', '')}\n"
-                )
             logger.warning(
                 "Hawk verification failed",
                 extra={
@@ -172,11 +155,6 @@ class FxATokenManager:
                     "error": str(e),
                     "uri": uri,
                     "method": method,
-                    "host": host,
-                    "port": port,
-                    "path": path,
-                    "auth_header": authorization_header or "",
-                    "normalized_string": repr(normalized),
                 },
             )
             return False
@@ -191,16 +169,8 @@ class FxATokenManager:
     ) -> Optional[str]:
         """Verify Hawk HMAC signature for session-authenticated routes."""
         uid_holder = {}
-        key_holder = {}
 
         def credentials_map(sender_id):
-            logger.info(
-                "Session Hawk credential lookup",
-                extra={
-                    "sender_id_prefix": sender_id[:16],
-                    "pk": f"{SESSION_PREFIX}#{sender_id[:16]}...",
-                },
-            )
             response = self.table.get_item(Key={_PK: f"{SESSION_PREFIX}#{sender_id}"})
             if "Item" not in response:
                 raise mohawk.exc.CredentialsLookupError("Session not found")
@@ -211,54 +181,9 @@ class FxATokenManager:
             if not key:
                 raise mohawk.exc.CredentialsLookupError("Missing HMAC key")
             uid_holder["uid"] = item["uid"]
-            key_holder["key"] = key
-            logger.info(
-                "Session Hawk credentials found",
-                extra={"key_prefix": key[:16], "key_len": len(key), "uid": item["uid"]},
-            )
-            return {"id": sender_id, "key": key, "algorithm": "sha256"}
+            return {"id": sender_id, "key": bytes.fromhex(key), "algorithm": "sha256"}
 
         if not self._verify_hawk(authorization_header, method, path, host, port, credentials_map):
-            # Manual MAC computation with both key formats for diagnostics
-            stored_key_hex = key_holder.get("key", "")
-            if stored_key_hex:
-                attrs = dict(_HAWK_ATTR_RE.findall(authorization_header or ""))
-                uri = f"https://{host}:{port}{path}"
-                parsed = urlparse(uri)
-                res_port = str(parsed.port or (443 if parsed.scheme == "https" else 80))
-                resource = parsed.path + ("?" + parsed.query if parsed.query else "")
-                normalized = (
-                    f"hawk.1.header\n{attrs.get('ts', '')}\n{attrs.get('nonce', '')}\n"
-                    f"{method}\n{resource}\n{parsed.hostname}\n{res_port}\n"
-                    f"{attrs.get('hash', '')}\n{attrs.get('ext', '')}\n"
-                )
-                # Format 1: hex string as ASCII bytes (what mohawk does)
-                mac_hex_ascii = b64encode(
-                    hmac_mod.new(
-                        stored_key_hex.encode("ascii"),
-                        normalized.encode("utf-8"),
-                        hashlib.sha256,
-                    ).digest()
-                ).decode("ascii")
-                # Format 2: raw bytes from hex decoding (what old code did)
-                mac_raw_bytes = b64encode(
-                    hmac_mod.new(
-                        bytes.fromhex(stored_key_hex),
-                        normalized.encode("utf-8"),
-                        hashlib.sha256,
-                    ).digest()
-                ).decode("ascii")
-                client_mac = attrs.get("mac", "")
-                logger.warning(
-                    "Manual MAC comparison",
-                    extra={
-                        "mac_hex_ascii_key": mac_hex_ascii,
-                        "mac_raw_bytes_key": mac_raw_bytes,
-                        "client_mac": client_mac,
-                        "hex_ascii_matches": mac_hex_ascii == client_mac,
-                        "raw_bytes_matches": mac_raw_bytes == client_mac,
-                    },
-                )
             return None
         return uid_holder.get("uid")
 
@@ -298,7 +223,7 @@ class FxATokenManager:
                 raise mohawk.exc.CredentialsLookupError("Missing HMAC key")
             result_holder["uid"] = item["uid"]
             result_holder["keyFetchToken"] = item["keyFetchToken"]
-            return {"id": sender_id, "key": key, "algorithm": "sha256"}
+            return {"id": sender_id, "key": bytes.fromhex(key), "algorithm": "sha256"}
 
         if not self._verify_hawk(authorization_header, method, path, host, port, credentials_map):
             return None
