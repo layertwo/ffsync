@@ -46,8 +46,32 @@ jobs:
           path: build/smithy
           retention-days: 1
 
+  frontend:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm ci && npm run build
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 1
+
   diff:
-    needs: smithy
+    needs: [smithy, frontend]
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     permissions:
@@ -69,6 +93,11 @@ jobs:
         with:
           name: smithy-output
           path: build/smithy
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: frontend-dist
+          path: frontend/dist
 
       - name: Build TypeScript
         run: npm run build
