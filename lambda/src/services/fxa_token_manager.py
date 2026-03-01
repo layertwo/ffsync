@@ -5,9 +5,12 @@ from typing import Optional
 
 import mohawk
 import mohawk.exc
+from aws_lambda_powertools import Logger
 from botocore.exceptions import ClientError
 
 from src.services import fxa_crypto
+
+logger = Logger(child=True)
 
 _PK = "PK"
 SESSION_TOKEN_INFO = "identity.mozilla.com/picl/v1/sessionToken"
@@ -128,18 +131,31 @@ class FxATokenManager:
         """
         if not authorization_header:
             return False
+        uri = f"https://{host}:{port}{path}"
         try:
             mohawk.Receiver(
                 credentials_map,
                 authorization_header,
-                f"https://{host}:{port}{path}",
+                uri,
                 method,
                 seen_nonce=self._seen_nonce,
                 accept_untrusted_content=True,
                 timestamp_skew_in_seconds=60,
             )
             return True
-        except mohawk.exc.HawkFail:
+        except mohawk.exc.HawkFail as e:
+            logger.warning(
+                "Hawk verification failed",
+                extra={
+                    "error_type": type(e).__name__,
+                    "error": str(e),
+                    "uri": uri,
+                    "method": method,
+                    "host": host,
+                    "port": port,
+                    "path": path,
+                },
+            )
             return False
 
     def verify_session_hawk(
