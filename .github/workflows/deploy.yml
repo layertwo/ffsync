@@ -17,6 +17,8 @@ jobs:
   smithy:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -39,6 +41,8 @@ jobs:
   frontend:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
