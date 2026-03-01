@@ -60,6 +60,10 @@ def extract_hawk_request_params(event) -> tuple[str, str, str, str]:
     the Host header, which may differ behind edge-optimized API Gateway.
     Appends query string to path for correct Hawk MAC computation.
     """
+    from aws_lambda_powertools import Logger
+
+    _logger = Logger(child=True)
+
     method = event.http_method
     path = event.path
 
@@ -68,11 +72,25 @@ def extract_hawk_request_params(event) -> tuple[str, str, str, str]:
         qs = "&".join(f"{k}={v}" for k, v in query_params.items())
         path = f"{path}?{qs}"
 
+    headers = event.headers or {}
+    host_header = headers.get("host", "")
+
     try:
         host = event.request_context.domain_name or "localhost"
     except (KeyError, AttributeError):
-        host = (event.headers or {}).get("host", "localhost")
+        host = host_header or "localhost"
 
     port = "443"
+
+    _logger.debug(
+        "Hawk request params",
+        extra={
+            "method": method,
+            "path": path,
+            "domain_name": host,
+            "host_header": host_header,
+            "port": port,
+        },
+    )
 
     return method, path, host, port
