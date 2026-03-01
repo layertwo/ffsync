@@ -5,6 +5,12 @@ const KEYS = {
   fxaParams: "ffsync_fxa_params",
 } as const
 
+const AUTH_KEYS = {
+  sessionToken: "ffsync_session_token",
+  uid: "ffsync_uid",
+  email: "ffsync_email",
+} as const
+
 export function storeCodeVerifier(verifier: string): void {
   sessionStorage.setItem(KEYS.codeVerifier, verifier)
 }
@@ -49,9 +55,30 @@ export function removeFxAParams(): void {
   sessionStorage.removeItem(KEYS.fxaParams)
 }
 
+export function storeAuth(sessionToken: string, uid: string, email: string): void {
+  localStorage.setItem(AUTH_KEYS.sessionToken, sessionToken)
+  localStorage.setItem(AUTH_KEYS.uid, uid)
+  localStorage.setItem(AUTH_KEYS.email, email)
+}
+
+export function getAuth(): { sessionToken: string; uid: string; email: string } | null {
+  const sessionToken = localStorage.getItem(AUTH_KEYS.sessionToken)
+  const uid = localStorage.getItem(AUTH_KEYS.uid)
+  const email = localStorage.getItem(AUTH_KEYS.email)
+  if (!sessionToken || !uid || !email) return null
+  return { sessionToken, uid, email }
+}
+
+export function clearAuth(): void {
+  localStorage.removeItem(AUTH_KEYS.sessionToken)
+  localStorage.removeItem(AUTH_KEYS.uid)
+  localStorage.removeItem(AUTH_KEYS.email)
+}
+
 export function clearAll(): void {
   sessionStorage.removeItem(KEYS.codeVerifier)
   sessionStorage.removeItem(KEYS.state)
   sessionStorage.removeItem(KEYS.oidcConfig)
   sessionStorage.removeItem(KEYS.fxaParams)
+  clearAuth()
 }
