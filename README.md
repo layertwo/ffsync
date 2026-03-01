@@ -5,19 +5,19 @@
 | Name                                    |    Stmts |     Miss |   Branch |   BrPart |    Cover |   Missing |
 |---------------------------------------- | -------: | -------: | -------: | -------: | -------: | --------: |
 | src/\_\_init\_\_.py                     |        0 |        0 |        0 |        0 |     100% |           |
-| src/entrypoint/\_\_init\_\_.py          |        4 |        0 |        0 |        0 |     100% |           |
+| src/entrypoint/\_\_init\_\_.py          |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/auth\_api.py             |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/hawk\_authorizer.py      |       37 |        0 |        4 |        0 |     100% |           |
+| src/entrypoint/profile\_api.py          |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/storage\_api.py          |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/token\_api.py            |        5 |        0 |        0 |        0 |     100% |           |
 | src/environment/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
-| src/environment/service\_provider.py    |      141 |        0 |        0 |        0 |     100% |           |
+| src/environment/service\_provider.py    |      149 |        0 |        0 |        0 |     100% |           |
 | src/routes/\_\_init\_\_.py              |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/account\_create.py      |       65 |        0 |       14 |        0 |     100% |           |
 | src/routes/auth/account\_keys.py        |       37 |        0 |        6 |        0 |     100% |           |
 | src/routes/auth/account\_login.py       |       52 |        0 |       14 |        0 |     100% |           |
-| src/routes/auth/account\_profile.py     |       30 |        0 |        6 |        0 |     100% |           |
 | src/routes/auth/account\_status.py      |       18 |        0 |        2 |        0 |     100% |           |
 | src/routes/auth/jwks.py                 |       14 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/oauth\_authorization.py |       47 |        0 |       12 |        0 |     100% |           |
@@ -44,6 +44,8 @@
 | src/routes/info/read\_counts.py         |       24 |        0 |        2 |        0 |     100% |           |
 | src/routes/info/read\_quota.py          |       28 |        0 |        2 |        0 |     100% |           |
 | src/routes/info/read\_usage.py          |       24 |        0 |        2 |        0 |     100% |           |
+| src/routes/profile/\_\_init\_\_.py      |        0 |        0 |        0 |        0 |     100% |           |
+| src/routes/profile/get\_profile.py      |       33 |        0 |        6 |        0 |     100% |           |
 | src/routes/storage/\_\_init\_\_.py      |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/storage/delete\_all.py       |       23 |        0 |        2 |        0 |     100% |           |
 | src/routes/storage/delete\_root.py      |       24 |        0 |        2 |        0 |     100% |           |
@@ -69,7 +71,7 @@
 | src/shared/token.py                     |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                      |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                     |       34 |        0 |        4 |        0 |     100% |           |
-| **TOTAL**                               | **2857** |    **0** |  **524** |    **0** | **100%** |           |
+| **TOTAL**                               | **2874** |    **0** |  **524** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
