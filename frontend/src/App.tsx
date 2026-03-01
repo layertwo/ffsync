@@ -10,6 +10,8 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { BrowserWarning } from "@/components/BrowserWarning"
 import { SignInPage } from "@/components/SignInPage"
 import { DashboardPage } from "@/components/DashboardPage"
+import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 type MainState =
   | { kind: "initializing" }
@@ -140,15 +142,20 @@ function MainFlow() {
 
 export default function App() {
   return (
-    <Layout>
-      <MainFlow />
-    </Layout>
+    <ThemeProvider defaultTheme="system">
+      <Layout>
+        <MainFlow />
+      </Layout>
+    </ThemeProvider>
   )
 }
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
+      <div className="fixed top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="mx-auto max-w-lg px-4 py-8 sm:py-16">
         <header className="mb-8 text-center">
           <h1 className="text-3xl font-bold tracking-tight">ffsync</h1>
