@@ -149,3 +149,20 @@ export async function requestOAuthCode(
     }
   )
 }
+
+interface SessionStatusResponse {
+  state: string
+  uid: string
+}
+
+export async function checkSessionStatus(
+  authServerUrl: string,
+  sessionToken: string
+): Promise<SessionStatusResponse> {
+  const url = `${authServerUrl}/v1/session/status`
+  const authorization = await buildHawkHeader(sessionToken, "GET", url)
+  return authFetch<SessionStatusResponse>(url, {
+    method: "GET",
+    headers: { Authorization: authorization },
+  })
+}
