@@ -223,8 +223,9 @@ export class ServiceStack extends Stack {
             },
         });
 
-        // Grant read permissions to token cache table
-        this.tokenCacheTable.grantReadData(fn);
+        // Grant read/write permissions to token cache table (read for credential
+        // lookup, write for nonce replay protection)
+        this.tokenCacheTable.grantReadWriteData(fn);
         fn.grantInvoke(this.apiExecuteRole);
 
         return fn;
