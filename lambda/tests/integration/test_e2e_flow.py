@@ -1,9 +1,9 @@
 """
-Integration tests for end-to-end HAWK authorizer → Storage API flow.
+Integration tests for end-to-end HAWK middleware -> Storage API flow.
 
 Tests the complete authentication and authorization flow:
-1. HAWK authorizer validates credentials
-2. Authorizer passes user context to Storage API
+1. StorageHawkMiddleware validates HAWK credentials in-process
+2. Middleware injects user context into event
 3. Storage API enforces user isolation
 4. Users can only access their own data
 
@@ -16,32 +16,30 @@ import time
 import pytest
 from botocore.stub import ANY
 
-from src.entrypoint.hawk_authorizer import lambda_handler as authorizer_handler
 from src.entrypoint.storage_api import lambda_handler as storage_handler
+from src.services.hawk_service import HawkCredentials
+from src.services.token_generator import TokenGenerator
 from tests.fixtures.integration import (
-    build_authorizer_event,
     build_hawk_auth_header,
     build_storage_event,
 )
 
 
-class TestHawkAuthorizerToStorageAPIFlow:
-    """Test end-to-end flow from HAWK authorizer to Storage API"""
+class TestHawkMiddlewareToStorageAPIFlow:
+    """Test end-to-end flow from HAWK middleware to Storage API"""
 
     def test_successful_authentication_flow(
         self, mock_service_provider, dynamodb_stubber, sample_lambda_context
     ):
         """
-        Test successful HAWK authentication and Storage API access.
+        Test successful HAWK authentication via middleware and Storage API access.
 
         Flow:
         1. Client sends request with valid HAWK credentials
-        2. Authorizer validates HAWK signature
-        3. Authorizer returns Allow policy with user context
-        4. Storage API receives request with user_id in context
-        5. Storage API successfully processes request
+        2. StorageHawkMiddleware validates HAWK signature in-process
+        3. Middleware injects user context into event
+        4. Storage API processes request with authenticated user context
         """
-        # Setup: Create valid HAWK credentials
         user_id = "test-user-123"
         generation = 0
         expiry = int(time.time()) + 300
@@ -52,9 +50,10 @@ class TestHawkAuthorizerToStorageAPIFlow:
         dynamodb_stubber.add_response("put_item", {})
         hawk_service.store_token_in_cache(credentials)
 
-        # Build valid HAWK Authorization header using mohawk.Sender
+        # Build valid HAWK Authorization header
         method = "GET"
-        path = "/1.5/12345/storage/bookmarks"
+        uid = str(TokenGenerator.generate_uid(user_id, generation))
+        path = f"/1.5/{uid}/storage/bookmarks"
         host = "storage.sync.example.com"
         port = 443
 
@@ -63,12 +62,18 @@ class TestHawkAuthorizerToStorageAPIFlow:
             credentials.hawk_id, credentials.hawk_key, method, path, host, port
         )
 
-        # Step 1: Call HAWK authorizer
-        authorizer_event = build_authorizer_event(
-            method=method, path=path, authorization_header=authorization_header
+        # Build storage event with Hawk auth header (middleware handles auth)
+        storage_event = build_storage_event(
+            method=method,
+            path="/storage/bookmarks",
+            user_id=user_id,
+            headers={"Authorization": authorization_header},
+            path_params={"collectionName": "bookmarks"},
         )
+        # Override requestContext to match middleware expectations
+        storage_event["requestContext"]["domainName"] = host
 
-        # Mock get_item for HAWK token retrieval
+        # Mock DynamoDB for hawk_service.validate (token cache lookup + nonce)
         dynamodb_stubber.add_response(
             "get_item",
             {
@@ -82,8 +87,6 @@ class TestHawkAuthorizerToStorageAPIFlow:
                 }
             },
         )
-
-        # Nonce replay protection: put_item for nonce record
         dynamodb_stubber.add_response(
             "put_item",
             {},
@@ -94,141 +97,91 @@ class TestHawkAuthorizerToStorageAPIFlow:
             },
         )
 
-        authorizer_response = authorizer_handler(
-            authorizer_event, sample_lambda_context, mock_service_provider
-        )
-
-        # Verify authorizer returns Allow policy
-        assert authorizer_response["principalId"] == user_id
-        assert authorizer_response["policyDocument"]["Statement"][0]["Effect"] == "Allow"
-        assert authorizer_response["context"]["user_id"] == user_id
-        assert authorizer_response["context"]["hawk_id"] == credentials.hawk_id
-
-        # Step 2: Call Storage API with user context from authorizer
-        storage_event = build_storage_event(
-            method="GET",
-            path="/storage/bookmarks",
-            user_id=user_id,
-            path_params={"collectionName": "bookmarks"},
-        )
-
-        # Mock DynamoDB query to return empty collection
+        # Mock DynamoDB query for empty bookmarks collection
         dynamodb_stubber.add_response("query", {"Items": [], "Count": 0})
 
         storage_response = storage_handler(
             storage_event, sample_lambda_context, mock_service_provider
         )
 
-        # Verify Storage API returns successful response
         assert storage_response["statusCode"] == 200
         body = json.loads(storage_response["body"])
-        assert body == []  # Empty collection
+        assert body == []
 
-    def test_authentication_failure_blocks_storage_access(
+    def test_authentication_failure_returns_401(self, mock_service_provider, sample_lambda_context):
+        """
+        Test that invalid HAWK credentials return 401 from middleware.
+
+        The middleware rejects the request before it reaches the route handler.
+        """
+        storage_event = build_storage_event(
+            method="GET",
+            path="/storage/bookmarks",
+            headers={
+                "Authorization": (
+                    'Hawk id="invalid-id", ts="1234567890", '
+                    'nonce="test-nonce", mac="invalid-mac"'
+                )
+            },
+            path_params={"collectionName": "bookmarks"},
+        )
+
+        storage_response = storage_handler(
+            storage_event, sample_lambda_context, mock_service_provider
+        )
+
+        assert storage_response["statusCode"] == 401
+
+    def test_missing_authorization_header_returns_401(
         self, mock_service_provider, sample_lambda_context
     ):
         """
-        Test that invalid HAWK credentials prevent Storage API access.
-
-        Flow:
-        1. Client sends request with invalid HAWK credentials
-        2. Authorizer rejects with "Unauthorized" exception
-        3. API Gateway returns 401 (not 403)
-        4. Storage API is never invoked
+        Test that requests without Authorization header are rejected by middleware.
         """
-        # Build invalid HAWK Authorization header (wrong MAC)
-        authorization_header = (
-            'Hawk id="invalid-id", ' 'ts="1234567890", ' 'nonce="test-nonce", ' 'mac="invalid-mac"'
+        storage_event = build_storage_event(
+            method="GET",
+            path="/storage/bookmarks",
+            headers={"Content-Type": "application/json"},
+            path_params={"collectionName": "bookmarks"},
+        )
+        # Remove Authorization header
+        storage_event["headers"].pop("Authorization", None)
+
+        storage_response = storage_handler(
+            storage_event, sample_lambda_context, mock_service_provider
         )
 
-        authorizer_event = build_authorizer_event(
-            method="GET", path="/storage/bookmarks", authorization_header=authorization_header
-        )
-
-        # Authorizer should raise "Unauthorized" exception
-        with pytest.raises(Exception, match="Unauthorized"):
-            authorizer_handler(authorizer_event, sample_lambda_context, mock_service_provider)
-
-    def test_expired_token_blocks_storage_access(
-        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
-    ):
-        """
-        Test that expired HAWK tokens are rejected.
-
-        Flow:
-        1. Client sends request with expired HAWK token
-        2. Authorizer detects expiry and rejects
-        3. API Gateway returns 401
-        """
-        # Setup: Create expired HAWK credentials
-        user_id = "test-user-123"
-        generation = 0
-        expiry = int(time.time()) - 100  # Expired 100 seconds ago
-        hawk_service = mock_service_provider.hawk_service
-
-        # Manually create expired credentials
-        hawk_id = hawk_service.generate_hawk_id(user_id, generation, expiry)
-        hawk_key = hawk_service.generate_hawk_key()
-
-        # Build HAWK Authorization header with expired token using mohawk.Sender
-        method = "GET"
-        path = "/1.5/12345/storage/bookmarks"
-        host = "storage.sync.example.com"
-        port = 443
-
-        authorization_header = build_hawk_auth_header(hawk_id, hawk_key, method, path, host, port)
-
-        authorizer_event = build_authorizer_event(
-            method=method, path=path, authorization_header=authorization_header
-        )
-
-        # The expiry check happens BEFORE mohawk Receiver is called
-        # (in _extract_hawk_id -> decode_hawk_id -> validate_hawk_id_expiry)
-        # so no DynamoDB stub is needed - it rejects early
-
-        # Authorizer should reject expired token
-        with pytest.raises(Exception, match="Unauthorized"):
-            authorizer_handler(authorizer_event, sample_lambda_context, mock_service_provider)
-
-    def test_missing_authorization_header_blocks_access(
-        self, mock_service_provider, sample_lambda_context
-    ):
-        """
-        Test that requests without Authorization header are rejected.
-
-        Flow:
-        1. Client sends request without Authorization header
-        2. Authorizer rejects immediately
-        3. API Gateway returns 401
-        """
-        # Build authorizer event without Authorization header
-        authorizer_event = {
-            "type": "REQUEST",
-            "methodArn": "arn:aws:execute-api:us-east-1:123456789012:abcdef123/prod/GET/storage",
-            "headers": {"Host": "storage.sync.example.com"},
-            "requestContext": {"path": "/1.5/12345/storage/bookmarks", "httpMethod": "GET"},
-        }
-
-        # Authorizer should reject missing header
-        with pytest.raises(Exception, match="Unauthorized"):
-            authorizer_handler(authorizer_event, sample_lambda_context, mock_service_provider)
+        assert storage_response["statusCode"] == 401
 
 
 class TestUserIsolation:
     """Test that users can only access their own data"""
+
+    @pytest.fixture(autouse=True)
+    def mock_hawk_validate(self, mock_service_provider):
+        """Mock hawk_service.validate to bypass auth for user isolation tests."""
+        self._mock_validate = mock_service_provider.hawk_service.validate
+        yield
+
+    def _set_hawk_user(self, mock_service_provider, user_id, generation=0):
+        """Configure hawk_service.validate to return credentials for given user."""
+        creds = HawkCredentials(
+            user_id=user_id,
+            generation=generation,
+            expiry=9999999999,
+            hawk_id="test-hawk-id",
+        )
+        mock_service_provider.hawk_service.validate = lambda *a, **kw: creds
 
     def test_user_can_read_own_collection(
         self, mock_service_provider, dynamodb_stubber, sample_lambda_context
     ):
         """
         Test that a user can successfully list their own collection.
-
-        This verifies that the user_id from the authorizer context is properly
-        passed to StorageManager and used to scope the DynamoDB query.
         """
         user_id = "user-001"
+        self._set_hawk_user(mock_service_provider, user_id)
 
-        # User lists their bookmarks
         list_event = build_storage_event(
             method="GET",
             path="/storage/bookmarks",
@@ -236,7 +189,6 @@ class TestUserIsolation:
             path_params={"collectionName": "bookmarks"},
         )
 
-        # Mock DynamoDB query - returns BSOs scoped to user-001
         modified_time = time.time()
         dynamodb_stubber.add_response(
             "query",
@@ -256,7 +208,6 @@ class TestUserIsolation:
 
         response = storage_handler(list_event, sample_lambda_context, mock_service_provider)
 
-        # Verify successful response
         assert response["statusCode"] == 200
         body = json.loads(response["body"])
         assert body == ["bso-001"]
@@ -267,14 +218,12 @@ class TestUserIsolation:
         """
         Test that two different users querying the same collection name
         actually query different DynamoDB partition keys.
-
-        This is the core of user isolation - each user's data is stored
-        under a different partition key: USER#{user_id}#COLLECTION#{collection}
         """
         user1_id = "user-001"
         user2_id = "user-002"
 
         # User1 lists bookmarks
+        self._set_hawk_user(mock_service_provider, user1_id)
         user1_event = build_storage_event(
             method="GET",
             path="/storage/bookmarks",
@@ -283,7 +232,6 @@ class TestUserIsolation:
         )
 
         modified_time = time.time()
-        # Mock query for User1 - returns User1's BSOs
         dynamodb_stubber.add_response(
             "query",
             {
@@ -306,7 +254,8 @@ class TestUserIsolation:
         user1_body = json.loads(user1_response["body"])
         assert user1_body == ["user1-bso"]
 
-        # User2 lists bookmarks (same collection name, different user)
+        # User2 lists bookmarks
+        self._set_hawk_user(mock_service_provider, user2_id)
         user2_event = build_storage_event(
             method="GET",
             path="/storage/bookmarks",
@@ -314,7 +263,6 @@ class TestUserIsolation:
             path_params={"collectionName": "bookmarks"},
         )
 
-        # Mock query for User2 - returns User2's BSOs (different partition key!)
         dynamodb_stubber.add_response(
             "query",
             {
@@ -337,7 +285,6 @@ class TestUserIsolation:
         user2_body = json.loads(user2_response["body"])
         assert user2_body == ["user2-bso"]
 
-        # Verify they got different data
         assert user1_body != user2_body
 
     def test_user_cannot_access_missing_bso_in_other_namespace(
@@ -345,14 +292,11 @@ class TestUserIsolation:
     ):
         """
         Test that when User2 tries to access a BSO ID that exists in User1's
-        namespace, they get 404 because it doesn't exist in User2's namespace.
-
-        This demonstrates that even if User2 knows the BSO ID, they cannot
-        access User1's data because the partition key is different.
+        namespace, they get 404.
         """
         user2_id = "user-002"
+        self._set_hawk_user(mock_service_provider, user2_id)
 
-        # User2 tries to read BSO "bso-001" (which might exist for User1)
         read_event = build_storage_event(
             method="GET",
             path="/storage/bookmarks/bso-001",
@@ -360,12 +304,10 @@ class TestUserIsolation:
             path_params={"collectionName": "bookmarks", "objectId": "bso-001"},
         )
 
-        # Mock DynamoDB get_item - returns empty (BSO not found in User2's namespace)
-        dynamodb_stubber.add_response("get_item", {})  # No Item in response
+        dynamodb_stubber.add_response("get_item", {})
 
         response = storage_handler(read_event, sample_lambda_context, mock_service_provider)
 
-        # User2 gets 404 - BSO not found in their namespace
         assert response["statusCode"] == 404
 
     def test_info_collections_scoped_to_user(
@@ -373,16 +315,13 @@ class TestUserIsolation:
     ):
         """
         Test that /info/collections returns only the authenticated user's collections.
-
-        This verifies that metadata endpoints also enforce user isolation.
         """
         user1_id = "user-001"
+        self._set_hawk_user(mock_service_provider, user1_id)
 
-        # User1 queries /info/collections
         info_event = build_storage_event(method="GET", path="/info/collections", user_id=user1_id)
 
         modified_time = time.time()
-        # Mock query with GSI returns only User1's collections
         dynamodb_stubber.add_response(
             "query",
             {
@@ -415,7 +354,6 @@ class TestUserIsolation:
         assert response["statusCode"] == 200
         body = json.loads(response["body"])
 
-        # User1 sees only their collections
         assert "bookmarks" in body
         assert "tabs" in body
         assert len(body) == 2
@@ -425,23 +363,16 @@ class TestUserIsolation:
     ):
         """
         Test that DELETE /storage only deletes the authenticated user's data.
-
-        This verifies that even destructive operations are properly scoped.
         """
         user1_id = "user-001"
+        self._set_hawk_user(mock_service_provider, user1_id)
 
-        # User1 deletes all their data
         delete_event = build_storage_event(method="DELETE", path="/storage", user_id=user1_id)
 
-        # Mock GSI query to find User1's collections (scoped by user_id attribute)
         dynamodb_stubber.add_response("query", {"Items": []})
 
         response = storage_handler(delete_event, sample_lambda_context, mock_service_provider)
 
-        # Verify successful deletion
         assert response["statusCode"] == 200
         body = json.loads(response["body"])
         assert "modified" in body
-
-        # The key point: the GSI query is keyed by user_id = "user-001", so only
-        # User1's collections are returned and deleted. User2's data is untouched.

@@ -6,8 +6,8 @@ from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.fxa_token_manager import FxATokenManager
 from src.services.oauth_code_manager import OAuthCodeManager
+from src.shared.auth import verify_session_hawk_or_error
 from src.shared.base_route import BaseRoute
-from src.shared.utils import extract_hawk_request_params
 
 
 class OAuthAuthorizationRoute(BaseRoute):
@@ -28,16 +28,10 @@ class OAuthAuthorizationRoute(BaseRoute):
 
     def handle(self, event) -> Response:
         # Authenticate via session token with Hawk HMAC verification
-        headers = event.headers or {}
-        auth_header = headers.get("authorization", "")
-        if not auth_header:
-            return self._error(401, 110, "Missing or invalid authorization")
-
-        method, path, host, port = extract_hawk_request_params(event)
-
-        uid = self._token_manager.verify_session_hawk(auth_header, method, path, host, port)
-        if uid is None:
-            return self._error(401, 110, "Invalid or expired session token")
+        result = verify_session_hawk_or_error(event, self._token_manager)
+        if isinstance(result, Response):
+            return result
+        uid = result
 
         # Parse body
         body_str = event.body

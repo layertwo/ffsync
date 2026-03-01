@@ -86,7 +86,6 @@ export class ServiceStack extends Stack {
 
     // Storage Service
     public readonly storageTable: Table;
-    public readonly hawkAuthorizerHandler: IFunction;
     public readonly storageHandler: IFunction;
     public readonly storageApi: SpecRestApi;
 
@@ -118,7 +117,6 @@ export class ServiceStack extends Stack {
         this.signingKey = this.buildSigningKey();
 
         // Handlers
-        this.hawkAuthorizerHandler = this.buildHawkAuthorizerHandler();
         this.authHandler = this.buildAuthApiHandler();
         this.tokenHandler = this.buildTokenApiHandler();
         this.profileHandler = this.buildProfileApiHandler();
@@ -225,35 +223,6 @@ export class ServiceStack extends Stack {
         });
     }
 
-    private buildHawkAuthorizerHandler(): PythonFunction {
-        const fn = new PythonFunction(this, "HawkAuthorizerHandler", {
-            rootDir: path.join(__dirname, "../../lambda"),
-            index: "src/entrypoint/__init__.py",
-            runtime: Runtime.PYTHON_3_14,
-            architecture: Architecture.ARM_64,
-            handler: "hawk_authorizer_handler",
-            functionName: `ffsync-hawk-authorizer-${this.props.stageType.toLowerCase()}`,
-            timeout: Duration.seconds(5),
-            memorySize: 256,
-            environment: {
-                STAGE: this.props.stageType.toLowerCase(),
-                TOKEN_CACHE_TABLE_NAME: this.tokenCacheTable.tableName,
-                HAWK_TIMESTAMP_SKEW_TOLERANCE: "60",
-                TOKEN_DURATION: "300",
-            },
-            bundling: {
-                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/"],
-            },
-        });
-
-        // Grant read/write permissions to token cache table (read for credential
-        // lookup, write for nonce replay protection)
-        this.tokenCacheTable.grantReadWriteData(fn);
-        fn.grantInvoke(this.apiExecuteRole);
-
-        return fn;
-    }
-
     private buildStorageApiHandler(): PythonFunction {
         const fn = new PythonFunction(this, "ApiHandler", {
             rootDir: path.join(__dirname, "../../lambda"),
@@ -268,6 +237,9 @@ export class ServiceStack extends Stack {
                 STAGE: this.props.stageType.toLowerCase(),
                 BASE_DOMAIN: this.stageBaseDomain,
                 STORAGE_TABLE_NAME: this.storageTable.tableName,
+                TOKEN_CACHE_TABLE_NAME: this.tokenCacheTable.tableName,
+                HAWK_TIMESTAMP_SKEW_TOLERANCE: "60",
+                TOKEN_DURATION: "300",
             },
             bundling: {
                 assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/"],
@@ -276,6 +248,7 @@ export class ServiceStack extends Stack {
 
         // Grant DynamoDB permissions to Lambda
         this.storageTable.grantReadWriteData(fn);
+        this.tokenCacheTable.grantReadWriteData(fn);
         fn.grantInvoke(this.apiExecuteRole);
         this.exportValue(fn.functionName);
 
@@ -418,9 +391,6 @@ export class ServiceStack extends Stack {
             disableExecuteApiEndpoint: true,
         });
         api.node.addDependency(handler);
-        if (service == Service.STORAGE) {
-            api.node.addDependency(this.hawkAuthorizerHandler);
-        }
 
         [RecordType.A, RecordType.AAAA].map((recordType) => {
             new RecordSet(this, `${capitalService}${recordType}RecordSet`, {
@@ -450,13 +420,6 @@ export class ServiceStack extends Stack {
             /CDK_CORS_ORIGIN/g, `https://${this.stageBaseDomain}`,
         );
 
-        // Add HAWK authorizer to Storage API
-        if (service === Service.STORAGE) {
-            openApiJson = openApiJson.replace(
-                /CDK_AUTH_LAMBDA_FUNCTION_ARN/g,
-                this.hawkAuthorizerHandler.functionArn,
-            );
-        }
         return JSON.parse(openApiJson);
     }
 }

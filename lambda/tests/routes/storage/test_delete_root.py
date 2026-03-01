@@ -2,8 +2,13 @@
 
 import json
 from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from src.entrypoint.storage_api import lambda_handler as storage_handler
+from src.routes.storage.delete_root import DeleteAllRootRoute
+from src.services.hawk_service import HawkCredentials
 from src.services.token_generator import TokenGenerator
 
 TEST_USER_ID = "test-user-123"
@@ -17,15 +22,28 @@ def build_storage_event(method: str, path: str, user_id: str = TEST_USER_ID) -> 
         "httpMethod": method,
         "path": f"/1.5/{TEST_UID}{path}",
         "pathParameters": {"uid": TEST_UID},
-        "headers": {},
+        "headers": {"Authorization": 'Hawk id="test", mac="test"'},
         "body": None,
         "queryStringParameters": None,
         "requestContext": {
             "requestId": "test-request-id",
             "accountId": "123456789012",
-            "authorizer": {"user_id": user_id, "generation": str(TEST_GENERATION)},
+            "domainName": "storage.example.com",
         },
     }
+
+
+@pytest.fixture(autouse=True)
+def mock_hawk_validate(mock_service_provider):
+    """Mock hawk_service.validate to bypass Hawk auth in storage handler tests."""
+    creds = HawkCredentials(
+        user_id=TEST_USER_ID,
+        generation=TEST_GENERATION,
+        expiry=9999999999,
+        hawk_id="test-hawk-id",
+    )
+    with patch.object(mock_service_provider.hawk_service, "validate", return_value=creds):
+        yield
 
 
 class TestDeleteAllRootRoute:
@@ -166,3 +184,18 @@ class TestDeleteAllRootRoute:
         assert response["statusCode"] == 500
         body = json.loads(response["body"])
         assert body["error"] == "Internal server error"
+
+
+class TestDeleteAllRootRouteUnit:
+    """Unit tests for DeleteAllRootRoute.handle() called directly (bypassing middleware)"""
+
+    def test_missing_user_id_returns_401(self):
+        """Route returns 401 when authorizer context has no user_id."""
+        route = DeleteAllRootRoute(storage_manager=MagicMock())
+        event = {
+            "requestContext": {"authorizer": {}},
+        }
+        response = route.handle(event)
+        assert response.status_code == 401
+        body = json.loads(response.body)
+        assert body["error"] == "Unauthorized"

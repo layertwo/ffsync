@@ -198,7 +198,10 @@ def build_storage_event(
         Lambda event dictionary
     """
     if headers is None:
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": 'Hawk id="test", mac="test"',
+        }
 
     if body is not None and isinstance(body, (dict, list)):
         body = json.dumps(body)
@@ -219,10 +222,7 @@ def build_storage_event(
         "requestContext": {
             "requestId": "test-request-id",
             "accountId": "123456789012",
-            "authorizer": {
-                "user_id": user_id,
-                "generation": str(generation),
-            },
+            "domainName": "storage.sync.example.com",
         },
     }
 

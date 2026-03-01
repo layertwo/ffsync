@@ -2,9 +2,6 @@ $version: "2"
 
 namespace layertwo.ffsync
 
-use aws.apigateway#authorizer
-use aws.apigateway#authorizers
-use aws.apigateway#apiKeySource
 use aws.apigateway#integration
 use aws.apigateway#requestValidator
 use aws.protocols#restJson1
@@ -20,19 +17,6 @@ use smithy.framework#ValidationException
     timeoutInMillis: 29000
 )
 @requestValidator("full")
-@apiKeySource("AUTHORIZER")
-@httpApiKeyAuth(name: "Authorization", in: "header")
-@authorizer("hawk-authorizer")
-@authorizers(
-    "hawk-authorizer": {
-        scheme: httpApiKeyAuth,
-        type: "request"
-        uri: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/CDK_AUTH_LAMBDA_FUNCTION_ARN/invocations"
-        credentials: "CDK_API_ROLE_ARN"
-        identitySource: "method.request.header.Authorization",
-        resultTtlInSeconds: 300
-    }
-)
 service StorageService {
     version: "1.0"
     resources: [

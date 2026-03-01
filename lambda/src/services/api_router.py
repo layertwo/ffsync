@@ -6,11 +6,73 @@ from aws_lambda_powertools.event_handler import APIGatewayRestResolver, CORSConf
 from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler, NextMiddleware
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
+from src.services.hawk_service import HawkService
 from src.services.token_generator import TokenGenerator
 from src.shared.base_route import BaseRoute
 from src.shared.utils import get_weave_timestamp
 
 logger = Logger(service="storage-server")
+
+
+class StorageHawkMiddleware(BaseMiddlewareHandler):
+    """
+    Middleware that validates Hawk authentication for storage API requests.
+
+    Replaces the separate Lambda authorizer with in-process Hawk validation,
+    injecting the same authorizer context shape into the event so downstream
+    middleware (UidValidationMiddleware) and route handlers work unchanged.
+    """
+
+    def __init__(self, hawk_service: HawkService):
+        super().__init__()
+        self._hawk_service = hawk_service
+
+    def handler(self, app: APIGatewayRestResolver, next_middleware: NextMiddleware) -> Response:
+        event = app.current_event
+
+        # Extract Authorization header
+        headers = event.headers or {}
+        auth_header = headers.get("Authorization") or headers.get("authorization")
+        if not auth_header:
+            return Response(
+                status_code=401,
+                content_type="application/json",
+                body='{"error": "Unauthorized"}',
+            )
+
+        # Extract request details for Hawk MAC validation
+        method = event.http_method
+        path = event.path
+        query_params = event.query_string_parameters
+        if query_params:
+            qs = "&".join(f"{k}={v}" for k, v in query_params.items())
+            path = f"{path}?{qs}"
+
+        # Parse host from request context or headers
+        try:
+            host = event.request_context.domain_name
+        except (AttributeError, KeyError):
+            host = headers.get("host", "localhost")
+        port = 443
+
+        try:
+            credentials = self._hawk_service.validate(auth_header, method, path, host, port)
+        except Exception:
+            return Response(
+                status_code=401,
+                content_type="application/json",
+                body='{"error": "Unauthorized"}',
+            )
+
+        # Inject authorizer context — same shape as the Lambda authorizer produced
+        event["requestContext"]["authorizer"] = {
+            "user_id": credentials.user_id,
+            "hawk_id": credentials.hawk_id,
+            "generation": str(credentials.generation),
+            "authenticated_at": str(round(time.time(), 2)),
+        }
+
+        return next_middleware(app)
 
 
 class RequestLoggingMiddleware(BaseMiddlewareHandler):

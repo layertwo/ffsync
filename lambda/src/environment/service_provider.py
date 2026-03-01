@@ -37,6 +37,7 @@ from src.routes.token.request import GetTokenRoute
 from src.services.api_router import (
     ApiRouter,
     RequestLoggingMiddleware,
+    StorageHawkMiddleware,
     UidValidationMiddleware,
     WeaveTimestampMiddleware,
 )
@@ -110,6 +111,7 @@ class ServiceProvider:
                 DeleteBSORoute(self.storage_manager),
             ],
             middlewares=[
+                StorageHawkMiddleware(hawk_service=self.hawk_service),
                 RequestLoggingMiddleware(),
                 UidValidationMiddleware(),
                 WeaveTimestampMiddleware(),
