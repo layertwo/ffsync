@@ -41,27 +41,34 @@ This file provides context for AI coding agents working on this repository. It c
 
 ```
 Firefox Client
-    ↓ OIDC Bearer Token
-Auth Service (Lambda) → DynamoDB (auth, token-users, token-cache)
-    │                  → KMS (JWT signing)
-    ├─ FxA-compatible auth endpoints (account, OAuth, OIDC, sessions)
-    └─ Token endpoint: exchanges OIDC tokens for HAWK credentials (300s TTL)
-         ↓ HAWK credentials
-Storage Service (Lambda) → DynamoDB (storage BSOs)
-    ↑ HAWK Authorizer (Lambda) validates credentials
-    ↑ API Gateway (REST, edge-optimized)
+    │
+    ├─ OIDC login → Auth API → DynamoDB (auth) + KMS (JWT signing)
+    │                  ├─ FxA-compatible auth (account, OAuth, OIDC, sessions)
+    │                  └─ Issues self-signed JWTs for token/profile servers
+    │
+    ├─ JWT Bearer → Token API → DynamoDB (token-users, token-cache)
+    │                  └─ Exchanges JWT for HAWK credentials (300s TTL)
+    │
+    ├─ JWT Bearer → Profile API → DynamoDB (auth, read-only)
+    │                  └─ Returns user profile (email, uid, locale)
+    │
+    └─ HAWK auth → Storage API → DynamoDB (storage BSOs)
+                       └─ HawkAuthMiddleware validates inline (no separate authorizer)
 
-CloudFront → S3 (frontend SPA)
+CloudFront → S3 (frontend SPA + /.well-known/fxa-client-configuration)
 ```
 
-**Three Lambda Functions:**
-- **Auth Service** (`lambda/src/entrypoint/auth_api.py`): FxA-compatible auth server — handles account creation, login, OAuth flows, OIDC exchange, token issuance, and HAWK credential generation
-- **Storage Service** (`lambda/src/entrypoint/storage_api.py`): REST API for Firefox Sync data (BSOs)
-- **HAWK Authorizer** (`lambda/src/entrypoint/hawk_authorizer.py`): Lambda authorizer for API Gateway, validates HAWK credentials on storage requests
+**Four Lambda Functions:**
+- **Auth API** (`lambda/src/entrypoint/auth_api.py`): FxA-compatible auth server — account, login, OAuth, OIDC, sessions
+- **Token API** (`lambda/src/entrypoint/token_api.py`): Exchanges self-signed JWTs for HAWK credentials
+- **Profile API** (`lambda/src/entrypoint/profile_api.py`): Returns user profile via OAuth Bearer auth
+- **Storage API** (`lambda/src/entrypoint/storage_api.py`): REST API for Firefox Sync data (BSOs)
 
-**Two API Gateways (SpecRestApi, edge-optimized):**
-- **Auth API**: `auth.<stage>.<BASE_DOMAIN>` — public, no HAWK auth
-- **Storage API**: `storage.<stage>.<BASE_DOMAIN>` — protected by HAWK Authorizer
+**Four API Gateways (SpecRestApi, edge-optimized):**
+- **Auth API**: `auth.<stage>.<BASE_DOMAIN>` — mixed auth (authPW, session Hawk, OAuth Bearer)
+- **Token API**: `token.<stage>.<BASE_DOMAIN>` — OAuth Bearer (self-signed JWT)
+- **Profile API**: `profile.<stage>.<BASE_DOMAIN>` — OAuth Bearer (self-signed JWT)
+- **Storage API**: `storage.<stage>.<BASE_DOMAIN>` — HAWK auth (inline middleware)
 
 **Four DynamoDB Tables:**
 - `ffsync-storage-<stage>` — BSOs and collection metadata (GSI: `UserCollectionsIndex`)
@@ -87,7 +94,7 @@ CloudFront → S3 (frontend SPA)
 lib/                          # CDK infrastructure (TypeScript)
 ├── app.ts                    # CDK app entrypoint
 ├── config.ts                 # AWS account/region config
-├── config/service.ts         # Service enum (AUTH, STORAGE)
+├── config/service.ts         # Service enum (AUTH, TOKEN, PROFILE, STORAGE)
 ├── utils.ts                  # Helper utilities
 ├── stacks/
 │   ├── service.ts            # Main service stack (Lambda, API Gateway, DynamoDB, KMS)
@@ -103,16 +110,21 @@ frontend/                     # React SPA (Vite + Tailwind)
 
 lambda/                       # Python Lambda functions
 ├── src/
-│   ├── entrypoint/           # Lambda handlers (auth_api, storage_api, hawk_authorizer)
+│   ├── entrypoint/           # Lambda handlers (auth_api, token_api, profile_api, storage_api)
+│   ├── middlewares/          # Request middleware
+│   │   ├── hawk_auth.py      # Unified Hawk auth (storage + session, per-route or router-level)
+│   │   ├── request_logging.py # Request/response logging
+│   │   └── weave_timestamp.py # X-Weave-Timestamp header
 │   ├── routes/               # API route handlers
 │   │   ├── auth/             # FxA-compatible auth (account, OAuth, OIDC, sessions)
 │   │   ├── bso/              # BSO CRUD operations
 │   │   ├── collections/      # Collection management
 │   │   ├── info/             # Storage info endpoints (counts, usage, quota)
+│   │   ├── profile/          # Profile endpoint (OAuth Bearer auth)
 │   │   ├── storage/          # Storage-level operations (delete all)
 │   │   └── token/            # Token request handling
 │   ├── services/             # Business logic
-│   │   ├── api_router.py     # Route dispatch + middleware
+│   │   ├── api_router.py     # Route dispatch + exception handlers
 │   │   ├── storage_manager.py
 │   │   ├── user_manager.py
 │   │   ├── hawk_service.py
@@ -130,9 +142,9 @@ lambda/                       # Python Lambda functions
 └── pyproject.toml            # Python dependencies and tooling config (pytest, black, isort, flake8, mypy)
 
 smithy/                       # API contract definitions (Gradle-based)
-├── models/                   # Smithy models (StorageService, AuthService)
+├── models/                   # Smithy models (StorageService, AuthService, TokenService, ProfileService)
 ├── build.gradle.kts          # Gradle build file
-└── smithy-build.json         # OpenAPI generation config
+└── smithy-build.json         # OpenAPI generation config (4 projections)
 
 tools/                        # CLI tools for testing
 ├── ffsync_client.py          # HAWK-authenticated API client
@@ -194,7 +206,10 @@ tools/                        # CLI tools for testing
 ### Python/Lambda
 - **Parallel tests**: Default (`-n auto`) - use fixtures from `conftest.py` for isolation
 - **Coverage exclusions**: `pragma: nocover`, `__repr__`, `TYPE_CHECKING`, abstract methods
-- **HAWK credentials**: Expire after 300 seconds - clients must refresh via Auth Service
+- **HAWK credentials**: Expire after 300 seconds - clients must refresh via Token Service
+- **Hawk auth**: Unified `HawkAuthMiddleware` handles both storage (router-level) and session (per-route) Hawk auth. No separate Lambda authorizer.
+- **Per-route middleware**: Auth routes opt into session Hawk via `middlewares=[session_hawk]` in `BaseRoute`. Routes that don't need Hawk have no middleware.
+- **Exception handlers**: Router-level exception handlers format auth errors. `HawkAuthenticationError` → 401, `UidMismatchError` → 403.
 - **Test structure**: Must mirror `src/` structure (e.g., `tests/routes/bso/test_read.py` ↔ `src/routes/bso/read.py`)
 - **Fixtures**: Use `mock_service_provider`, `mock_storage_manager` from `conftest.py`
 - **DynamoDB GSI**: `list_collections` uses `UserCollectionsIndex` GSI for efficient queries — collection metadata items include `user_id` attribute
@@ -214,13 +229,13 @@ tools/                        # CLI tools for testing
 ### AWS Services
 - **DynamoDB**: PAY_PER_REQUEST billing - no capacity planning needed
 - **Lambda**: ARM64 architecture, Python 3.14 runtime
-- **API Gateway**: Two REST APIs (auth + storage), edge-optimized
+- **API Gateway**: Four REST APIs (auth, token, profile, storage), edge-optimized
 - **KMS**: RSA-2048 key for signing OAuth JWTs
 
 ### Smithy
 - **Build system**: Gradle (not standalone Smithy CLI)
 - **Build**: Run `./gradlew smithyBuild` from `smithy/` directory after model changes
-- **Projections**: StorageService and AuthService — generates OpenAPI specs for both
+- **Projections**: StorageService, AuthService, TokenService, ProfileService — generates OpenAPI specs for all four
 - **Output**: OpenAPI specs consumed by CDK `SpecRestApi`
 
 ## Testing

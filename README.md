@@ -8,32 +8,29 @@ It implements the [Firefox Sync 1.5 storage API](https://mozilla-services.github
 ```
 Firefox Client
       │
-      ▼
-Auth API Gateway (REST, edge-optimized)    ─ auth.<stage>.ffsync.layertwo.dev
+      ├── OIDC login ──→ Auth API  ─ auth.<stage>.ffsync.layertwo.dev
+      │                    ├── DynamoDB (auth sessions, OAuth state)
+      │                    ├── KMS (RSA-2048, signs OAuth JWTs)
+      │                    └── Handles: account, OAuth, OIDC, sessions
       │
-      └── Auth Lambda (Python)
-            │
-            ├── DynamoDB  ─ auth sessions, token-users, token-cache
-            ├── KMS       ─ RSA-2048 key for signing OAuth JWTs
-            └── Handles: account, OAuth, OIDC exchange, HAWK token issuance
-                    │
-                    ↓ HAWK credentials (300s TTL)
+      ├── JWT Bearer ──→ Token API  ─ token.<stage>.ffsync.layertwo.dev
+      │                    ├── DynamoDB (token-users, token-cache)
+      │                    └── Exchanges JWT for HAWK credentials (300s TTL)
+      │
+      ├── JWT Bearer ──→ Profile API  ─ profile.<stage>.ffsync.layertwo.dev
+      │                    ├── DynamoDB (auth, read-only)
+      │                    └── Returns user profile (email, uid, locale)
+      │
+      └── HAWK auth ───→ Storage API  ─ storage.<stage>.ffsync.layertwo.dev
+                           ├── DynamoDB (collections & BSOs)
+                           │     └── GSI: UserCollectionsIndex
+                           └── HawkAuthMiddleware validates inline
 
-Storage API Gateway (REST, edge-optimized) ─ storage.<stage>.ffsync.layertwo.dev
-      │
-      ├── HAWK Authorizer Lambda ─ validates HAWK credentials
-      │
-      └── Storage Lambda (Python)
-            │
-            └── DynamoDB  ─ collections & BSOs (per-user partition key)
-                  └── GSI: UserCollectionsIndex (user_id → collection metadata)
-
-CloudFront ─ serves frontend SPA from S3
-      │
-      └── S3 Bucket ─ frontend assets + generated config.json
+CloudFront  ─ <stage>.ffsync.layertwo.dev
+      └── S3 Bucket  ─ frontend SPA + /.well-known/fxa-client-configuration
 
 CDK Stacks (TypeScript / AWS CDK):
-  lib/stacks/service.ts      ─ API Gateway + Lambda + DynamoDB + KMS
+  lib/stacks/service.ts      ─ 4 Lambdas + 4 API Gateways + DynamoDB + KMS
   lib/stacks/frontend.ts     ─ CloudFront + S3 frontend deployment
   lib/stacks/monitoring.ts   ─ CloudWatch dashboard & alarms
   lib/stacks/github-oidc.ts  ─ GitHub Actions OIDC role for CI/CD
@@ -91,8 +88,10 @@ The frontend `config.json` is generated automatically at deploy time from SSM Pa
 In `about:config` set:
 
 ```
-identity.sync.tokenserver.uri = https://<your-api-domain>/token/1.0/sync/1.5
+identity.fxaccounts.autoconfig.uri = https://<stage>.ffsync.layertwo.dev
 ```
+
+Firefox will auto-discover the auth, token, profile, and storage server URLs from `/.well-known/fxa-client-configuration`.
 
 ## Configuration Reference
 
