@@ -21,14 +21,17 @@ from src.routes.auth.session_status import SessionStatusRoute
 from src.services.api_router import ApiRouter
 
 
-def _make_event(method, path, headers=None, body=None, qs=None):
+def _make_event(method, path, headers=None, body=None, qs=None, hawk_uid=None):
+    ctx = {"requestId": "test"}
+    if hawk_uid:
+        ctx["hawk_uid"] = hawk_uid
     return {
         "httpMethod": method,
         "path": path,
         "headers": headers or {},
         "body": body,
         "queryStringParameters": qs,
-        "requestContext": {"requestId": "test"},
+        "requestContext": ctx,
     }
 
 
@@ -76,28 +79,50 @@ class TestRouteDispatch:
         assert result["statusCode"] == 401
 
     def test_scoped_key_data_dispatches(self):
-        route = ScopedKeyDataRoute(account_manager=MagicMock(), token_manager=MagicMock())
+        mgr = MagicMock()
+        mgr.get_account_by_uid.return_value = None
+        route = ScopedKeyDataRoute(account_manager=mgr, middlewares=[])
         result = _router(route).handler(
-            _make_event("POST", "/v1/account/scoped-key-data", body="{}"), _make_context()
+            _make_event(
+                "POST",
+                "/v1/account/scoped-key-data",
+                body='{"client_id": "c", "scope": "s"}',
+                hawk_uid="uid1",
+            ),
+            _make_context(),
         )
+        # Account not found returns 401
         assert result["statusCode"] == 401
 
     def test_session_status_dispatches(self):
-        route = SessionStatusRoute(token_manager=MagicMock())
-        result = _router(route).handler(_make_event("GET", "/v1/session/status"), _make_context())
-        assert result["statusCode"] == 401
+        route = SessionStatusRoute(middlewares=[])
+        result = _router(route).handler(
+            _make_event("GET", "/v1/session/status", hawk_uid="uid1"),
+            _make_context(),
+        )
+        assert result["statusCode"] == 200
 
     def test_session_destroy_dispatches(self):
-        route = SessionDestroyRoute(token_manager=MagicMock())
-        result = _router(route).handler(_make_event("POST", "/v1/session/destroy"), _make_context())
-        assert result["statusCode"] == 401
+        route = SessionDestroyRoute(token_manager=MagicMock(), middlewares=[])
+        result = _router(route).handler(
+            _make_event("POST", "/v1/session/destroy"),
+            _make_context(),
+        )
+        assert result["statusCode"] == 200
 
     def test_oauth_authorization_dispatches(self):
-        route = OAuthAuthorizationRoute(token_manager=MagicMock(), oauth_code_manager=MagicMock())
+        route = OAuthAuthorizationRoute(oauth_code_manager=MagicMock(), middlewares=[])
         result = _router(route).handler(
-            _make_event("POST", "/v1/oauth/authorization", body="{}"), _make_context()
+            _make_event(
+                "POST",
+                "/v1/oauth/authorization",
+                body="{}",
+                hawk_uid="uid1",
+            ),
+            _make_context(),
         )
-        assert result["statusCode"] == 401
+        # Missing client_id returns 400
+        assert result["statusCode"] == 400
 
     def test_oauth_token_dispatches(self):
         route = OAuthTokenRoute(

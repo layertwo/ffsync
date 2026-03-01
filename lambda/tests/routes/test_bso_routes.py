@@ -22,10 +22,10 @@ TEST_USER_ID = "test-user-123"
 
 
 def with_auth(event_dict: dict) -> dict:
-    """Add authorizer context to event dict"""
+    """Add hawk_uid to event requestContext"""
     if "requestContext" not in event_dict:
         event_dict["requestContext"] = {}
-    event_dict["requestContext"]["authorizer"] = {"user_id": TEST_USER_ID}
+    event_dict["requestContext"]["hawk_uid"] = TEST_USER_ID
     return event_dict
 
 
@@ -49,7 +49,7 @@ class TestReadBSORoute:
             },
             "headers": {},
             "body": None,
-            "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            "requestContext": {"hawk_uid": "test-user-123"},
         }
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
@@ -65,7 +65,7 @@ class TestReadBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -106,7 +106,7 @@ class TestReadBSORoute:
                     "collectionName": "history",
                     "objectId": "obj456",
                 },
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -138,7 +138,7 @@ class TestReadBSORoute:
                     "collectionName": "invalid!@#",
                     "objectId": "item",
                 },
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -164,7 +164,7 @@ class TestReadBSORoute:
                     "collectionName": "nonexistent",
                     "objectId": "item",
                 },
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -190,7 +190,7 @@ class TestReadBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "nonexistent",
                 },
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -216,7 +216,7 @@ class TestReadBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "item",
                 },
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -258,7 +258,7 @@ class TestUpdateBSORoute:
             },
             "headers": {},
             "body": json.dumps({"id": "item123", "payload": "data"}),
-            "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            "requestContext": {"hawk_uid": "test-user-123"},
         }
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
@@ -283,7 +283,7 @@ class TestUpdateBSORoute:
                     }
                 ),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -316,7 +316,7 @@ class TestUpdateBSORoute:
                 },
                 "body": "invalid json{",
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -337,7 +337,7 @@ class TestUpdateBSORoute:
                 },
                 "body": json.dumps([1, 2, 3]),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -358,7 +358,7 @@ class TestUpdateBSORoute:
                 },
                 "body": json.dumps({"id": "different_id", "payload": "data"}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -379,7 +379,7 @@ class TestUpdateBSORoute:
                 },
                 "body": json.dumps({"id": "item123", "payload": "data"}),
                 "headers": {"X-If-Unmodified-Since": "1234567890"},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -409,7 +409,7 @@ class TestUpdateBSORoute:
                 },
                 "body": json.dumps({"id": "item123", "payload": "data"}),
                 "headers": {"X-If-Unmodified-Since": "invalid"},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -430,7 +430,7 @@ class TestUpdateBSORoute:
                 },
                 "body": json.dumps({"id": "item123", "payload": "data"}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -455,7 +455,7 @@ class TestUpdateBSORoute:
                 },
                 "body": json.dumps({"id": "nonexistent", "payload": "data"}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -480,7 +480,7 @@ class TestUpdateBSORoute:
                 },
                 "body": json.dumps({"id": "item123", "payload": "data"}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -505,7 +505,7 @@ class TestUpdateBSORoute:
                 },
                 "body": json.dumps({"id": "item123", "payload": "data"}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -528,7 +528,7 @@ class TestUpdateBSORoute:
                 },
                 "body": json.dumps({"id": "item", "payload": "data"}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -559,7 +559,7 @@ class TestDeleteBSORoute:
             },
             "headers": {},
             "body": None,
-            "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+            "requestContext": {"hawk_uid": "test-user-123"},
         }
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
@@ -575,7 +575,7 @@ class TestDeleteBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -602,7 +602,7 @@ class TestDeleteBSORoute:
                     "collectionName": "invalid!",
                     "objectId": "item",
                 },
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -623,7 +623,7 @@ class TestDeleteBSORoute:
                     "collectionName": "nonexistent",
                     "objectId": "item",
                 },
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -646,7 +646,7 @@ class TestDeleteBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "nonexistent",
                 },
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -669,7 +669,7 @@ class TestDeleteBSORoute:
                     "collectionName": "bookmarks",
                     "objectId": "item",
                 },
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -695,7 +695,7 @@ class TestReadBSORouteUnauthorized:
                     "objectId": "item123",
                 },
                 "headers": {},
-                "requestContext": {"authorizer": {}},
+                "requestContext": {},
             }
         )
 
@@ -721,7 +721,7 @@ class TestDeleteBSORouteUnauthorized:
                     "collectionName": "bookmarks",
                     "objectId": "item123",
                 },
-                "requestContext": {"authorizer": {}},
+                "requestContext": {},
             }
         )
 
@@ -749,7 +749,7 @@ class TestUpdateBSORouteUnauthorized:
                 },
                 "body": json.dumps({"id": "item123", "payload": "data"}),
                 "headers": {},
-                "requestContext": {"authorizer": {}},
+                "requestContext": {},
             }
         )
 
@@ -785,7 +785,7 @@ class TestReadBSORouteConditionalGET:
                     "objectId": "item123",
                 },
                 "headers": {"x-if-modified-since": "1234567890.12"},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -815,7 +815,7 @@ class TestReadBSORouteConditionalGET:
                     "objectId": "item123",
                 },
                 "headers": {"x-if-modified-since": "1234567890.12"},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -838,7 +838,7 @@ class TestReadBSORouteConditionalGET:
                     "objectId": "item123",
                 },
                 "headers": {"x-if-modified-since": "invalid"},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -861,7 +861,7 @@ class TestReadBSORouteConditionalGET:
                     "objectId": "item123",
                 },
                 "headers": {"x-if-modified-since": "-123.45"},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -887,7 +887,7 @@ class TestReadBSORouteConditionalGET:
                     "x-if-modified-since": "1234567890.12",
                     "x-if-unmodified-since": "1234567890.12",
                 },
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -1039,7 +1039,7 @@ class TestUpdateBSORouteValidation:
                 },
                 "body": json.dumps({"id": "item123", "payload": large_payload}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -1065,7 +1065,7 @@ class TestUpdateBSORouteValidation:
                 },
                 "body": json.dumps({"id": long_id, "payload": "data"}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -1091,7 +1091,7 @@ class TestUpdateBSORouteValidation:
                 },
                 "body": json.dumps({"id": invalid_id, "payload": "data"}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -1115,7 +1115,7 @@ class TestUpdateBSORouteValidation:
                 },
                 "body": json.dumps({"id": "item123", "payload": "data", "sortindex": "not_an_int"}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -1139,7 +1139,7 @@ class TestUpdateBSORouteValidation:
                 },
                 "body": json.dumps({"id": "item123", "payload": "data", "sortindex": 1000000000}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -1163,7 +1163,7 @@ class TestUpdateBSORouteValidation:
                 },
                 "body": json.dumps({"id": "item123", "payload": "data", "ttl": "not_an_int"}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -1187,7 +1187,7 @@ class TestUpdateBSORouteValidation:
                 },
                 "body": json.dumps({"id": "item123", "payload": "data", "ttl": -100}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -1211,7 +1211,7 @@ class TestUpdateBSORouteValidation:
                 },
                 "body": json.dumps({"id": "item123", "payload": "data", "ttl": 1000000000}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 
@@ -1235,7 +1235,7 @@ class TestUpdateBSORouteValidation:
                 },
                 "body": json.dumps({"sortindex": 50}),
                 "headers": {},
-                "requestContext": {"authorizer": {"user_id": "test-user-123"}},
+                "requestContext": {"hawk_uid": "test-user-123"},
             }
         )
 

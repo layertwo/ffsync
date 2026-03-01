@@ -23,7 +23,7 @@ class ReadCollectionRoute(BaseRoute):
         """Get collection metadata or retrieve objects with filtering"""
         try:
             # Extract user_id from authorizer context
-            user_id = event.get("requestContext", {}).get("authorizer", {}).get("user_id")
+            user_id = event.get("requestContext", {}).get("hawk_uid")
             if not user_id:
                 return Response(
                     status_code=401,

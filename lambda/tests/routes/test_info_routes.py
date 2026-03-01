@@ -18,10 +18,10 @@ TEST_USER_ID = "test-user-123"
 
 
 def with_auth(event_dict: dict) -> dict:
-    """Add authorizer context to event dict"""
+    """Add hawk_uid to event requestContext"""
     if "requestContext" not in event_dict:
         event_dict["requestContext"] = {}
-    event_dict["requestContext"]["authorizer"] = {"user_id": TEST_USER_ID}
+    event_dict["requestContext"]["hawk_uid"] = TEST_USER_ID
     return event_dict
 
 
@@ -448,7 +448,7 @@ class TestReadQuotaInfoRoute:
         """Test handling when user_id is missing from authorizer context"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {"requestContext": {"authorizer": {}}}
+        event: dict[str, Any] = {"requestContext": {}}
 
         response = route.handle(event)
 
@@ -465,7 +465,7 @@ class TestReadCollectionsInfoRouteUnauthorized:
         """Test handling when user_id is missing from authorizer context"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {"requestContext": {"authorizer": {}}}
+        event: dict[str, Any] = {"requestContext": {}}
 
         response = route.handle(event)
 
@@ -482,7 +482,7 @@ class TestReadCollectionCountsRouteUnauthorized:
         """Test handling when user_id is missing from authorizer context"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {"requestContext": {"authorizer": {}}}
+        event: dict[str, Any] = {"requestContext": {}}
 
         response = route.handle(event)
 
@@ -499,7 +499,7 @@ class TestReadCollectionUsageRouteUnauthorized:
         """Test handling when user_id is missing from authorizer context"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
-        event: dict[str, Any] = {"requestContext": {"authorizer": {}}}
+        event: dict[str, Any] = {"requestContext": {}}
 
         response = route.handle(event)
 

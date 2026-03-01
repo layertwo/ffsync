@@ -6,8 +6,10 @@ from aws_lambda_powertools.event_handler import Response
 
 from src.services.api_router import (
     ApiRouter,
+    HawkAuthenticationError,
+    HawkAuthMiddleware,
     RequestLoggingMiddleware,
-    UidValidationMiddleware,
+    UidMismatchError,
     WeaveTimestampMiddleware,
 )
 from src.services.token_generator import TokenGenerator
@@ -54,7 +56,7 @@ def test_api_router_handler_calls_resolver():
 
 def test_api_router_handler_with_different_responses():
     """Test middleware adds X-Weave-Timestamp to various responses"""
-    with patch("src.services.api_router.get_weave_timestamp") as mock_timestamp:
+    with patch("src.middlewares.weave_timestamp.get_weave_timestamp") as mock_timestamp:
         mock_timestamp.return_value = "1702345678.12"
 
         middleware = WeaveTimestampMiddleware()
@@ -123,7 +125,7 @@ def test_api_router_handler_passes_context():
 
 def test_api_router_adds_x_weave_timestamp_to_all_responses():
     """Test that X-Weave-Timestamp header is added to all responses (Requirements 9.1-9.4)"""
-    with patch("src.services.api_router.get_weave_timestamp") as mock_timestamp:
+    with patch("src.middlewares.weave_timestamp.get_weave_timestamp") as mock_timestamp:
         mock_timestamp.return_value = "1702345678.12"
 
         middleware = WeaveTimestampMiddleware()
@@ -140,7 +142,7 @@ def test_api_router_adds_x_weave_timestamp_to_all_responses():
 
 def test_weave_timestamp_middleware_preserves_existing_headers():
     """Test that middleware preserves existing response headers"""
-    with patch("src.services.api_router.get_weave_timestamp") as mock_timestamp:
+    with patch("src.middlewares.weave_timestamp.get_weave_timestamp") as mock_timestamp:
         mock_timestamp.return_value = "1702345678.12"
 
         middleware = WeaveTimestampMiddleware()
@@ -182,7 +184,7 @@ def test_api_router_registers_middleware():
 
 def test_weave_timestamp_middleware_calls_next():
     """Test that middleware calls the next handler in the chain"""
-    with patch("src.services.api_router.get_weave_timestamp") as mock_timestamp:
+    with patch("src.middlewares.weave_timestamp.get_weave_timestamp") as mock_timestamp:
         mock_timestamp.return_value = "1702345678.12"
 
         middleware = WeaveTimestampMiddleware()
@@ -198,13 +200,13 @@ def test_weave_timestamp_middleware_calls_next():
 
 def test_request_logging_middleware_logs_request_and_response():
     """Test that RequestLoggingMiddleware logs request and response information (Requirements 14.1-14.4)"""
-    with patch("src.services.api_router.logger") as mock_logger:
+    with patch("src.middlewares.request_logging.logger") as mock_logger:
         middleware = RequestLoggingMiddleware()
         mock_app = MagicMock()
         mock_app.current_event = {
             "httpMethod": "GET",
             "path": "/1.5/12345/storage/bookmarks",
-            "requestContext": {"authorizer": {"user_id": "user123"}},
+            "requestContext": {"hawk_uid": "user123"},
         }
         mock_response = Response(status_code=200, body='{"test": "data"}')
         mock_next = MagicMock(return_value=mock_response)
@@ -233,8 +235,8 @@ def test_request_logging_middleware_logs_request_and_response():
 
 
 def test_request_logging_middleware_logs_anonymous_user():
-    """Test that RequestLoggingMiddleware logs 'anonymous' when user_id is not present"""
-    with patch("src.services.api_router.logger") as mock_logger:
+    """Test that RequestLoggingMiddleware logs 'anonymous' when hawk_uid is not present"""
+    with patch("src.middlewares.request_logging.logger") as mock_logger:
         middleware = RequestLoggingMiddleware()
         mock_app = MagicMock()
         mock_app.current_event = {
@@ -254,13 +256,13 @@ def test_request_logging_middleware_logs_anonymous_user():
 
 def test_request_logging_middleware_logs_errors():
     """Test that RequestLoggingMiddleware logs errors with stack trace (Requirements 14.2)"""
-    with patch("src.services.api_router.logger") as mock_logger:
+    with patch("src.middlewares.request_logging.logger") as mock_logger:
         middleware = RequestLoggingMiddleware()
         mock_app = MagicMock()
         mock_app.current_event = {
             "httpMethod": "POST",
             "path": "/1.5/12345/storage/bookmarks",
-            "requestContext": {"authorizer": {"user_id": "user123"}},
+            "requestContext": {"hawk_uid": "user123"},
         }
         test_exception = ValueError("Test error")
         mock_next = MagicMock(side_effect=test_exception)
@@ -290,7 +292,7 @@ def test_request_logging_middleware_logs_errors():
 
 def test_request_logging_middleware_never_logs_payloads():
     """Test that RequestLoggingMiddleware never logs BSO payloads (Requirements 14.4)"""
-    with patch("src.services.api_router.logger") as mock_logger:
+    with patch("src.middlewares.request_logging.logger") as mock_logger:
         middleware = RequestLoggingMiddleware()
         mock_app = MagicMock()
         # Event with body containing sensitive data
@@ -298,7 +300,7 @@ def test_request_logging_middleware_never_logs_payloads():
             "httpMethod": "PUT",
             "path": "/1.5/12345/storage/bookmarks/abc123",
             "body": '{"payload": "sensitive encrypted data", "sortindex": 100}',
-            "requestContext": {"authorizer": {"user_id": "user123"}},
+            "requestContext": {"hawk_uid": "user123"},
         }
         mock_response = Response(status_code=200, body='{"modified": 1702345678.12}')
         mock_next = MagicMock(return_value=mock_response)
@@ -312,24 +314,43 @@ def test_request_logging_middleware_never_logs_payloads():
             assert "body" not in str(call[1].get("extra", {}))
 
 
-class TestUidValidationMiddleware:
-    """Tests for UidValidationMiddleware"""
+class TestHawkAuthMiddlewareUidValidation:
+    """Tests for HawkAuthMiddleware UID validation (replaces UidValidationMiddleware)"""
 
     def test_matching_uid_passes_through(self):
         """Test that a matching uid allows the request to proceed"""
-        middleware = UidValidationMiddleware()
-        mock_app = MagicMock()
-
+        hawk_service = MagicMock()
         user_id = "test-user-123"
         generation = 0
         expected_uid = str(TokenGenerator.generate_uid(user_id, generation))
 
-        mock_app.current_event = {
-            "requestContext": {
-                "authorizer": {"user_id": user_id, "generation": str(generation)},
-            },
+        from src.services.hawk_service import HawkCredentials
+
+        creds = HawkCredentials(
+            user_id=user_id,
+            generation=generation,
+            expiry=9999999999,
+            hawk_id="hawkid123",
+        )
+        hawk_service.validate.return_value = creds
+        middleware = HawkAuthMiddleware(hawk_service=hawk_service)
+
+        mock_app = MagicMock()
+        event = MagicMock()
+        event.headers = {"Authorization": 'Hawk id="hawkid123"'}
+        event.http_method = "GET"
+        event.path = f"/1.5/{expected_uid}/storage/bookmarks"
+        event.query_string_parameters = None
+        event.request_context.domain_name = "storage.example.com"
+        raw_event: dict = {
+            "requestContext": {},
             "pathParameters": {"uid": expected_uid},
         }
+        event.__getitem__ = lambda self, key: raw_event[key]
+        event.__setitem__ = lambda self, key, val: raw_event.__setitem__(key, val)
+        event.get = lambda key, default=None: raw_event.get(key, default)
+        mock_app.current_event = event
+
         mock_response = Response(status_code=200, body='{"ok": true}')
         mock_next = MagicMock(return_value=mock_response)
 
@@ -338,78 +359,80 @@ class TestUidValidationMiddleware:
         mock_next.assert_called_once_with(mock_app)
         assert result.status_code == 200
 
-    def test_mismatched_uid_returns_403(self):
-        """Test that a mismatched uid returns 403"""
-        middleware = UidValidationMiddleware()
-        mock_app = MagicMock()
-
+    def test_mismatched_uid_raises_uid_mismatch_error(self):
+        """Test that a mismatched uid raises UidMismatchError"""
+        hawk_service = MagicMock()
         user_id = "test-user-123"
         generation = 0
 
-        mock_app.current_event = {
-            "requestContext": {
-                "authorizer": {"user_id": user_id, "generation": str(generation)},
-            },
+        from src.services.hawk_service import HawkCredentials
+
+        creds = HawkCredentials(
+            user_id=user_id,
+            generation=generation,
+            expiry=9999999999,
+            hawk_id="hawkid123",
+        )
+        hawk_service.validate.return_value = creds
+        middleware = HawkAuthMiddleware(hawk_service=hawk_service)
+
+        mock_app = MagicMock()
+        event = MagicMock()
+        event.headers = {"Authorization": 'Hawk id="hawkid123"'}
+        event.http_method = "GET"
+        event.path = "/1.5/wrong-uid/storage/bookmarks"
+        event.query_string_parameters = None
+        event.request_context.domain_name = "storage.example.com"
+        raw_event: dict = {
+            "requestContext": {},
             "pathParameters": {"uid": "wrong-uid"},
         }
+        event.__getitem__ = lambda self, key: raw_event[key]
+        event.__setitem__ = lambda self, key, val: raw_event.__setitem__(key, val)
+        event.get = lambda key, default=None: raw_event.get(key, default)
+        mock_app.current_event = event
+
         mock_next = MagicMock()
 
-        result = middleware.handler(mock_app, mock_next)
+        import pytest
+
+        with pytest.raises(UidMismatchError):
+            middleware.handler(mock_app, mock_next)
 
         mock_next.assert_not_called()
-        assert result.status_code == 403
-        assert result.body is not None
-        assert "uid mismatch" in result.body
-
-    def test_missing_generation_skips_validation(self):
-        """Test that missing generation in authorizer skips validation"""
-        middleware = UidValidationMiddleware()
-        mock_app = MagicMock()
-
-        mock_app.current_event = {
-            "requestContext": {
-                "authorizer": {"user_id": "test-user-123"},
-            },
-            "pathParameters": {"uid": "any-uid"},
-        }
-        mock_response = Response(status_code=200, body='{"ok": true}')
-        mock_next = MagicMock(return_value=mock_response)
-
-        result = middleware.handler(mock_app, mock_next)
-
-        mock_next.assert_called_once_with(mock_app)
-        assert result.status_code == 200
 
     def test_missing_uid_skips_validation(self):
-        """Test that missing uid path parameter skips validation"""
-        middleware = UidValidationMiddleware()
-        mock_app = MagicMock()
+        """Test that missing uid path parameter skips UID validation"""
+        hawk_service = MagicMock()
+        user_id = "test-user-123"
 
-        mock_app.current_event = {
-            "requestContext": {
-                "authorizer": {"user_id": "test-user-123", "generation": "0"},
-            },
+        from src.services.hawk_service import HawkCredentials
+
+        creds = HawkCredentials(
+            user_id=user_id,
+            generation=0,
+            expiry=9999999999,
+            hawk_id="hawkid123",
+        )
+        hawk_service.validate.return_value = creds
+        middleware = HawkAuthMiddleware(hawk_service=hawk_service)
+
+        mock_app = MagicMock()
+        event = MagicMock()
+        event.headers = {"Authorization": 'Hawk id="hawkid123"'}
+        event.http_method = "GET"
+        event.path = "/test"
+        event.query_string_parameters = None
+        event.request_context.domain_name = "storage.example.com"
+        raw_event: dict = {
+            "requestContext": {},
             "pathParameters": {},
         }
-        mock_response = Response(status_code=200, body='{"ok": true}')
-        mock_next = MagicMock(return_value=mock_response)
+        event.__getitem__ = lambda self, key: raw_event[key]
+        event.__setitem__ = lambda self, key, val: raw_event.__setitem__(key, val)
+        event.get = lambda key, default=None: raw_event.get(key, default)
+        mock_app.current_event = event
 
-        result = middleware.handler(mock_app, mock_next)
-
-        mock_next.assert_called_once_with(mock_app)
-        assert result.status_code == 200
-
-    def test_missing_user_id_skips_validation(self):
-        """Test that missing user_id in authorizer skips validation"""
-        middleware = UidValidationMiddleware()
-        mock_app = MagicMock()
-
-        mock_app.current_event = {
-            "requestContext": {
-                "authorizer": {"generation": "0"},
-            },
-            "pathParameters": {"uid": "some-uid"},
-        }
         mock_response = Response(status_code=200, body='{"ok": true}')
         mock_next = MagicMock(return_value=mock_response)
 
@@ -419,16 +442,37 @@ class TestUidValidationMiddleware:
         assert result.status_code == 200
 
     def test_null_path_parameters_skips_validation(self):
-        """Test that null pathParameters skips validation"""
-        middleware = UidValidationMiddleware()
-        mock_app = MagicMock()
+        """Test that null pathParameters skips UID validation"""
+        hawk_service = MagicMock()
+        user_id = "test-user-123"
 
-        mock_app.current_event = {
-            "requestContext": {
-                "authorizer": {"user_id": "test-user-123", "generation": "0"},
-            },
+        from src.services.hawk_service import HawkCredentials
+
+        creds = HawkCredentials(
+            user_id=user_id,
+            generation=0,
+            expiry=9999999999,
+            hawk_id="hawkid123",
+        )
+        hawk_service.validate.return_value = creds
+        middleware = HawkAuthMiddleware(hawk_service=hawk_service)
+
+        mock_app = MagicMock()
+        event = MagicMock()
+        event.headers = {"Authorization": 'Hawk id="hawkid123"'}
+        event.http_method = "GET"
+        event.path = "/test"
+        event.query_string_parameters = None
+        event.request_context.domain_name = "storage.example.com"
+        raw_event: dict = {
+            "requestContext": {},
             "pathParameters": None,
         }
+        event.__getitem__ = lambda self, key: raw_event[key]
+        event.__setitem__ = lambda self, key, val: raw_event.__setitem__(key, val)
+        event.get = lambda key, default=None: raw_event.get(key, default)
+        mock_app.current_event = event
+
         mock_response = Response(status_code=200, body='{"ok": true}')
         mock_next = MagicMock(return_value=mock_response)
 
@@ -439,29 +483,50 @@ class TestUidValidationMiddleware:
 
     def test_different_generation_produces_different_uid(self):
         """Test that different generation values produce different expected uids"""
-        middleware = UidValidationMiddleware()
-        mock_app = MagicMock()
-
+        hawk_service = MagicMock()
         user_id = "test-user-123"
         gen0_uid = str(TokenGenerator.generate_uid(user_id, 0))
         gen1_uid = str(TokenGenerator.generate_uid(user_id, 1))
 
-        # Request with gen0 uid but gen1 in authorizer should fail
-        mock_app.current_event = {
-            "requestContext": {
-                "authorizer": {"user_id": user_id, "generation": "1"},
-            },
+        from src.services.hawk_service import HawkCredentials
+
+        # Request with gen0 uid but gen1 in credentials should fail
+        creds = HawkCredentials(
+            user_id=user_id,
+            generation=1,
+            expiry=9999999999,
+            hawk_id="hawkid123",
+        )
+        hawk_service.validate.return_value = creds
+        middleware = HawkAuthMiddleware(hawk_service=hawk_service)
+
+        mock_app = MagicMock()
+        event = MagicMock()
+        event.headers = {"Authorization": 'Hawk id="hawkid123"'}
+        event.http_method = "GET"
+        event.path = f"/1.5/{gen0_uid}/storage/bookmarks"
+        event.query_string_parameters = None
+        event.request_context.domain_name = "storage.example.com"
+        raw_event: dict = {
+            "requestContext": {},
             "pathParameters": {"uid": gen0_uid},
         }
+        event.__getitem__ = lambda self, key: raw_event[key]
+        event.__setitem__ = lambda self, key, val: raw_event.__setitem__(key, val)
+        event.get = lambda key, default=None: raw_event.get(key, default)
+        mock_app.current_event = event
+
         mock_next = MagicMock()
 
-        result = middleware.handler(mock_app, mock_next)
+        import pytest
+
+        with pytest.raises(UidMismatchError):
+            middleware.handler(mock_app, mock_next)
 
         mock_next.assert_not_called()
-        assert result.status_code == 403
 
-        # But gen1 uid with gen1 in authorizer should pass
-        mock_app.current_event["pathParameters"]["uid"] = gen1_uid
+        # But gen1 uid with gen1 in credentials should pass
+        raw_event["pathParameters"]["uid"] = gen1_uid
         mock_response = Response(status_code=200, body='{"ok": true}')
         mock_next_pass = MagicMock(return_value=mock_response)
 
@@ -469,3 +534,30 @@ class TestUidValidationMiddleware:
 
         mock_next_pass.assert_called_once_with(mock_app)
         assert result.status_code == 200
+
+
+def test_api_router_registers_exception_handlers():
+    """Test that ApiRouter registers exception handlers"""
+    with patch("src.services.api_router.APIGatewayRestResolver") as mock_resolver_class:
+        mock_resolver_instance = MagicMock()
+        mock_resolver_class.return_value = mock_resolver_instance
+
+        def handle_hawk_auth(ex):
+            return Response(status_code=401, body='{"error": "Unauthorized"}')
+
+        def handle_uid_mismatch(ex):
+            return Response(status_code=403, body='{"error": "uid mismatch"}')
+
+        exception_handlers = {
+            HawkAuthenticationError: handle_hawk_auth,
+            UidMismatchError: handle_uid_mismatch,
+        }
+
+        ApiRouter(
+            routes=[],
+            middlewares=[],
+            exception_handlers=exception_handlers,
+        )
+
+        # Verify exception_handler was called for each handler
+        assert mock_resolver_instance.exception_handler.call_count == 2

@@ -1,6 +1,9 @@
 """Tests for lambda entrypoint"""
 
+from unittest.mock import patch
+
 from src.entrypoint import storage_api_handler
+from src.services.hawk_service import HawkCredentials
 from src.services.token_generator import TokenGenerator
 
 TEST_USER_ID = "test-user-123"
@@ -13,10 +16,17 @@ def test_storage_api_happ_path(mock_service_provider, dynamodb_stubber, sample_l
     Integration test: storage_api with MockServiceProvider and stubbed DynamoDB.
 
     This demonstrates the full request flow with botocore.Stubber:
-    Lambda Handler → MockServiceProvider → StorageManager → [Stubbed DynamoDB Client]
+    Lambda Handler -> MockServiceProvider -> StorageManager -> [Stubbed DynamoDB Client]
     """
+    # Mock hawk_service.validate to bypass Hawk auth
+    creds = HawkCredentials(
+        user_id=TEST_USER_ID,
+        generation=TEST_GENERATION,
+        expiry=9999999999,
+        hawk_id="test-hawk-id",
+    )
+
     # Example: Stub a DynamoDB get_item response
-    # When StorageManager.get_storage_object() is implemented, it would call get_item
     dynamodb_stubber.add_response(
         "get_item",
         {
@@ -39,22 +49,22 @@ def test_storage_api_happ_path(mock_service_provider, dynamodb_stubber, sample_l
         "httpMethod": "GET",
         "path": f"/1.5/{TEST_UID}/storage/bookmarks/item123",
         "pathParameters": {"uid": TEST_UID, "collectionName": "bookmarks", "objectId": "item123"},
-        "headers": {},
+        "headers": {"Authorization": 'Hawk id="test", mac="test"'},
         "body": None,
         "queryStringParameters": None,
         "requestContext": {
             "requestId": "test-request-id",
             "accountId": "123456789012",
-            "authorizer": {"user_id": TEST_USER_ID, "generation": str(TEST_GENERATION)},
+            "domainName": "storage.example.com",
         },
     }
 
-    # Use dependency injection - no patching needed!
-    result = storage_api_handler(
-        event, sample_lambda_context, service_provider=mock_service_provider
-    )
+    with patch.object(mock_service_provider.hawk_service, "validate", return_value=creds):
+        # Use dependency injection - no patching needed!
+        result = storage_api_handler(
+            event, sample_lambda_context, service_provider=mock_service_provider
+        )
 
     # The result will depend on StorageManager implementation
-    # For now, with NotImplementedError, this demonstrates the pattern
     assert isinstance(result, dict)
     assert "statusCode" in result

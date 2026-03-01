@@ -149,7 +149,7 @@ class TestExtractHawkRequestParams:
         assert method == "POST"
         assert path == "/v1/oauth/token"
         assert host == "auth.prod.ffsync.layertwo.dev"
-        assert port == "443"
+        assert port == 443
 
     def test_appends_query_string_to_path(self):
         event = APIGatewayProxyEvent(

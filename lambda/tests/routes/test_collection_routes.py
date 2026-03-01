@@ -23,12 +23,12 @@ from src.shared.exceptions import (
 from src.shared.models import BasicStorageObject, BatchResult, CollectionData
 
 TEST_USER_ID = "test-user-123"
-AUTH_CONTEXT = {"requestContext": {"authorizer": {"user_id": TEST_USER_ID}}}
+AUTH_CONTEXT = {"requestContext": {"hawk_uid": TEST_USER_ID}}
 
 
 def with_auth(event_dict: dict) -> dict:
-    """Add authorizer context to event dict"""
-    event_dict["requestContext"] = {"authorizer": {"user_id": TEST_USER_ID}}
+    """Add hawk_uid to event requestContext"""
+    event_dict["requestContext"] = {"hawk_uid": TEST_USER_ID}
     return event_dict
 
 
@@ -1423,7 +1423,7 @@ class TestCreateCollectionRouteUnauthorized:
                 "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                 "body": json.dumps({"objects": []}),
                 "headers": {},
-                "requestContext": {"authorizer": {}},
+                "requestContext": {},
             }
         )
 
@@ -1445,7 +1445,7 @@ class TestDeleteCollectionRouteUnauthorized:
         event = APIGatewayProxyEvent(
             {
                 "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
-                "requestContext": {"authorizer": {}},
+                "requestContext": {},
             }
         )
 
@@ -1466,7 +1466,7 @@ class TestListCollectionsRouteUnauthorized:
 
         event = APIGatewayProxyEvent(
             {
-                "requestContext": {"authorizer": {}},
+                "requestContext": {},
             }
         )
 
@@ -1488,7 +1488,7 @@ class TestReadCollectionRouteUnauthorized:
         event = APIGatewayProxyEvent(
             {
                 "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
-                "requestContext": {"authorizer": {}},
+                "requestContext": {},
             }
         )
 
@@ -1512,7 +1512,7 @@ class TestUpdateCollectionRouteUnauthorized:
                 "pathParameters": {"uid": "12345", "collectionName": "bookmarks"},
                 "body": json.dumps({"objects": []}),
                 "headers": {},
-                "requestContext": {"authorizer": {}},
+                "requestContext": {},
             }
         )
 

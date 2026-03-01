@@ -197,7 +197,6 @@ class OAuthTokenRoute(BaseRoute):
             return self._error(401, 110, "Missing or invalid authorization")
 
         method, path, host, port = extract_hawk_request_params(event)
-
         uid = self._token_manager.verify_session_hawk(auth_header, method, path, host, port)
         if uid is None:
             return self._error(401, 110, "Invalid or expired session token")

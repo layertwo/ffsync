@@ -129,12 +129,10 @@ def test_user_id():
 
 
 def make_event_with_auth(event_dict: dict, user_id: str = "test-user-123") -> dict:
-    """Helper to add authorizer context to an event dict"""
+    """Helper to add hawk_uid to an event dict"""
     if "requestContext" not in event_dict:
         event_dict["requestContext"] = {}
-    if "authorizer" not in event_dict["requestContext"]:
-        event_dict["requestContext"]["authorizer"] = {}
-    event_dict["requestContext"]["authorizer"]["user_id"] = user_id
+    event_dict["requestContext"]["hawk_uid"] = user_id
     return event_dict
 
 
@@ -156,7 +154,7 @@ def sample_lambda_event(test_user_id):
         "requestContext": {
             "requestId": "test-request-id",
             "accountId": "123456789012",
-            "authorizer": {"user_id": test_user_id, "generation": "0"},
+            "hawk_uid": test_user_id,
         },
     }
 
