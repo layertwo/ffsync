@@ -22,7 +22,7 @@ env:
 
 jobs:
   diff:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       id-token: write
@@ -54,10 +54,6 @@ jobs:
 
       - name: Build TypeScript
         run: npm run build
-
-      - uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
