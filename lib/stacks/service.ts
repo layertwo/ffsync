@@ -316,7 +316,7 @@ export class ServiceStack extends Stack {
 
     private buildTokenApiHandler(): PythonFunction {
         const fn = new PythonFunction(this, "TokenApiHandler", {
-            entry: path.join(__dirname, "../../lambda"),
+            rootDir: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
             runtime: Runtime.PYTHON_3_14,
             architecture: Architecture.ARM_64,
@@ -350,7 +350,7 @@ export class ServiceStack extends Stack {
 
     private buildProfileApiHandler(): PythonFunction {
         const fn = new PythonFunction(this, "ProfileApiHandler", {
-            entry: path.join(__dirname, "../../lambda"),
+            rootDir: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
             runtime: Runtime.PYTHON_3_14,
             architecture: Architecture.ARM_64,
@@ -363,6 +363,9 @@ export class ServiceStack extends Stack {
                 BASE_DOMAIN: this.stageBaseDomain,
                 AUTH_TABLE_NAME: this.authTable.tableName,
                 AUTH_SIGNING_KEY_ID: this.signingKey.keyId,
+            },
+            bundling: {
+                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/"],
             },
         });
 
