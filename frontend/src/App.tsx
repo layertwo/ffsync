@@ -1,52 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Routes, Route, useSearchParams } from "react-router"
-import type { AppConfig, AppState, OIDCConfiguration } from "@/lib/types"
+import { useSearchParams } from "react-router"
+import type { AppConfig } from "@/lib/types"
 import { checkBrowserCompatibility } from "@/lib/browser-check"
 import { loadConfig } from "@/lib/config"
-import { discoverOIDC } from "@/lib/oidc"
-import {
-  detectCallback,
-  initiateOAuthFlow,
-  validateCallback,
-} from "@/lib/oauth"
-import { exchangeOIDCCode } from "@/lib/auth-client"
-import {
-  getTokenServerBaseUrl,
-  validateWithTokenServer,
-} from "@/lib/token-server"
+import { checkSessionStatus } from "@/lib/auth-client"
 import * as session from "@/lib/session"
-import { LandingPage } from "@/components/LandingPage"
 import { LoadingPage } from "@/components/LoadingPage"
-import { SuccessPage } from "@/components/SuccessPage"
 import { ErrorPage } from "@/components/ErrorPage"
 import { BrowserWarning } from "@/components/BrowserWarning"
 import { SignInPage } from "@/components/SignInPage"
+import { DashboardPage } from "@/components/DashboardPage"
 
-function ManualSetupFlow() {
-  const [appState, setAppState] = useState<AppState>({ kind: "initializing" })
+type MainState =
+  | { kind: "initializing" }
+  | { kind: "sign-in" }
+  | { kind: "dashboard"; email: string }
+  | { kind: "error"; message: string }
+
+function MainFlow() {
+  const [searchParams] = useSearchParams()
+  const [state, setState] = useState<MainState>({ kind: "initializing" })
   const [config, setConfig] = useState<AppConfig | null>(null)
-  const [oidc, setOidc] = useState<OIDCConfiguration | null>(null)
   const initialized = useRef(false)
 
   const compatibility = checkBrowserCompatibility()
-
-  const showError = useCallback(
-    (title: string, message: string, details?: string) => {
-      if (import.meta.env.DEV) {
-        console.error(`[ffsync] ${title}: ${message}`, details ?? "")
-      } else {
-        console.error(`[ffsync] ${title}`)
-      }
-      setAppState({ kind: "error", title, message, details })
-    },
-    []
-  )
-
-  const handleRestart = useCallback(() => {
-    session.clearAll()
-    window.history.replaceState({}, "", window.location.pathname)
-    setAppState({ kind: "landing" })
-  }, [])
 
   useEffect(() => {
     if (initialized.current) return
@@ -56,83 +33,37 @@ function ManualSetupFlow() {
       if (!compatibility.allSupported) return
 
       try {
-        setAppState({ kind: "initializing" })
-
         const cfg = await loadConfig()
         setConfig(cfg)
 
-        setAppState({
-          kind: "processing",
-          message: "Discovering OIDC endpoints...",
-        })
-        const oidcConfig = await discoverOIDC(cfg.authServerUrl!)
-        setOidc(oidcConfig)
-
-        const callbackParams = detectCallback()
-        if (callbackParams) {
-          await handleCallback(cfg, oidcConfig, callbackParams)
-        } else {
-          setAppState({ kind: "landing" })
-        }
-      } catch (err) {
-        showError(
-          "Initialization Failed",
-          err instanceof Error ? err.message : String(err),
-          "Check that config.json exists and is properly configured, and that the OIDC provider is reachable."
-        )
-      }
-    }
-
-    async function handleCallback(
-      cfg: AppConfig,
-      _oidcConfig: OIDCConfiguration,
-      params: URLSearchParams
-    ) {
-      try {
-        window.history.replaceState({}, "", window.location.pathname)
-
-        setAppState({
-          kind: "processing",
-          message: "Validating authorization response...",
-        })
-        const code = validateCallback(params)
-
-        const codeVerifier = session.getCodeVerifier()
-        if (!codeVerifier) {
-          throw new Error("Missing code verifier. The session may have expired. Please try again.")
+        // If Firefox is driving (WebChannel params present), go straight to sign-in
+        const hasFxAParams = searchParams.has("action") ||
+          searchParams.has("code_challenge") ||
+          searchParams.has("service")
+        if (hasFxAParams) {
+          setState({ kind: "sign-in" })
+          return
         }
 
-        setAppState({
-          kind: "processing",
-          message: "Exchanging authorization code...",
-        })
-        const result = await exchangeOIDCCode(
-          cfg.authServerUrl!,
-          code,
-          codeVerifier,
-          cfg.redirectUri
-        )
-        session.removeCodeVerifier()
+        // Check for existing session in localStorage
+        const auth = session.getAuth()
+        if (auth && cfg.authServerUrl) {
+          try {
+            await checkSessionStatus(cfg.authServerUrl, auth.sessionToken)
+            setState({ kind: "dashboard", email: auth.email })
+            return
+          } catch {
+            // Session invalid or expired — clear and fall through to sign-in
+            session.clearAuth()
+          }
+        }
 
-        setAppState({
-          kind: "processing",
-          message: "Validating with Token Server...",
-        })
-        const baseUrl = getTokenServerBaseUrl(
-          cfg.tokenServerUrl,
-          cfg.authServerUrl
-        )
-        await validateWithTokenServer(baseUrl, result.access_token)
-
-        const tokenServerUri = `${baseUrl}/1.0/sync/1.5`
-        session.clearAll()
-        setAppState({ kind: "success", tokenServerUri })
+        setState({ kind: "sign-in" })
       } catch (err) {
-        showError(
-          "Authentication Failed",
-          err instanceof Error ? err.message : String(err),
-          "You can try authenticating again. If the problem persists, check your OIDC provider and Token Server configuration."
-        )
+        setState({
+          kind: "error",
+          message: err instanceof Error ? err.message : String(err),
+        })
       }
     }
 
@@ -140,83 +71,54 @@ function ManualSetupFlow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function handleAuthenticate() {
-    if (!config || !oidc) return
-    initiateOAuthFlow(config, oidc)
-  }
+  const handleLoginComplete = useCallback(
+    (email: string) => {
+      setState({ kind: "dashboard", email })
+    },
+    []
+  )
+
+  const handleSignOut = useCallback(() => {
+    session.clearAuth()
+    setState({ kind: "sign-in" })
+  }, [])
 
   if (!compatibility.allSupported) {
     return <BrowserWarning compatibility={compatibility} />
   }
 
-  return (
-    <>
-      {appState.kind === "initializing" && (
-        <LoadingPage message="Loading configuration..." />
-      )}
-      {appState.kind === "landing" && (
-        <LandingPage onAuthenticate={handleAuthenticate} />
-      )}
-      {appState.kind === "processing" && (
-        <LoadingPage message={appState.message} />
-      )}
-      {appState.kind === "success" && (
-        <SuccessPage
-          tokenServerUri={appState.tokenServerUri}
-          onRestart={handleRestart}
-        />
-      )}
-      {appState.kind === "error" && (
-        <ErrorPage
-          title={appState.title}
-          message={appState.message}
-          details={appState.details}
-          onRestart={handleRestart}
-        />
-      )}
-    </>
-  )
-}
+  if (state.kind === "initializing" || !config) {
+    return <LoadingPage message="Loading..." />
+  }
 
-function FxAFlow() {
-  const [searchParams] = useSearchParams()
-  const [config, setConfig] = useState<AppConfig | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const initialized = useRef(false)
-
-  useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-    loadConfig().then(setConfig).catch((err) => setError(String(err)))
-  }, [])
-
-  if (error) {
+  if (state.kind === "error") {
     return (
       <ErrorPage
         title="Configuration Error"
-        message={error}
+        message={state.message}
         onRestart={() => window.location.reload()}
       />
     )
   }
 
-  if (!config) {
-    return <LoadingPage message="Loading configuration..." />
+  if (state.kind === "dashboard") {
+    // Derive autoconfig URI from redirectUri (the frontend domain)
+    const autoconfigUri = config.redirectUri.replace(/\/+$/, "")
+    return (
+      <DashboardPage
+        email={state.email}
+        autoconfigUri={autoconfigUri}
+        onSignOut={handleSignOut}
+      />
+    )
   }
 
-  // After OIDC redirect, original Firefox params are lost from the URL.
-  // Restore from session storage (stored before OIDC redirect in SignInPage).
-  // All FxA params (state, code_challenge, keys_jwk, etc.) must be restored
-  // so Firefox can match the OAuth flow it started in beginOAuthFlow().
+  // state.kind === "sign-in"
+  // Restore FxA params from session storage (survives OIDC redirect)
   const storedFxAParams = session.getFxAParams()
   const fxaParams = storedFxAParams
     ? new URLSearchParams(storedFxAParams)
     : searchParams
-  console.log("[ffsync] FxA params source:", storedFxAParams ? "session" : "url", {
-    hasState: !!fxaParams.get("state"),
-    hasCodeChallenge: !!fxaParams.get("code_challenge"),
-    hasKeysJwk: !!fxaParams.get("keys_jwk"),
-  })
 
   return (
     <SignInPage
@@ -231,6 +133,7 @@ function FxAFlow() {
         "https://identity.mozilla.com/apps/oldsync profile"
       }
       keysJwk={fxaParams.get("keys_jwk") ?? undefined}
+      onLoginComplete={handleLoginComplete}
     />
   )
 }
@@ -238,10 +141,7 @@ function FxAFlow() {
 export default function App() {
   return (
     <Layout>
-      <Routes>
-        <Route path="/manual" element={<ManualSetupFlow />} />
-        <Route path="*" element={<FxAFlow />} />
-      </Routes>
+      <MainFlow />
     </Layout>
   )
 }
