@@ -1,5 +1,6 @@
 """FxA Token Manager for session tokens and key-fetch tokens in DynamoDB"""
 
+import re
 import time
 from typing import Optional
 
@@ -11,6 +12,8 @@ from botocore.exceptions import ClientError
 from src.services import fxa_crypto
 
 logger = Logger(child=True)
+
+_HAWK_ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
 
 _PK = "PK"
 SESSION_TOKEN_INFO = "identity.mozilla.com/picl/v1/sessionToken"
@@ -144,6 +147,20 @@ class FxATokenManager:
             )
             return True
         except mohawk.exc.HawkFail as e:
+            # Parse header and compute normalized string for diagnostics
+            attrs = dict(_HAWK_ATTR_RE.findall(authorization_header or ""))
+            normalized = ""
+            if attrs.get("ts") and attrs.get("nonce"):
+                from urllib.parse import urlparse
+
+                parsed = urlparse(uri)
+                res_port = str(parsed.port or (443 if parsed.scheme == "https" else 80))
+                resource = parsed.path + ("?" + parsed.query if parsed.query else "")
+                normalized = (
+                    f"hawk.1.header\n{attrs['ts']}\n{attrs['nonce']}\n"
+                    f"{method}\n{resource}\n{parsed.hostname}\n{res_port}\n"
+                    f"{attrs.get('hash', '')}\n{attrs.get('ext', '')}\n"
+                )
             logger.warning(
                 "Hawk verification failed",
                 extra={
@@ -154,9 +171,8 @@ class FxATokenManager:
                     "host": host,
                     "port": port,
                     "path": path,
-                    "auth_header_prefix": (
-                        authorization_header[:120] if authorization_header else ""
-                    ),
+                    "auth_header": authorization_header or "",
+                    "normalized_string": repr(normalized),
                 },
             )
             return False
