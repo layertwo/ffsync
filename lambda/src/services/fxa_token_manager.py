@@ -154,6 +154,9 @@ class FxATokenManager:
                     "host": host,
                     "port": port,
                     "path": path,
+                    "auth_header_prefix": (
+                        authorization_header[:120] if authorization_header else ""
+                    ),
                 },
             )
             return False
@@ -170,6 +173,13 @@ class FxATokenManager:
         uid_holder = {}
 
         def credentials_map(sender_id):
+            logger.info(
+                "Session Hawk credential lookup",
+                extra={
+                    "sender_id_prefix": sender_id[:16],
+                    "pk": f"{SESSION_PREFIX}#{sender_id[:16]}...",
+                },
+            )
             response = self.table.get_item(Key={_PK: f"{SESSION_PREFIX}#{sender_id}"})
             if "Item" not in response:
                 raise mohawk.exc.CredentialsLookupError("Session not found")
@@ -180,6 +190,10 @@ class FxATokenManager:
             if not key:
                 raise mohawk.exc.CredentialsLookupError("Missing HMAC key")
             uid_holder["uid"] = item["uid"]
+            logger.info(
+                "Session Hawk credentials found",
+                extra={"key_prefix": key[:16], "key_len": len(key), "uid": item["uid"]},
+            )
             return {"id": sender_id, "key": key, "algorithm": "sha256"}
 
         if not self._verify_hawk(authorization_header, method, path, host, port, credentials_map):
