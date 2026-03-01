@@ -1,0 +1,92 @@
+name: build
+
+on:
+  workflow_call:
+
+jobs:
+  smithy:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: corretto
+          java-version: 17
+          cache: gradle
+
+      - name: Build Smithy model
+        working-directory: smithy
+        run: ./gradlew smithyBuild
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: smithy-output
+          path: build/smithy
+          retention-days: 1
+
+  frontend:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm ci && npm run build
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 1
+
+  synth:
+    needs: [smithy, frontend]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: smithy-output
+          path: build/smithy
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: CDK synth
+        run: npx cdk synth --all --output build/cdk.out
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cdk-out
+          path: build/cdk.out
+          retention-days: 1
