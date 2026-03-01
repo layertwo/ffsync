@@ -1,4 +1,4 @@
-import {PythonFunction} from "@aws-cdk/aws-lambda-python-alpha";
+import {PythonFunction} from "uv-python-lambda";
 import {Construct} from "constructs";
 import {readFileSync} from "fs";
 import * as path from "path";
@@ -207,7 +207,7 @@ export class ServiceStack extends Stack {
 
     private buildHawkAuthorizerHandler(): PythonFunction {
         const fn = new PythonFunction(this, "HawkAuthorizerHandler", {
-            entry: path.join(__dirname, "../../lambda"),
+            rootDir: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
             runtime: Runtime.PYTHON_3_14,
             architecture: Architecture.ARM_64,
@@ -221,6 +221,9 @@ export class ServiceStack extends Stack {
                 HAWK_TIMESTAMP_SKEW_TOLERANCE: "60",
                 TOKEN_DURATION: "300",
             },
+            bundling: {
+                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/"],
+            },
         });
 
         // Grant read/write permissions to token cache table (read for credential
@@ -233,7 +236,7 @@ export class ServiceStack extends Stack {
 
     private buildStorageApiHandler(): PythonFunction {
         const fn = new PythonFunction(this, "ApiHandler", {
-            entry: path.join(__dirname, "../../lambda"),
+            rootDir: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
             runtime: Runtime.PYTHON_3_14,
             architecture: Architecture.ARM_64,
@@ -245,6 +248,9 @@ export class ServiceStack extends Stack {
                 STAGE: this.props.stageType.toLowerCase(),
                 BASE_DOMAIN: this.stageBaseDomain,
                 STORAGE_TABLE_NAME: this.storageTable.tableName,
+            },
+            bundling: {
+                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/"],
             },
         });
 
@@ -258,7 +264,7 @@ export class ServiceStack extends Stack {
 
     private buildAuthApiHandler(): PythonFunction {
         const fn = new PythonFunction(this, "AuthApiHandler", {
-            entry: path.join(__dirname, "../../lambda"),
+            rootDir: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
             runtime: Runtime.PYTHON_3_14,
             architecture: Architecture.ARM_64,
@@ -280,6 +286,9 @@ export class ServiceStack extends Stack {
                 HAWK_TIMESTAMP_SKEW_TOLERANCE: "60",
                 RETRY_AFTER_SECONDS: "30",
                 TOKEN_DURATION: "300",
+            },
+            bundling: {
+                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/"],
             },
         });
 
