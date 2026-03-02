@@ -56,8 +56,7 @@ class FxATokenManager:
             32-byte raw token
         """
         token = fxa_crypto.generate_random_bytes(32)
-        token_id = fxa_crypto.derive_token_id(token, SESSION_TOKEN_INFO)
-        req_hmac_key = fxa_crypto.derive_req_hmac_key(token, SESSION_TOKEN_INFO)
+        token_id, req_hmac_key, _ = fxa_crypto.derive_token_keys(token, SESSION_TOKEN_INFO)
         token_id_hex = token_id.hex()
 
         now = int(time.time())
@@ -251,8 +250,7 @@ class FxATokenManager:
             32-byte raw token
         """
         token = fxa_crypto.generate_random_bytes(32)
-        token_id = fxa_crypto.derive_token_id(token, KEY_FETCH_TOKEN_INFO)
-        req_hmac_key = fxa_crypto.derive_req_hmac_key(token, KEY_FETCH_TOKEN_INFO)
+        token_id, req_hmac_key, _ = fxa_crypto.derive_token_keys(token, KEY_FETCH_TOKEN_INFO)
         token_id_hex = token_id.hex()
 
         now = int(time.time())

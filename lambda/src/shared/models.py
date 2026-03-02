@@ -57,6 +57,9 @@ MIN_SORTINDEX = -(10**MAX_SORTINDEX_DIGITS - 1)  # -999999999
 MAX_TTL = 10**MAX_TTL_DIGITS - 1  # 999999999
 MAX_COLLECTION_NAME_LENGTH = 32
 MAX_BSO_ID_LENGTH = 64
+_ALLOWED_COLLECTION_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-."
+)
 
 
 def validate_payload_size(payload: str) -> None:
@@ -161,11 +164,8 @@ def validate_collection_name(collection_name: str) -> None:
             f"Collection name length {len(collection_name)} exceeds maximum {MAX_COLLECTION_NAME_LENGTH} characters"
         )
 
-    # urlsafe-base64 alphabet: a-z, A-Z, 0-9, underscore, hyphen, plus period
-    allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.")
-
     for char in collection_name:
-        if char not in allowed_chars:
+        if char not in _ALLOWED_COLLECTION_CHARS:
             raise ValidationError(
                 f"Collection name contains invalid character: {repr(char)}. "
                 f"Only alphanumeric, underscore, hyphen, and period are allowed."
