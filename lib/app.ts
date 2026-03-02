@@ -23,15 +23,7 @@ new GitHubOidcStack(app, "GitHubOidcStack", {
         stageType,
     });
 
-    new MonitoringStack(app, `Monitoring-${stageType.toLowerCase()}`, {
-        env,
-        stageType,
-        storageApi: serviceStack.storageApi,
-        storageHandler: serviceStack.storageHandler,
-        storageTable: serviceStack.storageTable,
-    });
-
-    new FrontendStack(app, `Frontend-${stageType.toLowerCase()}`, {
+    const frontendStack = new FrontendStack(app, `Frontend-${stageType.toLowerCase()}`, {
         env,
         stageType,
         authApiDomain: serviceStack.authApiDomain,
@@ -39,6 +31,25 @@ new GitHubOidcStack(app, "GitHubOidcStack", {
         profileApiDomain: serviceStack.profileApiDomain,
         oidcProviderUrl: serviceStack.oidcProviderUrlParam,
         clientId: serviceStack.clientIdParam,
+    });
+
+    new MonitoringStack(app, `Monitoring-${stageType.toLowerCase()}`, {
+        env,
+        stageType,
+        authApi: serviceStack.authApi,
+        authHandler: serviceStack.authHandler,
+        authTable: serviceStack.authTable,
+        tokenApi: serviceStack.tokenApi,
+        tokenHandler: serviceStack.tokenHandler,
+        tokenUsersTable: serviceStack.tokenUsersTable,
+        tokenCacheTable: serviceStack.tokenCacheTable,
+        profileApi: serviceStack.profileApi,
+        profileHandler: serviceStack.profileHandler,
+        storageApi: serviceStack.storageApi,
+        storageHandler: serviceStack.storageHandler,
+        storageTable: serviceStack.storageTable,
+        distribution: frontendStack.distribution,
+        wellKnownFunction: frontendStack.wellKnownFunction,
     });
 });
 

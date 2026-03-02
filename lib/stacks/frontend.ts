@@ -37,6 +37,7 @@ export class FrontendStack extends Stack {
     private readonly bucket: Bucket;
     private readonly certificate: Certificate;
     public readonly distribution: Distribution;
+    public readonly wellKnownFunction: CfFunction;
 
     private get domainName(): string {
         return `${this.props.stageType.toLowerCase()}.${BASE_DOMAIN}`;
@@ -52,6 +53,7 @@ export class FrontendStack extends Stack {
         });
         this.bucket = this.buildBucket()
         this.certificate = this.buildCertificate();
+        this.wellKnownFunction = this.buildWellKnownFunction();
 
         this.distribution = this.buildDistribution();
     }
@@ -77,7 +79,7 @@ export class FrontendStack extends Stack {
         });
     }
 
-    private buildDistribution(): Distribution {
+    private buildWellKnownFunction(): CfFunction {
         const configJson = JSON.stringify({
             auth_server_base_url: `https://${this.props.authApiDomain}`,
             oauth_server_base_url: `https://${this.props.authApiDomain}`,
@@ -86,7 +88,7 @@ export class FrontendStack extends Stack {
             content_url: `https://${this.domainName}`,
         });
 
-        const wellKnownFn = new CfFunction(this, "WellKnownFunction", {
+        return new CfFunction(this, "WellKnownFunction", {
             code: FunctionCode.fromInline([
                 "function handler(event) {",
                 "  if (event.request.uri === '/.well-known/fxa-client-configuration') {",
@@ -104,13 +106,15 @@ export class FrontendStack extends Stack {
                 "}",
             ].join("\n")),
         });
+    }
 
+    private buildDistribution(): Distribution {
         const distribution = new Distribution(this, "Distribution", {
             defaultBehavior: {
                 origin: S3BucketOrigin.withOriginAccessControl(this.bucket),
                 viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 functionAssociations: [{
-                    function: wellKnownFn,
+                    function: this.wellKnownFunction,
                     eventType: FunctionEventType.VIEWER_REQUEST,
                 }],
             },
