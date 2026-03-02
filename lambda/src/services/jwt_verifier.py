@@ -3,6 +3,7 @@
 import base64
 import json
 import time
+from functools import cached_property
 
 from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
@@ -79,18 +80,19 @@ class JWTVerifier:
             iat=payload["iat"],
         )
 
-    def _verify_signature(self, header_b64: str, payload_b64: str, signature_b64: str) -> None:
-        """Verify the JWT signature against the KMS public key."""
+    @cached_property
+    def _public_key(self):
+        """Construct and cache the RSA public key from JWK."""
         jwk = self._jwt_service.get_public_key_jwk()
-
-        # Reconstruct RSA public key from JWK
         n_bytes = self._b64url_decode(jwk["n"])
         e_bytes = self._b64url_decode(jwk["e"])
-
         n = int.from_bytes(n_bytes, byteorder="big")
         e = int.from_bytes(e_bytes, byteorder="big")
+        return RSAPublicNumbers(e, n).public_key()
 
-        public_key = RSAPublicNumbers(e, n).public_key()
+    def _verify_signature(self, header_b64: str, payload_b64: str, signature_b64: str) -> None:
+        """Verify the JWT signature against the KMS public key."""
+        public_key = self._public_key
 
         signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
         signature = self._b64url_decode(signature_b64)

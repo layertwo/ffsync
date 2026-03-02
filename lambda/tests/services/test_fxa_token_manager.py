@@ -47,10 +47,10 @@ class TestCreateSessionToken:
         """create_session_token returns the 32-byte raw token"""
         with patch("src.services.fxa_token_manager.fxa_crypto") as mock_crypto:
             mock_crypto.generate_random_bytes.return_value = fixed_token
-            token_id = fxa_crypto.derive_token_id(fixed_token, SESSION_TOKEN_INFO)
-            req_hmac_key = fxa_crypto.derive_req_hmac_key(fixed_token, SESSION_TOKEN_INFO)
-            mock_crypto.derive_token_id.return_value = token_id
-            mock_crypto.derive_req_hmac_key.return_value = req_hmac_key
+            token_id, req_hmac_key, _ = fxa_crypto.derive_token_keys(
+                fixed_token, SESSION_TOKEN_INFO
+            )
+            mock_crypto.derive_token_keys.return_value = (token_id, req_hmac_key, b"\x00" * 32)
             token_id_hex = token_id.hex()
 
             dynamodb_stubber.add_response(
@@ -87,10 +87,10 @@ class TestCreateSessionToken:
         """create_session_token stores a SESSION# record with correct fields"""
         with patch("src.services.fxa_token_manager.fxa_crypto") as mock_crypto:
             mock_crypto.generate_random_bytes.return_value = fixed_token
-            token_id = fxa_crypto.derive_token_id(fixed_token, SESSION_TOKEN_INFO)
-            req_hmac_key = fxa_crypto.derive_req_hmac_key(fixed_token, SESSION_TOKEN_INFO)
-            mock_crypto.derive_token_id.return_value = token_id
-            mock_crypto.derive_req_hmac_key.return_value = req_hmac_key
+            token_id, req_hmac_key, _ = fxa_crypto.derive_token_keys(
+                fixed_token, SESSION_TOKEN_INFO
+            )
+            mock_crypto.derive_token_keys.return_value = (token_id, req_hmac_key, b"\x00" * 32)
             token_id_hex = token_id.hex()
 
             dynamodb_stubber.add_response(
@@ -251,10 +251,10 @@ class TestCreateKeyFetchToken:
         """create_key_fetch_token returns the 32-byte raw token"""
         with patch("src.services.fxa_token_manager.fxa_crypto") as mock_crypto:
             mock_crypto.generate_random_bytes.return_value = fixed_token
-            token_id = fxa_crypto.derive_token_id(fixed_token, KEY_FETCH_TOKEN_INFO)
-            req_hmac_key = fxa_crypto.derive_req_hmac_key(fixed_token, KEY_FETCH_TOKEN_INFO)
-            mock_crypto.derive_token_id.return_value = token_id
-            mock_crypto.derive_req_hmac_key.return_value = req_hmac_key
+            token_id, req_hmac_key, _ = fxa_crypto.derive_token_keys(
+                fixed_token, KEY_FETCH_TOKEN_INFO
+            )
+            mock_crypto.derive_token_keys.return_value = (token_id, req_hmac_key, b"\x00" * 32)
             token_id_hex = token_id.hex()
 
             dynamodb_stubber.add_response(
@@ -290,10 +290,10 @@ class TestCreateKeyFetchToken:
         """create_key_fetch_token stores a KEYFETCH# record with the raw token hex"""
         with patch("src.services.fxa_token_manager.fxa_crypto") as mock_crypto:
             mock_crypto.generate_random_bytes.return_value = fixed_token
-            token_id = fxa_crypto.derive_token_id(fixed_token, KEY_FETCH_TOKEN_INFO)
-            req_hmac_key = fxa_crypto.derive_req_hmac_key(fixed_token, KEY_FETCH_TOKEN_INFO)
-            mock_crypto.derive_token_id.return_value = token_id
-            mock_crypto.derive_req_hmac_key.return_value = req_hmac_key
+            token_id, req_hmac_key, _ = fxa_crypto.derive_token_keys(
+                fixed_token, KEY_FETCH_TOKEN_INFO
+            )
+            mock_crypto.derive_token_keys.return_value = (token_id, req_hmac_key, b"\x00" * 32)
             token_id_hex = token_id.hex()
 
             dynamodb_stubber.add_response(
@@ -1409,10 +1409,10 @@ class TestCustomTTL:
 
         with patch("src.services.fxa_token_manager.fxa_crypto") as mock_crypto:
             mock_crypto.generate_random_bytes.return_value = fixed_token
-            token_id = fxa_crypto.derive_token_id(fixed_token, SESSION_TOKEN_INFO)
-            req_hmac_key = fxa_crypto.derive_req_hmac_key(fixed_token, SESSION_TOKEN_INFO)
-            mock_crypto.derive_token_id.return_value = token_id
-            mock_crypto.derive_req_hmac_key.return_value = req_hmac_key
+            token_id, req_hmac_key, _ = fxa_crypto.derive_token_keys(
+                fixed_token, SESSION_TOKEN_INFO
+            )
+            mock_crypto.derive_token_keys.return_value = (token_id, req_hmac_key, b"\x00" * 32)
             token_id_hex = token_id.hex()
 
             dynamodb_stubber.add_response(
@@ -1449,10 +1449,10 @@ class TestCustomTTL:
 
         with patch("src.services.fxa_token_manager.fxa_crypto") as mock_crypto:
             mock_crypto.generate_random_bytes.return_value = fixed_token
-            token_id = fxa_crypto.derive_token_id(fixed_token, KEY_FETCH_TOKEN_INFO)
-            req_hmac_key = fxa_crypto.derive_req_hmac_key(fixed_token, KEY_FETCH_TOKEN_INFO)
-            mock_crypto.derive_token_id.return_value = token_id
-            mock_crypto.derive_req_hmac_key.return_value = req_hmac_key
+            token_id, req_hmac_key, _ = fxa_crypto.derive_token_keys(
+                fixed_token, KEY_FETCH_TOKEN_INFO
+            )
+            mock_crypto.derive_token_keys.return_value = (token_id, req_hmac_key, b"\x00" * 32)
             token_id_hex = token_id.hex()
 
             dynamodb_stubber.add_response(

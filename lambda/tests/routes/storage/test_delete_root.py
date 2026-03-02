@@ -86,7 +86,7 @@ class TestDeleteAllRootRoute:
             },
         )
 
-        # delete_collection("bookmarks"): query all items
+        # delete_collection("bookmarks"): query all items (with ProjectionExpression)
         dynamodb_stubber.add_response(
             "query",
             {
@@ -99,8 +99,8 @@ class TestDeleteAllRootRoute:
             },
         )
 
-        # Delete METADATA
-        dynamodb_stubber.add_response("delete_item", {})
+        # batch_writer deletes METADATA via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         response = storage_handler(event, sample_lambda_context, mock_service_provider)
 

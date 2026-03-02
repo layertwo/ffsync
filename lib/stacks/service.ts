@@ -242,7 +242,7 @@ export class ServiceStack extends Stack {
                 TOKEN_DURATION: "300",
             },
             bundling: {
-                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/"],
+                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/", "__pycache__/", "*.egg-info/"],
             },
         });
 
@@ -276,6 +276,9 @@ export class ServiceStack extends Stack {
                 OIDC_CACHE_TTL_SECONDS: "3600",
                 HAWK_TIMESTAMP_SKEW_TOLERANCE: "60",
             },
+            bundling: {
+                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/", "__pycache__/", "*.egg-info/"],
+            },
         });
 
         // Grant permissions
@@ -308,7 +311,7 @@ export class ServiceStack extends Stack {
                 RETRY_AFTER_SECONDS: "30",
             },
             bundling: {
-                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/"],
+                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/", "__pycache__/", "*.egg-info/"],
             },
         });
 
@@ -338,7 +341,7 @@ export class ServiceStack extends Stack {
                 AUTH_SIGNING_KEY_ID: this.signingKey.keyId,
             },
             bundling: {
-                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/"],
+                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/", "__pycache__/", "*.egg-info/"],
             },
         });
 

@@ -86,7 +86,7 @@ class TestDeleteAllStorageRoute:
             },
         )
 
-        # delete_collection("bookmarks"): query all items
+        # delete_collection("bookmarks"): query all items (with ProjectionExpression)
         dynamodb_stubber.add_response(
             "query",
             {
@@ -103,9 +103,8 @@ class TestDeleteAllStorageRoute:
             },
         )
 
-        # Delete METADATA and obj1
-        dynamodb_stubber.add_response("delete_item", {})
-        dynamodb_stubber.add_response("delete_item", {})
+        # batch_writer deletes METADATA and obj1 via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         response = storage_handler(event, sample_lambda_context, mock_service_provider)
 
@@ -201,7 +200,8 @@ class TestDeleteAllStorageRoute:
                 ]
             },
         )
-        dynamodb_stubber.add_response("delete_item", {})
+        # batch_writer deletes bookmarks METADATA via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         # delete_collection("history")
         dynamodb_stubber.add_response(
@@ -228,7 +228,8 @@ class TestDeleteAllStorageRoute:
                 ]
             },
         )
-        dynamodb_stubber.add_response("delete_item", {})
+        # batch_writer deletes history METADATA via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         response = storage_handler(event, sample_lambda_context, mock_service_provider)
 

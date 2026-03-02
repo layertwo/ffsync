@@ -1,3 +1,4 @@
+import functools
 import json
 import os
 from functools import cached_property
@@ -55,6 +56,32 @@ from src.services.token_generator import TokenGenerator
 from src.services.user_manager import UserManager
 
 
+@functools.lru_cache(maxsize=1)
+def create_service_provider() -> "ServiceProvider":  # pragma: nocover
+    """Create a cached ServiceProvider singleton.
+
+    Uses lru_cache so the same instance is reused across warm Lambda invocations.
+    In tests, pass service_provider directly to bypass this.
+    """
+    return ServiceProvider()
+
+
+def lambda_entrypoint(fn):
+    """Decorator that injects a cached ServiceProvider when none is provided.
+
+    In production, creates/reuses a cached ServiceProvider via lru_cache.
+    In tests, pass service_provider directly to inject a mock.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(event, context, service_provider=None):
+        if service_provider is None:  # pragma: nocover
+            service_provider = create_service_provider()
+        return fn(event, context, service_provider)
+
+    return wrapper
+
+
 class ServiceProvider:
     @cached_property
     def aws_region(self):  # pragma: nocover
@@ -69,10 +96,14 @@ class ServiceProvider:
         return os.environ.get("STORAGE_TABLE_NAME")
 
     @cached_property
+    def dynamodb_resource(self):  # pragma: nocover
+        """Shared DynamoDB resource — reuses a single connection pool."""
+        return self.session.resource("dynamodb")
+
+    @cached_property
     def dynamodb_table(self):
         """Create DynamoDB Table resource"""
-        resource = self.session.resource("dynamodb")
-        return resource.Table(self.table_name)
+        return self.dynamodb_resource.Table(self.table_name)
 
     @cached_property
     def storage_manager(self) -> StorageManager:
@@ -85,8 +116,7 @@ class ServiceProvider:
     @cached_property
     def token_users_table(self):
         """Create DynamoDB Table resource for token users"""
-        resource = self.session.resource("dynamodb")
-        return resource.Table(self.token_users_table_name)
+        return self.dynamodb_resource.Table(self.token_users_table_name)
 
     @cached_property
     def user_manager(self) -> UserManager:
@@ -223,8 +253,7 @@ class ServiceProvider:
     @cached_property
     def auth_table(self):
         """DynamoDB Table for auth accounts, sessions, and OAuth codes"""
-        resource = self.session.resource("dynamodb")
-        return resource.Table(self.auth_table_name)
+        return self.dynamodb_resource.Table(self.auth_table_name)
 
     @cached_property
     def auth_signing_key_id(self) -> str:
@@ -370,8 +399,7 @@ class ServiceProvider:
     @cached_property
     def token_cache_table(self):
         """Create DynamoDB Table resource for token cache"""
-        resource = self.session.resource("dynamodb")
-        return resource.Table(self.token_cache_table_name)
+        return self.dynamodb_resource.Table(self.token_cache_table_name)
 
     @cached_property
     def hawk_service(self) -> HawkService:

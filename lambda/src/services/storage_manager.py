@@ -75,6 +75,54 @@ class StorageManager:
         col_data["user_id"] = user_id  # GSI partition key for efficient user queries
         return col_data
 
+    def _batch_get_existing_objects(
+        self, pk: str, object_ids: list[str]
+    ) -> dict[str, BasicStorageObject]:
+        """Batch fetch existing BSOs using BatchGetItem.
+
+        Returns a dict mapping object_id -> BasicStorageObject for objects that exist.
+        Objects not found are simply omitted from the result.
+
+        Uses the resource's low-level client (self.table.meta.client) which
+        auto-serializes request params and auto-deserializes response params,
+        so we pass/receive plain Python values (not DynamoDB wire format).
+        """
+        if not object_ids:
+            return {}
+
+        result = {}
+        # Process in chunks of 100 (BatchGetItem limit)
+        for i in range(0, len(object_ids), 100):
+            chunk = object_ids[i : i + 100]
+            keys = [
+                {
+                    _PK: pk,
+                    _SK: self._object_sk(oid),
+                }
+                for oid in chunk
+            ]
+
+            response = self.table.meta.client.batch_get_item(
+                RequestItems={self.table.name: {"Keys": keys}}
+            )
+
+            for item in response.get("Responses", {}).get(self.table.name, []):
+                obj = BasicStorageObject.from_dict(item)
+                result[obj.id] = obj
+
+            # Handle unprocessed keys with retry
+            unprocessed = response.get("UnprocessedKeys", {}).get(self.table.name)
+            while unprocessed:  # pragma: nocover
+                response = self.table.meta.client.batch_get_item(
+                    RequestItems={self.table.name: unprocessed}
+                )
+                for item in response.get("Responses", {}).get(self.table.name, []):
+                    obj = BasicStorageObject.from_dict(item)
+                    result[obj.id] = obj
+                unprocessed = response.get("UnprocessedKeys", {}).get(self.table.name)
+
+        return result
+
     def get_collection(self, user_id: str, collection_name: str) -> CollectionData:
         """Get collection metadata
 
@@ -142,6 +190,70 @@ class StorageManager:
                 raise StorageObjectNotFoundException(f"Object '{object_id}' not found")
             raise
 
+    def _write_batch_objects(
+        self,
+        user_id: str,
+        collection_name: str,
+        objects: List[BasicStorageObject],
+        collection_exists: bool,
+        modified: datetime,
+    ) -> tuple[list[str], dict, int, int]:
+        """Write a batch of BSOs using BatchGetItem + batch_writer.
+
+        Returns (success, failed, new_objects_count, usage_delta).
+        """
+        pk = self._collection_pk(user_id, collection_name)
+
+        # Batch-fetch all existing objects in one call
+        existing_map = {}
+        if collection_exists:
+            existing_map = self._batch_get_existing_objects(pk, [obj.id for obj in objects])
+
+        success = []
+        failed = {}
+        new_objects_count = 0
+        usage_delta = 0
+
+        # Build all items and compute deltas before writing
+        items_to_write = []
+        for obj in objects:
+            try:
+                existing_obj = existing_map.get(obj.id)
+                if existing_obj is not None:
+                    obj_delta = len(obj.payload) - len(existing_obj.payload)
+                    is_new_bso = False
+                else:
+                    obj_delta = len(obj.payload)
+                    is_new_bso = True
+
+                updated_obj = BasicStorageObject(
+                    id=obj.id,
+                    payload=obj.payload,
+                    modified=modified,
+                    sortindex=obj.sortindex,
+                    ttl=obj.ttl,
+                )
+                obj_item = self._encode_basic_storage_object(user_id, collection_name, updated_obj)
+                items_to_write.append((obj.id, obj_item, obj_delta, is_new_bso))
+            except Exception as e:  # pragma: nocover
+                failed[obj.id] = [str(e)]
+
+        # Write all items using batch_writer (auto-batches 25 per BatchWriteItem).
+        # Note: batch_writer buffers items; errors surface on __exit__, not per-item.
+        # If the flush fails, the entire batch fails as an exception from the context manager.
+        with self.table.batch_writer() as batch:
+            for obj_id, obj_item, obj_delta, is_new_bso in items_to_write:
+                try:
+                    batch.put_item(Item=obj_item)
+                    success.append(obj_id)
+                    usage_delta += obj_delta
+                    if is_new_bso:
+                        new_objects_count += 1
+                except Exception as e:  # pragma: nocover
+                    failed[obj_id] = [str(e)]
+
+        return success, failed, new_objects_count, usage_delta
+
     def create_or_update_collection(
         self,
         user_id: str,
@@ -207,43 +319,10 @@ class StorageManager:
         modified_timestamp = get_current_timestamp()
         modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
 
-        # Write objects first, tracking new vs updated and actual usage delta
-        success = []
-        failed = {}
-        new_objects_count = 0
-        usage_delta = 0
-
-        for obj in objects:
-            try:
-                is_new_bso = False
-                if collection_exists:
-                    # Check if object already exists to compute accurate usage delta
-                    try:
-                        existing_obj = self.get_storage_object(user_id, collection_name, obj.id)
-                        obj_delta = len(obj.payload) - len(existing_obj.payload)
-                    except StorageObjectNotFoundException:
-                        obj_delta = len(obj.payload)
-                        is_new_bso = True
-                else:
-                    # Collection is new — every object is new by definition
-                    obj_delta = len(obj.payload)
-                    is_new_bso = True
-
-                updated_obj = BasicStorageObject(
-                    id=obj.id,
-                    payload=obj.payload,
-                    modified=modified,
-                    sortindex=obj.sortindex,
-                    ttl=obj.ttl,
-                )
-                obj_item = self._encode_basic_storage_object(user_id, collection_name, updated_obj)
-                self.table.put_item(Item=obj_item)
-                success.append(obj.id)
-                usage_delta += obj_delta
-                if is_new_bso:
-                    new_objects_count += 1  # only count new BSOs that were successfully written
-            except Exception as e:
-                failed[obj.id] = [str(e)]
+        # Write objects using batch operations
+        success, failed, new_objects_count, usage_delta = self._write_batch_objects(
+            user_id, collection_name, objects, collection_exists, modified
+        )
 
         # Write collection metadata after objects so counts reflect actual success
         if existing_collection is not None:
@@ -342,40 +421,10 @@ class StorageManager:
         modified_timestamp = get_current_timestamp()
         modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
 
-        # Update objects
-        success = []
-        failed = {}
-        usage_delta = 0
-        new_objects_count = 0  # only count genuinely new BSOs
-
-        for obj in objects:
-            try:
-                # Determine usage delta: subtract old payload size if BSO already exists
-                is_new_bso = False
-                try:
-                    existing_obj = self.get_storage_object(user_id, collection_name, obj.id)
-                    obj_delta = len(obj.payload) - len(existing_obj.payload)
-                except StorageObjectNotFoundException:
-                    obj_delta = len(obj.payload)
-                    is_new_bso = True
-
-                # Create object with updated timestamp
-                updated_obj = BasicStorageObject(
-                    id=obj.id,
-                    payload=obj.payload,
-                    modified=modified,
-                    sortindex=obj.sortindex,
-                    ttl=obj.ttl,
-                )
-                obj_item = self._encode_basic_storage_object(user_id, collection_name, updated_obj)
-
-                self.table.put_item(Item=obj_item)
-                success.append(obj.id)
-                usage_delta += obj_delta
-                if is_new_bso:
-                    new_objects_count += 1  # only count new BSOs that were successfully written
-            except Exception as e:
-                failed[obj.id] = [str(e)]
+        # Write objects using batch operations
+        success, failed, new_objects_count, usage_delta = self._write_batch_objects(
+            user_id, collection_name, objects, True, modified
+        )
 
         # Atomically update collection metadata with ADD to avoid race conditions
         new_usage = collection.usage + usage_delta
@@ -430,27 +479,26 @@ class StorageManager:
         modified = get_current_timestamp()
         pk = self._collection_pk(user_id, collection_name)
 
-        # Query all items in the collection, paginating through all results
+        # Query all items (only keys needed) and batch-delete
         response = self.table.query(
             KeyConditionExpression="PK = :pk",
             ExpressionAttributeValues={":pk": pk},
+            ProjectionExpression="PK, SK",
         )
 
-        for item in response.get("Items", []):
-            self.table.delete_item(
-                Key={"PK": item["PK"], "SK": item["SK"]},
-            )
-
-        while "LastEvaluatedKey" in response:
-            response = self.table.query(
-                KeyConditionExpression="PK = :pk",
-                ExpressionAttributeValues={":pk": pk},
-                ExclusiveStartKey=response["LastEvaluatedKey"],
-            )
+        with self.table.batch_writer() as batch:
             for item in response.get("Items", []):
-                self.table.delete_item(
-                    Key={"PK": item["PK"], "SK": item["SK"]},
+                batch.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
+
+            while "LastEvaluatedKey" in response:
+                response = self.table.query(
+                    KeyConditionExpression="PK = :pk",
+                    ExpressionAttributeValues={":pk": pk},
+                    ProjectionExpression="PK, SK",
+                    ExclusiveStartKey=response["LastEvaluatedKey"],
                 )
+                for item in response.get("Items", []):
+                    batch.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
 
         return modified
 
@@ -490,6 +538,11 @@ class StorageManager:
 
         return collections
 
+    def _get_objects_by_ids(self, pk: str, id_set: frozenset[str]) -> list[BasicStorageObject]:
+        """Fetch specific BSOs by ID using BatchGetItem."""
+        existing = self._batch_get_existing_objects(pk, list(id_set))
+        return list(existing.values())
+
     def get_collection_objects(
         self,
         user_id: str,
@@ -522,43 +575,67 @@ class StorageManager:
         Raises:
             ValidationException: If more than 100 IDs provided
         """
-        # Validate IDs parameter (Requirement 2.5)
+        # Parse and validate IDs parameter once (Requirement 2.5)
+        # Note: frozenset deduplicates — validates unique ID count, not raw count
+        id_set = None
         if ids:
-            id_list = [id.strip() for id in ids.split(",")]
-            if len(id_list) > MAX_IDS_PER_REQUEST:
+            id_set = frozenset(id.strip() for id in ids.split(","))
+            if len(id_set) > MAX_IDS_PER_REQUEST:
                 raise ValidationException(
-                    f"Cannot request more than {MAX_IDS_PER_REQUEST} IDs, got {len(id_list)}"
+                    f"Cannot request more than {MAX_IDS_PER_REQUEST} IDs, got {len(id_set)}"
                 )
 
         pk = self._collection_pk(user_id, collection_name)
 
-        # Query all objects in collection
-        # Note: If collection doesn't exist, query will return empty results
-        response = self.table.query(
-            KeyConditionExpression="PK = :pk AND begins_with(SK, :obj_prefix)",
-            ExpressionAttributeValues={
+        if id_set is not None:
+            # Use BatchGetItem for targeted ID lookups
+            items = self._get_objects_by_ids(pk, id_set)
+        else:
+            # Query all objects in collection with server-side filtering
+            expr_values: dict = {
                 ":pk": pk,
                 ":obj_prefix": "OBJECT#",
-            },
-        )
+            }
 
-        items = []
-        for item in response.get("Items", []):
-            obj = BasicStorageObject.from_dict(item)
-            items.append(obj)
+            # Push newer/older filters to DynamoDB FilterExpression
+            filter_parts = []
+            if newer is not None:
+                filter_parts.append("modified > :newer")
+                expr_values[":newer"] = Decimal(str(newer))
+            if older is not None:
+                filter_parts.append("modified < :older")
+                expr_values[":older"] = Decimal(str(older))
 
-        # Filter by IDs if specified
-        if ids:
-            id_list = [id.strip() for id in ids.split(",")]
-            items = [obj for obj in items if obj.id in id_list]
+            query_kwargs: dict = {
+                "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
+                "ExpressionAttributeValues": expr_values,
+            }
+            if filter_parts:
+                query_kwargs["FilterExpression"] = " AND ".join(filter_parts)
 
-        # Filter by timestamp - convert float timestamps to datetime for comparison
-        if newer is not None:
-            newer_dt = datetime.fromtimestamp(newer, tz=timezone.utc)
-            items = [obj for obj in items if obj.modified > newer_dt]
-        if older is not None:
-            older_dt = datetime.fromtimestamp(older, tz=timezone.utc)
-            items = [obj for obj in items if obj.modified < older_dt]
+            # Use ProjectionExpression when full objects aren't needed
+            if not full:
+                query_kwargs["ProjectionExpression"] = "SK, modified, sortindex"
+
+            response = self.table.query(**query_kwargs)
+            items = [BasicStorageObject.from_dict(item) for item in response.get("Items", [])]
+
+            # Handle pagination from DynamoDB
+            while "LastEvaluatedKey" in response:
+                query_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+                response = self.table.query(**query_kwargs)
+                items.extend(
+                    BasicStorageObject.from_dict(item) for item in response.get("Items", [])
+                )
+
+        # Apply newer/older filters for BatchGetItem path (not pushed to DynamoDB)
+        if id_set is not None:
+            if newer is not None:
+                newer_dt = datetime.fromtimestamp(newer, tz=timezone.utc)
+                items = [obj for obj in items if obj.modified > newer_dt]
+            if older is not None:
+                older_dt = datetime.fromtimestamp(older, tz=timezone.utc)
+                items = [obj for obj in items if obj.modified < older_dt]
 
         # Sort items
         if sort == "newest":
@@ -755,33 +832,33 @@ class StorageManager:
                 f"Cannot delete more than {MAX_IDS_PER_REQUEST} objects at once, got {len(ids)}"
             )
 
-        # Verify collection exists
-        self.get_collection(user_id, collection_name)
+        # Verify collection exists (reuse for metadata update below)
+        collection = self.get_collection(user_id, collection_name)
 
         modified = get_current_timestamp()
         pk = self._collection_pk(user_id, collection_name)
 
-        # Delete each specified object
-        for object_id in ids:
-            try:
-                self.table.delete_item(
-                    Key={
-                        "PK": pk,
-                        "SK": self._object_sk(object_id),
-                    },
-                )
-            except Exception:
-                # Continue deleting other objects even if one fails
-                pass
+        # Batch-delete specified objects
+        with self.table.batch_writer() as batch:
+            for object_id in ids:
+                try:
+                    batch.delete_item(
+                        Key={
+                            "PK": pk,
+                            "SK": self._object_sk(object_id),
+                        },
+                    )
+                except Exception:  # pragma: nocover
+                    # Continue deleting other objects even if one fails
+                    pass
 
-        # Update collection's last-modified time
-        collection = self.get_collection(user_id, collection_name)
+        # Update collection's last-modified time (reusing initial get_collection result)
         modified_dt = datetime.fromtimestamp(modified, tz=timezone.utc)
         collection_data = CollectionData(
             name=collection_name,
             modified=modified_dt,
-            count=collection.count,  # Count will be updated separately if needed
-            usage=collection.usage,  # Usage will be updated separately if needed
+            count=collection.count,
+            usage=collection.usage,
         )
         metadata_item = self._encode_collection_data(user_id, collection_data)
         self.table.put_item(Item=metadata_item)

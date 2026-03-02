@@ -1,7 +1,7 @@
 """AWS service fixtures with botocore stubbing"""
 
 from typing import Generator
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import boto3
 import pytest
@@ -82,9 +82,23 @@ def dynamodb_table(boto_session, dynamodb_stubber, storage_table_name):
     return table
 
 
+@pytest.fixture
+def kms_client(boto_session):
+    """KMS client from the test boto session."""
+    return boto_session.client("kms")
+
+
+@pytest.fixture
+def kms_stubber(kms_client):
+    """Botocore Stubber for KMS. Tests that call KMS add their own stubs."""
+    stubber = Stubber(kms_client)
+    stubber.activate()
+    yield stubber
+    stubber.deactivate()
+
+
 @pytest.fixture(autouse=True)
 def boto_session(aws_region_name, aws_access_key_id, aws_secret_access_key, aws_session_token):
-    # Load internal service models before creating a boto session
     return boto3.session.Session(
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
@@ -95,7 +109,6 @@ def boto_session(aws_region_name, aws_access_key_id, aws_secret_access_key, aws_
 
 @pytest.fixture
 def boto_session_patch(boto_session):
-    # Libraries are inconsistent about which is used
     with (
         patch("boto3.Session", autospec=True) as m,
         patch("boto3.session.Session", autospec=True) as m2,
@@ -107,13 +120,13 @@ def boto_session_patch(boto_session):
 
 @pytest.fixture(autouse=True)
 def boto_resource_patch(
-    boto_session, boto_session_patch, dynamodb_client, dynamodb_resource
+    boto_session, boto_session_patch, dynamodb_client, dynamodb_resource, kms_client
 ) -> Generator:
     def client(service, *args, **kwargs):
         if service == "dynamodb":
             return dynamodb_client
         if service == "kms":
-            return MagicMock()
+            return kms_client
 
         raise ValueError(f"client for {service} not recognized")
 

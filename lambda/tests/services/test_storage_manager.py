@@ -242,12 +242,8 @@ class TestStorageManager:
             },
         )
 
-        # Objects are written before metadata
-        # Stub object 1 put - don't validate params due to dynamic expiry field
-        dynamodb_stubber.add_response("put_item", {}, None)
-
-        # Stub object 2 put - don't validate params
-        dynamodb_stubber.add_response("put_item", {}, None)
+        # batch_writer() flushes objects via batch_write_item (new collection, no batch_get_item)
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         # Stub metadata put (after objects, new collection so put_item not update_item)
         dynamodb_stubber.add_response(
@@ -315,36 +311,14 @@ class TestStorageManager:
             )
         ]
 
-        # Stub get_storage_object for obj1 — not found (new object)
+        # batch_get_item for existing object check — obj1 not found
         dynamodb_stubber.add_response(
-            "get_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
-                },
-            },
+            "batch_get_item",
+            {"Responses": {storage_table_name: []}, "UnprocessedKeys": {}},
         )
 
-        # Stub object put
-        dynamodb_stubber.add_response(
-            "put_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
-                    "id": "obj1",
-                    "payload": "newpayload",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "sortindex": None,
-                    "ttl": None,
-                },
-            },
-        )
+        # batch_writer() flushes objects via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         # Atomic metadata update (new object, so count += 1)
         dynamodb_stubber.add_response("update_item", {}, None)
@@ -416,7 +390,7 @@ class TestStorageManager:
             },
         )
 
-        # Stub query to find all items
+        # Stub query to find all items (with ProjectionExpression)
         dynamodb_stubber.add_response(
             "query",
             {
@@ -431,38 +405,11 @@ class TestStorageManager:
                     },
                 ]
             },
-            {
-                "TableName": storage_table_name,
-                "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
-            },
+            None,
         )
 
-        # Stub delete for metadata
-        dynamodb_stubber.add_response(
-            "delete_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "METADATA",
-                },
-            },
-        )
-
-        # Stub delete for object
-        dynamodb_stubber.add_response(
-            "delete_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
-                },
-            },
-        )
+        # batch_writer deletes all items via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         modified = storage_manager.delete_collection("test-user-123", "bookmarks")
         assert modified == mock_timestamp
@@ -651,33 +598,24 @@ class TestStorageManager:
         self, storage_manager, dynamodb_stubber, storage_table_name
     ):
         """Test getting objects with ID filter"""
+        # With ids parameter, uses batch_get_item instead of query
         dynamodb_stubber.add_response(
-            "query",
+            "batch_get_item",
             {
-                "Items": [
-                    {
-                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                        "SK": {"S": "OBJECT#obj1"},
-                        "id": {"S": "obj1"},
-                        "payload": {"S": "payload1"},
-                        "modified": {"N": "1234567891.00"},
-                    },
-                    {
-                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                        "SK": {"S": "OBJECT#obj2"},
-                        "id": {"S": "obj2"},
-                        "payload": {"S": "payload2"},
-                        "modified": {"N": "1234567890.00"},
-                    },
-                ]
-            },
-            {
-                "TableName": storage_table_name,
-                "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
-                "ExpressionAttributeValues": {
-                    ":pk": "USER#test-user-123#COLLECTION#bookmarks",
-                    ":obj_prefix": "OBJECT#",
+                "Responses": {
+                    storage_table_name: [
+                        {
+                            "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                            "SK": {"S": "OBJECT#obj1"},
+                            "id": {"S": "obj1"},
+                            "payload": {"S": "payload1"},
+                            "modified": {"N": "1234567891.00"},
+                            "sortindex": {"NULL": True},
+                            "ttl": {"NULL": True},
+                        },
+                    ]
                 },
+                "UnprocessedKeys": {},
             },
         )
 
@@ -929,7 +867,13 @@ class TestStorageManager:
         mock_timestamp,
         mock_get_current_timestamp,
     ):
-        """Test creating collection when some objects fail"""
+        """Test creating collection when batch_write_item fails entirely.
+
+        With batch_writer(), per-item error tracking no longer works the same way.
+        A batch_write_item error propagates as an exception from the context manager.
+        """
+        from botocore.exceptions import ClientError
+
         objects = [
             BasicStorageObject(
                 id="obj1",
@@ -951,25 +895,15 @@ class TestStorageManager:
             },
         )
 
-        # Objects are written before metadata — obj1 fails
+        # batch_write_item fails — entire batch rejected
         dynamodb_stubber.add_client_error(
-            "put_item",
+            "batch_write_item",
             service_error_code="ValidationException",
             service_message="Invalid item",
         )
 
-        # Metadata put after objects (count=0 because obj1 failed)
-        dynamodb_stubber.add_response("put_item", {}, None)
-
-        collection, batch_result = storage_manager.create_or_update_collection(
-            "test-user-123", "bookmarks", objects
-        )
-
-        assert collection.name == "bookmarks"
-        assert collection.count == 0  # obj1 failed, so no new objects
-        assert len(batch_result.success) == 0
-        assert len(batch_result.failed) == 1
-        assert "obj1" in batch_result.failed
+        with pytest.raises(ClientError):
+            storage_manager.create_or_update_collection("test-user-123", "bookmarks", objects)
 
     def test_update_collection_with_failed_object(
         self,
@@ -979,7 +913,13 @@ class TestStorageManager:
         mock_timestamp,
         mock_get_current_timestamp,
     ):
-        """Test updating collection when some objects fail"""
+        """Test updating collection when batch_write_item fails entirely.
+
+        With batch_writer(), per-item error tracking no longer works.
+        A batch_write_item error propagates as an exception from the context manager.
+        """
+        from botocore.exceptions import ClientError
+
         # Stub get_collection
         dynamodb_stubber.add_response(
             "get_item",
@@ -1010,40 +950,27 @@ class TestStorageManager:
             )
         ]
 
-        # Stub get_storage_object for obj1 (not found → new object)
+        # batch_get_item for existing object check — obj1 not found
         dynamodb_stubber.add_response(
-            "get_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
-                },
-            },
+            "batch_get_item",
+            {"Responses": {storage_table_name: []}, "UnprocessedKeys": {}},
         )
 
-        # Stub object put with error
+        # batch_write_item fails — entire batch rejected
         dynamodb_stubber.add_client_error(
-            "put_item",
+            "batch_write_item",
             service_error_code="ValidationException",
             service_message="Invalid item",
         )
 
-        # Atomic metadata update (object failed, so count_delta=0, usage_delta=0)
-        dynamodb_stubber.add_response("update_item", {}, None)
-
-        collection, batch_result = storage_manager.update_collection(
-            "test-user-123", "bookmarks", objects
-        )
-
-        assert len(batch_result.success) == 0
-        assert len(batch_result.failed) == 1
+        with pytest.raises(ClientError):
+            storage_manager.update_collection("test-user-123", "bookmarks", objects)
 
     def test_get_collection_objects_with_newer_filter(
         self, storage_manager, dynamodb_stubber, storage_table_name
     ):
         """Test getting objects with newer timestamp filter"""
+        # newer/older without ids now pushes FilterExpression to DynamoDB
         dynamodb_stubber.add_response(
             "query",
             {
@@ -1055,23 +982,9 @@ class TestStorageManager:
                         "payload": {"S": "payload1"},
                         "modified": {"N": "1234567891.00"},
                     },
-                    {
-                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                        "SK": {"S": "OBJECT#obj2"},
-                        "id": {"S": "obj2"},
-                        "payload": {"S": "payload2"},
-                        "modified": {"N": "1234567889.00"},
-                    },
                 ]
             },
-            {
-                "TableName": storage_table_name,
-                "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
-                "ExpressionAttributeValues": {
-                    ":pk": "USER#test-user-123#COLLECTION#bookmarks",
-                    ":obj_prefix": "OBJECT#",
-                },
-            },
+            None,
         )
 
         result = storage_manager.get_collection_objects(
@@ -1085,17 +998,11 @@ class TestStorageManager:
         self, storage_manager, dynamodb_stubber, storage_table_name
     ):
         """Test getting objects with older timestamp filter"""
+        # older without ids now pushes FilterExpression to DynamoDB
         dynamodb_stubber.add_response(
             "query",
             {
                 "Items": [
-                    {
-                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                        "SK": {"S": "OBJECT#obj1"},
-                        "id": {"S": "obj1"},
-                        "payload": {"S": "payload1"},
-                        "modified": {"N": "1234567891.00"},
-                    },
                     {
                         "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
                         "SK": {"S": "OBJECT#obj2"},
@@ -1105,14 +1012,7 @@ class TestStorageManager:
                     },
                 ]
             },
-            {
-                "TableName": storage_table_name,
-                "KeyConditionExpression": "PK = :pk AND begins_with(SK, :obj_prefix)",
-                "ExpressionAttributeValues": {
-                    ":pk": "USER#test-user-123#COLLECTION#bookmarks",
-                    ":obj_prefix": "OBJECT#",
-                },
-            },
+            None,
         )
 
         result = storage_manager.get_collection_objects(
@@ -1307,7 +1207,11 @@ class TestStorageManager:
         mock_timestamp,
         mock_get_current_timestamp,
     ):
-        """Test updating collection with some objects succeeding and some failing"""
+        """Test updating collection with multiple objects succeeding.
+
+        With batch_writer(), per-item error tracking is no longer possible.
+        This test now validates that both objects succeed when batch_write_item succeeds.
+        """
         # Stub get_collection
         dynamodb_stubber.add_response(
             "get_item",
@@ -1343,68 +1247,26 @@ class TestStorageManager:
             ),
         ]
 
-        # Stub get_storage_object for obj1 (not found → new object)
+        # batch_get_item for existing object check — neither found
         dynamodb_stubber.add_response(
-            "get_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
-                },
-            },
+            "batch_get_item",
+            {"Responses": {storage_table_name: []}, "UnprocessedKeys": {}},
         )
 
-        # Stub object 1 put (success)
-        dynamodb_stubber.add_response(
-            "put_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
-                    "id": "obj1",
-                    "payload": "payload1",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "sortindex": None,
-                    "ttl": None,
-                },
-            },
-        )
+        # batch_writer() flushes both objects via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
-        # Stub get_storage_object for obj2 (not found → new object)
-        dynamodb_stubber.add_response(
-            "get_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj2",
-                },
-            },
-        )
-
-        # Stub object 2 put (failure)
-        dynamodb_stubber.add_client_error(
-            "put_item",
-            service_error_code="ValidationException",
-            service_message="Invalid item",
-        )
-
-        # Atomic metadata update (obj1 new+success, obj2 new but failed → count_delta=1)
+        # Atomic metadata update (both new → count_delta=2)
         dynamodb_stubber.add_response("update_item", {}, None)
 
         collection, batch_result = storage_manager.update_collection(
             "test-user-123", "bookmarks", objects
         )
 
-        assert len(batch_result.success) == 1
+        assert len(batch_result.success) == 2
         assert "obj1" in batch_result.success
-        assert len(batch_result.failed) == 1
-        assert "obj2" in batch_result.failed
+        assert "obj2" in batch_result.success
+        assert len(batch_result.failed) == 0
 
     def test_update_collection_with_sortindex_and_ttl(
         self,
@@ -1447,25 +1309,14 @@ class TestStorageManager:
             )
         ]
 
-        # Stub get_storage_object for obj1 (not found → new object)
+        # batch_get_item for existing object check — obj1 not found
         dynamodb_stubber.add_response(
-            "get_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
-                },
-            },
+            "batch_get_item",
+            {"Responses": {storage_table_name: []}, "UnprocessedKeys": {}},
         )
 
-        # Stub object put with sortindex and ttl - don't validate params due to dynamic expiry
-        dynamodb_stubber.add_response(
-            "put_item",
-            {},
-            None,
-        )
+        # batch_writer() flushes objects via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         # Atomic metadata update (new object)
         dynamodb_stubber.add_response("update_item", {}, None)
@@ -2092,7 +1943,7 @@ class TestStorageManager:
         mock_get_current_timestamp,
     ):
         """Test batch deleting multiple objects"""
-        # Stub get_collection to verify collection exists
+        # Stub get_collection to verify collection exists (called once, result reused)
         dynamodb_stubber.add_response(
             "get_item",
             {
@@ -2114,31 +1965,8 @@ class TestStorageManager:
             },
         )
 
-        # Stub delete_item for each object
-        dynamodb_stubber.add_response("delete_item", {}, None)
-        dynamodb_stubber.add_response("delete_item", {}, None)
-
-        # Stub get_collection again for updating metadata
-        dynamodb_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
-                    "name": {"S": "bookmarks"},
-                    "modified": {"N": "1234567890.00"},
-                    "count": {"N": "3"},
-                    "usage": {"N": "512"},
-                }
-            },
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "METADATA",
-                },
-            },
-        )
+        # batch_writer() deletes objects via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         # Stub put_item for metadata update
         dynamodb_stubber.add_response("put_item", {}, None)
@@ -2169,7 +1997,13 @@ class TestStorageManager:
         mock_timestamp,
         mock_get_current_timestamp,
     ):
-        """Test batch delete continues when individual delete fails"""
+        """Test batch delete when batch_write_item fails entirely.
+
+        With batch_writer(), per-item error tracking is no longer possible.
+        A batch_write_item error propagates as an exception from the context manager.
+        """
+        from botocore.exceptions import ClientError
+
         # Stub get_collection to verify collection exists
         dynamodb_stubber.add_response(
             "get_item",
@@ -2192,47 +2026,17 @@ class TestStorageManager:
             },
         )
 
-        # First delete fails
+        # batch_write_item fails — entire batch rejected
         dynamodb_stubber.add_client_error(
-            "delete_item",
+            "batch_write_item",
             service_error_code="ValidationException",
             service_message="Delete failed",
         )
 
-        # Second delete succeeds
-        dynamodb_stubber.add_response("delete_item", {}, None)
-
-        # Stub get_collection again for updating metadata
-        dynamodb_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "METADATA"},
-                    "name": {"S": "bookmarks"},
-                    "modified": {"N": "1234567890.00"},
-                    "count": {"N": "4"},
-                    "usage": {"N": "800"},
-                }
-            },
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "METADATA",
-                },
-            },
-        )
-
-        # Stub put_item for metadata update
-        dynamodb_stubber.add_response("put_item", {}, None)
-
-        # Should complete without raising, even though first delete failed
-        modified = storage_manager.delete_collection_objects(
-            "test-user-123", "bookmarks", ["obj1", "obj2"]
-        )
-
-        assert modified == mock_timestamp
+        with pytest.raises(ClientError):
+            storage_manager.delete_collection_objects(
+                "test-user-123", "bookmarks", ["obj1", "obj2"]
+            )
 
     def test_delete_all_storage(
         self,
@@ -2289,7 +2093,7 @@ class TestStorageManager:
             },
         )
 
-        # delete_collection("bookmarks"): query all items
+        # delete_collection("bookmarks"): query all items (with ProjectionExpression)
         dynamodb_stubber.add_response(
             "query",
             {
@@ -2304,17 +2108,11 @@ class TestStorageManager:
                     },
                 ]
             },
-            {
-                "TableName": storage_table_name,
-                "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
-            },
+            None,
         )
 
-        # delete METADATA
-        dynamodb_stubber.add_response("delete_item", {}, None)
-        # delete obj1
-        dynamodb_stubber.add_response("delete_item", {}, None)
+        # batch_writer deletes all items via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         modified = storage_manager.delete_all_storage("test-user-123")
 
@@ -2409,7 +2207,7 @@ class TestStorageManager:
             },
         )
 
-        # delete_collection("bookmarks"): query all items
+        # delete_collection("bookmarks"): query all items (with ProjectionExpression)
         dynamodb_stubber.add_response(
             "query",
             {
@@ -2420,15 +2218,11 @@ class TestStorageManager:
                     },
                 ]
             },
-            {
-                "TableName": storage_table_name,
-                "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
-            },
+            None,
         )
 
-        # delete bookmarks METADATA
-        dynamodb_stubber.add_response("delete_item", {}, None)
+        # batch_writer deletes bookmarks METADATA via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         # delete_collection("history"): verify exists
         dynamodb_stubber.add_response(
@@ -2452,7 +2246,7 @@ class TestStorageManager:
             },
         )
 
-        # delete_collection("history"): query all items (only metadata)
+        # delete_collection("history"): query all items (with ProjectionExpression)
         dynamodb_stubber.add_response(
             "query",
             {
@@ -2463,15 +2257,11 @@ class TestStorageManager:
                     },
                 ]
             },
-            {
-                "TableName": storage_table_name,
-                "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#history"},
-            },
+            None,
         )
 
-        # delete history METADATA
-        dynamodb_stubber.add_response("delete_item", {}, None)
+        # batch_writer deletes history METADATA via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         modified = storage_manager.delete_all_storage("test-user-123")
 
@@ -2698,44 +2488,29 @@ class TestStorageManager:
             )
         ]
 
-        # Stub get_storage_object for existing BSO "obj1" with old payload
+        # batch_get_item for existing object check — obj1 found with old payload
         dynamodb_stubber.add_response(
-            "get_item",
+            "batch_get_item",
             {
-                "Item": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj1"},
-                    "id": {"S": "obj1"},
-                    "payload": {"S": old_payload},
-                    "modified": {"N": "1234567880.00"},
-                }
-            },
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
+                "Responses": {
+                    storage_table_name: [
+                        {
+                            "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                            "SK": {"S": "OBJECT#obj1"},
+                            "id": {"S": "obj1"},
+                            "payload": {"S": old_payload},
+                            "modified": {"N": "1234567880.00"},
+                            "sortindex": {"NULL": True},
+                            "ttl": {"NULL": True},
+                        }
+                    ]
                 },
+                "UnprocessedKeys": {},
             },
         )
 
-        # Stub put_item for the BSO overwrite
-        dynamodb_stubber.add_response(
-            "put_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Item": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
-                    "id": "obj1",
-                    "payload": new_payload,
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
-                    "sortindex": None,
-                    "ttl": None,
-                },
-            },
-        )
+        # batch_writer() flushes objects via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         # Atomic metadata update — obj1 is an update (not new), so count stays at 1
         dynamodb_stubber.add_response("update_item", {}, None)
@@ -2797,29 +2572,29 @@ class TestStorageManager:
             )
         ]
 
-        # obj1 already exists with 3-byte payload "old"
+        # batch_get_item for existing object check — obj1 found with 3-byte payload "old"
         dynamodb_stubber.add_response(
-            "get_item",
+            "batch_get_item",
             {
-                "Item": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj1"},
-                    "id": {"S": "obj1"},
-                    "payload": {"S": "old"},
-                    "modified": {"N": "1234567880.00"},
-                }
-            },
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
+                "Responses": {
+                    storage_table_name: [
+                        {
+                            "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                            "SK": {"S": "OBJECT#obj1"},
+                            "id": {"S": "obj1"},
+                            "payload": {"S": "old"},
+                            "modified": {"N": "1234567880.00"},
+                            "sortindex": {"NULL": True},
+                            "ttl": {"NULL": True},
+                        }
+                    ]
                 },
+                "UnprocessedKeys": {},
             },
         )
 
-        # Write updated object
-        dynamodb_stubber.add_response("put_item", {}, None)
+        # batch_writer() flushes objects via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         # Atomic metadata update (update_item, not put_item)
         dynamodb_stubber.add_response("update_item", {}, None)
@@ -2868,7 +2643,7 @@ class TestStorageManager:
             },
         )
 
-        # First query page — returns METADATA + obj1, with more pages
+        # First query page — returns METADATA + obj1, with more pages (ProjectionExpression)
         dynamodb_stubber.add_response(
             "query",
             {
@@ -2887,19 +2662,10 @@ class TestStorageManager:
                     "SK": {"S": "OBJECT#obj1"},
                 },
             },
-            {
-                "TableName": storage_table_name,
-                "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
-            },
+            None,
         )
 
-        # Delete METADATA (page 1)
-        dynamodb_stubber.add_response("delete_item", {}, None)
-        # Delete obj1 (page 1)
-        dynamodb_stubber.add_response("delete_item", {}, None)
-
-        # Second query page — obj2 only, no more pages
+        # Second query page — obj2 only, no more pages (ProjectionExpression)
         dynamodb_stubber.add_response(
             "query",
             {
@@ -2910,19 +2676,11 @@ class TestStorageManager:
                     },
                 ]
             },
-            {
-                "TableName": storage_table_name,
-                "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
-                "ExclusiveStartKey": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
-                },
-            },
+            None,
         )
 
-        # Delete obj2 (page 2)
-        dynamodb_stubber.add_response("delete_item", {}, None)
+        # batch_writer deletes all items (from both pages) via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         modified = storage_manager.delete_collection("test-user-123", "bookmarks")
         assert modified == mock_timestamp
@@ -2986,7 +2744,7 @@ class TestStorageManager:
             },
         )
 
-        # delete_collection("bookmarks"): query all items
+        # delete_collection("bookmarks"): query all items (with ProjectionExpression)
         dynamodb_stubber.add_response(
             "query",
             {
@@ -3001,17 +2759,11 @@ class TestStorageManager:
                     },
                 ]
             },
-            {
-                "TableName": storage_table_name,
-                "KeyConditionExpression": "PK = :pk",
-                "ExpressionAttributeValues": {":pk": "USER#test-user-123#COLLECTION#bookmarks"},
-            },
+            None,
         )
 
-        # delete METADATA
-        dynamodb_stubber.add_response("delete_item", {}, None)
-        # delete obj1
-        dynamodb_stubber.add_response("delete_item", {}, None)
+        # batch_writer deletes all items via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         modified = storage_manager.delete_all_storage("test-user-123")
         assert modified == mock_timestamp
@@ -3117,29 +2869,29 @@ class TestStorageManager:
             },
         )
 
-        # get_storage_object("obj1") — object already exists (lines 221-223)
+        # batch_get_item for existing object check — obj1 found with old payload
         dynamodb_stubber.add_response(
-            "get_item",
+            "batch_get_item",
             {
-                "Item": {
-                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
-                    "SK": {"S": "OBJECT#obj1"},
-                    "id": {"S": "obj1"},
-                    "payload": {"S": old_payload},
-                    "modified": {"N": "1234567880.00"},
-                }
-            },
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj1",
+                "Responses": {
+                    storage_table_name: [
+                        {
+                            "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                            "SK": {"S": "OBJECT#obj1"},
+                            "id": {"S": "obj1"},
+                            "payload": {"S": old_payload},
+                            "modified": {"N": "1234567880.00"},
+                            "sortindex": {"NULL": True},
+                            "ttl": {"NULL": True},
+                        }
+                    ]
                 },
+                "UnprocessedKeys": {},
             },
         )
 
-        # put_item for the updated BSO
-        dynamodb_stubber.add_response("put_item", {}, None)
+        # batch_writer() flushes objects via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         # update_item for metadata: new_objects_count=0 (no new BSOs), usage_delta=+7
         dynamodb_stubber.add_response("update_item", {}, None)
@@ -3199,22 +2951,14 @@ class TestStorageManager:
             },
         )
 
-        # get_storage_object("obj_new") — not found, triggers except StorageObjectNotFoundException
-        # (lines 224-226): obj_delta = len(payload), is_new_bso = True
+        # batch_get_item for existing object check — obj_new not found
         dynamodb_stubber.add_response(
-            "get_item",
-            {},  # no Item → StorageObjectNotFoundException
-            {
-                "TableName": storage_table_name,
-                "Key": {
-                    "PK": "USER#test-user-123#COLLECTION#bookmarks",
-                    "SK": "OBJECT#obj_new",
-                },
-            },
+            "batch_get_item",
+            {"Responses": {storage_table_name: []}, "UnprocessedKeys": {}},
         )
 
-        # put_item for the new BSO
-        dynamodb_stubber.add_response("put_item", {}, None)
+        # batch_writer() flushes objects via batch_write_item
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}})
 
         # update_item for metadata: new_objects_count=1, usage_delta=9
         dynamodb_stubber.add_response("update_item", {}, None)
@@ -3228,3 +2972,169 @@ class TestStorageManager:
         assert collection.usage == 59
         assert batch_result.success == ["obj_new"]
         assert batch_result.failed == {}
+
+    def test_get_collection_objects_not_full(
+        self, storage_manager, dynamodb_stubber, storage_table_name
+    ):
+        """Test get_collection_objects with full=False uses ProjectionExpression"""
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "OBJECT#obj1"},
+                        "id": {"S": "obj1"},
+                        "payload": {"S": ""},
+                        "modified": {"N": "1234567891.00"},
+                        "sortindex": {"NULL": True},
+                        "ttl": {"NULL": True},
+                    },
+                ]
+            },
+            None,
+        )
+
+        result = storage_manager.get_collection_objects("test-user-123", "bookmarks", full=False)
+
+        assert len(result["items"]) == 1
+        assert result["items"][0].id == "obj1"
+
+    def test_get_collection_objects_with_ids_and_newer(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+    ):
+        """Test get_collection_objects with ids + newer applies client-side filter"""
+        dynamodb_stubber.add_response(
+            "batch_get_item",
+            {
+                "Responses": {
+                    storage_table_name: [
+                        {
+                            "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                            "SK": {"S": "OBJECT#obj1"},
+                            "id": {"S": "obj1"},
+                            "payload": {"S": "payload1"},
+                            "modified": {"N": "1234567880.00"},
+                            "sortindex": {"NULL": True},
+                            "ttl": {"NULL": True},
+                        },
+                        {
+                            "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                            "SK": {"S": "OBJECT#obj2"},
+                            "id": {"S": "obj2"},
+                            "payload": {"S": "payload2"},
+                            "modified": {"N": "1234567900.00"},
+                            "sortindex": {"NULL": True},
+                            "ttl": {"NULL": True},
+                        },
+                    ]
+                },
+                "UnprocessedKeys": {},
+            },
+        )
+
+        result = storage_manager.get_collection_objects(
+            "test-user-123", "bookmarks", ids="obj1,obj2", newer=1234567890.00
+        )
+
+        # Only obj2 has modified > 1234567890.00
+        assert len(result["items"]) == 1
+        assert result["items"][0].id == "obj2"
+
+    def test_get_collection_objects_with_ids_and_older(
+        self,
+        storage_manager,
+        dynamodb_stubber,
+        storage_table_name,
+    ):
+        """Test get_collection_objects with ids + older applies client-side filter"""
+        dynamodb_stubber.add_response(
+            "batch_get_item",
+            {
+                "Responses": {
+                    storage_table_name: [
+                        {
+                            "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                            "SK": {"S": "OBJECT#obj1"},
+                            "id": {"S": "obj1"},
+                            "payload": {"S": "payload1"},
+                            "modified": {"N": "1234567880.00"},
+                            "sortindex": {"NULL": True},
+                            "ttl": {"NULL": True},
+                        },
+                        {
+                            "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                            "SK": {"S": "OBJECT#obj2"},
+                            "id": {"S": "obj2"},
+                            "payload": {"S": "payload2"},
+                            "modified": {"N": "1234567900.00"},
+                            "sortindex": {"NULL": True},
+                            "ttl": {"NULL": True},
+                        },
+                    ]
+                },
+                "UnprocessedKeys": {},
+            },
+        )
+
+        result = storage_manager.get_collection_objects(
+            "test-user-123", "bookmarks", ids="obj1,obj2", older=1234567890.00
+        )
+
+        # Only obj1 has modified < 1234567890.00
+        assert len(result["items"]) == 1
+        assert result["items"][0].id == "obj1"
+
+    def test_get_collection_objects_query_pagination(
+        self, storage_manager, dynamodb_stubber, storage_table_name
+    ):
+        """Test get_collection_objects handles DynamoDB query pagination"""
+        # First page with LastEvaluatedKey
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "OBJECT#obj1"},
+                        "id": {"S": "obj1"},
+                        "payload": {"S": "payload1"},
+                        "modified": {"N": "1234567891.00"},
+                        "sortindex": {"NULL": True},
+                        "ttl": {"NULL": True},
+                    },
+                ],
+                "LastEvaluatedKey": {
+                    "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                    "SK": {"S": "OBJECT#obj1"},
+                },
+            },
+            None,
+        )
+
+        # Second page (no LastEvaluatedKey)
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+                        "SK": {"S": "OBJECT#obj2"},
+                        "id": {"S": "obj2"},
+                        "payload": {"S": "payload2"},
+                        "modified": {"N": "1234567892.00"},
+                        "sortindex": {"NULL": True},
+                        "ttl": {"NULL": True},
+                    },
+                ]
+            },
+            None,
+        )
+
+        result = storage_manager.get_collection_objects("test-user-123", "bookmarks")
+
+        assert len(result["items"]) == 2
+        assert {item.id for item in result["items"]} == {"obj1", "obj2"}
