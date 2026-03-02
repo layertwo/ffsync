@@ -4,6 +4,7 @@ export interface AppConfig {
   redirectUri: string
   tokenServerUrl?: string
   authServerUrl?: string
+  pairingServerUrl?: string
   scopes: string[]
 }
 

@@ -138,6 +138,63 @@ class TestOAuthAuthorization:
         )
 
 
+class TestOAuthAuthorizationRedirectUri:
+    def test_pairing_redirect_uri_accepted(self, route, mock_oauth_code_manager):
+        """Pairing redirect_uri is accepted and returned in response."""
+        mock_oauth_code_manager.create_authorization_code.return_value = "code-pair"
+
+        event = _make_event(
+            body=json.dumps(
+                {
+                    "client_id": "client1",
+                    "scope": "openid",
+                    "state": "st",
+                    "redirect_uri": "urn:ietf:wg:oauth:2.0:oob:pair-auth-webchannel",
+                }
+            ),
+        )
+        response = route.handle(event)
+        assert response.status_code == 200
+        body = json.loads(response.body)
+        assert body["redirect"] == "urn:ietf:wg:oauth:2.0:oob:pair-auth-webchannel"
+
+    def test_invalid_redirect_uri_returns_400(self, route, mock_oauth_code_manager):
+        """Invalid redirect_uri returns 400."""
+        event = _make_event(
+            body=json.dumps(
+                {
+                    "client_id": "client1",
+                    "scope": "openid",
+                    "state": "st",
+                    "redirect_uri": "https://evil.example.com/callback",
+                }
+            ),
+        )
+        response = route.handle(event)
+        assert response.status_code == 400
+        body = json.loads(response.body)
+        assert body["errno"] == 107
+        assert "redirect_uri" in body["message"]
+
+    def test_default_redirect_uri_when_not_provided(self, route, mock_oauth_code_manager):
+        """Default redirect_uri used when none provided."""
+        mock_oauth_code_manager.create_authorization_code.return_value = "code-default"
+
+        event = _make_event(
+            body=json.dumps(
+                {
+                    "client_id": "client1",
+                    "scope": "openid",
+                    "state": "st",
+                }
+            ),
+        )
+        response = route.handle(event)
+        assert response.status_code == 200
+        body = json.loads(response.body)
+        assert body["redirect"] == "urn:ietf:wg:oauth:2.0:oob"
+
+
 class TestOAuthAuthorizationBind:
     def test_bind_registers_post_route(self, route):
         mock_api = MagicMock()

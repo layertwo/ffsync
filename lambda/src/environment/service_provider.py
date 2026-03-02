@@ -45,6 +45,7 @@ from src.services.api_router import (
     WeaveTimestampMiddleware,
 )
 from src.services.auth_account_manager import AuthAccountManager
+from src.services.channel_service import ChannelService
 from src.services.fxa_token_manager import FxATokenManager
 from src.services.hawk_service import HawkService
 from src.services.jwt_service import JWTService
@@ -409,3 +410,19 @@ class ServiceProvider:
             timestamp_skew_tolerance=self.hawk_timestamp_skew_tolerance,
             token_duration=self.token_duration,
         )
+
+    # Channel Service properties
+
+    @cached_property
+    def channel_table_name(self):
+        return os.environ.get("CHANNEL_TABLE_NAME")
+
+    @cached_property
+    def channel_table(self):
+        """DynamoDB Table for pairing channel state"""
+        resource = self.session.resource("dynamodb")
+        return resource.Table(self.channel_table_name)
+
+    @cached_property
+    def channel_service(self) -> ChannelService:
+        return ChannelService(table=self.channel_table, session=self.session)

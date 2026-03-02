@@ -39,6 +39,9 @@ export async function loadConfig(): Promise<AppConfig> {
   if (config.authServerUrl) {
     config.authServerUrl = config.authServerUrl.replace(/\/+$/, "")
   }
+  if (config.pairingServerUrl) {
+    config.pairingServerUrl = config.pairingServerUrl.replace(/\/+$/, "")
+  }
 
   return config
 }

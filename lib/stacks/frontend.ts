@@ -26,6 +26,7 @@ export interface FrontendStackProps extends StackProps {
     authApiDomain: string;
     tokenApiDomain: string;
     profileApiDomain: string;
+    channelApiDomain: string;
     oidcProviderUrl: IStringParameter;
     clientId: IStringParameter;
 }
@@ -86,6 +87,7 @@ export class FrontendStack extends Stack {
             profile_server_base_url: `https://${this.props.profileApiDomain}`,
             sync_tokenserver_base_url: `https://${this.props.tokenApiDomain}`,
             content_url: `https://${this.domainName}`,
+            pairing_server_base_uri: `wss://${this.props.channelApiDomain}`,
         });
 
         return new CfFunction(this, "WellKnownFunction", {
@@ -158,6 +160,7 @@ export class FrontendStack extends Stack {
                     redirectUri: `https://${this.domainName}`,
                     authServerUrl: `https://${this.props.authApiDomain}`,
                     scopes: ["openid", "profile", "email"],
+                    pairingServerUrl: `wss://${this.props.channelApiDomain}`,
                 }),
             ],
             destinationBucket: this.bucket,

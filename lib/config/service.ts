@@ -3,4 +3,5 @@ export enum Service {
     TOKEN = "token",
     PROFILE = "profile",
     STORAGE = "storage",
+    CHANNEL = "channel",
 }

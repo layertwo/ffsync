@@ -77,6 +77,7 @@ def setup_environment(
     monkeypatch.setenv("TOKEN_DURATION", "300")
     monkeypatch.setenv("AUTH_TABLE_NAME", "test-auth-table")
     monkeypatch.setenv("AUTH_SIGNING_KEY_ID", "test-signing-key-id")
+    monkeypatch.setenv("CHANNEL_TABLE_NAME", "test-channel-table")
 
 
 @pytest.fixture

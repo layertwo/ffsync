@@ -32,6 +32,7 @@ describe("FrontendStack", () => {
             authApiDomain: "api.example.com",
             tokenApiDomain: "token.example.com",
             profileApiDomain: "profile.example.com",
+            channelApiDomain: "channel.example.com",
             oidcProviderUrl: StringParameter.fromStringParameterName(helperStack, "OidcParam", "/test/oidc-url"),
             clientId: StringParameter.fromStringParameterName(helperStack, "ClientIdParam", "/test/client-id"),
         });
