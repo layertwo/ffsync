@@ -106,6 +106,14 @@ class HawkService:
         except mohawk.exc.BadHeaderValue as e:
             raise InvalidHawkHeaderException(str(e))
         except mohawk.exc.MacMismatch:
+            logger.error(
+                "HAWK MAC mismatch — query string ordering issue?",
+                extra={
+                    "method": method,
+                    "server_url": f"https://{host}:{port}{path}",
+                    "path": path,
+                },
+            )
             raise InvalidHawkSignatureException("HAWK MAC verification failed")
         except mohawk.exc.TokenExpired:
             raise InvalidHawkSignatureException("Timestamp outside acceptable window")
