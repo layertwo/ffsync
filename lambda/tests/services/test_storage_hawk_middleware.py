@@ -251,6 +251,7 @@ class TestHawkAuthMiddlewareSessionMode:
         result = middleware.handler(app, mock_next)
 
         assert raw_event["requestContext"]["hawk_uid"] == "uid123"
+        assert raw_event["requestContext"]["hawk_token_id"] == "tokenid"
         mock_next.assert_called_once_with(app)
         assert result.status_code == 200
 

@@ -6,7 +6,11 @@ from functools import cached_property
 import boto3
 from aws_lambda_powertools.event_handler import CORSConfig, Response
 
+from src.routes.auth.account_attached_clients import AccountAttachedClientsRoute
 from src.routes.auth.account_create import AccountCreateRoute
+from src.routes.auth.account_device import AccountDeviceRoute
+from src.routes.auth.account_devices import AccountDevicesRoute
+from src.routes.auth.account_devices_notify import AccountDevicesNotifyRoute
 from src.routes.auth.account_keys import AccountKeysRoute
 from src.routes.auth.account_login import AccountLoginRoute
 from src.routes.auth.account_status import AccountStatusRoute
@@ -45,6 +49,7 @@ from src.services.api_router import (
     WeaveTimestampMiddleware,
 )
 from src.services.auth_account_manager import AuthAccountManager
+from src.services.device_manager import DeviceManager
 from src.services.channel_service import ChannelService
 from src.services.fxa_token_manager import FxATokenManager
 from src.services.hawk_service import HawkService
@@ -269,6 +274,10 @@ class ServiceProvider:
         return AuthAccountManager(table=self.auth_table)
 
     @cached_property
+    def device_manager(self) -> DeviceManager:
+        return DeviceManager(table=self.auth_table)
+
+    @cached_property
     def fxa_token_manager(self) -> FxATokenManager:
         return FxATokenManager(table=self.auth_table)
 
@@ -350,6 +359,22 @@ class ServiceProvider:
                 OIDCCodeExchangeRoute(
                     oidc_validator=self.oidc_validator,
                     account_manager=self.auth_account_manager,
+                ),
+                # Device management routes
+                AccountDeviceRoute(
+                    device_manager=self.device_manager,
+                    middlewares=[self.session_hawk_middleware],
+                ),
+                AccountDevicesRoute(
+                    device_manager=self.device_manager,
+                    middlewares=[self.session_hawk_middleware],
+                ),
+                AccountAttachedClientsRoute(
+                    device_manager=self.device_manager,
+                    middlewares=[self.session_hawk_middleware],
+                ),
+                AccountDevicesNotifyRoute(
+                    middlewares=[self.session_hawk_middleware],
                 ),
             ],
             middlewares=[WeaveTimestampMiddleware()],

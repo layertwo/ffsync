@@ -1,5 +1,6 @@
 """FxA Token Manager for session tokens and key-fetch tokens in DynamoDB"""
 
+import re
 import time
 from typing import Optional
 
@@ -19,9 +20,19 @@ KEY_FETCH_TOKEN_INFO = "identity.mozilla.com/picl/v1/keyFetchToken"
 SESSION_PREFIX = "SESSION"
 KEYFETCH_PREFIX = "KEYFETCH"
 
+_HAWK_ID_PATTERN = re.compile(r'id="([^"]+)"')
+
 
 class FxATokenManager:
     """Manages FxA session tokens and key-fetch tokens in DynamoDB"""
+
+    @staticmethod
+    def extract_token_id_from_hawk_header(authorization_header: str) -> str | None:
+        """Extract the Hawk id field (session token ID) from an Authorization header."""
+        if not authorization_header:
+            return None
+        match = _HAWK_ID_PATTERN.search(authorization_header)
+        return match.group(1) if match else None
 
     def __init__(
         self,
