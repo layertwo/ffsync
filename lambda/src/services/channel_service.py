@@ -1,10 +1,13 @@
 """Channel Service — WebSocket message relay for device pairing."""
 
 import json
+import logging
 import time
 import uuid
 
 from botocore.exceptions import ClientError
+
+logger = logging.getLogger(__name__)
 
 MAX_CONNECTIONS_PER_CHANNEL = 3
 MAX_MESSAGES_PER_CHANNEL = 10
@@ -28,6 +31,7 @@ class ChannelService:
         """Dispatch on WebSocket route key."""
         route_key = event["requestContext"]["routeKey"]
         connection_id = event["requestContext"]["connectionId"]
+        logger.info("route=%s connection=%s", route_key, connection_id)
 
         if route_key == "$connect":
             return self._handle_connect(event, connection_id)
@@ -53,6 +57,7 @@ class ChannelService:
     def _create_channel(self, event, connection_id, expiry):
         """Create a new channel with this connection as the first member."""
         channel_id = str(uuid.uuid4())
+        logger.info("Creating channel=%s for connection=%s", channel_id, connection_id)
 
         # Put channel metadata
         self._table.put_item(
@@ -77,13 +82,14 @@ class ChannelService:
         self._post_to_connection(
             event,
             connection_id,
-            json.dumps({"channelId": channel_id}),
+            json.dumps({"channelid": channel_id}),
         )
 
         return {"statusCode": 200}
 
     def _join_channel(self, channel_id, connection_id, expiry):
         """Join an existing channel atomically."""
+        logger.info("Joining channel=%s connection=%s", channel_id, connection_id)
         try:
             self._table.update_item(
                 Key={"PK": f"CHANNEL#{channel_id}"},
@@ -140,6 +146,7 @@ class ChannelService:
 
     def _handle_message(self, event, connection_id):
         """Handle incoming message — relay to other connections."""
+        logger.info("Message from connection=%s", connection_id)
         # Look up channel for this connection
         result = self._table.get_item(Key={"PK": f"CONN#{connection_id}"})
         if "Item" not in result:
@@ -201,6 +208,7 @@ class ChannelService:
                 Data=data.encode("utf-8") if isinstance(data, str) else data,
             )
         except client.exceptions.GoneException:
+            logger.warning("Connection %s is gone, cleaning up", connection_id)
             self._handle_disconnect(connection_id)
 
     def _get_apigw_client(self, event):

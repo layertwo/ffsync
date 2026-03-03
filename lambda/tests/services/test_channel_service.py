@@ -112,7 +112,7 @@ class TestChannelService:
             {},
             {
                 "ConnectionId": "conn-1",
-                "Data": json.dumps({"channelId": FIXED_UUID}).encode("utf-8"),
+                "Data": json.dumps({"channelid": FIXED_UUID}).encode("utf-8"),
             },
         )
 
