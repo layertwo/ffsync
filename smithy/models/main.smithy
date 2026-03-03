@@ -52,6 +52,7 @@ service AuthService {
     version: "1.0"
     resources: [
         Account
+        Device
         Session
         OAuth
     ]
