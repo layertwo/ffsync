@@ -204,10 +204,15 @@ class ChannelService:
             self._handle_disconnect(connection_id)
 
     def _get_apigw_client(self, event):
-        """Lazy API Gateway Management API client, cached by endpoint."""
-        domain = event["requestContext"]["domainName"]
+        """Lazy API Gateway Management API client, cached by endpoint.
+
+        Uses the execute-api domain (not the custom domain) because the
+        Management API and its IAM policy are scoped to the execute-api ARN.
+        """
+        api_id = event["requestContext"]["apiId"]
         stage = event["requestContext"]["stage"]
-        endpoint = f"https://{domain}/{stage}"
+        region = self._session.region_name
+        endpoint = f"https://{api_id}.execute-api.{region}.amazonaws.com/{stage}"
 
         if endpoint not in self._apigw_clients:
             self._apigw_clients[endpoint] = self._session.client(
