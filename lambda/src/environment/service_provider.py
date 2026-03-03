@@ -49,8 +49,8 @@ from src.services.api_router import (
     WeaveTimestampMiddleware,
 )
 from src.services.auth_account_manager import AuthAccountManager
-from src.services.device_manager import DeviceManager
 from src.services.channel_service import ChannelService
+from src.services.device_manager import DeviceManager
 from src.services.fxa_token_manager import FxATokenManager
 from src.services.hawk_service import HawkService
 from src.services.jwt_service import JWTService
