@@ -1473,3 +1473,17 @@ class TestCustomTTL:
             manager.create_key_fetch_token("test-uid")
 
         dynamodb_stubber.assert_no_pending_responses()
+
+
+class TestExtractTokenIdFromHawkHeader:
+    def test_valid_header(self):
+        result = FxATokenManager.extract_token_id_from_hawk_header(
+            'Hawk id="abc123", ts="1234567890", nonce="xyz"'
+        )
+        assert result == "abc123"
+
+    def test_empty_header(self):
+        assert FxATokenManager.extract_token_id_from_hawk_header("") is None
+
+    def test_no_match(self):
+        assert FxATokenManager.extract_token_id_from_hawk_header("Bearer token") is None

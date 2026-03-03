@@ -4,7 +4,7 @@ Handles both storage Hawk (hawk_service) and session Hawk (token_manager)
 authentication. Pass hawk_service for storage API, token_manager for auth API
 session-authenticated routes.
 
-On success, injects ``hawk_uid`` into event["requestContext"].
+On success, injects ``hawk_uid`` and ``hawk_token_id`` into event["requestContext"].
 On failure, raises HawkAuthenticationError (handle with router exception handler).
 """
 
@@ -85,3 +85,7 @@ class HawkAuthMiddleware(BaseMiddlewareHandler):
             raise HawkAuthenticationError("Invalid or expired session token")
 
         event["requestContext"]["hawk_uid"] = uid
+        # Inject the Hawk id (session token ID) for device correlation
+        event["requestContext"]["hawk_token_id"] = (
+            FxATokenManager.extract_token_id_from_hawk_header(auth_header) or ""
+        )

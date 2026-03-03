@@ -5,7 +5,11 @@ These tests exercise the bind() closure bodies which unit tests call directly vi
 
 from unittest.mock import MagicMock
 
+from src.routes.auth.account_attached_clients import AccountAttachedClientsRoute
 from src.routes.auth.account_create import AccountCreateRoute
+from src.routes.auth.account_device import AccountDeviceRoute
+from src.routes.auth.account_devices import AccountDevicesRoute
+from src.routes.auth.account_devices_notify import AccountDevicesNotifyRoute
 from src.routes.auth.account_keys import AccountKeysRoute
 from src.routes.auth.account_login import AccountLoginRoute
 from src.routes.auth.account_status import AccountStatusRoute
@@ -25,6 +29,7 @@ def _make_event(method, path, headers=None, body=None, qs=None, hawk_uid=None):
     ctx = {"requestId": "test"}
     if hawk_uid:
         ctx["hawk_uid"] = hawk_uid
+        ctx["hawk_token_id"] = "test-token-id"
     return {
         "httpMethod": method,
         "path": path,
@@ -171,3 +176,41 @@ class TestRouteDispatch:
             _make_event("POST", "/v1/oidc/exchange", body="{}"), _make_context()
         )
         assert result["statusCode"] == 400
+
+    def test_account_device_dispatches(self):
+        mgr = MagicMock()
+        mgr.upsert_device.return_value = {"id": "dev1", "name": "Test"}
+        route = AccountDeviceRoute(device_manager=mgr, middlewares=[])
+        result = _router(route).handler(
+            _make_event("POST", "/v1/account/device", body="{}", hawk_uid="uid1"),
+            _make_context(),
+        )
+        assert result["statusCode"] == 200
+
+    def test_account_devices_dispatches(self):
+        mgr = MagicMock()
+        mgr.get_devices.return_value = []
+        route = AccountDevicesRoute(device_manager=mgr, middlewares=[])
+        result = _router(route).handler(
+            _make_event("GET", "/v1/account/devices", hawk_uid="uid1"),
+            _make_context(),
+        )
+        assert result["statusCode"] == 200
+
+    def test_account_attached_clients_dispatches(self):
+        mgr = MagicMock()
+        mgr.get_devices.return_value = []
+        route = AccountAttachedClientsRoute(device_manager=mgr, middlewares=[])
+        result = _router(route).handler(
+            _make_event("GET", "/v1/account/attached_clients", hawk_uid="uid1"),
+            _make_context(),
+        )
+        assert result["statusCode"] == 200
+
+    def test_account_devices_notify_dispatches(self):
+        route = AccountDevicesNotifyRoute(middlewares=[])
+        result = _router(route).handler(
+            _make_event("POST", "/v1/account/devices/notify", body="{}", hawk_uid="uid1"),
+            _make_context(),
+        )
+        assert result["statusCode"] == 200
