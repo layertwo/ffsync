@@ -24,6 +24,7 @@ def _ws_event(route_key="$default", connection_id="conn-1", body=None, query_par
         "requestContext": {
             "routeKey": route_key,
             "connectionId": connection_id,
+            "apiId": "testapi123",
             "domainName": "ws.example.com",
             "stage": "prod",
         },
@@ -48,8 +49,10 @@ class TestChannelService:
         svc = ChannelService(table=channel_table, session=boto_session)
         # Pre-populate the APIGW client cache with the shared stubbed client.
         # The key must match what _get_apigw_client computes from _ws_event():
-        # f"https://{domainName}/{stage}" => "https://ws.example.com/prod"
-        svc._apigw_clients["https://ws.example.com/prod"] = apigw_client
+        # f"https://{apiId}.execute-api.{region}.amazonaws.com/{stage}"
+        svc._apigw_clients["https://testapi123.execute-api.us-east-1.amazonaws.com/prod"] = (
+            apigw_client
+        )
         return svc
 
     # -- Constants ------------------------------------------------------------
@@ -703,8 +706,9 @@ class TestChannelService:
 
         event = _ws_event()
         client1 = svc._get_apigw_client(event)
-        assert "https://ws.example.com/prod" in svc._apigw_clients
-        assert client1 is svc._apigw_clients["https://ws.example.com/prod"]
+        expected_key = "https://testapi123.execute-api.us-east-1.amazonaws.com/prod"
+        assert expected_key in svc._apigw_clients
+        assert client1 is svc._apigw_clients[expected_key]
 
         # Second call returns the same cached client
         client2 = svc._get_apigw_client(event)
