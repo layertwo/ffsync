@@ -67,6 +67,7 @@ class TestHawkAuthMiddlewareSuccess:
             "/1.5/123/storage/bookmarks",
             "storage.example.com",
             443,
+            query_params=None,
         )
 
         # Verify hawk_uid was injected

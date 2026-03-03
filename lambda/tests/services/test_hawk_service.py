@@ -534,6 +534,112 @@ class TestValidate:
             hawk_service.validate(header, "GET", "/test", "host", 443)
 
 
+class TestValidateQueryParamCorrection:
+    """Tests for query parameter reordering correction in validate()"""
+
+    def test_validate_corrects_reordered_query_params(self, hawk_service, mock_dynamodb_table):
+        """validate() succeeds when API Gateway alphabetizes query params."""
+        user_id = "user123"
+        generation = 5
+        expiry = int(time.time()) + 300
+        hawk_id = (
+            base64.urlsafe_b64encode(f"{user_id}:{generation}:{expiry}".encode())
+            .decode()
+            .rstrip("=")
+        )
+        hawk_key = "a" * 64
+        method = "GET"
+        host = "api.example.com"
+        port = 443
+
+        # Client sends: newer=1.09&full=1&limit=1000
+        client_path = "/storage/prefs?newer=1.09&full=1&limit=1000"
+        authorization_header = build_hawk_auth_header(
+            hawk_id, hawk_key, method, client_path, host, port
+        )
+
+        mock_dynamodb_table.get_item.return_value = {
+            "Item": {"hawk_key": hawk_key, "user_id": user_id, "generation": generation}
+        }
+        mock_dynamodb_table.put_item.return_value = {}
+
+        # Server receives alphabetized path
+        server_path = "/storage/prefs?full=1&limit=1000&newer=1.09"
+        query_params = {"full": "1", "limit": "1000", "newer": "1.09"}
+
+        creds = hawk_service.validate(
+            authorization_header, method, server_path, host, port, query_params=query_params
+        )
+        assert creds.user_id == user_id
+
+    def test_validate_correction_returns_none_falls_through(
+        self, hawk_service, mock_dynamodb_table
+    ):
+        """When no permutation matches, validate proceeds with original path (and fails)."""
+        user_id = "user1"
+        generation = 1
+        expiry = int(time.time()) + 300
+        hawk_id = (
+            base64.urlsafe_b64encode(f"{user_id}:{generation}:{expiry}".encode())
+            .decode()
+            .rstrip("=")
+        )
+        hawk_key = "c" * 64
+        method = "GET"
+        host = "api.example.com"
+        port = 443
+
+        # Build header with a path that won't match any permutation of the query params
+        # (client used a completely different path)
+        client_path = "/storage/other?x=1&y=2"
+        authorization_header = build_hawk_auth_header(
+            hawk_id, hawk_key, method, client_path, host, port
+        )
+
+        mock_dynamodb_table.get_item.return_value = {
+            "Item": {"hawk_key": hawk_key, "user_id": user_id, "generation": generation}
+        }
+        mock_dynamodb_table.put_item.return_value = {}
+
+        # Server has different params — no permutation will match
+        server_path = "/storage/prefs?a=1&b=2"
+        query_params = {"a": "1", "b": "2"}
+
+        with pytest.raises(InvalidHawkSignatureException):
+            hawk_service.validate(
+                authorization_header, method, server_path, host, port, query_params=query_params
+            )
+
+    def test_validate_no_correction_needed_for_single_param(
+        self, hawk_service, mock_dynamodb_table
+    ):
+        """Single query param doesn't trigger permutation logic."""
+        user_id = "user1"
+        generation = 1
+        expiry = int(time.time()) + 300
+        hawk_id = (
+            base64.urlsafe_b64encode(f"{user_id}:{generation}:{expiry}".encode())
+            .decode()
+            .rstrip("=")
+        )
+        hawk_key = "b" * 64
+        method = "GET"
+        host = "api.example.com"
+        port = 443
+        path = "/storage/tabs?full=1"
+
+        authorization_header = build_hawk_auth_header(hawk_id, hawk_key, method, path, host, port)
+        mock_dynamodb_table.get_item.return_value = {
+            "Item": {"hawk_key": hawk_key, "user_id": user_id, "generation": generation}
+        }
+        mock_dynamodb_table.put_item.return_value = {}
+
+        creds = hawk_service.validate(
+            authorization_header, method, path, host, port, query_params={"full": "1"}
+        )
+        assert creds.user_id == user_id
+
+
 class TestSeenNonce:
     """Tests for _seen_nonce method"""
 
@@ -701,3 +807,125 @@ class TestHawkCredentialsDataclass:
         )
 
         assert credentials.hawk_key is None
+
+
+class TestParseHawkFields:
+    """Tests for _parse_hawk_fields"""
+
+    def test_parses_all_fields(self, hawk_service):
+        header = 'Hawk id="abc", ts="123", nonce="xyz", mac="sig=", hash="h", ext="e"'
+        fields = hawk_service._parse_hawk_fields(header)
+        assert fields["id"] == "abc"
+        assert fields["ts"] == "123"
+        assert fields["nonce"] == "xyz"
+        assert fields["mac"] == "sig="
+        assert fields["hash"] == "h"
+        assert fields["ext"] == "e"
+
+    def test_empty_header(self, hawk_service):
+        assert hawk_service._parse_hawk_fields("") == {}
+
+
+class TestCorrectQueryOrder:
+    """Tests for _correct_query_order — pre-computes MAC to find client's param ordering"""
+
+    def test_finds_correct_order(self, hawk_service, mock_dynamodb_table):
+        """When API Gateway reorders params, finds the client's original order."""
+        import hashlib
+        import hmac as hmac_mod
+
+        hawk_key = "a" * 64
+        hawk_id = base64.urlsafe_b64encode(b"user1:1:9999999999").decode().rstrip("=")
+        mock_dynamodb_table.get_item.return_value = {
+            "Item": {"hawk_key": hawk_key, "user_id": "user1", "generation": 1}
+        }
+
+        ts = "1234567890"
+        nonce = "abc123"
+        method = "GET"
+        host = "storage.example.com"
+        port = 443
+        # Client used: newer=1.09&full=1&limit=1000
+        client_resource = "/storage/prefs?newer=1.09&full=1&limit=1000"
+        normalized = (
+            f"hawk.1.header\n{ts}\n{nonce}\n{method}\n" f"{client_resource}\n{host}\n{port}\n\n\n"
+        )
+        client_mac = base64.b64encode(
+            hmac_mod.new(
+                hawk_key.encode("ascii"), normalized.encode("ascii"), hashlib.sha256
+            ).digest()
+        ).decode("ascii")
+
+        auth_header = f'Hawk id="{hawk_id}", ts="{ts}", nonce="{nonce}", mac="{client_mac}"'
+
+        # Server has alphabetized path
+        server_path = "/storage/prefs?full=1&limit=1000&newer=1.09"
+        query_params = {"full": "1", "limit": "1000", "newer": "1.09"}
+
+        result = hawk_service._correct_query_order(
+            auth_header, hawk_id, method, server_path, query_params, host, port
+        )
+        assert result == "/storage/prefs?newer=1.09&full=1&limit=1000"
+
+    def test_returns_none_when_already_correct(self, hawk_service, mock_dynamodb_table):
+        """Returns the current path when the order already matches."""
+        import hashlib
+        import hmac as hmac_mod
+
+        hawk_key = "b" * 64
+        hawk_id = base64.urlsafe_b64encode(b"user1:1:9999999999").decode().rstrip("=")
+        mock_dynamodb_table.get_item.return_value = {
+            "Item": {"hawk_key": hawk_key, "user_id": "user1", "generation": 1}
+        }
+
+        ts = "1234567890"
+        nonce = "def456"
+        method = "GET"
+        host = "storage.example.com"
+        port = 443
+        resource = "/storage/clients?full=1&limit=1000"
+        normalized = f"hawk.1.header\n{ts}\n{nonce}\n{method}\n" f"{resource}\n{host}\n{port}\n\n\n"
+        client_mac = base64.b64encode(
+            hmac_mod.new(
+                hawk_key.encode("ascii"), normalized.encode("ascii"), hashlib.sha256
+            ).digest()
+        ).decode("ascii")
+
+        auth_header = f'Hawk id="{hawk_id}", ts="{ts}", nonce="{nonce}", mac="{client_mac}"'
+        query_params = {"full": "1", "limit": "1000"}
+
+        result = hawk_service._correct_query_order(
+            auth_header, hawk_id, method, resource, query_params, host, port
+        )
+        # Returns the resource (it matched on the current order)
+        assert result == resource
+
+    def test_returns_none_on_missing_header_fields(self, hawk_service):
+        """Returns None when header can't be parsed."""
+        result = hawk_service._correct_query_order(
+            "BadHeader", "hid", "GET", "/path?a=1&b=2", {"a": "1", "b": "2"}, "h", 443
+        )
+        assert result is None
+
+    def test_returns_none_on_cache_miss(self, hawk_service, mock_dynamodb_table):
+        """Returns None when hawk key not in cache (lets mohawk handle it)."""
+        mock_dynamodb_table.get_item.return_value = {}  # No Item
+        hawk_id = base64.urlsafe_b64encode(b"user1:1:9999999999").decode().rstrip("=")
+        auth_header = f'Hawk id="{hawk_id}", ts="1", nonce="n", mac="m"'
+        result = hawk_service._correct_query_order(
+            auth_header, hawk_id, "GET", "/p?a=1&b=2", {"a": "1", "b": "2"}, "h", 443
+        )
+        assert result is None
+
+    def test_returns_none_when_no_permutation_matches(self, hawk_service, mock_dynamodb_table):
+        """Returns None when MAC doesn't match any permutation (tampered request)."""
+        hawk_key = "c" * 64
+        hawk_id = base64.urlsafe_b64encode(b"user1:1:9999999999").decode().rstrip("=")
+        mock_dynamodb_table.get_item.return_value = {
+            "Item": {"hawk_key": hawk_key, "user_id": "user1", "generation": 1}
+        }
+        auth_header = f'Hawk id="{hawk_id}", ts="1", nonce="n", mac="bogusMAC=="'
+        result = hawk_service._correct_query_order(
+            auth_header, hawk_id, "GET", "/p?a=1&b=2", {"a": "1", "b": "2"}, "h", 443
+        )
+        assert result is None
