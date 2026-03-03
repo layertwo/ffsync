@@ -20,7 +20,7 @@
 | src/routes/auth/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/account\_create.py      |       65 |        0 |       14 |        0 |     100% |           |
 | src/routes/auth/account\_keys.py        |       37 |        0 |        6 |        0 |     100% |           |
-| src/routes/auth/account\_login.py       |       52 |        0 |       14 |        0 |     100% |           |
+| src/routes/auth/account\_login.py       |       53 |        0 |       14 |        0 |     100% |           |
 | src/routes/auth/account\_status.py      |       18 |        0 |        2 |        0 |     100% |           |
 | src/routes/auth/jwks.py                 |       14 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/oauth\_authorization.py |       40 |        0 |        8 |        0 |     100% |           |
@@ -48,18 +48,18 @@
 | src/routes/info/read\_quota.py          |       28 |        0 |        2 |        0 |     100% |           |
 | src/routes/info/read\_usage.py          |       24 |        0 |        2 |        0 |     100% |           |
 | src/routes/profile/\_\_init\_\_.py      |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/profile/get\_profile.py      |       33 |        0 |        6 |        0 |     100% |           |
+| src/routes/profile/get\_profile.py      |       38 |        0 |       10 |        0 |     100% |           |
 | src/routes/storage/\_\_init\_\_.py      |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/storage/delete\_all.py       |       23 |        0 |        2 |        0 |     100% |           |
 | src/routes/storage/delete\_root.py      |       24 |        0 |        2 |        0 |     100% |           |
 | src/routes/token/\_\_init\_\_.py        |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/token/request.py             |      111 |        0 |       22 |        0 |     100% |           |
 | src/services/api\_router.py             |       27 |        0 |        4 |        0 |     100% |           |
-| src/services/auth\_account\_manager.py  |       49 |        0 |        6 |        0 |     100% |           |
+| src/services/auth\_account\_manager.py  |       76 |        0 |       14 |        0 |     100% |           |
 | src/services/fxa\_crypto.py             |       38 |        0 |        0 |        0 |     100% |           |
 | src/services/fxa\_token\_manager.py     |      120 |        0 |       34 |        0 |     100% |           |
 | src/services/hawk\_service.py           |      102 |        0 |       16 |        0 |     100% |           |
-| src/services/jwt\_service.py            |       51 |        0 |        6 |        0 |     100% |           |
+| src/services/jwt\_service.py            |       53 |        0 |        8 |        0 |     100% |           |
 | src/services/jwt\_verifier.py           |       62 |        0 |       14 |        0 |     100% |           |
 | src/services/oauth\_code\_manager.py    |       63 |        0 |       16 |        0 |     100% |           |
 | src/services/oidc\_validator.py         |       90 |        0 |       14 |        0 |     100% |           |
@@ -70,11 +70,11 @@
 | src/shared/base\_route.py               |        6 |        0 |        0 |        0 |     100% |           |
 | src/shared/exceptions.py                |      166 |        0 |        8 |        0 |     100% |           |
 | src/shared/models.py                    |       60 |        0 |       28 |        0 |     100% |           |
-| src/shared/oidc.py                      |       10 |        0 |        0 |        0 |     100% |           |
+| src/shared/oidc.py                      |       11 |        0 |        0 |        0 |     100% |           |
 | src/shared/token.py                     |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                      |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                     |       37 |        0 |        4 |        0 |     100% |           |
-| **TOTAL**                               | **2892** |    **0** |  **530** |    **0** | **100%** |           |
+| **TOTAL**                               | **2928** |    **0** |  **544** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
