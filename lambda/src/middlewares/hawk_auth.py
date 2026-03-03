@@ -60,7 +60,10 @@ class HawkAuthMiddleware(BaseMiddlewareHandler):
         """Validate storage Hawk token and check URL uid matches authenticated user."""
         assert self._hawk_service is not None
         try:
-            creds = self._hawk_service.validate(auth_header, method, path, host, port)
+            query_params = event.query_string_parameters
+            creds = self._hawk_service.validate(
+                auth_header, method, path, host, port, query_params=query_params
+            )
         except Exception as e:
             raise HawkAuthenticationError(str(e)) from e
 

@@ -1,9 +1,6 @@
 import json
-import logging
 from datetime import datetime, timezone
 from decimal import Decimal
-
-logger = logging.getLogger(__name__)
 
 
 def datetime_encoder(dt: datetime) -> Decimal:
@@ -68,17 +65,8 @@ def extract_hawk_request_params(event) -> tuple[str, str, str, int]:
 
     query_params = event.query_string_parameters
     if query_params:
-        param_keys = list(query_params.keys())
         qs = "&".join(f"{k}={v}" for k, v in query_params.items())
         path = f"{path}?{qs}"
-        logger.info(
-            "Hawk query string reconstruction",
-            extra={
-                "original_path": event.path,
-                "reconstructed_path": path,
-                "param_key_order": param_keys,
-            },
-        )
 
     try:
         host = event.request_context.domain_name or "localhost"
