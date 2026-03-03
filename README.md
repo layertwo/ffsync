@@ -5,13 +5,14 @@
 | Name                                    |    Stmts |     Miss |   Branch |   BrPart |    Cover |   Missing |
 |---------------------------------------- | -------: | -------: | -------: | -------: | -------: | --------: |
 | src/\_\_init\_\_.py                     |        0 |        0 |        0 |        0 |     100% |           |
-| src/entrypoint/\_\_init\_\_.py          |        4 |        0 |        0 |        0 |     100% |           |
+| src/entrypoint/\_\_init\_\_.py          |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/auth\_api.py             |        5 |        0 |        0 |        0 |     100% |           |
+| src/entrypoint/channel\_api.py          |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/profile\_api.py          |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/storage\_api.py          |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/token\_api.py            |        5 |        0 |        0 |        0 |     100% |           |
 | src/environment/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
-| src/environment/service\_provider.py    |      167 |        0 |        0 |        0 |     100% |           |
+| src/environment/service\_provider.py    |      178 |        0 |        0 |        0 |     100% |           |
 | src/middlewares/\_\_init\_\_.py         |        0 |        0 |        0 |        0 |     100% |           |
 | src/middlewares/hawk\_auth.py           |       46 |        0 |       12 |        0 |     100% |           |
 | src/middlewares/request\_logging.py     |       22 |        0 |        0 |        0 |     100% |           |
@@ -23,7 +24,7 @@
 | src/routes/auth/account\_login.py       |       53 |        0 |       14 |        0 |     100% |           |
 | src/routes/auth/account\_status.py      |       18 |        0 |        2 |        0 |     100% |           |
 | src/routes/auth/jwks.py                 |       14 |        0 |        0 |        0 |     100% |           |
-| src/routes/auth/oauth\_authorization.py |       40 |        0 |        8 |        0 |     100% |           |
+| src/routes/auth/oauth\_authorization.py |       45 |        0 |       10 |        0 |     100% |           |
 | src/routes/auth/oauth\_destroy.py       |       26 |        0 |        4 |        0 |     100% |           |
 | src/routes/auth/oauth\_token.py         |      114 |        0 |       40 |        0 |     100% |           |
 | src/routes/auth/oidc\_discovery.py      |       14 |        0 |        0 |        0 |     100% |           |
@@ -56,6 +57,7 @@
 | src/routes/token/request.py             |      111 |        0 |       22 |        0 |     100% |           |
 | src/services/api\_router.py             |       27 |        0 |        4 |        0 |     100% |           |
 | src/services/auth\_account\_manager.py  |       76 |        0 |       14 |        0 |     100% |           |
+| src/services/channel\_service.py        |      100 |        0 |       32 |        0 |     100% |           |
 | src/services/fxa\_crypto.py             |       38 |        0 |        0 |        0 |     100% |           |
 | src/services/fxa\_token\_manager.py     |      120 |        0 |       34 |        0 |     100% |           |
 | src/services/hawk\_service.py           |      133 |        0 |       28 |        0 |     100% |           |
@@ -74,7 +76,7 @@
 | src/shared/token.py                     |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                      |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                     |       33 |        0 |        4 |        0 |     100% |           |
-| **TOTAL**                               | **2956** |    **0** |  **556** |    **0** | **100%** |           |
+| **TOTAL**                               | **3078** |    **0** |  **590** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
