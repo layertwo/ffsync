@@ -43,18 +43,27 @@ class GetProfileRoute(BaseRoute):
         except InvalidTokenError:
             return self._error(401, 110, "Invalid or expired token")
 
-        account = self._auth_account_manager.get_account_by_uid(claims.sub)
+        # Look up account by fxa_uid (from JWT) or fall back to oidcSub lookup
+        account = None
+        if claims.fxa_uid:
+            account = self._auth_account_manager.get_account_by_uid(claims.fxa_uid)
+        if account is None:
+            account = self._auth_account_manager.get_account_by_oidc_sub(claims.sub)
         if account is None:
             return self._error(401, 110, "Account not found")
 
+        uid = account["uid"]
         return Response(
             status_code=200,
             content_type="application/json",
             body=json.dumps(
                 {
+                    "uid": uid,
                     "email": account["email"],
-                    "uid": account["uid"],
                     "locale": "en-US",
+                    "avatar": "",
+                    "avatarDefault": True,
+                    "sub": uid,
                 }
             ),
         )

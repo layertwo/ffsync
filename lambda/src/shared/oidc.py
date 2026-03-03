@@ -12,12 +12,13 @@ class OIDCTokenClaims(DataClassJsonMixin):
     OIDC token claims extracted from validated token
 
     Attributes:
-        sub: Subject (user identifier)
+        sub: Subject (OIDC subject identifier)
         iss: Issuer URL
         aud: Audience (client ID)
         exp: Expiry timestamp
         iat: Issued at timestamp
         email: User email (optional)
+        fxa_uid: Internal FxA account uid (optional, present in self-issued JWTs)
     """
 
     sub: str
@@ -26,6 +27,7 @@ class OIDCTokenClaims(DataClassJsonMixin):
     exp: int
     iat: int
     email: Optional[str] = None
+    fxa_uid: Optional[str] = None
 
 
 @dataclass

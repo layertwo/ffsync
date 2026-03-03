@@ -88,6 +88,22 @@ class TestJWTVerifier:
         assert claims.sub == "user123"
         assert claims.iss == "https://auth.example.com"
         assert claims.exp == now + 900
+        assert claims.fxa_uid is None
+
+    def test_fxa_uid_extracted_from_token(self, verifier, keypair):
+        private_key, _ = keypair
+        now = int(time.time())
+        payload = {
+            "sub": "oidc-sub-123",
+            "iss": "https://auth.example.com",
+            "iat": now,
+            "exp": now + 900,
+            "fxa_uid": "uid-abc123",
+        }
+        token = _sign_jwt(private_key, payload)
+        claims = verifier.validate_token(token)
+        assert claims.sub == "oidc-sub-123"
+        assert claims.fxa_uid == "uid-abc123"
 
     def test_expired_token_raises(self, verifier, keypair):
         private_key, _ = keypair

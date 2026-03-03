@@ -78,6 +78,7 @@ class JWTVerifier:
             aud=payload.get("client_id", ""),
             exp=payload["exp"],
             iat=payload["iat"],
+            fxa_uid=payload.get("fxa_uid"),
         )
 
     @cached_property
