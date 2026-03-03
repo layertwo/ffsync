@@ -110,6 +110,20 @@ class TestSignJWT:
         payload = json.loads(base64.urlsafe_b64decode(payload_b64))
         assert "client_id" not in payload
 
+    def test_payload_contains_fxa_uid(self, service):
+        token = service.sign_jwt(sub="oidc-sub", scope="openid", ttl=300, fxa_uid="uid1")
+        payload_b64 = token.split(".")[1]
+        payload_b64 += "=" * (4 - len(payload_b64) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+        assert payload["fxa_uid"] == "uid1"
+
+    def test_payload_omits_fxa_uid_when_none(self, service):
+        token = service.sign_jwt(sub="user1", scope="openid", ttl=300)
+        payload_b64 = token.split(".")[1]
+        payload_b64 += "=" * (4 - len(payload_b64) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+        assert "fxa_uid" not in payload
+
     def test_calls_kms_sign(self, service, mock_kms):
         service.sign_jwt(sub="user1", scope="openid", ttl=300)
         mock_kms.sign.assert_called_once()

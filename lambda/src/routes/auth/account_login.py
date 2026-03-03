@@ -68,6 +68,9 @@ class AccountLoginRoute(BaseRoute):
 
         uid = account["uid"]
 
+        # Backfill OIDCSUB# lookup record if missing (for accounts created before this index)
+        self._account_manager.ensure_oidcsub_record(uid, account.get("oidcSub", ""))
+
         # Create session token (always)
         session_token = self._token_manager.create_session_token(uid)
 

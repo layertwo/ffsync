@@ -39,14 +39,16 @@ class JWTService:
         scope: str,
         ttl: int,
         client_id: Optional[str] = None,
+        fxa_uid: Optional[str] = None,
     ) -> str:
         """Sign a JWT using KMS.
 
         Args:
-            sub: Subject claim (user identifier).
+            sub: Subject claim (OIDC subject identifier).
             scope: OAuth scope string.
             ttl: Token time-to-live in seconds.
             client_id: Optional OAuth client ID.
+            fxa_uid: Optional internal FxA account uid for profile lookups.
 
         Returns:
             Compact JWT string (header.payload.signature).
@@ -64,6 +66,8 @@ class JWTService:
         }
         if client_id is not None:
             payload["client_id"] = client_id
+        if fxa_uid is not None:
+            payload["fxa_uid"] = fxa_uid
 
         header_b64 = self._b64url(json.dumps(header, separators=(",", ":")).encode())
         payload_b64 = self._b64url(json.dumps(payload, separators=(",", ":")).encode())

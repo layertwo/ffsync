@@ -30,11 +30,16 @@ def route(mock_jwt_verifier, mock_auth_account_manager):
 
 
 class TestGetProfile:
-    def test_valid_bearer_token_returns_200(
+    def test_valid_bearer_token_with_fxa_uid_returns_200(
         self, route, mock_jwt_verifier, mock_auth_account_manager
     ):
         mock_jwt_verifier.validate_token.return_value = OIDCTokenClaims(
-            sub="uid1", iss="https://auth.example.com", aud="client", exp=9999999999, iat=1000000000
+            sub="oidc-sub-123",
+            iss="https://auth.example.com",
+            aud="client",
+            exp=9999999999,
+            iat=1000000000,
+            fxa_uid="uid1",
         )
         mock_auth_account_manager.get_account_by_uid.return_value = {
             "uid": "uid1",
@@ -54,6 +59,37 @@ class TestGetProfile:
         assert body["email"] == "user@example.com"
         assert body["uid"] == "uid1"
         assert body["locale"] == "en-US"
+        assert body["avatarDefault"] is True
+        assert body["sub"] == "uid1"
+        mock_auth_account_manager.get_account_by_uid.assert_called_once_with("uid1")
+
+    def test_fallback_to_oidc_sub_lookup(self, route, mock_jwt_verifier, mock_auth_account_manager):
+        """When fxa_uid is absent (older token), fall back to oidcSub lookup."""
+        mock_jwt_verifier.validate_token.return_value = OIDCTokenClaims(
+            sub="oidc-sub-123",
+            iss="https://auth.example.com",
+            aud="client",
+            exp=9999999999,
+            iat=1000000000,
+        )
+        mock_auth_account_manager.get_account_by_uid.return_value = None
+        mock_auth_account_manager.get_account_by_oidc_sub.return_value = {
+            "uid": "uid1",
+            "email": "user@example.com",
+        }
+        event = APIGatewayProxyEvent(
+            {
+                "httpMethod": "GET",
+                "path": "/v1/profile",
+                "headers": {"authorization": "Bearer valid-jwt-token"},
+                "body": None,
+            }
+        )
+        response = route.handle(event)
+        assert response.status_code == 200
+        body = json.loads(response.body)
+        assert body["uid"] == "uid1"
+        mock_auth_account_manager.get_account_by_oidc_sub.assert_called_once_with("oidc-sub-123")
 
     def test_missing_auth_returns_401(self, route):
         event = APIGatewayProxyEvent(
@@ -110,6 +146,7 @@ class TestGetProfile:
             iat=1000000000,
         )
         mock_auth_account_manager.get_account_by_uid.return_value = None
+        mock_auth_account_manager.get_account_by_oidc_sub.return_value = None
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "GET",

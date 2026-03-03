@@ -87,6 +87,19 @@ class TestAuthAccountManager:
             },
         )
 
+        # Stub put_item for OIDCSUB# record
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Item": {
+                    "PK": f"OIDCSUB#{sample_oidc_sub}",
+                    "uid": sample_uid,
+                },
+            },
+        )
+
         # Stub put_item for ACCOUNT# record
         dynamodb_stubber.add_response(
             "put_item",
@@ -145,6 +158,19 @@ class TestAuthAccountManager:
                     "uid": sample_uid,
                 },
                 "ConditionExpression": "attribute_not_exists(PK)",
+            },
+        )
+
+        # Stub put_item for OIDCSUB# record
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Item": {
+                    "PK": f"OIDCSUB#{sample_oidc_sub}",
+                    "uid": sample_uid,
+                },
             },
         )
 
@@ -209,6 +235,262 @@ class TestAuthAccountManager:
                 wrap_kb=sample_wrap_kb,
                 oidc_sub=sample_oidc_sub,
             )
+
+    def test_create_account_cleans_up_email_on_oidcsub_write_failure(
+        self,
+        manager,
+        dynamodb_stubber,
+        storage_table_name,
+        sample_uid,
+        sample_email,
+        sample_normalized_email,
+        sample_verify_hash,
+        sample_k_a,
+        sample_wrap_kb,
+        sample_oidc_sub,
+        mock_time,
+    ):
+        """If OIDCSUB# put fails, EMAIL# record is cleaned up"""
+        # Stub successful EMAIL# put
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Item": {
+                    "PK": f"EMAIL#{sample_normalized_email}",
+                    "uid": sample_uid,
+                },
+                "ConditionExpression": "attribute_not_exists(PK)",
+            },
+        )
+
+        # Stub OIDCSUB# put to fail
+        dynamodb_stubber.add_client_error(
+            "put_item",
+            service_error_code="InternalServerError",
+            service_message="Internal server error",
+        )
+
+        # Stub delete_item for EMAIL# cleanup
+        dynamodb_stubber.add_response(
+            "delete_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": f"EMAIL#{sample_normalized_email}"},
+            },
+        )
+
+        with pytest.raises(ClientError):
+            manager.create_account(
+                uid=sample_uid,
+                email=sample_email,
+                verify_hash=sample_verify_hash,
+                k_a=sample_k_a,
+                wrap_kb=sample_wrap_kb,
+                oidc_sub=sample_oidc_sub,
+            )
+
+    def test_create_account_oidcsub_failure_with_email_cleanup_failure(
+        self,
+        manager,
+        dynamodb_stubber,
+        storage_table_name,
+        sample_uid,
+        sample_email,
+        sample_normalized_email,
+        sample_verify_hash,
+        sample_k_a,
+        sample_wrap_kb,
+        sample_oidc_sub,
+        mock_time,
+    ):
+        """If OIDCSUB# put fails and EMAIL# cleanup also fails, original error is raised"""
+        # Stub successful EMAIL# put
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Item": {
+                    "PK": f"EMAIL#{sample_normalized_email}",
+                    "uid": sample_uid,
+                },
+                "ConditionExpression": "attribute_not_exists(PK)",
+            },
+        )
+
+        # Stub OIDCSUB# put to fail
+        dynamodb_stubber.add_client_error(
+            "put_item",
+            service_error_code="InternalServerError",
+            service_message="Internal server error",
+        )
+
+        # Stub delete_item for EMAIL# cleanup to also fail
+        dynamodb_stubber.add_client_error(
+            "delete_item",
+            service_error_code="InternalServerError",
+            service_message="Cleanup also failed",
+        )
+
+        with pytest.raises(ClientError):
+            manager.create_account(
+                uid=sample_uid,
+                email=sample_email,
+                verify_hash=sample_verify_hash,
+                k_a=sample_k_a,
+                wrap_kb=sample_wrap_kb,
+                oidc_sub=sample_oidc_sub,
+            )
+
+    # -- ensure_oidcsub_record ------------------------------------------------
+
+    def test_ensure_oidcsub_record_creates_when_missing(
+        self,
+        manager,
+        dynamodb_stubber,
+        storage_table_name,
+        sample_uid,
+        sample_oidc_sub,
+    ):
+        """Creates OIDCSUB# record when it doesn't exist"""
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Item": {
+                    "PK": f"OIDCSUB#{sample_oidc_sub}",
+                    "uid": sample_uid,
+                },
+                "ConditionExpression": "attribute_not_exists(PK)",
+            },
+        )
+
+        manager.ensure_oidcsub_record(sample_uid, sample_oidc_sub)
+
+    def test_ensure_oidcsub_record_noop_when_exists(
+        self,
+        manager,
+        dynamodb_stubber,
+        storage_table_name,
+        sample_uid,
+        sample_oidc_sub,
+    ):
+        """No-op when OIDCSUB# record already exists"""
+        dynamodb_stubber.add_client_error(
+            "put_item",
+            service_error_code="ConditionalCheckFailedException",
+            service_message="The conditional request failed",
+        )
+
+        manager.ensure_oidcsub_record(sample_uid, sample_oidc_sub)
+
+    def test_ensure_oidcsub_record_raises_unexpected_error(
+        self,
+        manager,
+        dynamodb_stubber,
+        storage_table_name,
+        sample_uid,
+        sample_oidc_sub,
+    ):
+        """Unexpected errors are re-raised"""
+        dynamodb_stubber.add_client_error(
+            "put_item",
+            service_error_code="InternalServerError",
+            service_message="Internal server error",
+        )
+
+        with pytest.raises(ClientError):
+            manager.ensure_oidcsub_record(sample_uid, sample_oidc_sub)
+
+    def test_ensure_oidcsub_record_noop_when_empty_sub(
+        self,
+        manager,
+        sample_uid,
+    ):
+        """No-op when oidc_sub is empty"""
+        manager.ensure_oidcsub_record(sample_uid, "")
+
+    # -- get_account_by_oidc_sub ----------------------------------------------
+
+    def test_get_account_by_oidc_sub_returns_account(
+        self,
+        manager,
+        dynamodb_stubber,
+        storage_table_name,
+        sample_uid,
+        sample_normalized_email,
+        sample_verify_hash,
+        sample_k_a,
+        sample_wrap_kb,
+        sample_oidc_sub,
+    ):
+        """Test get_account_by_oidc_sub returns account for existing OIDC subject"""
+        # Stub get_item for OIDCSUB# record
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": f"OIDCSUB#{sample_oidc_sub}"},
+                    "uid": {"S": sample_uid},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": f"OIDCSUB#{sample_oidc_sub}"},
+            },
+        )
+
+        # Stub get_item for ACCOUNT# record
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": f"ACCOUNT#{sample_uid}"},
+                    "email": {"S": sample_normalized_email},
+                    "uid": {"S": sample_uid},
+                    "verifyHash": {"S": sample_verify_hash},
+                    "kA": {"S": sample_k_a},
+                    "wrapKB": {"S": sample_wrap_kb},
+                    "oidcSub": {"S": sample_oidc_sub},
+                    "verified": {"BOOL": True},
+                    "createdAt": {"N": "1234567890000"},
+                }
+            },
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": f"ACCOUNT#{sample_uid}"},
+            },
+        )
+
+        result = manager.get_account_by_oidc_sub(sample_oidc_sub)
+        assert result is not None
+        assert result["uid"] == sample_uid
+        assert result["email"] == sample_normalized_email
+
+    def test_get_account_by_oidc_sub_returns_none_for_unknown(
+        self,
+        manager,
+        dynamodb_stubber,
+        storage_table_name,
+    ):
+        """Test get_account_by_oidc_sub returns None for unknown OIDC subject"""
+        oidc_sub = "unknown-oidc-sub"
+
+        dynamodb_stubber.add_response(
+            "get_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": f"OIDCSUB#{oidc_sub}"},
+            },
+        )
+
+        result = manager.get_account_by_oidc_sub(oidc_sub)
+        assert result is None
 
     # -- get_account_by_email -------------------------------------------------
 
@@ -370,7 +652,7 @@ class TestAuthAccountManager:
 
         assert result is None
 
-    def test_create_account_cleans_up_email_on_account_write_failure(
+    def test_create_account_cleans_up_on_account_write_failure(
         self,
         manager,
         dynamodb_stubber,
@@ -384,7 +666,7 @@ class TestAuthAccountManager:
         sample_oidc_sub,
         mock_time,
     ):
-        """If ACCOUNT# put fails, the EMAIL# record is cleaned up"""
+        """If ACCOUNT# put fails, EMAIL# and OIDCSUB# records are cleaned up"""
         # Stub successful EMAIL# put
         dynamodb_stubber.add_response(
             "put_item",
@@ -396,6 +678,19 @@ class TestAuthAccountManager:
                     "uid": sample_uid,
                 },
                 "ConditionExpression": "attribute_not_exists(PK)",
+            },
+        )
+
+        # Stub successful OIDCSUB# put
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Item": {
+                    "PK": f"OIDCSUB#{sample_oidc_sub}",
+                    "uid": sample_uid,
+                },
             },
         )
 
@@ -416,6 +711,16 @@ class TestAuthAccountManager:
             },
         )
 
+        # Stub delete_item for OIDCSUB# cleanup
+        dynamodb_stubber.add_response(
+            "delete_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Key": {"PK": f"OIDCSUB#{sample_oidc_sub}"},
+            },
+        )
+
         with pytest.raises(ClientError):
             manager.create_account(
                 uid=sample_uid,
@@ -426,7 +731,7 @@ class TestAuthAccountManager:
                 oidc_sub=sample_oidc_sub,
             )
 
-    def test_create_account_cleans_up_email_even_if_cleanup_fails(
+    def test_create_account_cleans_up_even_if_cleanup_fails(
         self,
         manager,
         dynamodb_stubber,
@@ -440,7 +745,7 @@ class TestAuthAccountManager:
         sample_oidc_sub,
         mock_time,
     ):
-        """If ACCOUNT# put fails and EMAIL# cleanup also fails, the original error is raised"""
+        """If ACCOUNT# put fails and cleanup also fails, the original error is raised"""
         # Stub successful EMAIL# put
         dynamodb_stubber.add_response(
             "put_item",
@@ -455,6 +760,19 @@ class TestAuthAccountManager:
             },
         )
 
+        # Stub successful OIDCSUB# put
+        dynamodb_stubber.add_response(
+            "put_item",
+            {},
+            {
+                "TableName": storage_table_name,
+                "Item": {
+                    "PK": f"OIDCSUB#{sample_oidc_sub}",
+                    "uid": sample_uid,
+                },
+            },
+        )
+
         # Stub ACCOUNT# put to fail
         dynamodb_stubber.add_client_error(
             "put_item",
@@ -463,6 +781,13 @@ class TestAuthAccountManager:
         )
 
         # Stub delete_item for EMAIL# cleanup to also fail
+        dynamodb_stubber.add_client_error(
+            "delete_item",
+            service_error_code="InternalServerError",
+            service_message="Cleanup also failed",
+        )
+
+        # Stub delete_item for OIDCSUB# cleanup to also fail
         dynamodb_stubber.add_client_error(
             "delete_item",
             service_error_code="InternalServerError",

@@ -101,6 +101,7 @@ class OAuthTokenRoute(BaseRoute):
             scope=scope,
             ttl=ttl,
             client_id=client_id,
+            fxa_uid=uid,
         )
 
         # Create refresh token
@@ -162,6 +163,7 @@ class OAuthTokenRoute(BaseRoute):
             scope=scope,
             ttl=ttl,
             client_id=client_id,
+            fxa_uid=uid,
         )
 
         # Create new refresh token
@@ -216,6 +218,7 @@ class OAuthTokenRoute(BaseRoute):
             scope=scope,
             ttl=ttl,
             client_id=client_id,
+            fxa_uid=uid,
         )
 
         return Response(
