@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useSearchParams } from "react-router"
+import { Routes, Route, useSearchParams } from "react-router"
 import type { AppConfig } from "@/lib/types"
 import { checkBrowserCompatibility } from "@/lib/browser-check"
 import { loadConfig } from "@/lib/config"
@@ -10,6 +10,8 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { BrowserWarning } from "@/components/BrowserWarning"
 import { SignInPage } from "@/components/SignInPage"
 import { DashboardPage } from "@/components/DashboardPage"
+import { PairAuthorityPage } from "@/components/PairAuthorityPage"
+import { PairSupplicantPage } from "@/components/PairSupplicantPage"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ThemeToggle } from "@/components/theme-toggle"
 
@@ -140,11 +142,57 @@ function MainFlow() {
   )
 }
 
+function PairRoute({
+  Component,
+}: {
+  Component: React.ComponentType<{ config: AppConfig }>
+}) {
+  const [config, setConfig] = useState<AppConfig | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const initialized = useRef(false)
+
+  useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
+    loadConfig()
+      .then(setConfig)
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : String(err))
+      )
+  }, [])
+
+  if (error) {
+    return (
+      <ErrorPage
+        title="Configuration Error"
+        message={error}
+        onRestart={() => window.location.reload()}
+      />
+    )
+  }
+
+  if (!config) {
+    return <LoadingPage message="Loading..." />
+  }
+
+  return <Component config={config} />
+}
+
 export default function App() {
   return (
     <ThemeProvider defaultTheme="system">
       <Layout>
-        <MainFlow />
+        <Routes>
+          <Route
+            path="/pair"
+            element={<PairRoute Component={PairAuthorityPage} />}
+          />
+          <Route
+            path="/pair/supp"
+            element={<PairRoute Component={PairSupplicantPage} />}
+          />
+          <Route path="*" element={<MainFlow />} />
+        </Routes>
       </Layout>
     </ThemeProvider>
   )

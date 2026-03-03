@@ -122,7 +122,8 @@ export async function requestOAuthCode(
   scope: string,
   state: string,
   codeChallenge: string,
-  keysJwe?: string
+  keysJwe?: string,
+  redirectUri?: string
 ): Promise<OAuthCodeResponse> {
   const url = `${authServerUrl}/v1/oauth/authorization`
   const authorization = await buildHawkHeader(sessionToken, "POST", url)
@@ -136,6 +137,9 @@ export async function requestOAuthCode(
   }
   if (keysJwe) {
     bodyObj.keys_jwe = keysJwe
+  }
+  if (redirectUri) {
+    bodyObj.redirect_uri = redirectUri
   }
   return authFetch<OAuthCodeResponse>(
     url,

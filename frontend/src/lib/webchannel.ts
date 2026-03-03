@@ -102,3 +102,11 @@ export function sendFxAStatus(
     messageId
   )
 }
+
+export function sendPairComplete(messageId?: string): void {
+  sendToFirefox("fxaccounts:pair_complete", {}, messageId)
+}
+
+export function sendPairDecline(messageId?: string): void {
+  sendToFirefox("fxaccounts:pair_decline", {}, messageId)
+}

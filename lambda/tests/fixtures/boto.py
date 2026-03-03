@@ -97,6 +97,24 @@ def kms_stubber(kms_client):
     stubber.deactivate()
 
 
+@pytest.fixture
+def apigw_client(boto_session):
+    """API Gateway Management API client for WebSocket connection posting."""
+    return boto_session.client(
+        "apigatewaymanagementapi",
+        endpoint_url="https://test.execute-api.us-east-1.amazonaws.com/prod",
+    )
+
+
+@pytest.fixture
+def apigw_stubber(apigw_client):
+    """Botocore Stubber for API Gateway Management API."""
+    stubber = Stubber(apigw_client)
+    stubber.activate()
+    yield stubber
+    stubber.deactivate()
+
+
 @pytest.fixture(autouse=True)
 def boto_session(aws_region_name, aws_access_key_id, aws_secret_access_key, aws_session_token):
     return boto3.session.Session(
@@ -120,13 +138,15 @@ def boto_session_patch(boto_session):
 
 @pytest.fixture(autouse=True)
 def boto_resource_patch(
-    boto_session, boto_session_patch, dynamodb_client, dynamodb_resource, kms_client
+    boto_session, boto_session_patch, dynamodb_client, dynamodb_resource, kms_client, apigw_client
 ) -> Generator:
     def client(service, *args, **kwargs):
         if service == "dynamodb":
             return dynamodb_client
         if service == "kms":
             return kms_client
+        if service == "apigatewaymanagementapi":
+            return apigw_client
 
         raise ValueError(f"client for {service} not recognized")
 

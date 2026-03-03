@@ -13,6 +13,13 @@ import {
     SecurityPolicy,
     SpecRestApi,
 } from "aws-cdk-lib/aws-apigateway";
+import {
+    DomainName as ApiGwV2DomainName,
+    ApiMapping,
+    WebSocketApi,
+    WebSocketStage,
+} from "aws-cdk-lib/aws-apigatewayv2";
+import {WebSocketLambdaIntegration} from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import {Certificate, CertificateValidation} from "aws-cdk-lib/aws-certificatemanager";
 import {
     AttributeType,
@@ -32,7 +39,7 @@ import {
     RecordTarget,
     RecordType,
 } from "aws-cdk-lib/aws-route53";
-import {ApiGateway} from "aws-cdk-lib/aws-route53-targets";
+import {ApiGateway, ApiGatewayv2DomainProperties} from "aws-cdk-lib/aws-route53-targets";
 import {IStringParameter, StringParameter} from "aws-cdk-lib/aws-ssm";
 
 import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
@@ -68,6 +75,10 @@ export class ServiceStack extends Stack {
         return `${Service.PROFILE}.${this.props.stageType}.${BASE_DOMAIN}`;
     }
 
+    public get channelApiDomain(): string {
+        return `${Service.CHANNEL}.${this.props.stageType}.${BASE_DOMAIN}`;
+    }
+
     // Auth Service
     public readonly tokenUsersTable: Table;
     public readonly tokenCacheTable: Table;
@@ -88,6 +99,10 @@ export class ServiceStack extends Stack {
     public readonly storageTable: Table;
     public readonly storageHandler: IFunction;
     public readonly storageApi: SpecRestApi;
+
+    // Channel Service
+    public readonly channelTable: Table;
+    public readonly channelHandler: PythonFunction;
 
     constructor(scope: Construct, id: string, props: ServiceStackProps) {
         super(scope, id, props);
@@ -127,6 +142,11 @@ export class ServiceStack extends Stack {
         this.tokenApi = this.buildApi(Service.TOKEN, this.tokenHandler);
         this.profileApi = this.buildApi(Service.PROFILE, this.profileHandler);
         this.storageApi = this.buildApi(Service.STORAGE, this.storageHandler);
+
+        // Channel Service
+        this.channelTable = this.buildChannelTable();
+        this.channelHandler = this.buildChannelApiHandler();
+        this.buildChannelWebSocketApi();
     }
 
     private buildStorageTable(): Table {
@@ -351,6 +371,92 @@ export class ServiceStack extends Stack {
         fn.grantInvoke(this.apiExecuteRole);
 
         return fn;
+    }
+
+    private buildChannelTable(): Table {
+        return new Table(this, "ChannelTable", {
+            tableName: `ffsync-channel-${this.props.stageType.toLowerCase()}`,
+            partitionKey: {name: "PK", type: AttributeType.STRING},
+            billingMode: BillingMode.PAY_PER_REQUEST,
+            encryption: TableEncryption.AWS_MANAGED,
+            timeToLiveAttribute: "expiry",
+            removalPolicy: RemovalPolicy.DESTROY,
+        });
+    }
+
+    private buildChannelApiHandler(): PythonFunction {
+        const fn = new PythonFunction(this, "ChannelApiHandler", {
+            rootDir: path.join(__dirname, "../../lambda"),
+            index: "src/entrypoint/__init__.py",
+            runtime: Runtime.PYTHON_3_14,
+            architecture: Architecture.ARM_64,
+            handler: "channel_api_handler",
+            functionName: `ffsync-channel-api-${this.props.stageType.toLowerCase()}`,
+            timeout: Duration.seconds(10),
+            memorySize: 256,
+            environment: {
+                STAGE: this.props.stageType.toLowerCase(),
+                CHANNEL_TABLE_NAME: this.channelTable.tableName,
+            },
+            bundling: {
+                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/"],
+            },
+        });
+
+        this.channelTable.grantReadWriteData(fn);
+
+        return fn;
+    }
+
+    private buildChannelWebSocketApi(): void {
+        const stage = this.props.stageType.toLowerCase();
+        const integration = new WebSocketLambdaIntegration("ChannelIntegration", this.channelHandler);
+
+        const wsApi = new WebSocketApi(this, "ChannelWebSocketApi", {
+            apiName: `ffsync-channel-${stage}`,
+            connectRouteOptions: {integration},
+            disconnectRouteOptions: {integration},
+            defaultRouteOptions: {integration},
+        });
+
+        const wsStage = new WebSocketStage(this, "ChannelWebSocketStage", {
+            webSocketApi: wsApi,
+            stageName: stage,
+            autoDeploy: true,
+        });
+
+        const domainName = this.channelApiDomain;
+        const certificate = new Certificate(this, "ChannelCertificate", {
+            domainName,
+            validation: CertificateValidation.fromDns(this.hostedZone),
+        });
+
+        const apiDomainName = new ApiGwV2DomainName(this, "ChannelDomainName", {
+            domainName,
+            certificate,
+        });
+
+        new ApiMapping(this, "ChannelApiMapping", {
+            api: wsApi,
+            domainName: apiDomainName,
+            stage: wsStage,
+        });
+
+        [RecordType.A, RecordType.AAAA].map((recordType) => {
+            new RecordSet(this, `Channel${recordType}RecordSet`, {
+                recordType,
+                zone: this.hostedZone,
+                recordName: domainName,
+                target: RecordTarget.fromAlias(
+                    new ApiGatewayv2DomainProperties(
+                        apiDomainName.regionalDomainName,
+                        apiDomainName.regionalHostedZoneId,
+                    ),
+                ),
+            });
+        });
+
+        wsApi.grantManageConnections(this.channelHandler);
     }
 
     private buildApiExecuteRole(): Role {

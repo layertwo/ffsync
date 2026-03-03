@@ -9,6 +9,13 @@ from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandle
 from src.services.oauth_code_manager import OAuthCodeManager
 from src.shared.base_route import BaseRoute
 
+ALLOWED_REDIRECT_URIS = {
+    "urn:ietf:wg:oauth:2.0:oob",
+    "urn:ietf:wg:oauth:2.0:oob:pair-auth-webchannel",
+}
+
+DEFAULT_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
+
 
 class OAuthAuthorizationRoute(BaseRoute):
     """Issue an OAuth authorization code authenticated with a session token."""
@@ -50,6 +57,10 @@ class OAuthAuthorizationRoute(BaseRoute):
         if not state:
             return self._error(400, 107, "Missing state")
 
+        redirect_uri = body.get("redirect_uri", DEFAULT_REDIRECT_URI)
+        if redirect_uri not in ALLOWED_REDIRECT_URIS:
+            return self._error(400, 107, "Invalid redirect_uri")
+
         code_challenge = body.get("code_challenge", "")
         code_challenge_method = body.get("code_challenge_method", "S256")
         keys_jwe = body.get("keys_jwe", "")
@@ -70,7 +81,7 @@ class OAuthAuthorizationRoute(BaseRoute):
                 {
                     "code": code,
                     "state": state,
-                    "redirect": "urn:ietf:wg:oauth:2.0:oob",
+                    "redirect": redirect_uri,
                 }
             ),
         )
