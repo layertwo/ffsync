@@ -1,6 +1,5 @@
 """AccountAttachedClients route — GET /v1/account/attached_clients"""
 
-import json
 from typing import Sequence
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -8,6 +7,7 @@ from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandle
 
 from src.services.device_manager import DeviceManager
 from src.shared.base_route import BaseRoute
+from src.shared.utils import json_dumps
 
 
 class AccountAttachedClientsRoute(BaseRoute):
@@ -54,5 +54,5 @@ class AccountAttachedClientsRoute(BaseRoute):
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json.dumps(clients),
+            body=json_dumps(clients),
         )
