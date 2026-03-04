@@ -1,6 +1,5 @@
 """AccountDevices route — GET /v1/account/devices"""
 
-import json
 from typing import Sequence
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
