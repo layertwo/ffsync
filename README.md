@@ -21,7 +21,7 @@
 | src/routes/auth/\_\_init\_\_.py               |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/account\_attached\_clients.py |       22 |        0 |        2 |        0 |     100% |           |
 | src/routes/auth/account\_create.py            |       65 |        0 |       14 |        0 |     100% |           |
-| src/routes/auth/account\_device.py            |       20 |        0 |        0 |        0 |     100% |           |
+| src/routes/auth/account\_device.py            |       21 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/account\_devices.py           |       24 |        0 |        2 |        0 |     100% |           |
 | src/routes/auth/account\_devices\_notify.py   |       14 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/account\_keys.py              |       37 |        0 |        6 |        0 |     100% |           |
@@ -81,7 +81,7 @@
 | src/shared/token.py                           |        4 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                            |       10 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                           |       33 |        0 |        4 |        0 |     100% |           |
-| **TOTAL**                                     | **3218** |    **0** |  **602** |    **0** | **100%** |           |
+| **TOTAL**                                     | **3219** |    **0** |  **602** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
