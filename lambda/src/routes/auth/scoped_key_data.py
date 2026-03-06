@@ -5,10 +5,11 @@ from typing import Sequence
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler
+from pydantic import ValidationError as PydanticValidationError
 
 from src.services.auth_account_manager import AuthAccountManager
 from src.shared.base_route import BaseRoute
-from src.shared.utils import json_dumps
+from src.shared.models import ScopedKeyDataEntry, ScopedKeyDataInput
 
 
 class ScopedKeyDataRoute(BaseRoute):
@@ -30,41 +31,40 @@ class ScopedKeyDataRoute(BaseRoute):
     def handle(self, event) -> Response:
         uid = event["requestContext"]["hawk_uid"]
 
-        # Parse body
+        # Parse and validate body
         body_str = event.body
         if not body_str:
             return self._error(400, 107, "Missing request body")
 
         try:
-            body = json.loads(body_str)
-        except json.JSONDecodeError, TypeError:
-            return self._error(400, 107, "Invalid JSON body")
+            body_input = ScopedKeyDataInput.model_validate_json(body_str)
+        except PydanticValidationError:
+            return self._error(400, 107, "Missing or invalid scope")
 
-        scope = body.get("scope")
-        if not scope:
-            return self._error(400, 107, "Missing scope")
+        scope = body_input.scope
 
         # Look up account for createdAt and keyRotationSecret
         account = self._account_manager.get_account_by_uid(uid)
         if account is None:
             return self._error(401, 110, "Account not found")
 
-        created_at = account.get("createdAt", 0)
+        created_at = int(account.get("createdAt", 0))
         key_rotation_secret = account.get("keyRotationSecret", "00" * 32)
 
         # Return key metadata for each scope
         result = {}
         for s in scope.split():
-            result[s] = {
-                "identifier": s,
-                "keyRotationSecret": key_rotation_secret,
-                "keyRotationTimestamp": created_at,
-            }
+            entry = ScopedKeyDataEntry(
+                identifier=s,
+                key_rotation_secret=key_rotation_secret,
+                key_rotation_timestamp=created_at,
+            )
+            result[s] = entry.model_dump(by_alias=True)
 
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json_dumps(result),
+            body=json.dumps(result),
         )
 
     @staticmethod

@@ -1,11 +1,12 @@
+import json
+
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import CollectionNotFoundException, ValidationException
-from src.shared.models import ValidationError, validate_collection_name
-from src.shared.utils import json_dumps
+from src.shared.models import ModifiedOutput, ValidationError, validate_collection_name
 
 logger = Logger()
 
@@ -28,7 +29,7 @@ class DeleteCollectionRoute(BaseRoute):
                 return Response(
                     status_code=401,
                     content_type="application/json",
-                    body=json_dumps({"error": "Unauthorized"}),
+                    body=json.dumps({"error": "Unauthorized"}),
                 )
 
             path_params = event.path_parameters or {}
@@ -54,12 +55,12 @@ class DeleteCollectionRoute(BaseRoute):
                     user_id, collection_name
                 )
 
-            response_body = {"modified": modified_timestamp}
+            result = ModifiedOutput(modified=modified_timestamp)
 
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json_dumps(response_body),
+                body=result.model_dump_json(),
                 headers={"X-Last-Modified": str(round(modified_timestamp, 2))},
             )
 
@@ -67,18 +68,18 @@ class DeleteCollectionRoute(BaseRoute):
             return Response(
                 status_code=400,
                 content_type="application/json",
-                body=json_dumps({"error": str(e)}),
+                body=json.dumps({"error": str(e)}),
             )
         except CollectionNotFoundException as e:
             return Response(
                 status_code=404,
                 content_type="application/json",
-                body=json_dumps({"error": str(e)}),
+                body=json.dumps({"error": str(e)}),
             )
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json_dumps({"error": "Internal server error"}),
+                body=json.dumps({"error": "Internal server error"}),
             )

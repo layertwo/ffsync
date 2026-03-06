@@ -8,6 +8,7 @@ from src.services.auth_account_manager import AuthAccountManager
 from src.services.fxa_crypto import derive_key_request_key, encrypt_key_bundle
 from src.services.fxa_token_manager import KEY_FETCH_TOKEN_INFO, FxATokenManager
 from src.shared.base_route import BaseRoute
+from src.shared.models import AccountKeysOutput
 from src.shared.utils import extract_hawk_request_params
 
 
@@ -58,10 +59,11 @@ class AccountKeysRoute(BaseRoute):
         # Encrypt key bundle
         bundle = encrypt_key_bundle(key_request_key, k_a, wrap_kb)
 
+        result = AccountKeysOutput(bundle=bundle.hex())
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json.dumps({"bundle": bundle.hex()}),
+            body=result.model_dump_json(),
         )
 
     @staticmethod

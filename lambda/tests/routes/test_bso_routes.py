@@ -1048,7 +1048,7 @@ class TestUpdateBSORouteValidation:
         assert response.status_code == 413
         assert response.body is not None
         body = json.loads(response.body)
-        assert "Payload size" in body["error"]
+        assert "Payload size" in body["error"] or "payload" in body["error"].lower()
 
     def test_handle_bso_id_too_long(self, mock_storage_manager):
         """Test 400 Bad Request for BSO ID exceeding 64 characters"""
@@ -1103,7 +1103,7 @@ class TestUpdateBSORouteValidation:
         assert "non-printable ASCII" in body["error"]
 
     def test_handle_sortindex_invalid(self, mock_storage_manager):
-        """Test 400 Bad Request for invalid sortindex"""
+        """Test 400 Bad Request for invalid sortindex (Pydantic rejects non-int)"""
         route = UpdateBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -1124,7 +1124,7 @@ class TestUpdateBSORouteValidation:
         assert response.status_code == 400
         assert response.body is not None
         body = json.loads(response.body)
-        assert "Sortindex must be an integer" in body["error"]
+        assert "sortindex" in body["error"]
 
     def test_handle_sortindex_exceeds_max(self, mock_storage_manager):
         """Test 400 Bad Request for sortindex exceeding 9 digits"""
@@ -1148,10 +1148,10 @@ class TestUpdateBSORouteValidation:
         assert response.status_code == 400
         assert response.body is not None
         body = json.loads(response.body)
-        assert "Sortindex" in body["error"] and "exceeds" in body["error"]
+        assert "sortindex" in body["error"]
 
     def test_handle_ttl_invalid(self, mock_storage_manager):
-        """Test 400 Bad Request for invalid TTL"""
+        """Test 400 Bad Request for invalid TTL (Pydantic rejects non-int)"""
         route = UpdateBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -1172,10 +1172,10 @@ class TestUpdateBSORouteValidation:
         assert response.status_code == 400
         assert response.body is not None
         body = json.loads(response.body)
-        assert "TTL must be an integer" in body["error"]
+        assert "ttl" in body["error"]
 
     def test_handle_ttl_negative(self, mock_storage_manager):
-        """Test 400 Bad Request for negative TTL"""
+        """Test 400 Bad Request for negative TTL (Pydantic enforces gt=0)"""
         route = UpdateBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -1196,10 +1196,10 @@ class TestUpdateBSORouteValidation:
         assert response.status_code == 400
         assert response.body is not None
         body = json.loads(response.body)
-        assert "TTL must be a positive integer" in body["error"]
+        assert "ttl" in body["error"]
 
     def test_handle_ttl_exceeds_max(self, mock_storage_manager):
-        """Test 400 Bad Request for TTL exceeding 9 digits"""
+        """Test 400 Bad Request for TTL exceeding 9 digits (Pydantic enforces le=999999999)"""
         route = UpdateBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -1220,7 +1220,59 @@ class TestUpdateBSORouteValidation:
         assert response.status_code == 400
         assert response.body is not None
         body = json.loads(response.body)
-        assert "TTL" in body["error"] and "exceeds" in body["error"]
+        assert "ttl" in body["error"]
+
+    def test_handle_none_body(self, mock_storage_manager):
+        """Test 400 Bad Request when body is None"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
+                "body": None,
+                "headers": {},
+                "requestContext": {"hawk_uid": "test-user-123"},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "Invalid request body" in body["error"]
+
+    def test_handle_payload_too_large_multibyte(self, mock_storage_manager):
+        """Test 413 for payload within char limit but exceeding byte limit (multi-byte)"""
+        route = UpdateBSORoute(mock_storage_manager)
+
+        # Each char is 2 bytes in UTF-8; total chars = 200000 (within 262144 char limit)
+        # but total bytes = 400000 (exceeds 256 * 1024 = 262144 byte limit)
+        multibyte_payload = "\u00e9" * 200000
+
+        event = APIGatewayProxyEvent(
+            {
+                "pathParameters": {
+                    "uid": "12345",
+                    "collectionName": "bookmarks",
+                    "objectId": "item123",
+                },
+                "body": json.dumps({"id": "item123", "payload": multibyte_payload}),
+                "headers": {},
+                "requestContext": {"hawk_uid": "test-user-123"},
+            }
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 413
+        assert response.body is not None
+        body = json.loads(response.body)
+        assert "Payload size" in body["error"]
 
     def test_handle_no_payload(self, mock_storage_manager):
         """Test successful update without payload (partial update)"""

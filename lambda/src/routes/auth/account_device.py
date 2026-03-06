@@ -8,7 +8,7 @@ from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandle
 
 from src.services.device_manager import DeviceManager
 from src.shared.base_route import BaseRoute
-from src.shared.utils import json_dumps
+from src.shared.models import DeviceOutput
 
 
 class AccountDeviceRoute(BaseRoute):
@@ -32,9 +32,9 @@ class AccountDeviceRoute(BaseRoute):
         session_token_id = event["requestContext"].get("hawk_token_id", "")
         body = json.loads(event.body or "{}")
         device = self._device_manager.upsert_device(uid, session_token_id, body)
-
+        result = DeviceOutput.model_validate(device)
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json_dumps(device),
+            body=result.model_dump_json(by_alias=True),
         )

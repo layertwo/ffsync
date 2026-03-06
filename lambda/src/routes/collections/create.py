@@ -13,8 +13,12 @@ from src.shared.exceptions import (
     ServerLimitExceededException,
     ValidationException,
 )
-from src.shared.models import BasicStorageObject, ValidationError, validate_collection_name
-from src.shared.utils import json_dumps
+from src.shared.models import (
+    BasicStorageObject,
+    BatchResultOutput,
+    ValidationError,
+    validate_collection_name,
+)
 
 logger = Logger()
 
@@ -37,7 +41,7 @@ class CreateCollectionRoute(BaseRoute):
                 return Response(
                     status_code=401,
                     content_type="application/json",
-                    body=json_dumps({"error": "Unauthorized"}),
+                    body=json.dumps({"error": "Unauthorized"}),
                 )
 
             path_params = event.path_parameters or {}
@@ -83,7 +87,7 @@ class CreateCollectionRoute(BaseRoute):
                 return Response(
                     status_code=412,
                     content_type="application/json",
-                    body=json_dumps({"error": "Precondition failed"}),
+                    body=json.dumps({"error": "Precondition failed"}),
                 )
 
             # Parse objects from request body - support application/json only
@@ -131,18 +135,17 @@ class CreateCollectionRoute(BaseRoute):
             )
 
             # Return Mozilla-compliant response format (Requirement 3.2)
-            # {"modified": timestamp, "success": [...], "failed": {...}}
             modified_ts = collection_data.modified.timestamp()
-            response_body = {
-                "modified": modified_ts,
-                "success": batch_result.success,
-                "failed": batch_result.failed,
-            }
+            result = BatchResultOutput(
+                modified=modified_ts,
+                success=batch_result.success,
+                failed=batch_result.failed,
+            )
 
             return Response(
                 status_code=201,  # 201 Created for new collection
                 content_type="application/json",
-                body=json_dumps(response_body),
+                body=result.model_dump_json(),
                 headers={"X-Last-Modified": str(round(modified_ts, 2))},
             )
 
@@ -151,32 +154,32 @@ class CreateCollectionRoute(BaseRoute):
             return Response(
                 status_code=400,
                 content_type="application/json",
-                body=json_dumps(CODE_SERVER_LIMIT_EXCEEDED),
+                body=json.dumps(CODE_SERVER_LIMIT_EXCEEDED),
             )
         except ValidationException as e:
             return Response(
                 status_code=400,
                 content_type="application/json",
-                body=json_dumps({"error": str(e)}),
+                body=json.dumps({"error": str(e)}),
             )
         except ConflictException as e:
             return Response(
                 status_code=409,
                 content_type="application/json",
-                body=json_dumps({"error": str(e)}),
+                body=json.dumps({"error": str(e)}),
             )
         except PreconditionFailedException as e:  # pragma: nocover
             return Response(
                 status_code=412,
                 content_type="application/json",
-                body=json_dumps({"error": str(e)}),
+                body=json.dumps({"error": str(e)}),
             )
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json_dumps({"error": "Internal server error"}),
+                body=json.dumps({"error": "Internal server error"}),
             )
 
     def _check_precondition(self, user_id, collection_name, if_unmodified_since):

@@ -115,7 +115,7 @@ class TestUserManager:
         )
 
         with pytest.raises(ServiceUnavailableError) as exc_info:
-            user_manager.get_or_create_user(123456789)
+            user_manager.get_or_create_user("123456789")
 
         assert "DynamoDB unavailable" in str(exc_info.value.message)
 
@@ -171,7 +171,7 @@ class TestUserManager:
         )
 
         with pytest.raises(ServiceUnavailableError) as exc_info:
-            user_manager.increment_generation(123456789)
+            user_manager.increment_generation("123456789")
 
         assert "DynamoDB unavailable" in str(exc_info.value.message)
 
@@ -269,7 +269,7 @@ class TestUserManager:
         )
 
         with pytest.raises(ServiceUnavailableError) as exc_info:
-            user_manager.validate_generation(123456789, 0)
+            user_manager.validate_generation("123456789", 0)
 
         assert "DynamoDB unavailable" in str(exc_info.value.message)
 
@@ -346,7 +346,7 @@ class TestUserManager:
         )
 
         with pytest.raises(ClientError) as exc_info:
-            user_manager.get_or_create_user(123456789)
+            user_manager.get_or_create_user("123456789")
 
         assert exc_info.value.response["Error"]["Code"] == "ValidationException"
 
@@ -364,7 +364,7 @@ class TestUserManager:
         )
 
         with pytest.raises(ClientError) as exc_info:
-            user_manager.get_user(123456789)
+            user_manager.get_user("123456789")
 
         assert exc_info.value.response["Error"]["Code"] == "ValidationException"
 
@@ -382,7 +382,7 @@ class TestUserManager:
         )
 
         with pytest.raises(ClientError) as exc_info:
-            user_manager.increment_generation(123456789)
+            user_manager.increment_generation("123456789")
 
         assert exc_info.value.response["Error"]["Code"] == "ValidationException"
 

@@ -1,12 +1,12 @@
 """SessionStatus route — GET /v1/session/status"""
 
-import json
 from typing import Sequence
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler
 
 from src.shared.base_route import BaseRoute
+from src.shared.models import SessionStatusOutput
 
 
 class SessionStatusRoute(BaseRoute):
@@ -23,8 +23,9 @@ class SessionStatusRoute(BaseRoute):
     def handle(self, event) -> Response:
         uid = event["requestContext"]["hawk_uid"]
 
+        result = SessionStatusOutput(state="verified", uid=uid)
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json.dumps({"state": "verified", "uid": uid}),
+            body=result.model_dump_json(),
         )

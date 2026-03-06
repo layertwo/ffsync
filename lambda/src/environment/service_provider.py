@@ -5,7 +5,11 @@ from functools import cached_property
 
 import boto3
 from aws_lambda_powertools.event_handler import CORSConfig, Response
+from aws_lambda_powertools.logging import Logger
 
+from src.middlewares.hawk_auth import HawkAuthenticationError, HawkAuthMiddleware, UidMismatchError
+from src.middlewares.request_logging import RequestLoggingMiddleware
+from src.middlewares.weave_timestamp import WeaveTimestampMiddleware
 from src.routes.auth.account_attached_clients import AccountAttachedClientsRoute
 from src.routes.auth.account_create import AccountCreateRoute
 from src.routes.auth.account_device import AccountDeviceRoute
@@ -40,14 +44,7 @@ from src.routes.profile.get_profile import GetProfileRoute
 from src.routes.storage.delete_all import DeleteAllStorageRoute
 from src.routes.storage.delete_root import DeleteAllRootRoute
 from src.routes.token.request import GetTokenRoute
-from src.services.api_router import (
-    ApiRouter,
-    HawkAuthenticationError,
-    HawkAuthMiddleware,
-    RequestLoggingMiddleware,
-    UidMismatchError,
-    WeaveTimestampMiddleware,
-)
+from src.services.api_router import ApiRouter
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.channel_service import ChannelService
 from src.services.device_manager import DeviceManager
@@ -86,6 +83,9 @@ def lambda_entrypoint(fn):
         return fn(event, context, service_provider)
 
     return wrapper
+
+
+logger = Logger()
 
 
 class ServiceProvider:
@@ -158,7 +158,9 @@ class ServiceProvider:
                 body=json.dumps({"code": 401, "errno": 110, "message": str(ex)}),
             )
 
-        return {HawkAuthenticationError: handle_hawk_auth}
+        return {
+            HawkAuthenticationError: handle_hawk_auth,
+        }
 
     @cached_property
     def storage_api_router(self):
@@ -186,6 +188,7 @@ class ServiceProvider:
                 WeaveTimestampMiddleware(),
             ],
             exception_handlers=self._storage_exception_handlers,
+            enable_validation=True,
         )
 
     # Token API properties
@@ -380,6 +383,7 @@ class ServiceProvider:
             middlewares=[WeaveTimestampMiddleware()],
             cors=self.cors_config,
             exception_handlers=self._auth_exception_handlers,
+            enable_validation=True,
         )
 
     @cached_property
@@ -396,6 +400,7 @@ class ServiceProvider:
             ],
             middlewares=[WeaveTimestampMiddleware()],
             cors=self.cors_config,
+            enable_validation=True,
         )
 
     @cached_property
@@ -410,6 +415,7 @@ class ServiceProvider:
             ],
             middlewares=[WeaveTimestampMiddleware()],
             cors=self.cors_config,
+            enable_validation=True,
         )
 
     # HAWK Authorizer properties

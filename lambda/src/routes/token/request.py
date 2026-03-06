@@ -1,5 +1,6 @@
 """RequestToken route for Firefox Sync Token Server"""
 
+import json
 import re
 from dataclasses import asdict
 
@@ -19,7 +20,8 @@ from src.shared.exceptions import (
     ServiceUnavailableError,
     ValidationException,
 )
-from src.shared.utils import get_weave_timestamp, json_dumps
+from src.shared.models import TokenOutput
+from src.shared.utils import get_weave_timestamp
 
 logger = Logger("token-server")
 
@@ -167,10 +169,11 @@ class GetTokenRoute(BaseRoute):
                 },
             )
 
+            result = TokenOutput.model_validate(asdict(token_response))
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json_dumps(asdict(token_response)),
+                body=result.model_dump_json(),
                 headers={"X-Timestamp": str(int(float(get_weave_timestamp())))},
             )
 
@@ -334,6 +337,6 @@ class GetTokenRoute(BaseRoute):
         return Response(
             status_code=status_code,
             content_type="application/json",
-            body=json_dumps(body),
+            body=json.dumps(body),
             headers=headers,
         )

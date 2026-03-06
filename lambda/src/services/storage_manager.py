@@ -51,30 +51,6 @@ class StorageManager:
         """Generate sort key for storage object"""
         return f"OBJECT#{object_id}"
 
-    def _encode_basic_storage_object(
-        self, user_id: str, collection_name: str, obj: BasicStorageObject
-    ) -> dict:
-        """Encode BasicStorageObject to DynamoDB format"""
-        obj_data = obj.to_dict()
-        obj_data[_PK] = self._collection_pk(user_id, collection_name)
-        obj_data[_SK] = self._object_sk(obj.id)
-
-        # Add DynamoDB TTL attribute if ttl is set (Requirement 11.1-11.4)
-        if obj.ttl is not None:
-            # Calculate expiry as current_time + ttl (in seconds)
-            current_time = int(datetime.now(tz=timezone.utc).timestamp())
-            obj_data["expiry"] = current_time + obj.ttl
-
-        return obj_data
-
-    def _encode_collection_data(self, user_id: str, collection_data: CollectionData) -> dict:
-        """Encode CollectionData to DynamoDB format"""
-        col_data = collection_data.to_dict()
-        col_data[_PK] = self._collection_pk(user_id, collection_data.name)
-        col_data[_SK] = self._metadata_sk()
-        col_data["user_id"] = user_id  # GSI partition key for efficient user queries
-        return col_data
-
     def _batch_get_existing_objects(
         self, pk: str, object_ids: list[str]
     ) -> dict[str, BasicStorageObject]:
@@ -107,7 +83,7 @@ class StorageManager:
             )
 
             for item in response.get("Responses", {}).get(self.table.name, []):
-                obj = BasicStorageObject.from_dict(item)
+                obj = BasicStorageObject.model_validate(item)
                 result[obj.id] = obj
 
             # Handle unprocessed keys with retry
@@ -117,7 +93,7 @@ class StorageManager:
                     RequestItems={self.table.name: unprocessed}
                 )
                 for item in response.get("Responses", {}).get(self.table.name, []):
-                    obj = BasicStorageObject.from_dict(item)
+                    obj = BasicStorageObject.model_validate(item)
                     result[obj.id] = obj
                 unprocessed = response.get("UnprocessedKeys", {}).get(self.table.name)
 
@@ -148,7 +124,7 @@ class StorageManager:
                 raise CollectionNotFoundException(f"Collection '{collection_name}' not found")
 
             item = response["Item"]
-            return CollectionData.from_dict(item)
+            return CollectionData.model_validate(item)
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 raise CollectionNotFoundException(f"Collection '{collection_name}' not found")
@@ -184,7 +160,7 @@ class StorageManager:
                 )
 
             item = response["Item"]
-            return BasicStorageObject.from_dict(item)
+            return BasicStorageObject.model_validate(item)
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 raise StorageObjectNotFoundException(f"Object '{object_id}' not found")
@@ -233,7 +209,7 @@ class StorageManager:
                     sortindex=obj.sortindex,
                     ttl=obj.ttl,
                 )
-                obj_item = self._encode_basic_storage_object(user_id, collection_name, updated_obj)
+                obj_item = updated_obj.to_item(user_id, collection_name)
                 items_to_write.append((obj.id, obj_item, obj_delta, is_new_bso))
             except Exception as e:  # pragma: nocover
                 failed[obj.id] = [str(e)]
@@ -358,7 +334,7 @@ class StorageManager:
             collection_data = CollectionData(
                 name=collection_name, modified=modified, count=new_count, usage=new_usage
             )
-            metadata_item = self._encode_collection_data(user_id, collection_data)
+            metadata_item = collection_data.to_item(user_id)
             self.table.put_item(Item=metadata_item)
 
         collection_data = CollectionData(
@@ -521,7 +497,7 @@ class StorageManager:
         )
 
         for item in response.get("Items", []):
-            collection = CollectionData.from_dict(item)
+            collection = CollectionData.model_validate(item)
             collections.append(collection)
 
         # Handle pagination if there are more results
@@ -533,7 +509,7 @@ class StorageManager:
                 ExclusiveStartKey=response["LastEvaluatedKey"],
             )
             for item in response.get("Items", []):
-                collection = CollectionData.from_dict(item)
+                collection = CollectionData.model_validate(item)
                 collections.append(collection)
 
         return collections
@@ -618,14 +594,14 @@ class StorageManager:
                 query_kwargs["ProjectionExpression"] = "SK, modified, sortindex"
 
             response = self.table.query(**query_kwargs)
-            items = [BasicStorageObject.from_dict(item) for item in response.get("Items", [])]
+            items = [BasicStorageObject.model_validate(item) for item in response.get("Items", [])]
 
             # Handle pagination from DynamoDB
             while "LastEvaluatedKey" in response:
                 query_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
                 response = self.table.query(**query_kwargs)
                 items.extend(
-                    BasicStorageObject.from_dict(item) for item in response.get("Items", [])
+                    BasicStorageObject.model_validate(item) for item in response.get("Items", [])
                 )
 
         # Apply newer/older filters for BatchGetItem path (not pushed to DynamoDB)
@@ -744,11 +720,7 @@ class StorageManager:
             sortindex=sortindex,
             ttl=ttl,
         )
-        self.table.put_item(
-            Item=self._encode_basic_storage_object(
-                user_id=user_id, collection_name=collection_name, obj=obj
-            )
-        )
+        self.table.put_item(Item=obj.to_item(user_id, collection_name))
 
         # Upsert collection metadata so list_collections reflects this write.
         # DynamoDB update_item creates the item if it doesn't exist, and ADD
@@ -860,7 +832,7 @@ class StorageManager:
             count=collection.count,
             usage=collection.usage,
         )
-        metadata_item = self._encode_collection_data(user_id, collection_data)
+        metadata_item = collection_data.to_item(user_id)
         self.table.put_item(Item=metadata_item)
 
         return modified

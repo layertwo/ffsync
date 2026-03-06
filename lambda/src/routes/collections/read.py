@@ -1,11 +1,17 @@
+import json
+
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import ValidationException
-from src.shared.models import ValidationError, validate_collection_name
-from src.shared.utils import json_dumps
+from src.shared.models import (
+    BSOListAdapter,
+    BSOOutput,
+    ValidationError,
+    validate_collection_name,
+)
 
 logger = Logger()
 
@@ -28,7 +34,7 @@ class ReadCollectionRoute(BaseRoute):
                 return Response(
                     status_code=401,
                     content_type="application/json",
-                    body=json_dumps({"error": "Unauthorized"}),
+                    body=json.dumps({"error": "Unauthorized"}),
                 )
 
             path_params = event.path_parameters or {}
@@ -51,7 +57,7 @@ class ReadCollectionRoute(BaseRoute):
                 return Response(
                     status_code=400,
                     content_type="application/json",
-                    body=json_dumps(
+                    body=json.dumps(
                         {
                             "error": "Cannot specify both X-If-Modified-Since and X-If-Unmodified-Since"
                         }
@@ -68,7 +74,7 @@ class ReadCollectionRoute(BaseRoute):
                     return Response(
                         status_code=400,
                         content_type="application/json",
-                        body=json_dumps(
+                        body=json.dumps(
                             {"error": "X-If-Modified-Since must be a valid positive decimal"}
                         ),
                     )
@@ -110,17 +116,19 @@ class ReadCollectionRoute(BaseRoute):
             # Determine response format based on 'full' parameter
             full = self._parse_bool(query_params.get("full", "0"))
 
-            if full:
-                # Return full BSO objects (without TTL field per Requirement 11.4)
-                response_body = [self._format_object(obj) for obj in objects.get("items", [])]
-            else:
-                # Return just BSO IDs
-                response_body = [obj.id for obj in objects.get("items", [])]
-
+            items = objects.get("items", [])
             response_headers = {"X-Last-Modified": str(last_modified_ts)}
 
-            # Add X-Weave-Records header indicating total number of records (Requirement 2.14)
-            response_headers["X-Weave-Records"] = str(len(response_body))
+            if full:
+                # Return full BSO objects (without TTL field per Requirement 11.4)
+                bso_models = [BSOOutput.from_bso(obj) for obj in items]
+                response_headers["X-Weave-Records"] = str(len(bso_models))
+                body = BSOListAdapter.dump_json(bso_models, exclude_none=True).decode()
+            else:
+                # Return just BSO IDs
+                ids = [obj.id for obj in items]
+                response_headers["X-Weave-Records"] = str(len(ids))
+                body = json.dumps(ids)
 
             # Add X-Weave-Next-Offset header if more results available
             if objects.get("next_offset") is not None:
@@ -130,7 +138,7 @@ class ReadCollectionRoute(BaseRoute):
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json_dumps(response_body),
+                body=body,
                 headers=response_headers,
             )
 
@@ -138,14 +146,14 @@ class ReadCollectionRoute(BaseRoute):
             return Response(
                 status_code=400,
                 content_type="application/json",
-                body=json_dumps({"error": str(e)}),
+                body=json.dumps({"error": str(e)}),
             )
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json_dumps({"error": "Internal server error"}),
+                body=json.dumps({"error": "Internal server error"}),
             )
 
     def _parse_timestamp(self, value):
@@ -171,16 +179,3 @@ class ReadCollectionRoute(BaseRoute):
         if value is None:
             return True  # pragma: nocover
         return value.lower() in ("1", "true", "yes")
-
-    def _format_object(self, obj):
-        """Format storage object for response"""
-        # Convert to dict using dataclass serialization
-        obj_dict = obj.to_dict()
-
-        # Remove None values
-        if obj_dict.get("sortindex") is None:
-            del obj_dict["sortindex"]
-        if obj_dict.get("ttl") is None:
-            del obj_dict["ttl"]
-
-        return obj_dict

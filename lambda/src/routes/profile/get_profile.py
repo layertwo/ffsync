@@ -8,6 +8,7 @@ from src.services.auth_account_manager import AuthAccountManager
 from src.services.jwt_verifier import JWTVerifier
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import InvalidTokenError
+from src.shared.models import ProfileOutput
 
 
 class GetProfileRoute(BaseRoute):
@@ -53,19 +54,17 @@ class GetProfileRoute(BaseRoute):
             return self._error(401, 110, "Account not found")
 
         uid = account["uid"]
+        result = ProfileOutput(
+            uid=uid,
+            email=account["email"],
+            avatar="",
+            avatar_default=True,
+            sub=uid,
+        )
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json.dumps(
-                {
-                    "uid": uid,
-                    "email": account["email"],
-                    "locale": "en-US",
-                    "avatar": "",
-                    "avatarDefault": True,
-                    "sub": uid,
-                }
-            ),
+            body=result.model_dump_json(by_alias=True),
         )
 
     @staticmethod
