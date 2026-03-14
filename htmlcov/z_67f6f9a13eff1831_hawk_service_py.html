@@ -67,7 +67,7 @@
             <a id="nextFileLink" class="nav" href="z_67f6f9a13eff1831_jwt_service_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.1">coverage.py v7.13.1</a>,
-            created at 2026-03-14 04:50 +0000
+            created at 2026-03-14 22:32 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -206,7 +206,7 @@
     <p class="run run2"><span class="n"><a id="t122" href="#t122">122</a></span><span class="t">                <span class="nam">timestamp_skew_in_seconds</span><span class="op">=</span><span class="nam">self</span><span class="op">.</span><span class="nam">timestamp_skew_tolerance</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t123" href="#t123">123</a></span><span class="t">                <span class="nam">accept_untrusted_content</span><span class="op">=</span><span class="key">True</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t124" href="#t124">124</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t125" href="#t125">125</a></span><span class="t">        <span class="key">except</span> <span class="op">(</span><span class="nam">InvalidGenerationException</span><span class="op">,</span> <span class="nam">AuthenticationException</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t125" href="#t125">125</a></span><span class="t">        <span class="key">except</span> <span class="nam">InvalidGenerationException</span><span class="op">,</span> <span class="nam">AuthenticationException</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t126" href="#t126">126</a></span><span class="t">            <span class="key">raise</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t127" href="#t127">127</a></span><span class="t">        <span class="key">except</span> <span class="nam">mohawk</span><span class="op">.</span><span class="nam">exc</span><span class="op">.</span><span class="nam">MissingAuthorization</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t128" href="#t128">128</a></span><span class="t">            <span class="key">raise</span> <span class="nam">InvalidHawkHeaderException</span><span class="op">(</span><span class="str">"Missing authorization header"</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
@@ -278,7 +278,7 @@
     <p class="pln"><span class="n"><a id="t194" href="#t194">194</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t195" href="#t195">195</a></span><span class="t">        <span class="key">try</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t196" href="#t196">196</a></span><span class="t">            <span class="nam">hawk_key</span><span class="op">,</span> <span class="nam">_</span><span class="op">,</span> <span class="nam">_</span> <span class="op">=</span> <span class="nam">self</span><span class="op">.</span><span class="nam">get_hawk_key_from_cache</span><span class="op">(</span><span class="nam">hawk_id</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t197" href="#t197">197</a></span><span class="t">        <span class="key">except</span> <span class="op">(</span><span class="nam">AuthenticationException</span><span class="op">,</span> <span class="nam">ClientError</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t197" href="#t197">197</a></span><span class="t">        <span class="key">except</span> <span class="nam">AuthenticationException</span><span class="op">,</span> <span class="nam">ClientError</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t198" href="#t198">198</a></span><span class="t">            <span class="key">return</span> <span class="key">None</span>  <span class="com"># Let mohawk handle the error</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t199" href="#t199">199</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t200" href="#t200">200</a></span><span class="t">        <span class="nam">client_mac</span> <span class="op">=</span> <span class="nam">fields</span><span class="op">[</span><span class="str">"mac"</span><span class="op">]</span>&nbsp;</span><span class="r"></span></p>
@@ -400,7 +400,7 @@
             <a class="nav" href="z_67f6f9a13eff1831_jwt_service_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.1">coverage.py v7.13.1</a>,
-            created at 2026-03-14 04:50 +0000
+            created at 2026-03-14 22:32 +0000
         </p>
     </div>
 </footer>
