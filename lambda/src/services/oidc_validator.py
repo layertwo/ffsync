@@ -224,7 +224,7 @@ class OIDCValidator:
                 email=claims.get("email"),
             )
 
-        except (InvalidTokenError, InvalidCredentialsError, InvalidTimestampError):
+        except InvalidTokenError, InvalidCredentialsError, InvalidTimestampError:
             # Re-raise our custom exceptions
             raise
         except ServiceUnavailableError:

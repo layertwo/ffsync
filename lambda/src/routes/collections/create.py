@@ -185,5 +185,5 @@ class CreateCollectionRoute(BaseRoute):
             timestamp = float(if_unmodified_since)
             collection = self.storage_manager.get_collection(user_id, collection_name)
             return collection.modified <= datetime.fromtimestamp(timestamp, tz=timezone.utc)
-        except (ValueError, Exception):  # pragma: nocover
+        except ValueError, Exception:  # pragma: nocover
             return True  # If we can't check, allow the operation

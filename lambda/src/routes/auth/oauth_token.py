@@ -44,7 +44,7 @@ class OAuthTokenRoute(BaseRoute):
 
         try:
             body = json.loads(body_str)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return self._error(400, 107, "Invalid JSON body")
 
         grant_type = body.get("grant_type")

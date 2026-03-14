@@ -153,7 +153,7 @@ class FxATokenManager:
                 timestamp_skew_in_seconds=60,
             )
             return True
-        except (mohawk.exc.MissingContent, mohawk.exc.MisComputedContentHash):
+        except mohawk.exc.MissingContent, mohawk.exc.MisComputedContentHash:
             # MAC was already verified before content hash check.
             # We use accept_untrusted_content, so content hash mismatches are OK.
             return True

@@ -62,7 +62,7 @@ class OIDCCodeExchangeRoute(BaseRoute):
         # Parse request body
         try:
             body = json.loads(event.body or "{}")
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return Response(
                 status_code=400,
                 content_type="application/json",

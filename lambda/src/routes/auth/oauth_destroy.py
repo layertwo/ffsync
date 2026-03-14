@@ -31,7 +31,7 @@ class OAuthDestroyRoute(BaseRoute):
 
         try:
             body = json.loads(body_str)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return Response(
                 status_code=400,
                 content_type="application/json",

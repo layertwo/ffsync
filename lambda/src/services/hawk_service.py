@@ -122,7 +122,7 @@ class HawkService:
                 timestamp_skew_in_seconds=self.timestamp_skew_tolerance,
                 accept_untrusted_content=True,
             )
-        except (InvalidGenerationException, AuthenticationException):
+        except InvalidGenerationException, AuthenticationException:
             raise
         except mohawk.exc.MissingAuthorization:
             raise InvalidHawkHeaderException("Missing authorization header")
@@ -194,7 +194,7 @@ class HawkService:
 
         try:
             hawk_key, _, _ = self.get_hawk_key_from_cache(hawk_id)
-        except (AuthenticationException, ClientError):
+        except AuthenticationException, ClientError:
             return None  # Let mohawk handle the error
 
         client_mac = fields["mac"]

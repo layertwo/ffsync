@@ -64,7 +64,7 @@ class ReadCollectionRoute(BaseRoute):
                     if_modified_since_ts = float(if_modified_since)
                     if if_modified_since_ts < 0:
                         raise ValueError("Timestamp must be positive")
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     return Response(
                         status_code=400,
                         content_type="application/json",
@@ -154,7 +154,7 @@ class ReadCollectionRoute(BaseRoute):
             return None
         try:
             return float(value)
-        except (ValueError, TypeError):  # pragma: nocover
+        except ValueError, TypeError:  # pragma: nocover
             return None
 
     def _parse_int(self, value, default):
@@ -163,7 +163,7 @@ class ReadCollectionRoute(BaseRoute):
             return default
         try:
             return int(value)
-        except (ValueError, TypeError):  # pragma: nocover
+        except ValueError, TypeError:  # pragma: nocover
             return default
 
     def _parse_bool(self, value):

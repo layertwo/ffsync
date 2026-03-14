@@ -70,7 +70,7 @@ def extract_hawk_request_params(event) -> tuple[str, str, str, int]:
 
     try:
         host = event.request_context.domain_name or "localhost"
-    except (KeyError, AttributeError):
+    except KeyError, AttributeError:
         host = (event.headers or {}).get("host", "localhost")
 
     return method, path, host, 443

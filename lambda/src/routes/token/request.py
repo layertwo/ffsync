@@ -62,7 +62,7 @@ class GetTokenRoute(BaseRoute):
                 request_context = event.request_context
                 identity = request_context.identity if request_context else None
                 source_ip = identity.source_ip if identity else None
-            except (KeyError, AttributeError):
+            except KeyError, AttributeError:
                 source_ip = None
             headers = event.headers or {}
             user_agent = headers.get("user-agent")
