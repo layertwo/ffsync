@@ -27,6 +27,7 @@ import {
     ProjectionType,
     Table,
     TableEncryption,
+    TableProps,
 } from "aws-cdk-lib/aws-dynamodb";
 import {Role, ServicePrincipal} from "aws-cdk-lib/aws-iam";
 import {Key, KeySpec, KeyUsage} from "aws-cdk-lib/aws-kms";
@@ -45,6 +46,13 @@ import {IStringParameter, StringParameter} from "aws-cdk-lib/aws-ssm";
 import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
 import {Service} from "../config/service";
 import {capitalCase} from "../utils";
+
+const DEFAULT_TABLE_PROPS: Partial<TableProps> = {
+    billingMode: BillingMode.PAY_PER_REQUEST,
+    encryption: TableEncryption.AWS_MANAGED,
+    removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
+    deletionProtection: true,
+}
 
 export interface ServiceStackProps extends StackProps {
     stageType: StageType;
@@ -152,7 +160,6 @@ export class ServiceStack extends Stack {
     private buildStorageTable(): Table {
         const table = new Table(this, "StorageTable", {
             tableName: `ffsync-storage-${this.props.stageType.toLowerCase()}`,
-            encryption: TableEncryption.AWS_MANAGED,
             partitionKey: {
                 name: "PK",
                 type: AttributeType.STRING,
@@ -161,11 +168,10 @@ export class ServiceStack extends Stack {
                 name: "SK",
                 type: AttributeType.STRING,
             },
-            billingMode: BillingMode.PAY_PER_REQUEST,
             pointInTimeRecoverySpecification: {
                 pointInTimeRecoveryEnabled: true,
             },
-            removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
+            ...DEFAULT_TABLE_PROPS
         });
 
         // Add GSI for efficient user collection queries
@@ -188,33 +194,29 @@ export class ServiceStack extends Stack {
     private buildTokenUsersTable(): Table {
         return new Table(this, "TokenUsersTable", {
             tableName: `ffsync-token-users-${this.props.stageType.toLowerCase()}`,
-            encryption: TableEncryption.AWS_MANAGED,
             partitionKey: {
                 name: "PK",
                 type: AttributeType.STRING,
             },
-            billingMode: BillingMode.PAY_PER_REQUEST,
             pointInTimeRecoverySpecification: {
                 pointInTimeRecoveryEnabled: true,
             },
-            removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
+            ...DEFAULT_TABLE_PROPS
         });
     }
 
     private buildTokenCacheTable(): Table {
         const table = new Table(this, "TokenCacheTable", {
             tableName: `ffsync-token-cache-${this.props.stageType.toLowerCase()}`,
-            encryption: TableEncryption.AWS_MANAGED,
             partitionKey: {
                 name: "PK",
                 type: AttributeType.STRING,
             },
-            billingMode: BillingMode.PAY_PER_REQUEST,
             timeToLiveAttribute: "expiry",
             pointInTimeRecoverySpecification: {
                 pointInTimeRecoveryEnabled: true,
             },
-            removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
+            ...DEFAULT_TABLE_PROPS
         });
 
         return table;
@@ -224,13 +226,11 @@ export class ServiceStack extends Stack {
         return new Table(this, "AuthTable", {
             tableName: `ffsync-auth-${this.props.stageType.toLowerCase()}`,
             partitionKey: {name: "PK", type: AttributeType.STRING},
-            billingMode: BillingMode.PAY_PER_REQUEST,
-            encryption: TableEncryption.AWS_MANAGED,
             timeToLiveAttribute: "expiry",
             pointInTimeRecoverySpecification: {
                 pointInTimeRecoveryEnabled: true,
             },
-            removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
+            ...DEFAULT_TABLE_PROPS
         });
     }
 
@@ -377,10 +377,8 @@ export class ServiceStack extends Stack {
         return new Table(this, "ChannelTable", {
             tableName: `ffsync-channel-${this.props.stageType.toLowerCase()}`,
             partitionKey: {name: "PK", type: AttributeType.STRING},
-            billingMode: BillingMode.PAY_PER_REQUEST,
-            encryption: TableEncryption.AWS_MANAGED,
             timeToLiveAttribute: "expiry",
-            removalPolicy: RemovalPolicy.DESTROY,
+            ...DEFAULT_TABLE_PROPS
         });
     }
 
