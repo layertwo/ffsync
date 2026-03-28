@@ -4,7 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
     "aws-lambda-powertools==3.26.0",
-    "boto3==1.42.73",
+    "boto3==1.42.78",
     "cryptography==46.0.6",
     "dataclasses-json==0.6.7",
     "mohawk==1.1.0",
@@ -23,7 +23,7 @@ dev = [
     "flake8==7.3.0",
     "Flake8-pyproject==1.2.4",
     "mypy==1.19.1",
-    "types-boto3==1.42.73",
+    "types-boto3==1.42.78",
     "hypothesis>=6.0.0",
     "types-requests==2.33.0.20260327"
 ]
