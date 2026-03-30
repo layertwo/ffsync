@@ -9,7 +9,7 @@ dependencies = [
     "dataclasses-json==0.6.7",
     "mohawk==1.1.0",
     "PyJWT==2.12.1",
-    "requests==2.33.0"
+    "requests==2.33.1"
 ]
 
 
