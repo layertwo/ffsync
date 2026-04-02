@@ -25,7 +25,7 @@ dev = [
     "mypy==1.19.1",
     "types-boto3==1.42.78",
     "hypothesis>=6.0.0",
-    "types-requests==2.33.0.20260327"
+    "types-requests==2.33.0.20260402"
 ]
 
 [tool.pytest.ini_options]
