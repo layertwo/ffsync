@@ -1,14 +1,7 @@
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: [
-    'config:recommended',
-    'docker:enableMajor',
-    'mergeConfidence:all-badges',
-    ':disableRateLimiting',
-    ':semanticCommits',
-    'github>layertwo/renovate-config//packages/aws',
-    'github>layertwo/renovate-config//packages/noisy-npm',
-    'github>layertwo/renovate-config//managers/aws'
+    'github>layertwo/renovate-config'
   ],
   "customManagers": [
     {
