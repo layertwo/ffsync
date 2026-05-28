@@ -12,9 +12,9 @@ smithy {
 }
 
 dependencies {
-    smithyBuild("software.amazon.smithy:smithy-aws-traits:1.69.0")
-    smithyBuild("software.amazon.smithy:smithy-aws-apigateway-traits:1.69.0")
-    smithyBuild("software.amazon.smithy:smithy-validation-model:1.69.0")
-    smithyBuild("software.amazon.smithy:smithy-openapi:1.69.0")
-    smithyBuild("software.amazon.smithy:smithy-aws-apigateway-openapi:1.69.0")
+    smithyBuild("software.amazon.smithy:smithy-aws-traits:1.71.0")
+    smithyBuild("software.amazon.smithy:smithy-aws-apigateway-traits:1.71.0")
+    smithyBuild("software.amazon.smithy:smithy-validation-model:1.71.0")
+    smithyBuild("software.amazon.smithy:smithy-openapi:1.71.0")
+    smithyBuild("software.amazon.smithy:smithy-aws-apigateway-openapi:1.71.0")
 }
