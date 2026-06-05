@@ -9,6 +9,7 @@ from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.oidc_validator import OIDCValidator
 from src.shared.base_route import BaseRoute
+from src.shared.models import OIDCExchangeOutput
 
 logger = Logger()
 
@@ -190,14 +191,13 @@ class OIDCCodeExchangeRoute(BaseRoute):
         # 5. Check if account exists
         account = self._account_manager.get_account_by_email(email)
 
+        result = OIDCExchangeOutput(
+            email=email,
+            access_token=access_token,
+            account_exists=account is not None,
+        )
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json.dumps(
-                {
-                    "email": email,
-                    "access_token": access_token,
-                    "account_exists": account is not None,
-                }
-            ),
+            body=result.model_dump_json(),
         )

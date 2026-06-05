@@ -1,13 +1,13 @@
 """User manager for DynamoDB operations on token server users"""
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import List, Optional
 
 from botocore.exceptions import ClientError
 
 from src.shared.exceptions import InvalidClientStateError, ServiceUnavailableError
 from src.shared.user import UserRecord
-from src.shared.utils import float_to_decimal
 
 _PK = "PK"
 PK_PREFIX = "USER"
@@ -35,11 +35,6 @@ class UserManager:
             Partition key string
         """
         return f"{PK_PREFIX}#{user_id}"
-
-    def _encode_user_record(self, user_record: UserRecord) -> dict:
-        encoded = user_record.to_dict()
-        encoded[_PK] = f"{PK_PREFIX}#{user_record.user_id}"
-        return encoded
 
     def create_user(self, user_id: str, client_state: str = "") -> UserRecord:
         """Create a new user record with generation 0
@@ -72,7 +67,7 @@ class UserManager:
             )
 
             self.table.put_item(
-                Item=self._encode_user_record(user_record=user_record),
+                Item=user_record.to_item(),
                 ConditionExpression="attribute_not_exists(PK)",
             )
 
@@ -118,7 +113,7 @@ class UserManager:
                 item["client_state"] = ""
             if "client_state_history" not in item:
                 item["client_state_history"] = []
-            return UserRecord.from_dict(item)
+            return UserRecord.model_validate(item)
 
         except ClientError as e:
             if e.response["Error"]["Code"] in (
@@ -199,7 +194,7 @@ class UserManager:
                     ":inc": 1,
                     ":client_state": client_state,
                     ":new_history": new_history,
-                    ":updated_at": float_to_decimal(current_time.timestamp()),
+                    ":updated_at": Decimal(str(current_time.timestamp())),
                 },
                 ReturnValues="ALL_NEW",
             )
@@ -210,7 +205,7 @@ class UserManager:
             # Ensure client_state_history is present (for legacy records)
             if "client_state_history" not in updated_item:  # pragma: nocover
                 updated_item["client_state_history"] = []
-            return UserRecord.from_dict(updated_item)
+            return UserRecord.model_validate(updated_item)
 
         except ClientError as e:
             if e.response["Error"]["Code"] in (
@@ -298,7 +293,7 @@ class UserManager:
                 UpdateExpression="SET generation = generation + :inc, updated_at = :updated_at",
                 ExpressionAttributeValues={
                     ":inc": 1,
-                    ":updated_at": float_to_decimal(current_time.timestamp()),
+                    ":updated_at": Decimal(str(current_time.timestamp())),
                 },
                 ReturnValues="ALL_NEW",
             )

@@ -8,6 +8,7 @@ from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandle
 
 from src.services.oauth_code_manager import OAuthCodeManager
 from src.shared.base_route import BaseRoute
+from src.shared.models import OAuthAuthorizationOutput
 
 ALLOWED_REDIRECT_URIS = {
     "urn:ietf:wg:oauth:2.0:oob",
@@ -74,16 +75,15 @@ class OAuthAuthorizationRoute(BaseRoute):
             keys_jwe=keys_jwe,
         )
 
+        result = OAuthAuthorizationOutput(
+            code=code,
+            state=state,
+            redirect=redirect_uri,
+        )
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json.dumps(
-                {
-                    "code": code,
-                    "state": state,
-                    "redirect": redirect_uri,
-                }
-            ),
+            body=result.model_dump_json(),
         )
 
     @staticmethod

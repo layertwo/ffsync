@@ -1,9 +1,11 @@
+import json
+
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
-from src.shared.utils import json_dumps
+from src.shared.models import ModifiedOutput
 
 logger = Logger()
 
@@ -26,18 +28,17 @@ class DeleteAllRootRoute(BaseRoute):
                 return Response(
                     status_code=401,
                     content_type="application/json",
-                    body=json_dumps({"error": "Unauthorized"}),
+                    body=json.dumps({"error": "Unauthorized"}),
                 )
 
             # Delete all collections and BSOs for the authenticated user
             modified_timestamp = self.storage_manager.delete_all_storage(user_id)
 
-            response_body = {"modified": modified_timestamp}
-
+            result = ModifiedOutput(modified=modified_timestamp)
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json_dumps(response_body),
+                body=result.model_dump_json(),
                 headers={"X-Last-Modified": str(round(modified_timestamp, 2))},
             )
 
@@ -46,5 +47,5 @@ class DeleteAllRootRoute(BaseRoute):
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json_dumps({"error": "Internal server error"}),
+                body=json.dumps({"error": "Internal server error"}),
             )

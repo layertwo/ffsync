@@ -7,7 +7,7 @@ from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandle
 
 from src.services.device_manager import DeviceManager
 from src.shared.base_route import BaseRoute
-from src.shared.utils import json_dumps
+from src.shared.models import AttachedClientOutput, ClientListAdapter
 
 
 class AccountAttachedClientsRoute(BaseRoute):
@@ -33,26 +33,20 @@ class AccountAttachedClientsRoute(BaseRoute):
         devices = self._device_manager.get_devices(uid)
         clients = []
         for d in devices:
-            clients.append(
-                {
-                    "clientId": None,
-                    "deviceId": d.get("id"),
-                    "sessionTokenId": d.get("sessionTokenId"),
-                    "refreshTokenId": None,
-                    "isCurrentSession": d.get("sessionTokenId") == session_token_id,
-                    "deviceType": d.get("type"),
-                    "name": d.get("name"),
-                    "createdTime": d.get("createdAt"),
-                    "lastAccessTime": d.get("lastAccessTime"),
-                    "scope": None,
-                    "location": {},
-                    "userAgent": "",
-                    "os": None,
-                }
+            client = AttachedClientOutput(
+                device_id=d.get("id"),
+                session_token_id=d.get("sessionTokenId"),
+                is_current_session=d.get("sessionTokenId") == session_token_id,
+                device_type=d.get("type"),
+                name=d.get("name"),
+                created_time=d.get("createdAt"),
+                last_access_time=d.get("lastAccessTime"),
+                user_agent="",
             )
+            clients.append(client)
 
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json_dumps(clients),
+            body=ClientListAdapter.dump_json(clients, by_alias=True).decode(),
         )

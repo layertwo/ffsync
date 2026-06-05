@@ -9,6 +9,7 @@ from src.services.auth_account_manager import AuthAccountManager
 from src.services.fxa_crypto import constant_time_compare, derive_verify_hash
 from src.services.fxa_token_manager import FxATokenManager
 from src.shared.base_route import BaseRoute
+from src.shared.models import AccountLoginOutput
 
 AUTH_PW_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
@@ -74,22 +75,22 @@ class AccountLoginRoute(BaseRoute):
         # Create session token (always)
         session_token = self._token_manager.create_session_token(uid)
 
-        result: dict = {
-            "uid": uid,
-            "sessionToken": session_token.hex(),
-            "verified": True,
-        }
+        result = AccountLoginOutput(
+            uid=uid,
+            session_token=session_token.hex(),
+            verified=True,
+        )
 
         # Create key-fetch token if keys=true
         params = event.query_string_parameters or {}
         if params.get("keys") == "true":
             key_fetch_token = self._token_manager.create_key_fetch_token(uid)
-            result["keyFetchToken"] = key_fetch_token.hex()
+            result.key_fetch_token = key_fetch_token.hex()
 
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json.dumps(result),
+            body=result.model_dump_json(by_alias=True, exclude_none=True),
         )
 
     @staticmethod

@@ -7,7 +7,7 @@ from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandle
 
 from src.services.device_manager import DeviceManager
 from src.shared.base_route import BaseRoute
-from src.shared.utils import json_dumps
+from src.shared.models import DeviceListAdapter, DeviceOutput
 
 
 class AccountDevicesRoute(BaseRoute):
@@ -35,11 +35,14 @@ class AccountDevicesRoute(BaseRoute):
         filter_idle = int(filter_ts) if filter_ts else None
 
         devices = self._device_manager.get_devices(uid, filter_idle)
+        results = []
         for d in devices:
-            d["isCurrentDevice"] = d.get("sessionTokenId") == session_token_id
+            device = DeviceOutput.model_validate(d)
+            device.is_current_device = d.get("sessionTokenId") == session_token_id
+            results.append(device)
 
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json_dumps(devices),
+            body=DeviceListAdapter.dump_json(results, by_alias=True).decode(),
         )

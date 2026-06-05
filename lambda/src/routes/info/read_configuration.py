@@ -2,7 +2,7 @@ from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.shared.base_route import BaseRoute
-from src.shared.utils import json_dumps
+from src.shared.models import ConfigurationOutput
 
 logger = Logger()
 
@@ -51,29 +51,26 @@ class ReadConfigurationRoute(BaseRoute):
         - max_total_bytes: Maximum combined payload size for batched uploads (optional)
         """
         try:
-            response_body = {
-                "max_request_bytes": self.max_request_bytes,
-                "max_post_records": self.max_post_records,
-                "max_post_bytes": self.max_post_bytes,
-                "max_record_payload_bytes": self.max_record_payload_bytes,
-            }
-
-            # Include optional limits only if configured
-            if self.max_total_records is not None:
-                response_body["max_total_records"] = self.max_total_records
-            if self.max_total_bytes is not None:
-                response_body["max_total_bytes"] = self.max_total_bytes
-
+            result = ConfigurationOutput(
+                max_request_bytes=self.max_request_bytes,
+                max_post_records=self.max_post_records,
+                max_post_bytes=self.max_post_bytes,
+                max_record_payload_bytes=self.max_record_payload_bytes,
+                max_total_records=self.max_total_records,
+                max_total_bytes=self.max_total_bytes,
+            )
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json_dumps(response_body),
+                body=result.model_dump_json(exclude_none=True),
             )
 
         except Exception as e:  # pragma: nocover
+            import json
+
             logger.error(f"Internal server error: {e}")
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json_dumps({"error": "Internal server error"}),
+                body=json.dumps({"error": "Internal server error"}),
             )

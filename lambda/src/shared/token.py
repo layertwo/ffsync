@@ -2,11 +2,9 @@
 
 from dataclasses import dataclass
 
-from dataclasses_json import DataClassJsonMixin
-
 
 @dataclass
-class TokenResponse(DataClassJsonMixin):
+class TokenResponse:
     """
     Token response returned to Firefox Sync clients
 

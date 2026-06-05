@@ -1,16 +1,12 @@
 """User record data model"""
 
-from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List
 
-from dataclasses_json import DataClassJsonMixin, config
-
-from src.shared.utils import datetime_decoder, datetime_encoder
+from src.shared.models import DynamoModel
 
 
-@dataclass
-class UserRecord(DataClassJsonMixin):
+class UserRecord(DynamoModel):
     """
     User record stored in DynamoDB
 
@@ -28,10 +24,12 @@ class UserRecord(DataClassJsonMixin):
     user_id: str
     generation: int
     client_state: str
-    created_at: datetime = field(
-        metadata=config(encoder=datetime_encoder, decoder=datetime_decoder)
-    )
-    updated_at: datetime = field(
-        metadata=config(encoder=datetime_encoder, decoder=datetime_decoder)
-    )
-    client_state_history: List[str] = field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+    client_state_history: List[str] = []
+
+    def to_item(self) -> dict:
+        """Produce a complete DynamoDB item with PK."""
+        item = self._to_dynamodb_dict()
+        item["PK"] = f"USER#{self.user_id}"
+        return item

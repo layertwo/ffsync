@@ -1,9 +1,10 @@
+import json
+
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
-from src.shared.utils import datetime_encoder, json_dumps
 
 logger = Logger()
 
@@ -31,7 +32,7 @@ class ReadCollectionsInfoRoute(BaseRoute):
                 return Response(
                     status_code=401,
                     content_type="application/json",
-                    body=json_dumps({"error": "Unauthorized"}),
+                    body=json.dumps({"error": "Unauthorized"}),
                 )
 
             # Get collections using storage manager
@@ -39,13 +40,14 @@ class ReadCollectionsInfoRoute(BaseRoute):
 
             # Mozilla format: object mapping collection names to timestamps
             response_body = {
-                collection.name: datetime_encoder(collection.modified) for collection in collections
+                collection.name: round(collection.modified.timestamp(), 2)
+                for collection in collections
             }
 
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json_dumps(response_body),
+                body=json.dumps(response_body),
             )
 
         except Exception as e:
@@ -53,5 +55,5 @@ class ReadCollectionsInfoRoute(BaseRoute):
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json_dumps({"error": "Internal server error"}),
+                body=json.dumps({"error": "Internal server error"}),
             )

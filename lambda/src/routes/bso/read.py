@@ -1,3 +1,5 @@
+import json
+
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
@@ -8,8 +10,12 @@ from src.shared.exceptions import (
     StorageObjectNotFoundException,
     ValidationException,
 )
-from src.shared.models import ValidationError, validate_bso_id, validate_collection_name
-from src.shared.utils import json_dumps
+from src.shared.models import (
+    BSOOutput,
+    ValidationError,
+    validate_bso_id,
+    validate_collection_name,
+)
 
 logger = Logger()
 
@@ -32,7 +38,7 @@ class ReadBSORoute(BaseRoute):
                 return Response(
                     status_code=401,
                     content_type="application/json",
-                    body=json_dumps({"error": "Unauthorized"}),
+                    body=json.dumps({"error": "Unauthorized"}),
                 )
 
             path_params = event.path_parameters or {}
@@ -54,7 +60,7 @@ class ReadBSORoute(BaseRoute):
                 return Response(
                     status_code=400,
                     content_type="application/json",
-                    body=json_dumps(
+                    body=json.dumps(
                         {
                             "error": "Cannot specify both X-If-Modified-Since and X-If-Unmodified-Since"
                         }
@@ -73,7 +79,7 @@ class ReadBSORoute(BaseRoute):
                     return Response(
                         status_code=400,
                         content_type="application/json",
-                        body=json_dumps({"error": "Invalid X-If-Modified-Since header"}),
+                        body=json.dumps({"error": "Invalid X-If-Modified-Since header"}),
                     )
 
             # Get storage object using storage manager with user_id
@@ -93,46 +99,38 @@ class ReadBSORoute(BaseRoute):
                         headers={"X-Last-Modified": str(round(modified_timestamp, 2))},
                     )
 
-            # Convert to dict using dataclass serialization
-            obj_dict = storage_object.to_dict()
-
-            # TTL is write-only per Mozilla spec - always exclude from response
-            if "ttl" in obj_dict:  # pragma: nocover
-                del obj_dict["ttl"]
-
-            # Remove None values for optional fields
-            if obj_dict.get("sortindex") is None:
-                del obj_dict["sortindex"]
+            # Convert to Pydantic model (TTL is write-only per Mozilla spec)
+            bso = BSOOutput.from_bso(storage_object)
 
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json_dumps(obj_dict),
-                headers={"X-Last-Modified": str(obj_dict["modified"])},
+                body=bso.model_dump_json(exclude_none=True),
+                headers={"X-Last-Modified": str(bso.modified)},
             )
 
         except ValidationException as e:
             return Response(
                 status_code=400,
                 content_type="application/json",
-                body=json_dumps({"error": str(e)}),
+                body=json.dumps({"error": str(e)}),
             )
         except CollectionNotFoundException as e:
             return Response(
                 status_code=404,
                 content_type="application/json",
-                body=json_dumps({"error": str(e)}),
+                body=json.dumps({"error": str(e)}),
             )
         except StorageObjectNotFoundException as e:
             return Response(
                 status_code=404,
                 content_type="application/json",
-                body=json_dumps({"error": str(e)}),
+                body=json.dumps({"error": str(e)}),
             )
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json_dumps({"error": "Internal server error"}),
+                body=json.dumps({"error": "Internal server error"}),
             )

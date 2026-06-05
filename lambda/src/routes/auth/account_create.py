@@ -11,6 +11,7 @@ from src.services.fxa_crypto import derive_verify_hash, generate_random_bytes
 from src.services.fxa_token_manager import FxATokenManager
 from src.services.oidc_validator import OIDCValidator
 from src.shared.base_route import BaseRoute
+from src.shared.models import AccountCreateOutput
 
 BEARER_PATTERN = re.compile(r"^Bearer\s+(.+)$", re.IGNORECASE)
 AUTH_PW_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -102,17 +103,16 @@ class AccountCreateRoute(BaseRoute):
         session_token = self._token_manager.create_session_token(uid)
         key_fetch_token = self._token_manager.create_key_fetch_token(uid)
 
+        result = AccountCreateOutput(
+            uid=uid,
+            session_token=session_token.hex(),
+            key_fetch_token=key_fetch_token.hex(),
+            verified=True,
+        )
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json.dumps(
-                {
-                    "uid": uid,
-                    "sessionToken": session_token.hex(),
-                    "keyFetchToken": key_fetch_token.hex(),
-                    "verified": True,
-                }
-            ),
+            body=result.model_dump_json(by_alias=True),
         )
 
     @staticmethod

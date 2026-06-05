@@ -1,18 +1,24 @@
+from decimal import Decimal
+
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 from src.shared.models import (
     MAX_BSO_ID_LENGTH,
     MAX_COLLECTION_NAME_LENGTH,
     MAX_PAYLOAD_BYTES,
-    MAX_SORTINDEX,
-    MAX_TTL,
-    MIN_SORTINDEX,
+    AccountCreateInput,
+    BasicStorageObject,
+    BatchResultOutput,
+    BSOInput,
+    BSOOutput,
+    CollectionDataOutput,
+    DeviceOutput,
+    ModifiedOutput,
     ValidationError,
     validate_bso_id,
     validate_collection_name,
     validate_payload_size,
-    validate_sortindex,
-    validate_ttl,
 )
 
 
@@ -38,112 +44,42 @@ class TestValidatePayloadSize:
         validate_payload_size("")  # Should not raise
 
 
-class TestValidateSortindex:
-    def test_valid_sortindex(self):
-        """Valid sortindex should not raise exception"""
-        validate_sortindex(100)  # Should not raise
-
-    def test_none_sortindex(self):
-        """None sortindex should be valid"""
-        validate_sortindex(None)  # Should not raise
-
-    def test_sortindex_at_max(self):
-        """Sortindex at max value should be valid"""
-        validate_sortindex(MAX_SORTINDEX)  # Should not raise
-
-    def test_sortindex_at_min(self):
-        """Sortindex at min value should be valid"""
-        validate_sortindex(MIN_SORTINDEX)  # Should not raise
-
-    def test_sortindex_exceeds_max(self):
-        """Sortindex exceeding max should raise ValidationError"""
-        with pytest.raises(ValidationError, match="exceeds maximum 9 digits"):
-            validate_sortindex(MAX_SORTINDEX + 1)
-
-    def test_sortindex_below_min(self):
-        """Sortindex below min should raise ValidationError"""
-        with pytest.raises(ValidationError, match="exceeds maximum 9 digits"):
-            validate_sortindex(MIN_SORTINDEX - 1)
-
-    def test_sortindex_not_integer(self):
-        """Non-integer sortindex should raise ValidationError"""
-        with pytest.raises(ValidationError, match="must be an integer"):
-            validate_sortindex("100")  # type: ignore
-
-
-class TestValidateTTL:
-    def test_valid_ttl(self):
-        """Valid TTL should not raise exception"""
-        validate_ttl(3600)  # Should not raise
-
-    def test_none_ttl(self):
-        """None TTL should be valid"""
-        validate_ttl(None)  # Should not raise
-
-    def test_ttl_at_max(self):
-        """TTL at max value should be valid"""
-        validate_ttl(MAX_TTL)  # Should not raise
-
-    def test_ttl_exceeds_max(self):
-        """TTL exceeding max should raise ValidationError"""
-        with pytest.raises(ValidationError, match="exceeds maximum 9 digits"):
-            validate_ttl(MAX_TTL + 1)
-
-    def test_ttl_zero(self):
-        """TTL of zero should raise ValidationError"""
-        with pytest.raises(ValidationError, match="must be a positive integer"):
-            validate_ttl(0)
-
-    def test_ttl_negative(self):
-        """Negative TTL should raise ValidationError"""
-        with pytest.raises(ValidationError, match="must be a positive integer"):
-            validate_ttl(-100)
-
-    def test_ttl_not_integer(self):
-        """Non-integer TTL should raise ValidationError"""
-        with pytest.raises(ValidationError, match="must be an integer"):
-            validate_ttl("3600")  # type: ignore
-
-
 class TestValidateBSOId:
     def test_valid_bso_id(self):
         """Valid BSO ID should not raise exception"""
-        validate_bso_id("valid-bso-id-123")  # Should not raise
+        validate_bso_id("valid-bso-id")  # Should not raise
 
     def test_bso_id_at_max_length(self):
-        """BSO ID at max length should be valid"""
-        bso_id = "a" * MAX_BSO_ID_LENGTH
-        validate_bso_id(bso_id)  # Should not raise
+        """BSO ID at exactly max length should be valid"""
+        validate_bso_id("a" * MAX_BSO_ID_LENGTH)  # Should not raise
 
     def test_bso_id_exceeds_max_length(self):
         """BSO ID exceeding max length should raise ValidationError"""
-        bso_id = "a" * (MAX_BSO_ID_LENGTH + 1)
-        with pytest.raises(ValidationError, match="exceeds maximum .* characters"):
-            validate_bso_id(bso_id)
+        with pytest.raises(ValidationError, match="BSO ID length .* exceeds maximum"):
+            validate_bso_id("a" * (MAX_BSO_ID_LENGTH + 1))
 
-    def test_bso_id_with_non_printable_ascii(self):
+    def test_bso_id_with_special_chars(self):
+        """BSO ID with printable ASCII characters should be valid"""
+        validate_bso_id("valid-bso-id_123.test")  # Should not raise
+
+    def test_bso_id_with_non_printable_chars(self):
         """BSO ID with non-printable ASCII should raise ValidationError"""
-        bso_id = "test\x00id"  # Contains null character
-        with pytest.raises(ValidationError, match="non-printable ASCII character"):
-            validate_bso_id(bso_id)
+        with pytest.raises(ValidationError, match="non-printable ASCII"):
+            validate_bso_id("invalid\x00id")
 
-    def test_bso_id_with_tab(self):
+    def test_bso_id_with_tab_char(self):
         """BSO ID with tab character should raise ValidationError"""
-        bso_id = "test\tid"
-        with pytest.raises(ValidationError, match="non-printable ASCII character"):
-            validate_bso_id(bso_id)
+        with pytest.raises(ValidationError, match="non-printable ASCII"):
+            validate_bso_id("invalid\tid")
 
-    def test_bso_id_with_newline(self):
-        """BSO ID with newline should raise ValidationError"""
-        bso_id = "test\nid"
-        with pytest.raises(ValidationError, match="non-printable ASCII character"):
-            validate_bso_id(bso_id)
+    def test_bso_id_with_del_char(self):
+        """BSO ID with DEL character (0x7F) should raise ValidationError"""
+        with pytest.raises(ValidationError, match="non-printable ASCII"):
+            validate_bso_id("invalid\x7fid")
 
-    def test_bso_id_with_all_printable_ascii(self):
-        """BSO ID with all printable ASCII characters should be valid"""
-        # Printable ASCII: 0x20 (space) to 0x7E (~)
-        bso_id = "abc123 !@#$%^&*()_+-=[]{}|;:',.<>?/~"
-        validate_bso_id(bso_id)  # Should not raise
+    def test_empty_bso_id(self):
+        """Empty BSO ID should be valid (length check passes)"""
+        validate_bso_id("")  # Should not raise
 
 
 class TestValidateCollectionName:
@@ -151,44 +87,204 @@ class TestValidateCollectionName:
         """Valid collection name should not raise exception"""
         validate_collection_name("bookmarks")  # Should not raise
 
-    def test_collection_name_with_underscore(self):
-        """Collection name with underscore should be valid"""
-        validate_collection_name("my_collection")  # Should not raise
+    def test_collection_name_with_special_chars(self):
+        """Collection name with allowed special characters"""
+        validate_collection_name("my-collection_1.0")  # Should not raise
 
-    def test_collection_name_with_hyphen(self):
-        """Collection name with hyphen should be valid"""
-        validate_collection_name("my-collection")  # Should not raise
-
-    def test_collection_name_with_period(self):
-        """Collection name with period should be valid"""
-        validate_collection_name("my.collection")  # Should not raise
-
-    def test_collection_name_with_mixed_chars(self):
-        """Collection name with mixed valid characters should be valid"""
-        validate_collection_name("My_Collection-123.test")  # Should not raise
-
-    def test_collection_name_at_max_length(self):
-        """Collection name at max length should be valid"""
-        name = "a" * MAX_COLLECTION_NAME_LENGTH
-        validate_collection_name(name)  # Should not raise
-
-    def test_collection_name_exceeds_max_length(self):
-        """Collection name exceeding max length should raise ValidationError"""
-        name = "a" * (MAX_COLLECTION_NAME_LENGTH + 1)
-        with pytest.raises(ValidationError, match="exceeds maximum .* characters"):
-            validate_collection_name(name)
+    def test_collection_name_with_invalid_chars(self):
+        """Collection name with invalid characters should raise ValidationError"""
+        with pytest.raises(ValidationError, match="invalid character"):
+            validate_collection_name("invalid collection!")
 
     def test_collection_name_with_space(self):
         """Collection name with space should raise ValidationError"""
         with pytest.raises(ValidationError, match="invalid character"):
-            validate_collection_name("my collection")
+            validate_collection_name("invalid name")
 
-    def test_collection_name_with_special_char(self):
-        """Collection name with special character should raise ValidationError"""
-        with pytest.raises(ValidationError, match="invalid character"):
-            validate_collection_name("my@collection")
+    def test_collection_name_at_max_length(self):
+        """Collection name at exactly max length should be valid"""
+        validate_collection_name("a" * MAX_COLLECTION_NAME_LENGTH)  # Should not raise
 
-    def test_collection_name_with_slash(self):
-        """Collection name with slash should raise ValidationError"""
-        with pytest.raises(ValidationError, match="invalid character"):
-            validate_collection_name("my/collection")
+    def test_collection_name_exceeds_max_length(self):
+        """Collection name exceeding max length should raise ValidationError"""
+        with pytest.raises(ValidationError, match="Collection name length .* exceeds maximum"):
+            validate_collection_name("a" * (MAX_COLLECTION_NAME_LENGTH + 1))
+
+
+class TestBSOInput:
+    def test_all_fields_optional(self):
+        bso = BSOInput()
+        assert bso.id is None
+        assert bso.payload is None
+        assert bso.sortindex is None
+        assert bso.ttl is None
+
+    def test_sortindex_at_bounds(self):
+        BSOInput(sortindex=999999999)
+        BSOInput(sortindex=-999999999)
+
+    def test_sortindex_out_of_range(self):
+        with pytest.raises(PydanticValidationError):
+            BSOInput(sortindex=1000000000)
+        with pytest.raises(PydanticValidationError):
+            BSOInput(sortindex=-1000000000)
+
+    def test_ttl_must_be_positive(self):
+        with pytest.raises(PydanticValidationError):
+            BSOInput(ttl=0)
+        with pytest.raises(PydanticValidationError):
+            BSOInput(ttl=-1)
+
+    def test_ttl_at_max(self):
+        BSOInput(ttl=999999999)
+
+    def test_ttl_exceeds_max(self):
+        with pytest.raises(PydanticValidationError):
+            BSOInput(ttl=1000000000)
+
+    def test_payload_accepts_large_string(self):
+        """Payload validation is byte-based (validate_payload_size), not char-based."""
+        BSOInput(payload="a" * 262144)  # no Pydantic char limit
+
+
+class TestBSOOutputFromBso:
+    def test_from_bso(self):
+        from datetime import datetime, timezone
+
+        bso = BasicStorageObject(
+            id="item1",
+            payload="data",
+            modified=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            sortindex=100,
+        )
+        output = BSOOutput.from_bso(bso)
+        assert output.id == "item1"
+        assert output.payload == "data"
+        assert output.modified == round(bso.modified.timestamp(), 2)
+        assert output.sortindex == 100
+
+
+class TestCamelModelAliasing:
+    def test_device_output_serializes_to_camel(self):
+        dev = DeviceOutput(
+            id="d1",
+            name="My Phone",
+            type="mobile",
+            push_callback="https://push.example.com",
+            created_at=1000,
+            last_access_time=2000,
+        )
+        d = dev.model_dump(by_alias=True)
+        assert "pushCallback" in d
+        assert "pushPublicKey" in d
+        assert "createdAt" in d
+        assert "lastAccessTime" in d
+        # snake_case keys should NOT appear when by_alias=True
+        assert "push_callback" not in d
+
+    def test_device_output_accepts_camel_input(self):
+        dev = DeviceOutput.model_validate(
+            {
+                "id": "d1",
+                "name": "Phone",
+                "type": "mobile",
+                "pushCallback": "https://push",
+                "createdAt": 100,
+                "lastAccessTime": 200,
+            }
+        )
+        assert dev.push_callback == "https://push"
+        assert dev.created_at == 100
+
+    def test_device_output_accepts_snake_input(self):
+        dev = DeviceOutput(
+            id="d1",
+            name="Phone",
+            type="mobile",
+            push_callback="https://push",
+            created_at=100,
+            last_access_time=200,
+        )
+        assert dev.push_callback == "https://push"
+
+
+class TestBatchResultOutput:
+    def test_basic_creation(self):
+        br = BatchResultOutput(
+            success=["a", "b"],
+            failed={"c": ["error"]},
+            modified=1.23,
+        )
+        assert br.success == ["a", "b"]
+        assert br.failed == {"c": ["error"]}
+        assert br.modified == 1.23
+
+
+class TestCollectionDataOutput:
+    def test_basic_creation(self):
+        cd = CollectionDataOutput(name="bookmarks", modified=1.0, count=5, usage=1024)
+        assert cd.name == "bookmarks"
+        assert cd.count == 5
+
+
+class TestModifiedOutput:
+    def test_basic_creation(self):
+        m = ModifiedOutput(modified=1.23)
+        assert m.modified == 1.23
+
+
+class TestAccountCreateInput:
+    def test_valid(self):
+        pw = "a" * 64
+        a = AccountCreateInput(email="user@example.com", auth_pw=pw)
+        assert a.auth_pw == pw
+
+    def test_auth_pw_too_short(self):
+        with pytest.raises(PydanticValidationError):
+            AccountCreateInput(email="user@example.com", auth_pw="short")
+
+    def test_auth_pw_too_long(self):
+        with pytest.raises(PydanticValidationError):
+            AccountCreateInput(email="user@example.com", auth_pw="a" * 65)
+
+
+class TestDynamoModel:
+    def test_coerce_timestamps_with_non_dict_data(self):
+        """Cover the early-return branch when data is not a dict."""
+        from src.shared.models import DynamoModel
+
+        class Dummy(DynamoModel):
+            pass
+
+        # Call the validator directly with a non-dict value
+        result = Dummy._coerce_timestamps("not-a-dict")  # type: ignore[operator]
+        assert result == "not-a-dict"
+
+    def test__to_dynamodb_dict_converts_float_to_decimal(self):
+        """Cover the float -> Decimal branch in _to_dynamodb_dict."""
+        from src.shared.models import DynamoModel
+
+        class FloatModel(DynamoModel):
+            value: float
+
+        m = FloatModel(value=3.14)
+        dumped = m._to_dynamodb_dict()
+        assert isinstance(dumped["value"], Decimal)
+        assert dumped["value"] == Decimal("3.14")
+
+
+class TestDeviceOutputDecimalFields:
+    def test_decimal_fields_convert_to_int(self):
+        dev = DeviceOutput.model_validate(
+            {
+                "id": "d1",
+                "name": "Phone",
+                "type": "mobile",
+                "created_at": Decimal("1000"),
+                "last_access_time": Decimal("2000"),
+            }
+        )
+        assert isinstance(dev.created_at, int)
+        assert dev.created_at == 1000
+        assert isinstance(dev.last_access_time, int)
+        assert dev.last_access_time == 2000

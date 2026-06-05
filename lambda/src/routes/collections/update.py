@@ -11,8 +11,12 @@ from src.shared.exceptions import (
     PreconditionFailedException,
     ValidationException,
 )
-from src.shared.models import BasicStorageObject, ValidationError, validate_collection_name
-from src.shared.utils import json_dumps
+from src.shared.models import (
+    BasicStorageObject,
+    BatchResultOutput,
+    ValidationError,
+    validate_collection_name,
+)
 
 logger = Logger()
 
@@ -35,7 +39,7 @@ class UpdateCollectionRoute(BaseRoute):
                 return Response(
                     status_code=401,
                     content_type="application/json",
-                    body=json_dumps({"error": "Unauthorized"}),
+                    body=json.dumps({"error": "Unauthorized"}),
                 )
 
             path_params = event.path_parameters or {}
@@ -93,18 +97,17 @@ class UpdateCollectionRoute(BaseRoute):
             )
 
             # Return Mozilla-compliant response format
-            # {"modified": timestamp, "success": [...], "failed": {...}}
             modified_ts = collection_data.modified.timestamp()
-            response_body = {
-                "modified": modified_ts,
-                "success": batch_result.success,
-                "failed": batch_result.failed,
-            }
+            result = BatchResultOutput(
+                modified=modified_ts,
+                success=batch_result.success,
+                failed=batch_result.failed,
+            )
 
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=json_dumps(response_body),
+                body=result.model_dump_json(),
                 headers={"X-Last-Modified": str(round(modified_ts, 2))},
             )
 
@@ -112,24 +115,24 @@ class UpdateCollectionRoute(BaseRoute):
             return Response(
                 status_code=400,
                 content_type="application/json",
-                body=json_dumps({"error": str(e)}),
+                body=json.dumps({"error": str(e)}),
             )
         except CollectionNotFoundException as e:
             return Response(
                 status_code=404,
                 content_type="application/json",
-                body=json_dumps({"error": str(e)}),
+                body=json.dumps({"error": str(e)}),
             )
         except PreconditionFailedException as e:
             return Response(
                 status_code=412,
                 content_type="application/json",
-                body=json_dumps({"error": str(e)}),
+                body=json.dumps({"error": str(e)}),
             )
         except Exception as e:
             logger.error(f"Internal server error: {e}")
             return Response(
                 status_code=500,
                 content_type="application/json",
-                body=json_dumps({"error": "Internal server error"}),
+                body=json.dumps({"error": "Internal server error"}),
             )
