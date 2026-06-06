@@ -8,10 +8,8 @@ from src.shared.models import (
     MAX_COLLECTION_NAME_LENGTH,
     MAX_PAYLOAD_BYTES,
     AccountCreateInput,
-    BasicStorageObject,
     BatchResultOutput,
     BSOInput,
-    BSOOutput,
     CollectionDataOutput,
     DeviceOutput,
     ModifiedOutput,
@@ -78,11 +76,17 @@ class TestValidateBSOId:
             validate_bso_id("invalid\x7fid")
 
     def test_empty_bso_id(self):
-        """Empty BSO ID should be valid (length check passes)"""
-        validate_bso_id("")  # Should not raise
+        """Empty BSO ID should be rejected (smithy ObjectId requires min length 1)"""
+        with pytest.raises(ValidationError):
+            validate_bso_id("")
 
 
 class TestValidateCollectionName:
+    def test_empty_collection_name(self):
+        """Empty collection name should be rejected (smithy CollectionName min length 1)"""
+        with pytest.raises(ValidationError):
+            validate_collection_name("")
+
     def test_valid_collection_name(self):
         """Valid collection name should not raise exception"""
         validate_collection_name("bookmarks")  # Should not raise
@@ -147,23 +151,6 @@ class TestBSOInput:
         BSOInput(payload="a" * 262144)  # no Pydantic char limit
 
 
-class TestBSOOutputFromBso:
-    def test_from_bso(self):
-        from datetime import datetime, timezone
-
-        bso = BasicStorageObject(
-            id="item1",
-            payload="data",
-            modified=datetime(2024, 1, 1, tzinfo=timezone.utc),
-            sortindex=100,
-        )
-        output = BSOOutput.from_bso(bso)
-        assert output.id == "item1"
-        assert output.payload == "data"
-        assert output.modified == round(bso.modified.timestamp(), 2)
-        assert output.sortindex == 100
-
-
 class TestCamelModelAliasing:
     def test_device_output_serializes_to_camel(self):
         dev = DeviceOutput(
@@ -215,9 +202,11 @@ class TestBatchResultOutput:
             failed={"c": ["error"]},
             modified=1.23,
         )
-        assert br.success == ["a", "b"]
-        assert br.failed == {"c": ["error"]}
-        assert br.modified == 1.23
+        assert br.model_dump() == {
+            "success": ["a", "b"],
+            "failed": {"c": ["error"]},
+            "modified": 1.23,
+        }
 
 
 class TestCollectionDataOutput:
@@ -248,29 +237,26 @@ class TestAccountCreateInput:
             AccountCreateInput(email="user@example.com", auth_pw="a" * 65)
 
 
-class TestDynamoModel:
-    def test_coerce_timestamps_with_non_dict_data(self):
-        """Cover the early-return branch when data is not a dict."""
-        from src.shared.models import DynamoModel
+class TestToDynamoDict:
+    def test_converts_float_to_decimal(self):
+        from src.shared.models import BasicStorageObject, to_dynamo_dict
 
-        class Dummy(DynamoModel):
-            pass
+        bso = BasicStorageObject(id="x", payload="p", modified=3.14)
+        dumped = to_dynamo_dict(bso)
+        assert isinstance(dumped["modified"], Decimal)
+        assert dumped["modified"] == Decimal("3.14")
+        assert dumped["id"] == "x"
+        assert dumped["payload"] == "p"
 
-        # Call the validator directly with a non-dict value
-        result = Dummy._coerce_timestamps("not-a-dict")  # type: ignore[operator]
-        assert result == "not-a-dict"
+    def test_recurses_into_dict_and_list(self):
+        from src.shared.models import _to_dynamo
 
-    def test__to_dynamodb_dict_converts_float_to_decimal(self):
-        """Cover the float -> Decimal branch in _to_dynamodb_dict."""
-        from src.shared.models import DynamoModel
-
-        class FloatModel(DynamoModel):
-            value: float
-
-        m = FloatModel(value=3.14)
-        dumped = m._to_dynamodb_dict()
-        assert isinstance(dumped["value"], Decimal)
-        assert dumped["value"] == Decimal("3.14")
+        result = _to_dynamo({"a": 1.5, "b": [2.5, 3], "c": {"d": 4.0}})
+        assert result == {
+            "a": Decimal("1.5"),
+            "b": [Decimal("2.5"), 3],
+            "c": {"d": Decimal("4.0")},
+        }
 
 
 class TestDeviceOutputDecimalFields:

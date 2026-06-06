@@ -9,10 +9,10 @@ defaults:
 
 on:
   push:
-    paths: ['lambda/**', '.github/workflows/lambda-tests.yml']
+    paths: ['lambda/**', 'smithy/**', '.github/workflows/lambda-tests.yml']
     branches: [ "mainline" ]
   pull_request:
-    paths: ['lambda/**', '.github/workflows/lambda-tests.yml']
+    paths: ['lambda/**', 'smithy/**', '.github/workflows/lambda-tests.yml']
     branches: [ "mainline" ]
 
 jobs:
@@ -28,6 +28,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: corretto
+          java-version: 17
+          cache: gradle
+
+      - name: Build smithy
+        working-directory: smithy
+        run: ./gradlew smithyBuild
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -41,6 +52,11 @@ jobs:
       - name: Install dependencies
         run: |
           uv pip install --group dev .
+
+      - name: Generate pydantic models from smithy
+        env:
+          SMITHY_BUILD_DIR: ${{ github.workspace }}/build/smithy
+        run: ./scripts/codegen.sh
 
       - name: Check code formatting with black
         run: |

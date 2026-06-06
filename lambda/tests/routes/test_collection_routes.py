@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 """Tests for collection route handlers"""
 
 import json
@@ -76,14 +74,14 @@ class TestCreateCollectionRoute:
 
         collection_data = CollectionData(
             name="bookmarks",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             count=2,
             usage=1024,
         )
         batch_result = BatchResult(
             success=["obj1", "obj2"],
             failed={},
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
         )
         mock_storage_manager.create_or_update_collection.return_value = (
             collection_data,
@@ -118,14 +116,14 @@ class TestCreateCollectionRoute:
 
         collection_data = CollectionData(
             name="tabs",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             count=2,
             usage=512,
         )
         batch_result = BatchResult(
             success=["tab1", "tab2"],
             failed={},
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
         )
         mock_storage_manager.create_or_update_collection.return_value = (
             collection_data,
@@ -152,13 +150,11 @@ class TestCreateCollectionRoute:
 
         collection_data = CollectionData(
             name="history",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             count=0,
             usage=0,
         )
-        batch_result = BatchResult(
-            success=[], failed={}, modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc)
-        )
+        batch_result = BatchResult(success=[], failed={}, modified=1234567890.12)
         mock_storage_manager.create_or_update_collection.return_value = (
             collection_data,
             batch_result,
@@ -184,7 +180,7 @@ class TestCreateCollectionRoute:
 
         existing_collection = CollectionData(
             name="bookmarks",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             count=1,
             usage=100,
         )
@@ -210,7 +206,7 @@ class TestCreateCollectionRoute:
 
         existing_collection = CollectionData(
             name="bookmarks",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             count=0,
             usage=0,
         )
@@ -218,14 +214,14 @@ class TestCreateCollectionRoute:
 
         collection_data = CollectionData(
             name="bookmarks",
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
             count=1,
             usage=100,
         )
         batch_result = BatchResult(
             success=["obj1"],
             failed={},
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
         )
         mock_storage_manager.create_or_update_collection.return_value = (
             collection_data,
@@ -428,14 +424,14 @@ class TestCreateCollectionRoute:
 
         collection_data = CollectionData(
             name="bookmarks",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             count=1,
             usage=100,
         )
         batch_result = BatchResult(
             success=["obj1"],
             failed={},
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
         )
         mock_storage_manager.create_or_update_collection.return_value = (
             collection_data,
@@ -462,14 +458,14 @@ class TestCreateCollectionRoute:
 
         collection_data = CollectionData(
             name="bookmarks",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             count=1,
             usage=100,
         )
         batch_result = BatchResult(
             success=["obj1"],
             failed={},
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
         )
         mock_storage_manager.create_or_update_collection.return_value = (
             collection_data,
@@ -565,7 +561,7 @@ class TestReadCollectionRoute:
                 BasicStorageObject(
                     id="obj1",
                     payload="data1",
-                    modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                    modified=1234567890.12,
                     sortindex=100,
                     ttl=3600,
                 )
@@ -603,7 +599,7 @@ class TestReadCollectionRoute:
                 BasicStorageObject(
                     id=f"obj{i}",
                     payload=f"data{i}",
-                    modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                    modified=1234567890.12,
                     sortindex=None,
                     ttl=None,
                 )
@@ -644,7 +640,7 @@ class TestReadCollectionRoute:
                 BasicStorageObject(
                     id="obj1",
                     payload="data1",
-                    modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                    modified=1234567890.12,
                     sortindex=None,
                     ttl=None,
                 )
@@ -856,7 +852,7 @@ class TestReadCollectionRoute:
         objects = {
             "items": [],
             "more": False,
-            "last_modified": datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            "last_modified": 1234567890.12,
         }
         mock_storage_manager.get_collection_objects.return_value = objects
 
@@ -899,14 +895,14 @@ class TestUpdateCollectionRoute:
         """Test that bind registers the PUT route and handler works through resolver"""
         collection_data = CollectionData(
             name="bookmarks",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             count=1,
             usage=100,
         )
         batch_result = BatchResult(
             success=["obj1"],
             failed={},
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
         )
         mock_storage_manager.update_collection.return_value = (collection_data, batch_result)
 
@@ -942,14 +938,14 @@ class TestUpdateCollectionRoute:
 
         collection_data = CollectionData(
             name="bookmarks",
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
             count=1,
             usage=512,
         )
         batch_result = BatchResult(
             success=["obj1"],
             failed={},
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
         )
         mock_storage_manager.update_collection.return_value = (
             collection_data,
@@ -994,14 +990,14 @@ class TestUpdateCollectionRoute:
 
         collection_data = CollectionData(
             name="bookmarks",
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
             count=1,
             usage=512,
         )
         batch_result = BatchResult(
             success=["obj1"],
             failed={},
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
         )
         mock_storage_manager.update_collection.return_value = (
             collection_data,
@@ -1046,14 +1042,14 @@ class TestUpdateCollectionRoute:
 
         collection_data = CollectionData(
             name="bookmarks",
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
             count=1,
             usage=512,
         )
         batch_result = BatchResult(
             success=["obj1"],
             failed={},
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
         )
         mock_storage_manager.update_collection.return_value = (
             collection_data,
@@ -1080,14 +1076,14 @@ class TestUpdateCollectionRoute:
 
         collection_data = CollectionData(
             name="bookmarks",
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
             count=1,
             usage=512,
         )
         batch_result = BatchResult(
             success=["obj1"],
             failed={},
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
         )
         mock_storage_manager.update_collection.return_value = (collection_data, batch_result)
 
@@ -1099,6 +1095,7 @@ class TestUpdateCollectionRoute:
             collection_name="bookmarks",
             objects=ANY,
             if_unmodified_since=1234567890,
+            ttls=None,
         )
 
     def test_handle_invalid_precondition_header(self, mock_storage_manager):
@@ -1371,13 +1368,13 @@ class TestListCollectionsRoute:
         collections = [
             CollectionData(
                 name="bookmarks",
-                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                modified=1234567890.12,
                 count=5,
                 usage=1024,
             ),
             CollectionData(
                 name="history",
-                modified=datetime.fromtimestamp(1234567880.00, tz=timezone.utc),
+                modified=1234567880.00,
                 count=10,
                 usage=2048,
             ),

@@ -1,125 +1,199 @@
-from datetime import datetime, timezone
-from decimal import Decimal
-from typing import Dict, List, Optional
+"""Shared Pydantic models.
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
-from pydantic.alias_generators import to_camel
+Wire-shape models live in `src.shared.generated.*` and are produced from the
+smithy IDL via `lambda/scripts/codegen.sh`. This module re-exports them under
+their public names. Storage-layer code (storage_manager) uses the same
+generated classes; DynamoDB serialization is handled by the `to_dynamo_dict`
+helper, which converts float fields to Decimal at the boto3 boundary.
+"""
+
+import re
+import time
+from decimal import Decimal
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import ValidationError as PydanticValidationError
+
+from src.shared.generated.auth_models import AccountCreateRequestContent as AccountCreateInput
+from src.shared.generated.auth_models import AccountCreateResponseContent as AccountCreateOutput
+from src.shared.generated.auth_models import AccountKeysResponseContent as AccountKeysOutput
+from src.shared.generated.auth_models import AccountLoginRequestContent as AccountLoginInput
+from src.shared.generated.auth_models import AccountLoginResponseContent as AccountLoginOutput
+from src.shared.generated.auth_models import AccountStatusResponseContent as AccountStatusOutput
+from src.shared.generated.auth_models import AttachedClient as _WireAttachedClient
+from src.shared.generated.auth_models import DeviceRecord as DeviceOutput
+from src.shared.generated.auth_models import (
+    OAuthAuthorizationRequestContent as OAuthAuthorizationInput,
+)
+from src.shared.generated.auth_models import (
+    OAuthAuthorizationResponseContent as OAuthAuthorizationOutput,
+)
+from src.shared.generated.auth_models import OAuthDestroyRequestContent as OAuthDestroyInput
+from src.shared.generated.auth_models import OAuthTokenRequestContent as OAuthTokenInput
+from src.shared.generated.auth_models import OAuthTokenResponseContent as _WireOAuthTokenOutput
+from src.shared.generated.auth_models import OIDCCodeExchangeRequestContent as OIDCExchangeInput
+from src.shared.generated.auth_models import OIDCCodeExchangeResponseContent as OIDCExchangeOutput
+from src.shared.generated.auth_models import RegisterDeviceRequestContent as DeviceInput
+from src.shared.generated.auth_models import (
+    ScopedKeyDataEntry,
+)
+from src.shared.generated.auth_models import ScopedKeyDataRequestContent as ScopedKeyDataInput
+from src.shared.generated.auth_models import SessionStatusResponseContent as SessionStatusOutput
+from src.shared.generated.profile_models import GetProfileResponseContent as _WireProfileOutput
+from src.shared.generated.storage_models import BasicStorageObject
+from src.shared.generated.storage_models import BasicStorageObject as BSOOutput
+from src.shared.generated.storage_models import BasicStorageObjectInput as BSOInput
+from src.shared.generated.storage_models import BatchResult
+from src.shared.generated.storage_models import BatchResult as BatchResultOutput
+from src.shared.generated.storage_models import CollectionData
+from src.shared.generated.storage_models import CollectionData as CollectionDataOutput
+from src.shared.generated.storage_models import (
+    GetConfigurationInfoResponseContent as ConfigurationOutput,
+)
+from src.shared.generated.storage_models import (
+    ListCollectionsResponseContent as CollectionsResponse,
+)
+from src.shared.generated.token_models import GetTokenResponseContent as TokenOutput
+
+# ---------------------------------------------------------------------------
+# DynamoDB serialization helpers
+# ---------------------------------------------------------------------------
 
 
 class ValidationError(Exception):
     """Validation error for invalid input data"""
 
-    pass
 
+def to_dynamo_dict(model: BaseModel) -> dict:
+    """Convert a pydantic model to a DynamoDB-compatible dict.
 
-class DynamoModel(BaseModel):
-    """Base for models stored in DynamoDB.
-
-    Handles:
-    - Decimal/float → datetime coercion on read  (model_validator)
-    - datetime → Decimal serialization on write  (model_dump override)
-    - float → Decimal conversion for all numeric fields
+    boto3's DynamoDB client rejects Python floats (`TypeError: Float types
+    are not supported`). Convert every float field to Decimal via str() to
+    preserve the exact value. Ints, strs, bools, lists, dicts pass through
+    unchanged.
     """
-
-    model_config = ConfigDict(extra="ignore")
-
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce_timestamps(cls, data):
-        """Coerce Decimal/float values to datetime for annotated datetime fields."""
-        if not isinstance(data, dict):
-            return data
-        for field_name, field_info in cls.model_fields.items():
-            if field_info.annotation is datetime and field_name in data:
-                v = data[field_name]
-                if not isinstance(v, datetime):
-                    data[field_name] = datetime.fromtimestamp(float(v), tz=timezone.utc)
-        return data
-
-    def _to_dynamodb_dict(self) -> dict:
-        """Serialize to a DynamoDB-compatible dict (datetime/float → Decimal)."""
-        data = super().model_dump()
-        for k, v in data.items():
-            if isinstance(v, datetime):
-                data[k] = Decimal(str(v.timestamp()))
-            elif isinstance(v, float):
-                data[k] = Decimal(str(v))
-        return data
+    return {k: _to_dynamo(v) for k, v in model.model_dump().items()}
 
 
-class BasicStorageObject(DynamoModel):
-    """Basic Storage Object — internal model for StorageManager ↔ DynamoDB."""
-
-    id: str
-    payload: str = ""
-    modified: datetime
-    sortindex: Optional[int] = None
-    ttl: Optional[int] = None
-
-    def to_item(self, user_id: str, collection_name: str) -> dict:
-        """Produce a complete DynamoDB item with PK/SK and optional TTL expiry."""
-        item = self._to_dynamodb_dict()
-        item["PK"] = f"USER#{user_id}#COLLECTION#{collection_name}"
-        item["SK"] = f"OBJECT#{self.id}"
-        if self.ttl is not None:
-            item["expiry"] = int(datetime.now(tz=timezone.utc).timestamp()) + self.ttl
-        return item
+def _to_dynamo(v):
+    if isinstance(v, float):
+        return Decimal(str(v))
+    if isinstance(v, dict):
+        return {k: _to_dynamo(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_to_dynamo(x) for x in v]
+    return v
 
 
-class CollectionData(DynamoModel):
-    """Collection metadata — internal model for StorageManager ↔ DynamoDB."""
+def bso_to_item(
+    bso: BasicStorageObject,
+    user_id: str,
+    collection_name: str,
+    ttl: int | None = None,
+) -> dict:
+    """Build a DynamoDB item dict for a BSO with PK/SK and optional TTL expiry.
 
-    name: str
-    modified: datetime
-    count: int = 0
-    usage: int = 0
-
-    def to_item(self, user_id: str) -> dict:
-        """Produce a complete DynamoDB item with PK/SK and GSI key."""
-        item = self._to_dynamodb_dict()
-        item["PK"] = f"USER#{user_id}#COLLECTION#{self.name}"
-        item["SK"] = "METADATA"
-        item["user_id"] = user_id
-        return item
+    `ttl` is a DynamoDB-only concept (write-time per Mozilla spec) and isn't
+    part of the BSO wire shape. Callers pass it explicitly; it's translated
+    into an absolute `expiry` timestamp on the stored item.
+    """
+    item = to_dynamo_dict(bso)
+    item["PK"] = f"USER#{user_id}#COLLECTION#{collection_name}"
+    item["SK"] = f"OBJECT#{bso.id}"
+    if ttl is not None:
+        item["expiry"] = int(time.time()) + ttl
+    return item
 
 
-class BatchResult(BaseModel):
-    """Batch operation result."""
+def collection_to_item(collection: CollectionData, user_id: str) -> dict:
+    """Build a DynamoDB item dict for collection metadata with PK/SK + GSI key."""
+    item = to_dynamo_dict(collection)
+    item["PK"] = f"USER#{user_id}#COLLECTION#{collection.name}"
+    item["SK"] = "METADATA"
+    item["user_id"] = user_id
+    return item
 
-    success: List[str]
-    failed: Dict[str, List[str]]
-    modified: datetime
+
+# ---------------------------------------------------------------------------
+# Wire augmentations — generated model + project-specific defaults
+# smithy-openapi drops `@default` traits during conversion, so defaults from
+# the IDL (e.g. token_type = "bearer") don't survive into the generated models.
+# Restore them via subclass until smithy-openapi grows a fix.
+# ---------------------------------------------------------------------------
+
+
+class OAuthTokenOutput(_WireOAuthTokenOutput):
+    token_type: str = "bearer"
+
+
+class ProfileOutput(_WireProfileOutput):
+    locale: str = "en-US"
+
+
+class AttachedClientOutput(_WireAttachedClient):
+    location: dict[str, str] = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# Wire models still hand-written (divergent from smithy — fixes queued)
+# ---------------------------------------------------------------------------
+
+
+# TODO(smithy, tier 2): replace with per-operation Delete*ResponseContent types
+# from generated/storage_models.py (DeleteCollectionResponseContent etc.).
+class ModifiedOutput(BaseModel):
+    modified: float
+
+
+# ---------------------------------------------------------------------------
+# TypeAdapters for list serialization
+# ---------------------------------------------------------------------------
+
+
+BSOListAdapter = TypeAdapter(list[BSOOutput])
+DeviceListAdapter = TypeAdapter(list[DeviceOutput])
+ClientListAdapter = TypeAdapter(list[AttachedClientOutput])
+
+
+# ---------------------------------------------------------------------------
+# Helpers and validation
+# ---------------------------------------------------------------------------
 
 
 def get_current_timestamp() -> float:
-    """Get current timestamp in seconds since epoch with 2 decimal places precision"""
-    return round(datetime.now(tz=timezone.utc).timestamp(), 2)
+    """Current timestamp in seconds since epoch, rounded to 2 decimals."""
+    return round(time.time(), 2)
 
 
-# Validation constants
 MAX_PAYLOAD_BYTES = 256 * 1024  # 256 KB
 MAX_SORTINDEX_DIGITS = 9
 MAX_TTL_DIGITS = 9
-MAX_SORTINDEX = 10**MAX_SORTINDEX_DIGITS - 1  # 999999999
-MIN_SORTINDEX = -(10**MAX_SORTINDEX_DIGITS - 1)  # -999999999
-MAX_TTL = 10**MAX_TTL_DIGITS - 1  # 999999999
+MAX_SORTINDEX = 10**MAX_SORTINDEX_DIGITS - 1
+MIN_SORTINDEX = -(10**MAX_SORTINDEX_DIGITS - 1)
+MAX_TTL = 10**MAX_TTL_DIGITS - 1
+
+# Path-parameter validators delegate to typed adapters whose constraints
+# mirror the smithy CollectionName / ObjectId shapes. Keep the constants
+# exported (tests reference them) but derive runtime checks from the adapter
+# so changes to the smithy spec only need to be reflected in one place.
 MAX_COLLECTION_NAME_LENGTH = 32
 MAX_BSO_ID_LENGTH = 64
-_ALLOWED_COLLECTION_CHARS = frozenset(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-."
-)
+
+CollectionName = Annotated[
+    str,
+    StringConstraints(pattern=r"^[a-zA-Z0-9._-]+$", min_length=1, max_length=32),
+]
+ObjectId = Annotated[
+    str,
+    StringConstraints(pattern=r"^[\x20-\x7E]+$", min_length=1, max_length=64),
+]
+_CollectionNameAdapter = TypeAdapter(CollectionName)
+_ObjectIdAdapter = TypeAdapter(ObjectId)
+_VALID_COLLECTION_CHAR_RE = re.compile(r"[a-zA-Z0-9._-]")
 
 
 def validate_payload_size(payload: str) -> None:
-    """
-    Validate BSO payload size.
-
-    Args:
-        payload: The BSO payload string
-
-    Raises:
-        ValidationError: If payload exceeds MAX_PAYLOAD_BYTES (256 KB)
-    """
     payload_bytes = len(payload.encode("utf-8"))
     if payload_bytes > MAX_PAYLOAD_BYTES:
         raise ValidationError(
@@ -128,289 +202,34 @@ def validate_payload_size(payload: str) -> None:
 
 
 def validate_bso_id(bso_id: str) -> None:
-    """
-    Validate BSO ID.
-
-    Args:
-        bso_id: The BSO ID string
-
-    Raises:
-        ValidationError: If ID exceeds 64 characters or contains non-printable ASCII
-    """
-    if len(bso_id) > MAX_BSO_ID_LENGTH:
-        raise ValidationError(
-            f"BSO ID length {len(bso_id)} exceeds maximum {MAX_BSO_ID_LENGTH} characters"
-        )
-
-    # Check for printable ASCII (0x20-0x7E)
-    for char in bso_id:
-        if ord(char) < 0x20 or ord(char) > 0x7E:
-            raise ValidationError(f"BSO ID contains non-printable ASCII character: {repr(char)}")
+    try:
+        _ObjectIdAdapter.validate_python(bso_id)
+    except PydanticValidationError:
+        if len(bso_id) > MAX_BSO_ID_LENGTH:
+            raise ValidationError(
+                f"BSO ID length {len(bso_id)} exceeds maximum {MAX_BSO_ID_LENGTH} characters"
+            )
+        for char in bso_id:
+            if ord(char) < 0x20 or ord(char) > 0x7E:
+                raise ValidationError(
+                    f"BSO ID contains non-printable ASCII character: {repr(char)}"
+                )
+        raise ValidationError(f"Invalid BSO ID: {bso_id!r}")
 
 
 def validate_collection_name(collection_name: str) -> None:
-    """
-    Validate collection name.
-
-    Collection names must:
-    - Be at most 32 characters
-    - Contain only urlsafe-base64 alphabet (alphanumeric, underscore, hyphen) and period
-
-    Args:
-        collection_name: The collection name string
-
-    Raises:
-        ValidationError: If collection name is invalid
-    """
-    if len(collection_name) > MAX_COLLECTION_NAME_LENGTH:
-        raise ValidationError(
-            f"Collection name length {len(collection_name)} exceeds maximum {MAX_COLLECTION_NAME_LENGTH} characters"
-        )
-
-    for char in collection_name:
-        if char not in _ALLOWED_COLLECTION_CHARS:
+    try:
+        _CollectionNameAdapter.validate_python(collection_name)
+    except PydanticValidationError:
+        if len(collection_name) > MAX_COLLECTION_NAME_LENGTH:
             raise ValidationError(
-                f"Collection name contains invalid character: {repr(char)}. "
-                f"Only alphanumeric, underscore, hyphen, and period are allowed."
+                f"Collection name length {len(collection_name)} exceeds maximum "
+                f"{MAX_COLLECTION_NAME_LENGTH} characters"
             )
-
-
-# ---------------------------------------------------------------------------
-# Pydantic v2 models (new — coexist with dataclass models above)
-# ---------------------------------------------------------------------------
-
-
-class CamelModel(BaseModel):
-    """Base for FxA API models - camelCase on the wire, snake_case internally."""
-
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
-    )
-
-
-# --- Storage models (snake_case per Mozilla SyncStorage spec) ---
-
-
-class BSOOutput(BaseModel):
-    id: str
-    payload: str
-    modified: float
-    sortindex: Optional[int] = None
-
-    @classmethod
-    def from_bso(cls, bso: "BasicStorageObject") -> "BSOOutput":
-        return cls(
-            id=bso.id,
-            payload=bso.payload,
-            modified=round(bso.modified.timestamp(), 2),
-            sortindex=bso.sortindex,
-        )
-
-
-class BSOInput(BaseModel):
-    id: Optional[str] = None
-    payload: Optional[str] = None
-    sortindex: Optional[int] = Field(default=None, ge=-999999999, le=999999999)
-    ttl: Optional[int] = Field(default=None, gt=0, le=999999999)
-
-
-class BatchResultOutput(BaseModel):
-    success: list[str]
-    failed: dict[str, list[str]]
-    modified: float
-
-
-class CollectionDataOutput(BaseModel):
-    name: str
-    modified: float
-    count: int
-    usage: int
-
-
-class ModifiedOutput(BaseModel):
-    modified: float
-
-
-class CollectionsResponse(BaseModel):
-    collections: list[CollectionDataOutput]
-
-
-BSOListAdapter = TypeAdapter(list[BSOOutput])
-
-
-# --- Device / Auth models (camelCase on the wire) ---
-
-
-class DeviceInput(CamelModel):
-    id: Optional[str] = None
-    name: Optional[str] = None
-    type: Optional[str] = None
-    push_callback: Optional[str] = None
-    push_public_key: Optional[str] = None
-    push_auth_key: Optional[str] = None
-    available_commands: Optional[dict] = None
-
-
-class DeviceOutput(CamelModel):
-    id: str
-    name: Optional[str] = None
-    type: Optional[str] = None
-    push_callback: Optional[str] = None
-    push_public_key: Optional[str] = None
-    push_auth_key: Optional[str] = None
-    push_endpoint_expired: bool = False
-    available_commands: dict = {}
-    session_token_id: Optional[str] = None
-    is_current_device: bool = False
-    created_at: Optional[int] = None
-    last_access_time: Optional[int] = None
-
-
-DeviceListAdapter = TypeAdapter(list[DeviceOutput])
-
-
-class AttachedClientOutput(CamelModel):
-    client_id: Optional[str] = None
-    device_id: Optional[str] = None
-    session_token_id: Optional[str] = None
-    refresh_token_id: Optional[str] = None
-    is_current_session: bool = False
-    device_type: Optional[str] = None
-    name: Optional[str] = None
-    created_time: Optional[int] = None
-    last_access_time: Optional[int] = None
-    scope: Optional[list[str]] = None
-    location: dict = {}
-    user_agent: Optional[str] = None
-    os: Optional[str] = None
-
-
-ClientListAdapter = TypeAdapter(list[AttachedClientOutput])
-
-
-class AccountCreateInput(CamelModel):
-    email: str
-    auth_pw: str = Field(min_length=64, max_length=64)
-
-
-class AccountCreateOutput(CamelModel):
-    uid: str
-    session_token: str
-    key_fetch_token: str
-    verified: bool
-
-
-class AccountLoginInput(CamelModel):
-    email: str
-    auth_pw: str = Field(min_length=64, max_length=64)
-
-
-class AccountLoginOutput(CamelModel):
-    uid: str
-    session_token: str
-    key_fetch_token: Optional[str] = None
-    verified: bool
-
-
-class AccountStatusOutput(BaseModel):
-    exists: bool
-
-
-class AccountKeysOutput(BaseModel):
-    bundle: str
-
-
-class SessionStatusOutput(BaseModel):
-    state: str
-    uid: str
-
-
-class ScopedKeyDataInput(BaseModel):
-    scope: str
-
-
-class ScopedKeyDataEntry(CamelModel):
-    identifier: str
-    key_rotation_secret: str
-    key_rotation_timestamp: int
-
-
-class OAuthAuthorizationInput(CamelModel):
-    client_id: str
-    scope: str
-    state: str
-    redirect_uri: str = "urn:ietf:wg:oauth:2.0:oob"
-    code_challenge: Optional[str] = None
-    code_challenge_method: str = "S256"
-    keys_jwe: Optional[str] = None
-
-
-class OAuthAuthorizationOutput(BaseModel):
-    code: str
-    state: str
-    redirect: str
-
-
-class OAuthTokenInput(CamelModel):
-    grant_type: str
-    code: Optional[str] = None
-    code_verifier: Optional[str] = None
-    refresh_token: Optional[str] = None
-    scope: Optional[str] = None
-    client_id: Optional[str] = None
-    ttl: Optional[int] = None
-
-
-class OAuthTokenOutput(CamelModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_in: int
-    scope: str
-    refresh_token: Optional[str] = None
-    auth_at: int
-    keys_jwe: Optional[str] = None
-
-
-class OAuthDestroyInput(BaseModel):
-    token: str
-
-
-class OIDCExchangeInput(CamelModel):
-    code: str
-    code_verifier: str
-    redirect_uri: str
-
-
-class OIDCExchangeOutput(CamelModel):
-    email: str
-    access_token: str
-    account_exists: bool
-    verified: bool
-
-
-class TokenOutput(BaseModel):
-    id: str
-    key: str
-    api_endpoint: str
-    uid: int
-    duration: int
-    hashalg: str
-
-
-class ProfileOutput(CamelModel):
-    uid: str
-    email: str
-    locale: str = "en-US"
-    avatar: str
-    avatar_default: bool
-    sub: str
-
-
-class ConfigurationOutput(BaseModel):
-    max_request_bytes: int
-    max_post_records: int
-    max_post_bytes: int
-    max_record_payload_bytes: int
-    max_total_records: Optional[int] = None
-    max_total_bytes: Optional[int] = None
+        for char in collection_name:
+            if not _VALID_COLLECTION_CHAR_RE.match(char):
+                raise ValidationError(
+                    f"Collection name contains invalid character: {repr(char)}. "
+                    f"Only alphanumeric, underscore, hyphen, and period are allowed."
+                )
+        raise ValidationError(f"Invalid collection name: {collection_name!r}")

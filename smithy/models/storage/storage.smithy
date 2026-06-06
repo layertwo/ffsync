@@ -254,6 +254,9 @@ structure GetConfigurationInfoInput {
 }
 
 structure GetConfigurationInfoOutput {
+    @documentation("Maximum size of incoming request body in bytes")
+    max_request_bytes: Long
+
     @documentation("Maximum number of records per POST request")
     max_post_records: Integer
 

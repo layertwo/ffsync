@@ -109,6 +109,8 @@ structure DeviceRecord {
     pushAuthKey: String
     pushEndpointExpired: Boolean
     availableCommands: AvailableCommandsMap
+    sessionTokenId: String
+    createdAt: Long
 }
 
 // ============================================================================
@@ -147,9 +149,19 @@ structure AttachedClient {
     name: String
     createdTime: Long
     lastAccessTime: Long
-    scope: String
+    scope: ScopeList
+    location: LocationMap = {}
     userAgent: String
     os: String
+}
+
+list ScopeList {
+    member: String
+}
+
+map LocationMap {
+    key: String
+    value: String
 }
 
 // ============================================================================

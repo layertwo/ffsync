@@ -25,7 +25,8 @@ dev = [
     "mypy==2.1.0",
     "types-boto3==1.43.34",
     "hypothesis>=6.0.0",
-    "types-requests==2.33.0.20260518"
+    "types-requests==2.33.0.20260518",
+    "datamodel-code-generator==0.60.0",
 ]
 
 [tool.pytest.ini_options]
@@ -46,6 +47,7 @@ source = ["src"]
 omit = [
     "*/tests/*",
     "*/test_*",
+    "*/generated/*",
 ]
 branch = true
 parallel = true
@@ -99,6 +101,8 @@ exclude = [
 per-file-ignores = [
     "__init__.py:F401",  # imported but unused
     "tests/*:S101",      # use of assert detected (if using flake8-bandit)
+    "src/shared/models.py:F401", # importing generated models for re-export
+    "src/shared/generated/*:F722", # constr field constraints
 ]
 select = [
     "E",   # pycodestyle errors
@@ -119,3 +123,4 @@ exclude = [
     ".mypy_cache",
     "htmlcov",
 ]
+plugins = ["pydantic.mypy"]

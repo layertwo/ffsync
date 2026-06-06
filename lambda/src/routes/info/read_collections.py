@@ -40,8 +40,7 @@ class ReadCollectionsInfoRoute(BaseRoute):
 
             # Mozilla format: object mapping collection names to timestamps
             response_body = {
-                collection.name: round(collection.modified.timestamp(), 2)
-                for collection in collections
+                collection.name: round(collection.modified, 2) for collection in collections
             }
 
             return Response(

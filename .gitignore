@@ -9,6 +9,7 @@ smithy/.gradle/
 smithy/build
 build/
 __pycache__
+lambda/src/shared/generated/
 lambda/.coverage
 lambda/coverage.xml
 *.tsbuildinfo

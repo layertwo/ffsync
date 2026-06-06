@@ -11,7 +11,6 @@ from src.shared.exceptions import (
     ValidationException,
 )
 from src.shared.models import (
-    BSOOutput,
     ValidationError,
     validate_bso_id,
     validate_collection_name,
@@ -89,8 +88,7 @@ class ReadBSORoute(BaseRoute):
 
             # Requirement 6.2: Return 304 if not modified since specified timestamp
             if if_modified_since is not None:
-                # Convert modified datetime to timestamp for comparison
-                modified_timestamp = storage_object.modified.timestamp()
+                modified_timestamp = storage_object.modified
                 if modified_timestamp <= if_modified_since:
                     return Response(
                         status_code=304,
@@ -99,14 +97,13 @@ class ReadBSORoute(BaseRoute):
                         headers={"X-Last-Modified": str(round(modified_timestamp, 2))},
                     )
 
-            # Convert to Pydantic model (TTL is write-only per Mozilla spec)
-            bso = BSOOutput.from_bso(storage_object)
-
+            # TTL is write-only per Mozilla spec; exclude here since the smithy
+            # wire shape has no ttl field but storage carries it as an extra.
             return Response(
                 status_code=200,
                 content_type="application/json",
-                body=bso.model_dump_json(exclude_none=True),
-                headers={"X-Last-Modified": str(bso.modified)},
+                body=storage_object.model_dump_json(exclude={"ttl"}, exclude_none=True),
+                headers={"X-Last-Modified": str(storage_object.modified)},
             )
 
         except ValidationException as e:

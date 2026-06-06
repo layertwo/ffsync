@@ -39,6 +39,7 @@ structure ListCollectionsInput {
 
 structure ListCollectionsOutput {
     @documentation("List of collections with their metadata")
+    @required
     collections: CollectionDataList
 }
 
@@ -248,17 +249,25 @@ structure DeleteCollectionOutput {
 /// Batch operation result
 structure BatchResult {
     @documentation("Successfully processed object IDs")
+    @required
     success: ObjectIdList
 
     @documentation("Failed operations with error messages (ID -> error string)")
+    @required
     failed: FailedOperations
 
     @documentation("New last modified timestamp")
+    @required
     modified: Timestamp
 }
 
-/// Failed operation details (ID -> error message string)
+/// Failed operation details (ID -> list of error messages)
 map FailedOperations {
     key: ObjectId
-    value: String
+    value: FailedOperationErrors
+}
+
+/// Error messages for a single failed operation
+list FailedOperationErrors {
+    member: String
 }

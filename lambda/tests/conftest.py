@@ -1,7 +1,6 @@
 """Shared test fixtures and configuration"""
 
 import json
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -93,7 +92,7 @@ def mock_storage_manager():
     # Configure common return values
     manager.get_collection.return_value = CollectionData(
         name="test_collection",
-        modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+        modified=1234567890.12,
         count=5,
         usage=1024,
     )
@@ -101,7 +100,7 @@ def mock_storage_manager():
     manager.get_storage_object.return_value = BasicStorageObject(
         id="test_object",
         payload="test_payload",
-        modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+        modified=1234567890.12,
         sortindex=100,
         ttl=3600,
     )
@@ -109,14 +108,14 @@ def mock_storage_manager():
     manager.create_or_update_collection.return_value = (
         CollectionData(
             name="test_collection",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             count=1,
             usage=512,
         ),
         BatchResult(
             success=["obj1"],
             failed={},
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
         ),
     )
 
@@ -180,7 +179,7 @@ def sample_bso():
     return BasicStorageObject(
         id="test_bso",
         payload="test_payload_data",
-        modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+        modified=1234567890.12,
         sortindex=50,
         ttl=7200,
     )
@@ -191,7 +190,7 @@ def sample_collection():
     """Sample CollectionData"""
     return CollectionData(
         name="bookmarks",
-        modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+        modified=1234567890.12,
         count=10,
         usage=2048,
     )
@@ -203,7 +202,7 @@ def sample_batch_result():
     return BatchResult(
         success=["obj1", "obj2", "obj3"],
         failed={"obj4": ["validation error"]},
-        modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+        modified=1234567890.12,
     )
 
 
@@ -248,17 +247,15 @@ def mock_timestamp():
 
 @pytest.fixture
 def mock_timestamp_datetime(mock_timestamp):
-    """Mock timestamp as datetime object"""
-    return datetime.fromtimestamp(mock_timestamp, tz=timezone.utc)
+    """Mock timestamp (kept for backwards-compat with existing test sigs)."""
+    return mock_timestamp
 
 
 @pytest.fixture
 def mock_datetime_now(mock_timestamp):
-    """Mock datetime.now() for user_manager tests"""
-    mock_dt = datetime.fromtimestamp(mock_timestamp, tz=timezone.utc)
-    with patch("src.services.user_manager.datetime") as mock:
-        mock.now.return_value = mock_dt
-        mock.fromtimestamp = datetime.fromtimestamp
+    """Mock time.time() for user_manager tests"""
+    with patch("src.services.user_manager.time") as mock:
+        mock.time.return_value = mock_timestamp
         yield
 
 

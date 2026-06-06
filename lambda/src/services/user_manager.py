@@ -1,6 +1,6 @@
 """User manager for DynamoDB operations on token server users"""
 
-from datetime import datetime, timezone
+import time
 from decimal import Decimal
 from typing import List, Optional
 
@@ -53,7 +53,7 @@ class UserManager:
             ClientError: If user already exists (ConditionalCheckFailedException)
             ServiceUnavailableError: If DynamoDB is unavailable
         """
-        current_time = datetime.now(tz=timezone.utc)
+        current_time = time.time()
 
         try:
 
@@ -178,7 +178,7 @@ class UserManager:
             ServiceUnavailableError: If DynamoDB is unavailable
         """
         pk = self._user_pk(user_id)
-        current_time = datetime.now(tz=timezone.utc)
+        current_time = time.time()
         new_history = (current_history + [previous_client_state])[-MAX_CLIENT_STATE_HISTORY:]
 
         try:
@@ -194,7 +194,7 @@ class UserManager:
                     ":inc": 1,
                     ":client_state": client_state,
                     ":new_history": new_history,
-                    ":updated_at": Decimal(str(current_time.timestamp())),
+                    ":updated_at": Decimal(str(current_time)),
                 },
                 ReturnValues="ALL_NEW",
             )
@@ -285,7 +285,7 @@ class UserManager:
             ServiceUnavailableError: If DynamoDB is unavailable
         """
         pk = self._user_pk(user_id)
-        current_time = datetime.now(tz=timezone.utc)
+        current_time = time.time()
 
         try:
             response = self.table.update_item(
@@ -293,7 +293,7 @@ class UserManager:
                 UpdateExpression="SET generation = generation + :inc, updated_at = :updated_at",
                 ExpressionAttributeValues={
                     ":inc": 1,
-                    ":updated_at": Decimal(str(current_time.timestamp())),
+                    ":updated_at": Decimal(str(current_time)),
                 },
                 ReturnValues="ALL_NEW",
             )

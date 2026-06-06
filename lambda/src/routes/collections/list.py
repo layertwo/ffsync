@@ -5,7 +5,7 @@ from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
-from src.shared.models import CollectionDataOutput, CollectionsResponse
+from src.shared.models import CollectionsResponse
 
 logger = Logger()
 
@@ -34,16 +34,7 @@ class ListCollectionsRoute(BaseRoute):
             # Get collections using storage manager
             collections = self.storage_manager.list_collections(user_id)
 
-            collection_models = [
-                CollectionDataOutput(
-                    name=c.name,
-                    modified=round(c.modified.timestamp(), 2),
-                    count=c.count,
-                    usage=c.usage,
-                )
-                for c in collections
-            ]
-            response = CollectionsResponse(collections=collection_models)
+            response = CollectionsResponse(collections=collections)
 
             return Response(
                 status_code=200,

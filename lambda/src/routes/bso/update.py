@@ -105,7 +105,7 @@ class UpdateBSORoute(BaseRoute):
 
             # Per SyncStorage API v1.5 spec, PUT returns the new
             # last-modified time for the collection as a plain number
-            modified = updated_object.modified.timestamp()
+            modified = updated_object.modified
 
             return Response(
                 status_code=200,
