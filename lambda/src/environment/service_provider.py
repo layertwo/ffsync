@@ -90,6 +90,10 @@ logger = Logger()
 
 class ServiceProvider:
     @cached_property
+    def user_agent(self) -> str:
+        return "layertwo-ffsync/1.0"
+
+    @cached_property
     def aws_region(self):  # pragma: nocover
         return os.environ.get("AWS_REGION")
 
@@ -246,6 +250,7 @@ class ServiceProvider:
             client_id=self.oidc_client_id,
             clock_skew_tolerance=self.clock_skew_tolerance,
             cache_ttl_seconds=self.oidc_cache_ttl_seconds,
+            user_agent=self.user_agent,
         )
 
     @cached_property
@@ -362,6 +367,7 @@ class ServiceProvider:
                 OIDCCodeExchangeRoute(
                     oidc_validator=self.oidc_validator,
                     account_manager=self.auth_account_manager,
+                    user_agent=self.user_agent,
                 ),
                 # Device management routes
                 AccountDeviceRoute(

@@ -43,6 +43,7 @@ def exchange_route(mock_oidc_validator, mock_account_manager):
     return OIDCCodeExchangeRoute(
         oidc_validator=mock_oidc_validator,
         account_manager=mock_account_manager,
+        user_agent="unit-test",
     )
 
 
@@ -107,7 +108,7 @@ class TestOIDCCodeExchange:
         }
         return _make_event("POST", "/v1/oidc/exchange", body=body or default_body)
 
-    @patch("src.routes.auth.oidc_exchange.http_requests")
+    @patch("src.routes.auth.oidc_exchange.requests")
     def test_success_account_exists(
         self, mock_requests, exchange_route, mock_oidc_validator, mock_account_manager
     ):
@@ -135,7 +136,7 @@ class TestOIDCCodeExchange:
         assert body["access_token"] == "at-789"
         assert body["account_exists"] is True
 
-    @patch("src.routes.auth.oidc_exchange.http_requests")
+    @patch("src.routes.auth.oidc_exchange.requests")
     def test_success_account_does_not_exist(
         self, mock_requests, exchange_route, mock_oidc_validator, mock_account_manager
     ):
@@ -179,7 +180,7 @@ class TestOIDCCodeExchange:
         response = exchange_route.handle(self._exchange_event())
         assert response.status_code == 503
 
-    @patch("src.routes.auth.oidc_exchange.http_requests")
+    @patch("src.routes.auth.oidc_exchange.requests")
     def test_token_exchange_network_error(self, mock_requests, exchange_route):
         import requests
 
@@ -191,7 +192,7 @@ class TestOIDCCodeExchange:
         body = json.loads(response.body)
         assert "exchange" in body["message"].lower()
 
-    @patch("src.routes.auth.oidc_exchange.http_requests")
+    @patch("src.routes.auth.oidc_exchange.requests")
     def test_token_exchange_provider_rejects(self, mock_requests, exchange_route):
         mock_token_resp = MagicMock()
         mock_token_resp.ok = False
@@ -203,7 +204,7 @@ class TestOIDCCodeExchange:
         response = exchange_route.handle(self._exchange_event())
         assert response.status_code == 401
 
-    @patch("src.routes.auth.oidc_exchange.http_requests")
+    @patch("src.routes.auth.oidc_exchange.requests")
     def test_no_access_token_in_response(self, mock_requests, exchange_route):
         mock_token_resp = MagicMock()
         mock_token_resp.ok = True
@@ -216,7 +217,7 @@ class TestOIDCCodeExchange:
         body = json.loads(response.body)
         assert "access token" in body["message"].lower()
 
-    @patch("src.routes.auth.oidc_exchange.http_requests")
+    @patch("src.routes.auth.oidc_exchange.requests")
     def test_token_validation_failure(self, mock_requests, exchange_route, mock_oidc_validator):
         mock_token_resp = MagicMock()
         mock_token_resp.ok = True
@@ -229,7 +230,7 @@ class TestOIDCCodeExchange:
         response = exchange_route.handle(self._exchange_event())
         assert response.status_code == 401
 
-    @patch("src.routes.auth.oidc_exchange.http_requests")
+    @patch("src.routes.auth.oidc_exchange.requests")
     def test_userinfo_network_error(self, mock_requests, exchange_route, mock_oidc_validator):
         import requests
 
@@ -245,7 +246,7 @@ class TestOIDCCodeExchange:
         response = exchange_route.handle(self._exchange_event())
         assert response.status_code == 502
 
-    @patch("src.routes.auth.oidc_exchange.http_requests")
+    @patch("src.routes.auth.oidc_exchange.requests")
     def test_userinfo_provider_error(self, mock_requests, exchange_route, mock_oidc_validator):
         mock_token_resp = MagicMock()
         mock_token_resp.ok = True
@@ -265,7 +266,7 @@ class TestOIDCCodeExchange:
         response = exchange_route.handle(self._exchange_event())
         assert response.status_code == 502
 
-    @patch("src.routes.auth.oidc_exchange.http_requests")
+    @patch("src.routes.auth.oidc_exchange.requests")
     def test_userinfo_missing_email(self, mock_requests, exchange_route, mock_oidc_validator):
         mock_token_resp = MagicMock()
         mock_token_resp.ok = True

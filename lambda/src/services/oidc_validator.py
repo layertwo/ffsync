@@ -4,8 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import jwt
-import requests  # type: ignore[import-untyped]
-from jwt import PyJWKClient, PyJWKClientError
+import requests
 
 from src.shared.exceptions import (
     InvalidCredentialsError,
@@ -35,6 +34,7 @@ class OIDCValidator:
         self,
         provider_url: str,
         client_id: str,
+        user_agent: str,
         clock_skew_tolerance: int = 300,
         cache_ttl_seconds: int = CACHE_TTL_SECONDS,
     ):
@@ -53,7 +53,12 @@ class OIDCValidator:
         self.cache_ttl_seconds = cache_ttl_seconds
         self._provider_config: Optional[OIDCProviderConfig] = None
         self._provider_config_timestamp: float = 0
-        self._jwk_client: Optional[PyJWKClient] = None
+        self._jwk_client: Optional[jwt.PyJWKClient] = None
+        self._user_agent = user_agent
+
+    @property
+    def _default_headers(self) -> dict[str, str]:
+        return {"User-Agent": self._user_agent}
 
     def _is_cache_valid(self) -> bool:
         """Check if the cached provider configuration is still valid."""
@@ -81,7 +86,7 @@ class OIDCValidator:
         well_known_url = f"{self.provider_url}/.well-known/openid-configuration"
 
         try:
-            response = requests.get(well_known_url, timeout=10)
+            response = requests.get(well_known_url, timeout=10, headers=self._default_headers)
             response.raise_for_status()
             config_data = response.json()
 
@@ -108,7 +113,7 @@ class OIDCValidator:
         except (KeyError, ValueError) as e:
             raise ServiceUnavailableError(f"Invalid OIDC provider configuration: {e}")
 
-    def _get_jwk_client(self) -> PyJWKClient:
+    def _get_jwk_client(self) -> jwt.PyJWKClient:
         """
         Get or create PyJWKClient for JWKS fetching.
 
@@ -122,7 +127,7 @@ class OIDCValidator:
         """
         if self._jwk_client is None:
             config = self.discover_provider_config()
-            self._jwk_client = PyJWKClient(
+            self._jwk_client = jwt.PyJWKClient(
                 config.jwks_uri,
                 cache_keys=True,
                 lifespan=self.cache_ttl_seconds,
@@ -162,7 +167,7 @@ class OIDCValidator:
             jwk_client = self._get_jwk_client()
             try:
                 signing_key = jwk_client.get_signing_key_from_jwt(token)
-            except PyJWKClientError as e:
+            except jwt.PyJWKClientError as e:
                 raise InvalidTokenError(f"Failed to get signing key: {e}")
 
             # Decode and validate token
