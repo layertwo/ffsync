@@ -1,10 +1,12 @@
 """OIDC exchange routes — GET /v1/oidc/config and POST /v1/oidc/exchange"""
 
 import json
+import time
 
 import requests
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.metrics import Metrics, MetricUnit
 
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.oidc_validator import OIDCValidator
@@ -51,10 +53,12 @@ class OIDCCodeExchangeRoute(BaseRoute):
         oidc_validator: OIDCValidator,
         account_manager: AuthAccountManager,
         user_agent: str,
+        metrics: Metrics,
     ):
         self._oidc_validator = oidc_validator
         self._account_manager = account_manager
         self._user_agent = user_agent
+        self._metrics = metrics
 
     @property
     def _default_headers(self) -> dict[str, str]:
@@ -101,6 +105,7 @@ class OIDCCodeExchangeRoute(BaseRoute):
             )
 
         # 2. Exchange code for tokens at the provider's token endpoint
+        token_start = time.monotonic()
         try:
             token_response = requests.post(
                 provider_config.token_endpoint,
@@ -118,24 +123,37 @@ class OIDCCodeExchangeRoute(BaseRoute):
                 timeout=10,
             )
         except requests.exceptions.RequestException:
-            logger.exception("Token exchange request failed")
+            self._metrics.add_metric("OIDCTokenFailure", MetricUnit.Count, 1)
+            self._metrics.add_metric(
+                "OIDCTokenLatencyMs",
+                MetricUnit.Milliseconds,
+                (time.monotonic() - token_start) * 1000,
+            )
+            logger.exception("oidc token request failed", extra={"error_type": "RequestException"})
             return Response(
                 status_code=502,
                 content_type="application/json",
                 body=json.dumps({"message": "Failed to exchange code with OIDC provider"}),
             )
 
+        self._metrics.add_metric(
+            "OIDCTokenLatencyMs", MetricUnit.Milliseconds, (time.monotonic() - token_start) * 1000
+        )
         if not token_response.ok:
+            self._metrics.add_metric("OIDCTokenFailure", MetricUnit.Count, 1)
             logger.error(
-                "Token exchange failed: %s %s",
-                token_response.status_code,
-                token_response.text,
+                "oidc token failed",
+                extra={
+                    "status": token_response.status_code,
+                    "body_preview": token_response.text[:500],
+                },
             )
             return Response(
                 status_code=401,
                 content_type="application/json",
                 body=json.dumps({"message": "Token exchange failed"}),
             )
+        self._metrics.add_metric("OIDCTokenSuccess", MetricUnit.Count, 1)
 
         token_data = token_response.json()
         access_token = token_data.get("access_token")
@@ -158,6 +176,7 @@ class OIDCCodeExchangeRoute(BaseRoute):
             )
 
         # 4. Fetch userinfo to get email
+        userinfo_start = time.monotonic()
         try:
             userinfo_response = requests.get(
                 provider_config.userinfo_endpoint,
@@ -165,24 +184,41 @@ class OIDCCodeExchangeRoute(BaseRoute):
                 timeout=10,
             )
         except requests.exceptions.RequestException:
-            logger.exception("Userinfo request failed")
+            self._metrics.add_metric("OIDCUserinfoFailure", MetricUnit.Count, 1)
+            self._metrics.add_metric(
+                "OIDCUserinfoLatencyMs",
+                MetricUnit.Milliseconds,
+                (time.monotonic() - userinfo_start) * 1000,
+            )
+            logger.exception(
+                "oidc userinfo request failed", extra={"error_type": "RequestException"}
+            )
             return Response(
                 status_code=502,
                 content_type="application/json",
                 body=json.dumps({"message": "Failed to fetch user info from OIDC provider"}),
             )
 
+        self._metrics.add_metric(
+            "OIDCUserinfoLatencyMs",
+            MetricUnit.Milliseconds,
+            (time.monotonic() - userinfo_start) * 1000,
+        )
         if not userinfo_response.ok:
+            self._metrics.add_metric("OIDCUserinfoFailure", MetricUnit.Count, 1)
             logger.error(
-                "Userinfo request failed: %s %s",
-                userinfo_response.status_code,
-                userinfo_response.text,
+                "oidc userinfo failed",
+                extra={
+                    "status": userinfo_response.status_code,
+                    "body_preview": userinfo_response.text[:500],
+                },
             )
             return Response(
                 status_code=502,
                 content_type="application/json",
                 body=json.dumps({"message": "Failed to fetch user info from OIDC provider"}),
             )
+        self._metrics.add_metric("OIDCUserinfoSuccess", MetricUnit.Count, 1)
 
         userinfo = userinfo_response.json()
         email = userinfo.get("email")

@@ -6,6 +6,7 @@ from functools import cached_property
 import boto3
 from aws_lambda_powertools.event_handler import CORSConfig, Response
 from aws_lambda_powertools.logging import Logger
+from aws_lambda_powertools.metrics import Metrics
 
 from src.middlewares.hawk_auth import HawkAuthenticationError, HawkAuthMiddleware, UidMismatchError
 from src.middlewares.request_logging import RequestLoggingMiddleware
@@ -80,7 +81,10 @@ def lambda_entrypoint(fn):
     def wrapper(event, context, service_provider=None):
         if service_provider is None:  # pragma: nocover
             service_provider = create_service_provider()
-        return fn(event, context, service_provider)
+        try:
+            return fn(event, context, service_provider)
+        finally:
+            service_provider.metrics.flush_metrics()
 
     return wrapper
 
@@ -89,6 +93,10 @@ logger = Logger()
 
 
 class ServiceProvider:
+    @cached_property
+    def metrics(self) -> Metrics:
+        return Metrics(namespace="ffsync")
+
     @cached_property
     def user_agent(self) -> str:
         return "layertwo-ffsync/1.0"
@@ -251,6 +259,7 @@ class ServiceProvider:
             clock_skew_tolerance=self.clock_skew_tolerance,
             cache_ttl_seconds=self.oidc_cache_ttl_seconds,
             user_agent=self.user_agent,
+            metrics=self.metrics,
         )
 
     @cached_property
@@ -368,6 +377,7 @@ class ServiceProvider:
                     oidc_validator=self.oidc_validator,
                     account_manager=self.auth_account_manager,
                     user_agent=self.user_agent,
+                    metrics=self.metrics,
                 ),
                 # Device management routes
                 AccountDeviceRoute(

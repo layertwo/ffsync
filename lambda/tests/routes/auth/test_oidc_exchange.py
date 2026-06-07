@@ -44,6 +44,7 @@ def exchange_route(mock_oidc_validator, mock_account_manager):
         oidc_validator=mock_oidc_validator,
         account_manager=mock_account_manager,
         user_agent="unit-test",
+        metrics=MagicMock(),
     )
 
 
