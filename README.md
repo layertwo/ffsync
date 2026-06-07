@@ -12,7 +12,7 @@
 | src/entrypoint/storage\_api.py                |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/token\_api.py                  |        5 |        0 |        0 |        0 |     100% |           |
 | src/environment/\_\_init\_\_.py               |        0 |        0 |        0 |        0 |     100% |           |
-| src/environment/service\_provider.py          |      191 |        0 |        0 |        0 |     100% |           |
+| src/environment/service\_provider.py          |      194 |        0 |        0 |        0 |     100% |           |
 | src/middlewares/\_\_init\_\_.py               |        0 |        0 |        0 |        0 |     100% |           |
 | src/middlewares/hawk\_auth.py                 |       47 |        0 |       12 |        0 |     100% |           |
 | src/middlewares/request\_logging.py           |       22 |        0 |        0 |        0 |     100% |           |
@@ -32,7 +32,7 @@
 | src/routes/auth/oauth\_destroy.py             |       26 |        0 |        4 |        0 |     100% |           |
 | src/routes/auth/oauth\_token.py               |      117 |        0 |       40 |        0 |     100% |           |
 | src/routes/auth/oidc\_discovery.py            |       14 |        0 |        0 |        0 |     100% |           |
-| src/routes/auth/oidc\_exchange.py             |       78 |        0 |       10 |        0 |     100% |           |
+| src/routes/auth/oidc\_exchange.py             |       82 |        0 |       10 |        0 |     100% |           |
 | src/routes/auth/scoped\_key\_data.py          |       39 |        0 |        6 |        0 |     100% |           |
 | src/routes/auth/session\_destroy.py           |       24 |        0 |        2 |        0 |     100% |           |
 | src/routes/auth/session\_status.py            |       16 |        0 |        0 |        0 |     100% |           |
@@ -69,7 +69,7 @@
 | src/services/jwt\_service.py                  |       53 |        0 |        8 |        0 |     100% |           |
 | src/services/jwt\_verifier.py                 |       62 |        0 |       14 |        0 |     100% |           |
 | src/services/oauth\_code\_manager.py          |       63 |        0 |       16 |        0 |     100% |           |
-| src/services/oidc\_validator.py               |       90 |        0 |       14 |        0 |     100% |           |
+| src/services/oidc\_validator.py               |       93 |        0 |       14 |        0 |     100% |           |
 | src/services/storage\_manager.py              |      282 |        0 |      100 |        0 |     100% |           |
 | src/services/token\_generator.py              |       20 |        0 |        0 |        0 |     100% |           |
 | src/services/user\_manager.py                 |       87 |        0 |       26 |        0 |     100% |           |
@@ -81,7 +81,7 @@
 | src/shared/token.py                           |        3 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                            |        9 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                           |       15 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                                     | **3298** |    **0** |  **584** |    **0** | **100%** |           |
+| **TOTAL**                                     | **3308** |    **0** |  **584** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
