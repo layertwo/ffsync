@@ -2,7 +2,7 @@
 
 import json
 
-import requests as http_requests
+import requests
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 
@@ -50,9 +50,15 @@ class OIDCCodeExchangeRoute(BaseRoute):
         self,
         oidc_validator: OIDCValidator,
         account_manager: AuthAccountManager,
+        user_agent: str,
     ):
         self._oidc_validator = oidc_validator
         self._account_manager = account_manager
+        self._user_agent = user_agent
+
+    @property
+    def _default_headers(self) -> dict[str, str]:
+        return {"User-Agent": self._user_agent}
 
     def bind(self, app: APIGatewayRestResolver):
         @app.post("/v1/oidc/exchange")
@@ -96,7 +102,7 @@ class OIDCCodeExchangeRoute(BaseRoute):
 
         # 2. Exchange code for tokens at the provider's token endpoint
         try:
-            token_response = http_requests.post(
+            token_response = requests.post(
                 provider_config.token_endpoint,
                 data={
                     "grant_type": "authorization_code",
@@ -105,10 +111,13 @@ class OIDCCodeExchangeRoute(BaseRoute):
                     "redirect_uri": redirect_uri,
                     "code_verifier": code_verifier,
                 },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    **self._default_headers,
+                },
                 timeout=10,
             )
-        except http_requests.exceptions.RequestException:
+        except requests.exceptions.RequestException:
             logger.exception("Token exchange request failed")
             return Response(
                 status_code=502,
@@ -150,12 +159,12 @@ class OIDCCodeExchangeRoute(BaseRoute):
 
         # 4. Fetch userinfo to get email
         try:
-            userinfo_response = http_requests.get(
+            userinfo_response = requests.get(
                 provider_config.userinfo_endpoint,
-                headers={"Authorization": f"Bearer {access_token}"},
+                headers={"Authorization": f"Bearer {access_token}", **self._default_headers},
                 timeout=10,
             )
-        except http_requests.exceptions.RequestException:
+        except requests.exceptions.RequestException:
             logger.exception("Userinfo request failed")
             return Response(
                 status_code=502,

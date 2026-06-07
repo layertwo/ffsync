@@ -32,7 +32,7 @@ def client_id():
 
 @pytest.fixture
 def validator(provider_url, client_id):
-    return OIDCValidator(provider_url, client_id)
+    return OIDCValidator(provider_url, client_id, user_agent="foobar")
 
 
 @pytest.fixture
@@ -51,32 +51,36 @@ class TestOIDCValidatorInit:
 
     def test_init_strips_trailing_slash(self, client_id):
         """Test that trailing slash is stripped from provider URL"""
-        validator = OIDCValidator("https://auth.example.com/", client_id)
+        validator = OIDCValidator("https://auth.example.com/", client_id, user_agent="foobar")
         assert validator.provider_url == "https://auth.example.com"
 
     def test_init_stores_client_id(self, provider_url, client_id):
         """Test that client_id is stored correctly"""
-        validator = OIDCValidator(provider_url, client_id)
+        validator = OIDCValidator(provider_url, client_id, user_agent="foobar")
         assert validator.client_id == client_id
 
     def test_init_default_clock_skew_tolerance(self, provider_url, client_id):
         """Test that default clock_skew_tolerance is 300 seconds"""
-        validator = OIDCValidator(provider_url, client_id)
+        validator = OIDCValidator(provider_url, client_id, user_agent="foobar")
         assert validator.clock_skew_tolerance == 300
 
     def test_init_custom_clock_skew_tolerance(self, provider_url, client_id):
         """Test that custom clock_skew_tolerance is stored correctly"""
-        validator = OIDCValidator(provider_url, client_id, clock_skew_tolerance=600)
+        validator = OIDCValidator(
+            provider_url, client_id, clock_skew_tolerance=600, user_agent="foobar"
+        )
         assert validator.clock_skew_tolerance == 600
 
     def test_init_default_cache_ttl_seconds(self, provider_url, client_id):
         """Test that default cache_ttl_seconds is 3600 seconds"""
-        validator = OIDCValidator(provider_url, client_id)
+        validator = OIDCValidator(provider_url, client_id, user_agent="foobar")
         assert validator.cache_ttl_seconds == 3600
 
     def test_init_custom_cache_ttl_seconds(self, provider_url, client_id):
         """Test that custom cache_ttl_seconds is stored correctly"""
-        validator = OIDCValidator(provider_url, client_id, cache_ttl_seconds=7200)
+        validator = OIDCValidator(
+            provider_url, client_id, cache_ttl_seconds=7200, user_agent="foobar"
+        )
         assert validator.cache_ttl_seconds == 7200
 
 
@@ -98,6 +102,7 @@ class TestDiscoverProviderConfig:
             mock_get.assert_called_once_with(
                 "https://auth.example.com/.well-known/openid-configuration",
                 timeout=10,
+                headers={"User-Agent": "foobar"},
             )
 
     def test_discover_provider_config_caching(self, validator, mock_provider_config):
@@ -142,7 +147,9 @@ class TestDiscoverProviderConfig:
         self, provider_url, client_id, mock_provider_config
     ):
         """Test that custom cache TTL is respected"""
-        validator = OIDCValidator(provider_url, client_id, cache_ttl_seconds=1800)
+        validator = OIDCValidator(
+            provider_url, client_id, cache_ttl_seconds=1800, user_agent="foobar"
+        )
 
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -599,7 +606,9 @@ class TestValidateToken:
 
     def test_validate_token_custom_tolerance(self, provider_url, client_id, mock_provider_config):
         """Test timestamp validation with custom tolerance"""
-        validator = OIDCValidator(provider_url, client_id, clock_skew_tolerance=600)
+        validator = OIDCValidator(
+            provider_url, client_id, clock_skew_tolerance=600, user_agent="foobar"
+        )
         current_time = int(datetime.now(timezone.utc).timestamp())
         mock_claims = {
             "sub": "user123",
@@ -697,7 +706,7 @@ class TestGetJwkClient:
             mock_response.raise_for_status = MagicMock()
             mock_get.return_value = mock_response
 
-            with patch("src.services.oidc_validator.PyJWKClient") as mock_jwk_class:
+            with patch("src.services.oidc_validator.jwt.PyJWKClient") as mock_jwk_class:
                 mock_jwk_instance = MagicMock()
                 mock_jwk_class.return_value = mock_jwk_instance
 
@@ -712,7 +721,9 @@ class TestGetJwkClient:
 
     def test_get_jwk_client_custom_cache_ttl(self, provider_url, client_id, mock_provider_config):
         """Test that _get_jwk_client uses custom cache TTL"""
-        validator = OIDCValidator(provider_url, client_id, cache_ttl_seconds=7200)
+        validator = OIDCValidator(
+            provider_url, client_id, cache_ttl_seconds=7200, user_agent="foobar"
+        )
 
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -720,7 +731,7 @@ class TestGetJwkClient:
             mock_response.raise_for_status = MagicMock()
             mock_get.return_value = mock_response
 
-            with patch("src.services.oidc_validator.PyJWKClient") as mock_jwk_class:
+            with patch("src.services.oidc_validator.jwt.PyJWKClient") as mock_jwk_class:
                 mock_jwk_instance = MagicMock()
                 mock_jwk_class.return_value = mock_jwk_instance
 
@@ -741,7 +752,7 @@ class TestGetJwkClient:
             mock_response.raise_for_status = MagicMock()
             mock_get.return_value = mock_response
 
-            with patch("src.services.oidc_validator.PyJWKClient") as mock_jwk_class:
+            with patch("src.services.oidc_validator.jwt.PyJWKClient") as mock_jwk_class:
                 mock_jwk_instance = MagicMock()
                 mock_jwk_class.return_value = mock_jwk_instance
 

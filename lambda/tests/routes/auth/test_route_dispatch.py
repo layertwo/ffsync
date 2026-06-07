@@ -171,7 +171,9 @@ class TestRouteDispatch:
         assert result["statusCode"] == 200
 
     def test_oidc_code_exchange_dispatches(self):
-        route = OIDCCodeExchangeRoute(oidc_validator=MagicMock(), account_manager=MagicMock())
+        route = OIDCCodeExchangeRoute(
+            oidc_validator=MagicMock(), account_manager=MagicMock(), user_agent="unit-test"
+        )
         result = _router(route).handler(
             _make_event("POST", "/v1/oidc/exchange", body="{}"), _make_context()
         )
