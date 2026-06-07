@@ -1,10 +1,13 @@
 """OIDC Validator for token validation against configured OIDC providers"""
 
+import time
 from datetime import datetime, timezone
 from typing import Optional
 
 import jwt
 import requests
+from aws_lambda_powertools import Logger
+from aws_lambda_powertools.metrics import Metrics, MetricUnit
 
 from src.shared.exceptions import (
     InvalidCredentialsError,
@@ -13,6 +16,8 @@ from src.shared.exceptions import (
     ServiceUnavailableError,
 )
 from src.shared.oidc import OIDCProviderConfig, OIDCTokenClaims
+
+logger = Logger()
 
 # Default cache TTL in seconds (1 hour) - maintained for backward compatibility
 CACHE_TTL_SECONDS = 3600
@@ -35,6 +40,7 @@ class OIDCValidator:
         provider_url: str,
         client_id: str,
         user_agent: str,
+        metrics: Metrics,
         clock_skew_tolerance: int = 300,
         cache_ttl_seconds: int = CACHE_TTL_SECONDS,
     ):
@@ -55,6 +61,7 @@ class OIDCValidator:
         self._provider_config_timestamp: float = 0
         self._jwk_client: Optional[jwt.PyJWKClient] = None
         self._user_agent = user_agent
+        self._metrics = metrics
 
     @property
     def _default_headers(self) -> dict[str, str]:
@@ -85,6 +92,7 @@ class OIDCValidator:
 
         well_known_url = f"{self.provider_url}/.well-known/openid-configuration"
 
+        start = time.monotonic()
         try:
             response = requests.get(well_known_url, timeout=10, headers=self._default_headers)
             response.raise_for_status()
@@ -102,16 +110,32 @@ class OIDCValidator:
             # Reset JWK client to use new JWKS URI
             self._jwk_client = None
 
+            self._metrics.add_metric("OIDCDiscoverySuccess", MetricUnit.Count, 1)
+            logger.info("oidc discovery ok", extra={"status": response.status_code})
             return self._provider_config
 
         except requests.exceptions.Timeout:
+            self._metrics.add_metric("OIDCDiscoveryFailure", MetricUnit.Count, 1)
+            logger.exception("oidc discovery failed", extra={"error_type": "Timeout"})
             raise ServiceUnavailableError("OIDC provider request timed out")
         except requests.exceptions.ConnectionError:
+            self._metrics.add_metric("OIDCDiscoveryFailure", MetricUnit.Count, 1)
+            logger.exception("oidc discovery failed", extra={"error_type": "ConnectionError"})
             raise ServiceUnavailableError("OIDC provider is unreachable")
         except requests.exceptions.HTTPError as e:
+            self._metrics.add_metric("OIDCDiscoveryFailure", MetricUnit.Count, 1)
+            logger.exception("oidc discovery failed", extra={"status": e.response.status_code})
             raise ServiceUnavailableError(f"OIDC provider returned error: {e.response.status_code}")
         except (KeyError, ValueError) as e:
+            self._metrics.add_metric("OIDCDiscoveryFailure", MetricUnit.Count, 1)
+            logger.exception("oidc discovery failed", extra={"error_type": "ParseError"})
             raise ServiceUnavailableError(f"Invalid OIDC provider configuration: {e}")
+        finally:
+            self._metrics.add_metric(
+                "OIDCDiscoveryLatencyMs",
+                MetricUnit.Milliseconds,
+                (time.monotonic() - start) * 1000,
+            )
 
     def _get_jwk_client(self) -> jwt.PyJWKClient:
         """
@@ -166,10 +190,21 @@ class OIDCValidator:
 
             # Get signing key from JWKS
             jwk_client = self._get_jwk_client()
+            jwks_start = time.monotonic()
             try:
                 signing_key = jwk_client.get_signing_key_from_jwt(token)
+                self._metrics.add_metric("OIDCJWKSSuccess", MetricUnit.Count, 1)
+                logger.info("oidc jwks ok")
             except jwt.PyJWKClientError as e:
+                self._metrics.add_metric("OIDCJWKSFailure", MetricUnit.Count, 1)
+                logger.exception("oidc jwks failed", extra={"error_type": type(e).__name__})
                 raise InvalidTokenError(f"Failed to get signing key: {e}")
+            finally:
+                self._metrics.add_metric(
+                    "OIDCJWKSLatencyMs",
+                    MetricUnit.Milliseconds,
+                    (time.monotonic() - jwks_start) * 1000,
+                )
 
             # Decode and validate token
             try:
