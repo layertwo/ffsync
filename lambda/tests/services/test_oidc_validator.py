@@ -717,6 +717,7 @@ class TestGetJwkClient:
                     mock_provider_config["jwks_uri"],
                     cache_keys=True,
                     lifespan=validator.cache_ttl_seconds,
+                    headers={"User-Agent": "foobar"},
                 )
 
     def test_get_jwk_client_custom_cache_ttl(self, provider_url, client_id, mock_provider_config):
@@ -742,6 +743,7 @@ class TestGetJwkClient:
                     mock_provider_config["jwks_uri"],
                     cache_keys=True,
                     lifespan=7200,
+                    headers={"User-Agent": "foobar"},
                 )
 
     def test_get_jwk_client_caches_client(self, validator, mock_provider_config):

@@ -131,6 +131,7 @@ class OIDCValidator:
                 config.jwks_uri,
                 cache_keys=True,
                 lifespan=self.cache_ttl_seconds,
+                headers=self._default_headers,
             )
         return self._jwk_client
 
