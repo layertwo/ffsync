@@ -48,4 +48,4 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Deploy stacks
-        run: npx cdk deploy *-${{ env.STAGE }} --app build/cdk.out --require-approval never
+        run: npx cdk deploy *-${{ env.STAGE }} GitHubOidcStack --app build/cdk.out --require-approval never
