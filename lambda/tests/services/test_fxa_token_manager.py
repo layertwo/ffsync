@@ -1,6 +1,6 @@
 """Unit tests for FxATokenManager with DynamoDB stubber"""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from botocore.stub import ANY
@@ -19,7 +19,7 @@ class TestCreateSessionToken:
 
     @pytest.fixture
     def manager(self, dynamodb_table):
-        return FxATokenManager(table=dynamodb_table)
+        return FxATokenManager(table=dynamodb_table, metrics=MagicMock())
 
     @pytest.fixture
     def sample_uid(self):
@@ -119,7 +119,7 @@ class TestVerifySessionTokenId:
 
     @pytest.fixture
     def manager(self, dynamodb_table):
-        return FxATokenManager(table=dynamodb_table)
+        return FxATokenManager(table=dynamodb_table, metrics=MagicMock())
 
     @pytest.fixture
     def sample_uid(self):
@@ -223,7 +223,7 @@ class TestCreateKeyFetchToken:
 
     @pytest.fixture
     def manager(self, dynamodb_table):
-        return FxATokenManager(table=dynamodb_table)
+        return FxATokenManager(table=dynamodb_table, metrics=MagicMock())
 
     @pytest.fixture
     def sample_uid(self):
@@ -321,7 +321,7 @@ class TestConsumeKeyFetchToken:
 
     @pytest.fixture
     def manager(self, dynamodb_table):
-        return FxATokenManager(table=dynamodb_table)
+        return FxATokenManager(table=dynamodb_table, metrics=MagicMock())
 
     @pytest.fixture
     def sample_uid(self):
@@ -429,7 +429,7 @@ class TestConsumeKeyFetchTokenEdgeCases:
 
     @pytest.fixture
     def manager(self, dynamodb_table):
-        return FxATokenManager(table=dynamodb_table)
+        return FxATokenManager(table=dynamodb_table, metrics=MagicMock())
 
     def test_reraises_non_conditional_error(
         self,
@@ -488,7 +488,7 @@ class TestVerifySessionHawk:
 
     @pytest.fixture
     def manager(self, dynamodb_table):
-        return FxATokenManager(table=dynamodb_table)
+        return FxATokenManager(table=dynamodb_table, metrics=MagicMock())
 
     @pytest.fixture
     def sample_uid(self):
@@ -938,7 +938,7 @@ class TestVerifyKeyfetchHawk:
 
     @pytest.fixture
     def manager(self, dynamodb_table):
-        return FxATokenManager(table=dynamodb_table)
+        return FxATokenManager(table=dynamodb_table, metrics=MagicMock())
 
     @pytest.fixture
     def sample_uid(self):
@@ -1325,7 +1325,7 @@ class TestVerifyKeyfetchHawkEdgeCases:
 
     @pytest.fixture
     def manager(self, dynamodb_table):
-        return FxATokenManager(table=dynamodb_table)
+        return FxATokenManager(table=dynamodb_table, metrics=MagicMock())
 
     def test_returns_none_when_receiver_skips_credentials_map(self, manager):
         """verify_keyfetch_hawk returns None when result_holder has no uid
@@ -1347,7 +1347,7 @@ class TestDeleteSession:
 
     @pytest.fixture
     def manager(self, dynamodb_table):
-        return FxATokenManager(table=dynamodb_table)
+        return FxATokenManager(table=dynamodb_table, metrics=MagicMock())
 
     def test_deletes_session_record(
         self,
@@ -1405,7 +1405,9 @@ class TestCustomTTL:
     ):
         """Custom session_ttl_seconds is used for session token expiry"""
         custom_ttl = 3600  # 1 hour
-        manager = FxATokenManager(table=dynamodb_table, session_ttl_seconds=custom_ttl)
+        manager = FxATokenManager(
+            table=dynamodb_table, session_ttl_seconds=custom_ttl, metrics=MagicMock()
+        )
 
         with patch("src.services.fxa_token_manager.fxa_crypto") as mock_crypto:
             mock_crypto.generate_random_bytes.return_value = fixed_token
@@ -1445,7 +1447,9 @@ class TestCustomTTL:
     ):
         """Custom keyfetch_ttl_seconds is used for key-fetch token expiry"""
         custom_ttl = 60  # 1 minute
-        manager = FxATokenManager(table=dynamodb_table, keyfetch_ttl_seconds=custom_ttl)
+        manager = FxATokenManager(
+            table=dynamodb_table, keyfetch_ttl_seconds=custom_ttl, metrics=MagicMock()
+        )
 
         with patch("src.services.fxa_token_manager.fxa_crypto") as mock_crypto:
             mock_crypto.generate_random_bytes.return_value = fixed_token

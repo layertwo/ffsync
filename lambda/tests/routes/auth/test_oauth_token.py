@@ -36,6 +36,7 @@ def route(mock_oauth_code_manager, mock_jwt_service, mock_account_manager, mock_
         jwt_service=mock_jwt_service,
         account_manager=mock_account_manager,
         token_manager=mock_token_manager,
+        metrics=MagicMock(),
     )
 
 
@@ -597,6 +598,7 @@ class TestOAuthTokenFxaCredentials:
             oauth_code_manager=mock_oauth_code_manager,
             jwt_service=mock_jwt_service,
             account_manager=mock_account_manager,
+            metrics=MagicMock(),
         )
         event = APIGatewayProxyEvent(
             {

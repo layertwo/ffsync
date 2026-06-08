@@ -13,3 +13,5 @@ lambda/.coverage
 lambda/coverage.xml
 *.tsbuildinfo
 docs/
+
+.DS_Store

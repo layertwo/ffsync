@@ -10,6 +10,7 @@ On failure, raises HawkAuthenticationError (handle with router exception handler
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler, NextMiddleware
+from aws_lambda_powertools.metrics import Metrics, MetricUnit
 
 from src.services.fxa_token_manager import FxATokenManager
 from src.services.hawk_service import HawkService
@@ -30,6 +31,7 @@ class HawkAuthMiddleware(BaseMiddlewareHandler):
     def __init__(
         self,
         *,
+        metrics: Metrics,
         hawk_service: HawkService | None = None,
         token_manager: FxATokenManager | None = None,
     ):
@@ -38,6 +40,7 @@ class HawkAuthMiddleware(BaseMiddlewareHandler):
             raise ValueError("Either hawk_service or token_manager is required")
         self._hawk_service = hawk_service
         self._token_manager = token_manager
+        self._metrics = metrics
 
     def handler(self, app: APIGatewayRestResolver, next_middleware: NextMiddleware) -> Response:
         event = app.current_event
@@ -45,15 +48,21 @@ class HawkAuthMiddleware(BaseMiddlewareHandler):
         headers = event.headers or {}
         auth_header = headers.get("Authorization") or headers.get("authorization")
         if not auth_header:
+            self._metrics.add_metric("HawkAuthFailure", MetricUnit.Count, 1)
             raise HawkAuthenticationError("Missing or invalid authorization")
 
         method, path, host, port = extract_hawk_request_params(event)
 
-        if self._hawk_service:
-            self._validate_storage_hawk(event, auth_header, method, path, host, port)
-        else:
-            self._validate_session_hawk(event, auth_header, method, path, host, port)
+        try:
+            if self._hawk_service:
+                self._validate_storage_hawk(event, auth_header, method, path, host, port)
+            else:
+                self._validate_session_hawk(event, auth_header, method, path, host, port)
+        except HawkAuthenticationError, UidMismatchError:
+            self._metrics.add_metric("HawkAuthFailure", MetricUnit.Count, 1)
+            raise
 
+        self._metrics.add_metric("HawkAuthSuccess", MetricUnit.Count, 1)
         return next_middleware(app)
 
     def _validate_storage_hawk(self, event, auth_header, method, path, host, port):

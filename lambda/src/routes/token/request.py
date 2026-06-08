@@ -6,6 +6,7 @@ from dataclasses import asdict
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.metrics import Metrics, MetricUnit
 
 from src.services.token_generator import TokenGenerator
 from src.services.user_manager import UserManager
@@ -37,11 +38,13 @@ class GetTokenRoute(BaseRoute):
         oidc_validator,
         user_manager: UserManager,
         token_generator: TokenGenerator,
+        metrics: Metrics,
         retry_after_seconds: int = 30,
     ):
         self.oidc_validator = oidc_validator  # OIDCValidator or JWTVerifier
         self.user_manager = user_manager
         self.token_generator = token_generator
+        self._metrics = metrics
         self.retry_after_seconds = retry_after_seconds
 
     def bind(self, app: APIGatewayRestResolver):
@@ -170,6 +173,7 @@ class GetTokenRoute(BaseRoute):
             )
 
             result = TokenOutput.model_validate(asdict(token_response))
+            self._metrics.add_metric("SyncTokensIssued", MetricUnit.Count, 1)
             return Response(
                 status_code=200,
                 content_type="application/json",

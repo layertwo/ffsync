@@ -45,6 +45,7 @@ def request_token_route(mock_oidc_validator, mock_user_manager, mock_token_gener
         oidc_validator=mock_oidc_validator,
         user_manager=mock_user_manager,
         token_generator=mock_token_generator,
+        metrics=MagicMock(),
     )
 
 
@@ -109,6 +110,7 @@ class TestRequestTokenRouteInit:
             oidc_validator=mock_oidc_validator,
             user_manager=mock_user_manager,
             token_generator=mock_token_generator,
+            metrics=MagicMock(),
         )
         assert route.oidc_validator is mock_oidc_validator
         assert route.user_manager is mock_user_manager
@@ -1128,6 +1130,7 @@ class TestRetryAfterHeader:
             user_manager=mock_user_manager,
             token_generator=mock_token_generator,
             retry_after_seconds=60,
+            metrics=MagicMock(),
         )
         mock_oidc_validator.validate_token.side_effect = ServiceUnavailableError(
             "OIDC provider unreachable"

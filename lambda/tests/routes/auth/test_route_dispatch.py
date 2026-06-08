@@ -131,7 +131,10 @@ class TestRouteDispatch:
 
     def test_oauth_token_dispatches(self):
         route = OAuthTokenRoute(
-            oauth_code_manager=MagicMock(), jwt_service=MagicMock(), account_manager=MagicMock()
+            oauth_code_manager=MagicMock(),
+            jwt_service=MagicMock(),
+            account_manager=MagicMock(),
+            metrics=MagicMock(),
         )
         result = _router(route).handler(
             _make_event("POST", "/v1/oauth/token", body="{}"), _make_context()
