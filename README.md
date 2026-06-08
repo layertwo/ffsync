@@ -14,7 +14,7 @@
 | src/environment/\_\_init\_\_.py               |        0 |        0 |        0 |        0 |     100% |           |
 | src/environment/service\_provider.py          |      200 |        0 |        0 |        0 |     100% |           |
 | src/middlewares/\_\_init\_\_.py               |        0 |        0 |        0 |        0 |     100% |           |
-| src/middlewares/hawk\_auth.py                 |       47 |        0 |       12 |        0 |     100% |           |
+| src/middlewares/hawk\_auth.py                 |       55 |        0 |       12 |        0 |     100% |           |
 | src/middlewares/request\_logging.py           |       22 |        0 |        0 |        0 |     100% |           |
 | src/middlewares/weave\_timestamp.py           |        8 |        0 |        0 |        0 |     100% |           |
 | src/routes/\_\_init\_\_.py                    |        0 |        0 |        0 |        0 |     100% |           |
@@ -30,7 +30,7 @@
 | src/routes/auth/jwks.py                       |       14 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/oauth\_authorization.py       |       47 |        0 |       10 |        0 |     100% |           |
 | src/routes/auth/oauth\_destroy.py             |       26 |        0 |        4 |        0 |     100% |           |
-| src/routes/auth/oauth\_token.py               |      117 |        0 |       40 |        0 |     100% |           |
+| src/routes/auth/oauth\_token.py               |      122 |        0 |       40 |        0 |     100% |           |
 | src/routes/auth/oidc\_discovery.py            |       14 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/oidc\_exchange.py             |       98 |        0 |       10 |        0 |     100% |           |
 | src/routes/auth/scoped\_key\_data.py          |       39 |        0 |        6 |        0 |     100% |           |
@@ -53,18 +53,18 @@
 | src/routes/info/read\_quota.py                |       28 |        0 |        2 |        0 |     100% |           |
 | src/routes/info/read\_usage.py                |       24 |        0 |        2 |        0 |     100% |           |
 | src/routes/profile/\_\_init\_\_.py            |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/profile/get\_profile.py            |       40 |        0 |       10 |        0 |     100% |           |
+| src/routes/profile/get\_profile.py            |       46 |        0 |       10 |        0 |     100% |           |
 | src/routes/storage/\_\_init\_\_.py            |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/storage/delete\_all.py             |       25 |        0 |        2 |        0 |     100% |           |
 | src/routes/storage/delete\_root.py            |       25 |        0 |        2 |        0 |     100% |           |
 | src/routes/token/\_\_init\_\_.py              |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/token/request.py                   |      114 |        0 |       22 |        0 |     100% |           |
+| src/routes/token/request.py                   |      117 |        0 |       22 |        0 |     100% |           |
 | src/services/api\_router.py                   |       25 |        0 |        2 |        0 |     100% |           |
 | src/services/auth\_account\_manager.py        |       76 |        0 |       14 |        0 |     100% |           |
 | src/services/channel\_service.py              |      108 |        0 |       32 |        0 |     100% |           |
 | src/services/device\_manager.py               |       35 |        0 |        6 |        0 |     100% |           |
 | src/services/fxa\_crypto.py                   |       38 |        0 |        0 |        0 |     100% |           |
-| src/services/fxa\_token\_manager.py           |      128 |        0 |       36 |        0 |     100% |           |
+| src/services/fxa\_token\_manager.py           |      131 |        0 |       36 |        0 |     100% |           |
 | src/services/hawk\_service.py                 |      133 |        0 |       28 |        0 |     100% |           |
 | src/services/jwt\_service.py                  |       53 |        0 |        8 |        0 |     100% |           |
 | src/services/jwt\_verifier.py                 |       62 |        0 |       14 |        0 |     100% |           |
@@ -81,7 +81,7 @@
 | src/shared/token.py                           |        3 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                            |        9 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                           |       15 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                                     | **3353** |    **0** |  **584** |    **0** | **100%** |           |
+| **TOTAL**                                     | **3378** |    **0** |  **584** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
