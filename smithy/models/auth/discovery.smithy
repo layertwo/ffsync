@@ -120,6 +120,9 @@ structure OIDCCodeExchangeOutput {
 
     @required
     account_exists: Boolean
+
+    @required
+    verified: Boolean
 }
 
 list JWKList {

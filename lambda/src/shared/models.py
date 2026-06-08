@@ -386,6 +386,7 @@ class OIDCExchangeOutput(CamelModel):
     email: str
     access_token: str
     account_exists: bool
+    verified: bool
 
 
 class TokenOutput(BaseModel):

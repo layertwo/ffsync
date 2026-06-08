@@ -235,11 +235,13 @@ class OIDCCodeExchangeRoute(BaseRoute):
 
         # 5. Check if account exists
         account = self._account_manager.get_account_by_email(email)
+        account_exists = account is not None
 
         result = OIDCExchangeOutput(
             email=email,
             access_token=access_token,
-            account_exists=account is not None,
+            account_exists=account_exists,
+            verified=account_exists,
         )
         return Response(
             status_code=200,
