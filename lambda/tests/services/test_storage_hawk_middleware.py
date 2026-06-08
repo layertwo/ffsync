@@ -52,7 +52,7 @@ class TestHawkAuthMiddlewareSuccess:
             hawk_id="hawkid123",
         )
         hawk_service.validate.return_value = creds
-        middleware = HawkAuthMiddleware(hawk_service=hawk_service)
+        middleware = HawkAuthMiddleware(hawk_service=hawk_service, metrics=MagicMock())
 
         app = _make_app(auth_header='Hawk id="hawkid123"')
         mock_response = Response(status_code=200, body='{"ok": true}')
@@ -87,7 +87,7 @@ class TestHawkAuthMiddlewareSuccess:
             hawk_id="hid",
         )
         hawk_service.validate.return_value = creds
-        middleware = HawkAuthMiddleware(hawk_service=hawk_service)
+        middleware = HawkAuthMiddleware(hawk_service=hawk_service, metrics=MagicMock())
 
         app = MagicMock()
         headers = {"authorization": 'Hawk id="hid"'}
@@ -115,7 +115,7 @@ class TestHawkAuthMiddlewareFailure:
     def test_missing_auth_header_raises_error(self):
         """Missing Authorization header raises HawkAuthenticationError."""
         hawk_service = MagicMock()
-        middleware = HawkAuthMiddleware(hawk_service=hawk_service)
+        middleware = HawkAuthMiddleware(hawk_service=hawk_service, metrics=MagicMock())
 
         app = _make_app(auth_header=None)
         mock_next = MagicMock()
@@ -130,7 +130,7 @@ class TestHawkAuthMiddlewareFailure:
         """Exception from hawk_service.validate raises HawkAuthenticationError."""
         hawk_service = MagicMock()
         hawk_service.validate.side_effect = Exception("MacMismatch")
-        middleware = HawkAuthMiddleware(hawk_service=hawk_service)
+        middleware = HawkAuthMiddleware(hawk_service=hawk_service, metrics=MagicMock())
 
         app = _make_app(auth_header='Hawk id="bad", mac="invalid"')
         mock_next = MagicMock()
@@ -152,7 +152,7 @@ class TestHawkAuthMiddlewareQueryString:
             hawk_id="hid",
         )
         hawk_service.validate.return_value = creds
-        middleware = HawkAuthMiddleware(hawk_service=hawk_service)
+        middleware = HawkAuthMiddleware(hawk_service=hawk_service, metrics=MagicMock())
 
         app = _make_app(
             auth_header='Hawk id="hid"',
@@ -178,7 +178,7 @@ class TestHawkAuthMiddlewareHostFallback:
         hawk_service = MagicMock()
         creds = HawkCredentials(user_id="user1", generation=0, expiry=9999999999, hawk_id="hid")
         hawk_service.validate.return_value = creds
-        middleware = HawkAuthMiddleware(hawk_service=hawk_service)
+        middleware = HawkAuthMiddleware(hawk_service=hawk_service, metrics=MagicMock())
 
         app = MagicMock()
         # request_context without domain_name attribute triggers AttributeError
@@ -209,19 +209,19 @@ class TestHawkAuthMiddlewareInit:
     def test_requires_hawk_service_or_token_manager(self):
         """Middleware requires at least one of hawk_service or token_manager."""
         with pytest.raises(ValueError, match="Either hawk_service or token_manager"):
-            HawkAuthMiddleware()
+            HawkAuthMiddleware(metrics=MagicMock())
 
     def test_session_mode_with_token_manager(self):
         """Middleware can be initialized with token_manager for session auth."""
         token_manager = MagicMock()
-        middleware = HawkAuthMiddleware(token_manager=token_manager)
+        middleware = HawkAuthMiddleware(token_manager=token_manager, metrics=MagicMock())
         assert middleware._token_manager is token_manager
         assert middleware._hawk_service is None
 
     def test_storage_mode_with_hawk_service(self):
         """Middleware can be initialized with hawk_service for storage auth."""
         hawk_service = MagicMock()
-        middleware = HawkAuthMiddleware(hawk_service=hawk_service)
+        middleware = HawkAuthMiddleware(hawk_service=hawk_service, metrics=MagicMock())
         assert middleware._hawk_service is hawk_service
         assert middleware._token_manager is None
 
@@ -231,7 +231,7 @@ class TestHawkAuthMiddlewareSessionMode:
         """Session Hawk validation injects hawk_uid and calls next."""
         token_manager = MagicMock()
         token_manager.verify_session_hawk.return_value = "uid123"
-        middleware = HawkAuthMiddleware(token_manager=token_manager)
+        middleware = HawkAuthMiddleware(token_manager=token_manager, metrics=MagicMock())
 
         app = MagicMock()
         event = MagicMock()
@@ -259,7 +259,7 @@ class TestHawkAuthMiddlewareSessionMode:
         """Invalid session token raises HawkAuthenticationError."""
         token_manager = MagicMock()
         token_manager.verify_session_hawk.return_value = None
-        middleware = HawkAuthMiddleware(token_manager=token_manager)
+        middleware = HawkAuthMiddleware(token_manager=token_manager, metrics=MagicMock())
 
         app = MagicMock()
         event = MagicMock()

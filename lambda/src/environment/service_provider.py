@@ -196,7 +196,7 @@ class ServiceProvider:
             ],
             middlewares=[
                 RequestLoggingMiddleware(),
-                HawkAuthMiddleware(hawk_service=self.hawk_service),
+                HawkAuthMiddleware(hawk_service=self.hawk_service, metrics=self.metrics),
                 WeaveTimestampMiddleware(),
             ],
             exception_handlers=self._storage_exception_handlers,
@@ -296,7 +296,7 @@ class ServiceProvider:
 
     @cached_property
     def fxa_token_manager(self) -> FxATokenManager:
-        return FxATokenManager(table=self.auth_table)
+        return FxATokenManager(table=self.auth_table, metrics=self.metrics)
 
     @cached_property
     def oauth_code_manager(self) -> OAuthCodeManager:
@@ -316,7 +316,7 @@ class ServiceProvider:
 
     @cached_property
     def session_hawk_middleware(self) -> HawkAuthMiddleware:
-        return HawkAuthMiddleware(token_manager=self.fxa_token_manager)
+        return HawkAuthMiddleware(token_manager=self.fxa_token_manager, metrics=self.metrics)
 
     @cached_property
     def cors_config(self) -> CORSConfig:
@@ -366,6 +366,7 @@ class ServiceProvider:
                     jwt_service=self.jwt_service,
                     account_manager=self.auth_account_manager,
                     token_manager=self.fxa_token_manager,
+                    metrics=self.metrics,
                 ),
                 OAuthDestroyRoute(oauth_code_manager=self.oauth_code_manager),
                 # Discovery routes
@@ -412,6 +413,7 @@ class ServiceProvider:
                     user_manager=self.user_manager,
                     token_generator=self.token_generator,
                     retry_after_seconds=self.retry_after_seconds,
+                    metrics=self.metrics,
                 ),
             ],
             middlewares=[WeaveTimestampMiddleware()],
@@ -427,6 +429,7 @@ class ServiceProvider:
                 GetProfileRoute(
                     jwt_verifier=self.jwt_verifier,
                     auth_account_manager=self.auth_account_manager,
+                    metrics=self.metrics,
                 ),
             ],
             middlewares=[WeaveTimestampMiddleware()],

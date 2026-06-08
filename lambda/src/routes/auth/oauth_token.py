@@ -5,6 +5,7 @@ import json
 import time
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.metrics import Metrics, MetricUnit
 
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.fxa_token_manager import FxATokenManager
@@ -26,11 +27,13 @@ class OAuthTokenRoute(BaseRoute):
         oauth_code_manager: OAuthCodeManager,
         jwt_service: JWTService,
         account_manager: AuthAccountManager,
+        metrics: Metrics,
         token_manager: FxATokenManager | None = None,
     ):
         self._oauth_code_manager = oauth_code_manager
         self._jwt_service = jwt_service
         self._account_manager = account_manager
+        self._metrics = metrics
         self._token_manager = token_manager
 
     def bind(self, app: APIGatewayRestResolver):
@@ -124,6 +127,7 @@ class OAuthTokenRoute(BaseRoute):
         if keys_jwe:
             result.keys_jwe = keys_jwe
 
+        self._metrics.add_metric("AccessTokensIssued", MetricUnit.Count, 1)
         return Response(
             status_code=200,
             content_type="application/json",
@@ -180,6 +184,7 @@ class OAuthTokenRoute(BaseRoute):
             refresh_token=new_refresh_token,
             auth_at=int(time.time()),
         )
+        self._metrics.add_metric("AccessTokensIssued", MetricUnit.Count, 1)
         return Response(
             status_code=200,
             content_type="application/json",
@@ -225,6 +230,7 @@ class OAuthTokenRoute(BaseRoute):
             scope=scope,
             auth_at=int(time.time()),
         )
+        self._metrics.add_metric("AccessTokensIssued", MetricUnit.Count, 1)
         return Response(
             status_code=200,
             content_type="application/json",

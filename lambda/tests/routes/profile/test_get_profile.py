@@ -26,6 +26,7 @@ def route(mock_jwt_verifier, mock_auth_account_manager):
     return GetProfileRoute(
         jwt_verifier=mock_jwt_verifier,
         auth_account_manager=mock_auth_account_manager,
+        metrics=MagicMock(),
     )
 
 

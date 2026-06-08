@@ -7,6 +7,7 @@ from typing import Optional
 import mohawk
 import mohawk.exc
 from aws_lambda_powertools import Logger
+from aws_lambda_powertools.metrics import MetricUnit
 from botocore.exceptions import ClientError
 
 from src.services import fxa_crypto
@@ -37,6 +38,7 @@ class FxATokenManager:
     def __init__(
         self,
         table,
+        metrics,
         session_ttl_seconds: int = 2592000,
         keyfetch_ttl_seconds: int = 300,
     ):
@@ -44,10 +46,12 @@ class FxATokenManager:
 
         Args:
             table: DynamoDB Table resource (same auth table used by AuthAccountManager)
+            metrics: PowerTools Metrics instance
             session_ttl_seconds: Session token TTL (default 30 days)
             keyfetch_ttl_seconds: Key-fetch token TTL (default 5 minutes)
         """
         self.table = table
+        self._metrics = metrics
         self.session_ttl_seconds = session_ttl_seconds
         self.keyfetch_ttl_seconds = keyfetch_ttl_seconds
 
@@ -84,6 +88,7 @@ class FxATokenManager:
                 "reqHMACkey": req_hmac_key.hex(),
             }
         )
+        self._metrics.add_metric("SessionsCreated", MetricUnit.Count, 1)
 
         return token
 

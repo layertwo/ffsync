@@ -3,6 +3,7 @@
 import json
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.metrics import Metrics, MetricUnit
 
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.jwt_verifier import JWTVerifier
@@ -18,9 +19,11 @@ class GetProfileRoute(BaseRoute):
         self,
         jwt_verifier: JWTVerifier,
         auth_account_manager: AuthAccountManager,
+        metrics: Metrics,
     ):
         self._jwt_verifier = jwt_verifier
         self._auth_account_manager = auth_account_manager
+        self._metrics = metrics
 
     def bind(self, app: APIGatewayRestResolver):
         @app.get("/v1/profile")
@@ -32,16 +35,20 @@ class GetProfileRoute(BaseRoute):
         auth_header = headers.get("authorization", "")
 
         if not auth_header:
+            self._metrics.add_metric("JWTAuthFailure", MetricUnit.Count, 1)
             return self._error(401, 110, "Missing or invalid authorization")
 
         if not auth_header.startswith("Bearer "):
+            self._metrics.add_metric("JWTAuthFailure", MetricUnit.Count, 1)
             return self._error(401, 110, "Missing or invalid authorization")
 
         token = auth_header[len("Bearer ") :]
 
         try:
             claims = self._jwt_verifier.validate_token(token)
+            self._metrics.add_metric("JWTAuthSuccess", MetricUnit.Count, 1)
         except InvalidTokenError:
+            self._metrics.add_metric("JWTAuthFailure", MetricUnit.Count, 1)
             return self._error(401, 110, "Invalid or expired token")
 
         # Look up account by fxa_uid (from JWT) or fall back to oidcSub lookup
