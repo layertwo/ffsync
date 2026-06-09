@@ -1,7 +1,7 @@
-import {PythonFunction} from "uv-python-lambda";
 import {Construct} from "constructs";
 import {readFileSync} from "fs";
 import * as path from "path";
+import {PythonFunction} from "uv-python-lambda";
 
 import {Duration, RemovalPolicy, Stack, StackProps} from "aws-cdk-lib";
 import {
@@ -52,7 +52,7 @@ const DEFAULT_TABLE_PROPS: Partial<TableProps> = {
     encryption: TableEncryption.AWS_MANAGED,
     removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
     deletionProtection: true,
-}
+};
 
 export interface ServiceStackProps extends StackProps {
     stageType: StageType;
@@ -124,10 +124,14 @@ export class ServiceStack extends Stack {
         this.apiExecuteRole = this.buildApiExecuteRole();
 
         this.oidcProviderUrlParam = StringParameter.fromStringParameterName(
-            this, "OidcProviderUrl", `/ffsync/${props.stageType.toLowerCase()}/oidc-provider-url`,
+            this,
+            "OidcProviderUrl",
+            `/ffsync/${props.stageType.toLowerCase()}/oidc-provider-url`,
         );
         this.clientIdParam = StringParameter.fromStringParameterName(
-            this, "ClientId", `/ffsync/${props.stageType.toLowerCase()}/client-id`,
+            this,
+            "ClientId",
+            `/ffsync/${props.stageType.toLowerCase()}/client-id`,
         );
 
         // Tables
@@ -171,7 +175,7 @@ export class ServiceStack extends Stack {
             pointInTimeRecoverySpecification: {
                 pointInTimeRecoveryEnabled: true,
             },
-            ...DEFAULT_TABLE_PROPS
+            ...DEFAULT_TABLE_PROPS,
         });
 
         // Add GSI for efficient user collection queries
@@ -201,7 +205,7 @@ export class ServiceStack extends Stack {
             pointInTimeRecoverySpecification: {
                 pointInTimeRecoveryEnabled: true,
             },
-            ...DEFAULT_TABLE_PROPS
+            ...DEFAULT_TABLE_PROPS,
         });
     }
 
@@ -216,7 +220,7 @@ export class ServiceStack extends Stack {
             pointInTimeRecoverySpecification: {
                 pointInTimeRecoveryEnabled: true,
             },
-            ...DEFAULT_TABLE_PROPS
+            ...DEFAULT_TABLE_PROPS,
         });
 
         return table;
@@ -230,7 +234,7 @@ export class ServiceStack extends Stack {
             pointInTimeRecoverySpecification: {
                 pointInTimeRecoveryEnabled: true,
             },
-            ...DEFAULT_TABLE_PROPS
+            ...DEFAULT_TABLE_PROPS,
         });
     }
 
@@ -262,7 +266,16 @@ export class ServiceStack extends Stack {
                 TOKEN_DURATION: "300",
             },
             bundling: {
-                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/", "__pycache__/", "*.egg-info/"],
+                assetExcludes: [
+                    ".venv/",
+                    ".git/",
+                    "tests/",
+                    "htmlcov/",
+                    ".pytest_cache/",
+                    ".mypy_cache/",
+                    "__pycache__/",
+                    "*.egg-info/",
+                ],
             },
         });
 
@@ -297,7 +310,16 @@ export class ServiceStack extends Stack {
                 HAWK_TIMESTAMP_SKEW_TOLERANCE: "60",
             },
             bundling: {
-                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/", "__pycache__/", "*.egg-info/"],
+                assetExcludes: [
+                    ".venv/",
+                    ".git/",
+                    "tests/",
+                    "htmlcov/",
+                    ".pytest_cache/",
+                    ".mypy_cache/",
+                    "__pycache__/",
+                    "*.egg-info/",
+                ],
             },
         });
 
@@ -331,7 +353,16 @@ export class ServiceStack extends Stack {
                 RETRY_AFTER_SECONDS: "30",
             },
             bundling: {
-                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/", "__pycache__/", "*.egg-info/"],
+                assetExcludes: [
+                    ".venv/",
+                    ".git/",
+                    "tests/",
+                    "htmlcov/",
+                    ".pytest_cache/",
+                    ".mypy_cache/",
+                    "__pycache__/",
+                    "*.egg-info/",
+                ],
             },
         });
 
@@ -361,7 +392,16 @@ export class ServiceStack extends Stack {
                 AUTH_SIGNING_KEY_ID: this.signingKey.keyId,
             },
             bundling: {
-                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/", "__pycache__/", "*.egg-info/"],
+                assetExcludes: [
+                    ".venv/",
+                    ".git/",
+                    "tests/",
+                    "htmlcov/",
+                    ".pytest_cache/",
+                    ".mypy_cache/",
+                    "__pycache__/",
+                    "*.egg-info/",
+                ],
             },
         });
 
@@ -378,7 +418,7 @@ export class ServiceStack extends Stack {
             tableName: `ffsync-channel-${this.props.stageType.toLowerCase()}`,
             partitionKey: {name: "PK", type: AttributeType.STRING},
             timeToLiveAttribute: "expiry",
-            ...DEFAULT_TABLE_PROPS
+            ...DEFAULT_TABLE_PROPS,
         });
     }
 
@@ -397,7 +437,14 @@ export class ServiceStack extends Stack {
                 CHANNEL_TABLE_NAME: this.channelTable.tableName,
             },
             bundling: {
-                assetExcludes: [".venv/", ".git/", "tests/", "htmlcov/", ".pytest_cache/", ".mypy_cache/"],
+                assetExcludes: [
+                    ".venv/",
+                    ".git/",
+                    "tests/",
+                    "htmlcov/",
+                    ".pytest_cache/",
+                    ".mypy_cache/",
+                ],
             },
         });
 
@@ -408,7 +455,10 @@ export class ServiceStack extends Stack {
 
     private buildChannelWebSocketApi(): void {
         const stage = this.props.stageType.toLowerCase();
-        const integration = new WebSocketLambdaIntegration("ChannelIntegration", this.channelHandler);
+        const integration = new WebSocketLambdaIntegration(
+            "ChannelIntegration",
+            this.channelHandler,
+        );
 
         const wsApi = new WebSocketApi(this, "ChannelWebSocketApi", {
             apiName: `ffsync-channel-${stage}`,
@@ -523,9 +573,7 @@ export class ServiceStack extends Stack {
 
         openApiJson = openApiJson.replace(/CDK_LAMBDA_FUNCTION_ARN/g, handler.functionArn);
         openApiJson = openApiJson.replace(/CDK_API_ROLE_ARN/g, this.apiExecuteRole.roleArn);
-        openApiJson = openApiJson.replace(
-            /CDK_CORS_ORIGIN/g, `https://${this.stageBaseDomain}`,
-        );
+        openApiJson = openApiJson.replace(/CDK_CORS_ORIGIN/g, `https://${this.stageBaseDomain}`);
 
         return JSON.parse(openApiJson);
     }

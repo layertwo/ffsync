@@ -2,11 +2,10 @@ import {Construct} from "constructs";
 import * as path from "path";
 
 import {Duration, RemovalPolicy, Stack, StackProps} from "aws-cdk-lib";
-import {IStringParameter} from "aws-cdk-lib/aws-ssm";
 import {Certificate, DnsValidatedCertificate} from "aws-cdk-lib/aws-certificatemanager";
 import {
-    Distribution,
     Function as CfFunction,
+    Distribution,
     FunctionCode,
     FunctionEventType,
     PriceClass,
@@ -14,10 +13,17 @@ import {
     ViewerProtocolPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
 import {S3BucketOrigin} from "aws-cdk-lib/aws-cloudfront-origins";
-import {HostedZone, IHostedZone, RecordSet, RecordTarget, RecordType} from "aws-cdk-lib/aws-route53";
+import {
+    HostedZone,
+    IHostedZone,
+    RecordSet,
+    RecordTarget,
+    RecordType,
+} from "aws-cdk-lib/aws-route53";
 import {CloudFrontTarget} from "aws-cdk-lib/aws-route53-targets";
 import {BlockPublicAccess, Bucket} from "aws-cdk-lib/aws-s3";
 import {BucketDeployment, Source} from "aws-cdk-lib/aws-s3-deployment";
+import {IStringParameter} from "aws-cdk-lib/aws-ssm";
 
 import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
 
@@ -52,7 +58,7 @@ export class FrontendStack extends Stack {
             hostedZoneId: HOSTED_ZONE_ID,
             zoneName: BASE_DOMAIN,
         });
-        this.bucket = this.buildBucket()
+        this.bucket = this.buildBucket();
         this.certificate = this.buildCertificate();
         this.wellKnownFunction = this.buildWellKnownFunction();
 
@@ -91,22 +97,24 @@ export class FrontendStack extends Stack {
         });
 
         return new CfFunction(this, "WellKnownFunction", {
-            code: FunctionCode.fromInline([
-                "function handler(event) {",
-                "  if (event.request.uri === '/.well-known/fxa-client-configuration') {",
-                "    return {",
-                "      statusCode: 200,",
-                "      statusDescription: 'OK',",
-                "      headers: {",
-                "        'content-type': { value: 'application/json' },",
-                "        'cache-control': { value: 'public, max-age=3600' }",
-                "      },",
-                `      body: '${configJson}'`,
-                "    };",
-                "  }",
-                "  return event.request;",
-                "}",
-            ].join("\n")),
+            code: FunctionCode.fromInline(
+                [
+                    "function handler(event) {",
+                    "  if (event.request.uri === '/.well-known/fxa-client-configuration') {",
+                    "    return {",
+                    "      statusCode: 200,",
+                    "      statusDescription: 'OK',",
+                    "      headers: {",
+                    "        'content-type': { value: 'application/json' },",
+                    "        'cache-control': { value: 'public, max-age=3600' }",
+                    "      },",
+                    `      body: '${configJson}'`,
+                    "    };",
+                    "  }",
+                    "  return event.request;",
+                    "}",
+                ].join("\n"),
+            ),
         });
     }
 
@@ -115,10 +123,12 @@ export class FrontendStack extends Stack {
             defaultBehavior: {
                 origin: S3BucketOrigin.withOriginAccessControl(this.bucket),
                 viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-                functionAssociations: [{
-                    function: this.wellKnownFunction,
-                    eventType: FunctionEventType.VIEWER_REQUEST,
-                }],
+                functionAssociations: [
+                    {
+                        function: this.wellKnownFunction,
+                        eventType: FunctionEventType.VIEWER_REQUEST,
+                    },
+                ],
             },
             domainNames: [this.domainName],
             certificate: this.certificate,
@@ -140,7 +150,6 @@ export class FrontendStack extends Stack {
                 },
             ],
         });
-
 
         [RecordType.A, RecordType.AAAA].map((recordType) => {
             new RecordSet(this, `${recordType}RecordSet`, {
