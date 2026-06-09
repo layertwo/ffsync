@@ -3,7 +3,7 @@ import {readFileSync} from "fs";
 import * as path from "path";
 import {PythonFunction} from "uv-python-lambda";
 
-import {Duration, RemovalPolicy, Stack, StackProps} from "aws-cdk-lib";
+import {DockerImage, Duration, RemovalPolicy, Stack, StackProps} from "aws-cdk-lib";
 import {
     AccessLogFormat,
     ApiDefinition,
@@ -58,11 +58,23 @@ export interface ServiceStackProps extends StackProps {
     stageType: StageType;
 }
 
+const BUNDLING_ASSET_EXCLUDES = [
+    ".venv/",
+    ".git/",
+    "tests/",
+    "htmlcov/",
+    ".pytest_cache/",
+    ".mypy_cache/",
+    "__pycache__/",
+    "*.egg-info/",
+];
+
 export class ServiceStack extends Stack {
     private readonly props: ServiceStackProps;
 
     private readonly hostedZone: IHostedZone;
     private readonly apiExecuteRole: Role;
+    private readonly bundlingImage: DockerImage;
 
     public readonly oidcProviderUrlParam: IStringParameter;
     public readonly clientIdParam: IStringParameter;
@@ -122,6 +134,7 @@ export class ServiceStack extends Stack {
             zoneName: BASE_DOMAIN,
         });
         this.apiExecuteRole = this.buildApiExecuteRole();
+        this.bundlingImage = this.buildBundlingImage();
 
         this.oidcProviderUrlParam = StringParameter.fromStringParameterName(
             this,
@@ -247,6 +260,17 @@ export class ServiceStack extends Stack {
         });
     }
 
+    private buildBundlingImage(): DockerImage {
+        return DockerImage.fromBuild(path.join(__dirname, "../../docker/bundling"), {
+            buildArgs: {
+                IMAGE: Runtime.PYTHON_3_14.bundlingImage.image,
+            },
+            platform: Architecture.ARM_64.dockerPlatform,
+            cacheFrom: [{type: "gha", params: {scope: "ffsync-lambda-bundling"}}],
+            cacheTo: {type: "gha", params: {mode: "max", scope: "ffsync-lambda-bundling"}},
+        });
+    }
+
     private buildStorageApiHandler(): PythonFunction {
         const fn = new PythonFunction(this, "ApiHandler", {
             rootDir: path.join(__dirname, "../../lambda"),
@@ -266,16 +290,8 @@ export class ServiceStack extends Stack {
                 TOKEN_DURATION: "300",
             },
             bundling: {
-                assetExcludes: [
-                    ".venv/",
-                    ".git/",
-                    "tests/",
-                    "htmlcov/",
-                    ".pytest_cache/",
-                    ".mypy_cache/",
-                    "__pycache__/",
-                    "*.egg-info/",
-                ],
+                image: this.bundlingImage,
+                assetExcludes: BUNDLING_ASSET_EXCLUDES,
             },
         });
 
@@ -310,16 +326,8 @@ export class ServiceStack extends Stack {
                 HAWK_TIMESTAMP_SKEW_TOLERANCE: "60",
             },
             bundling: {
-                assetExcludes: [
-                    ".venv/",
-                    ".git/",
-                    "tests/",
-                    "htmlcov/",
-                    ".pytest_cache/",
-                    ".mypy_cache/",
-                    "__pycache__/",
-                    "*.egg-info/",
-                ],
+                image: this.bundlingImage,
+                assetExcludes: BUNDLING_ASSET_EXCLUDES,
             },
         });
 
@@ -353,16 +361,8 @@ export class ServiceStack extends Stack {
                 RETRY_AFTER_SECONDS: "30",
             },
             bundling: {
-                assetExcludes: [
-                    ".venv/",
-                    ".git/",
-                    "tests/",
-                    "htmlcov/",
-                    ".pytest_cache/",
-                    ".mypy_cache/",
-                    "__pycache__/",
-                    "*.egg-info/",
-                ],
+                image: this.bundlingImage,
+                assetExcludes: BUNDLING_ASSET_EXCLUDES,
             },
         });
 
@@ -392,16 +392,8 @@ export class ServiceStack extends Stack {
                 AUTH_SIGNING_KEY_ID: this.signingKey.keyId,
             },
             bundling: {
-                assetExcludes: [
-                    ".venv/",
-                    ".git/",
-                    "tests/",
-                    "htmlcov/",
-                    ".pytest_cache/",
-                    ".mypy_cache/",
-                    "__pycache__/",
-                    "*.egg-info/",
-                ],
+                image: this.bundlingImage,
+                assetExcludes: BUNDLING_ASSET_EXCLUDES,
             },
         });
 
@@ -437,14 +429,8 @@ export class ServiceStack extends Stack {
                 CHANNEL_TABLE_NAME: this.channelTable.tableName,
             },
             bundling: {
-                assetExcludes: [
-                    ".venv/",
-                    ".git/",
-                    "tests/",
-                    "htmlcov/",
-                    ".pytest_cache/",
-                    ".mypy_cache/",
-                ],
+                image: this.bundlingImage,
+                assetExcludes: BUNDLING_ASSET_EXCLUDES,
             },
         });
 
