@@ -11,15 +11,17 @@
         "watch": "tsc -w"
     },
     "dependencies": {
-        "uv-python-lambda": "^0.0.7",
         "aws-cdk": "^2.1120.0",
         "aws-cdk-lib": "^2.252.0",
         "cdk-monitoring-constructs": "^10.0.0",
         "constructs": "^10.6.0",
         "env-var": "^7.5.0",
-        "source-map-support": "^0.5.21"
+        "source-map-support": "^0.5.21",
+        "uv-python-lambda": "^0.0.7"
     },
     "devDependencies": {
+        "@eslint/eslintrc": "^3.3.5",
+        "@eslint/js": "^10.0.1",
         "@stylistic/eslint-plugin-js": "^4.4.1",
         "@trivago/prettier-plugin-sort-imports": "^6.0.0",
         "@types/jest": "^30.0.0",
