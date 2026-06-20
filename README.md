@@ -38,13 +38,13 @@
 | src/routes/auth/session\_status.py            |       16 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/\_\_init\_\_.py                |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/delete.py                      |       40 |        0 |        2 |        0 |     100% |           |
-| src/routes/bso/read.py                        |       57 |        0 |       12 |        0 |     100% |           |
+| src/routes/bso/read.py                        |       56 |        0 |       12 |        0 |     100% |           |
 | src/routes/bso/update.py                      |       70 |        0 |        8 |        0 |     100% |           |
 | src/routes/collections/\_\_init\_\_.py        |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/collections/create.py              |       81 |        0 |       20 |        0 |     100% |           |
+| src/routes/collections/create.py              |       82 |        0 |       20 |        0 |     100% |           |
 | src/routes/collections/delete.py              |       41 |        0 |        4 |        0 |     100% |           |
-| src/routes/collections/list.py                |       26 |        0 |        2 |        0 |     100% |           |
-| src/routes/collections/read.py                |       80 |        0 |       24 |        0 |     100% |           |
+| src/routes/collections/list.py                |       25 |        0 |        2 |        0 |     100% |           |
+| src/routes/collections/read.py                |       74 |        0 |       20 |        0 |     100% |           |
 | src/routes/collections/update.py              |       58 |        0 |        8 |        0 |     100% |           |
 | src/routes/info/\_\_init\_\_.py               |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/info/read\_collections.py          |       24 |        0 |        2 |        0 |     100% |           |
@@ -70,18 +70,19 @@
 | src/services/jwt\_verifier.py                 |       62 |        0 |       14 |        0 |     100% |           |
 | src/services/oauth\_code\_manager.py          |       63 |        0 |       16 |        0 |     100% |           |
 | src/services/oidc\_validator.py               |      116 |        0 |       14 |        0 |     100% |           |
-| src/services/storage\_manager.py              |      282 |        0 |      100 |        0 |     100% |           |
+| src/services/storage\_manager.py              |      274 |        0 |      100 |        0 |     100% |           |
 | src/services/token\_generator.py              |       20 |        0 |        0 |        0 |     100% |           |
 | src/services/user\_manager.py                 |       87 |        0 |       26 |        0 |     100% |           |
 | src/shared/\_\_init\_\_.py                    |        0 |        0 |        0 |        0 |     100% |           |
+| src/shared/\_codegen\_base.py                 |        3 |        0 |        0 |        0 |     100% |           |
 | src/shared/base\_route.py                     |        6 |        0 |        0 |        0 |     100% |           |
 | src/shared/exceptions.py                      |      166 |        0 |        8 |        0 |     100% |           |
-| src/shared/models.py                          |      166 |        0 |       30 |        0 |     100% |           |
+| src/shared/models.py                          |      109 |        0 |       22 |        0 |     100% |           |
 | src/shared/oidc.py                            |       11 |        0 |        0 |        0 |     100% |           |
 | src/shared/token.py                           |        3 |        0 |        0 |        0 |     100% |           |
-| src/shared/user.py                            |        9 |        0 |        0 |        0 |     100% |           |
+| src/shared/user.py                            |        8 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                           |       15 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                                     | **3379** |    **0** |  **584** |    **0** | **100%** |           |
+| **TOTAL**                                     | **3309** |    **0** |  **572** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
