@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from pydantic import BaseModel
+
 
 @dataclass
 class OIDCTokenClaims:
@@ -48,8 +50,7 @@ class OIDCProviderConfig:
     userinfo_endpoint: str
 
 
-@dataclass
-class ErrorDetail:
+class ErrorDetail(BaseModel):
     """
     Error detail for Firefox Sync protocol error responses
 
@@ -62,3 +63,18 @@ class ErrorDetail:
     location: str
     name: str
     description: str
+
+
+class TokenServerError(BaseModel):
+    """
+    Mozilla token-server error response envelope.
+
+    Wire shape: {"status": <error-type>, "errors": [ErrorDetail, ...]}
+
+    Field names mirror the Mozilla wire format exactly so that, if this shape is
+    later added to the Smithy model as a plain structure, the generated model is a
+    drop-in replacement (same as TokenOutput ↔ GetTokenResponseContent).
+    """
+
+    status: str
+    errors: list[ErrorDetail]

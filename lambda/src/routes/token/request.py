@@ -1,6 +1,5 @@
 """RequestToken route for Firefox Sync Token Server"""
 
-import json
 import re
 from dataclasses import asdict
 
@@ -22,6 +21,7 @@ from src.shared.exceptions import (
     ValidationException,
 )
 from src.shared.models import TokenOutput
+from src.shared.oidc import ErrorDetail, TokenServerError
 from src.shared.utils import get_weave_timestamp
 
 logger = Logger("token-server")
@@ -322,10 +322,10 @@ class GetTokenRoute(BaseRoute):
         else:
             logger.warning(log_message, extra=log_extra)
 
-        body = {
-            "status": error_type,
-            "errors": [{"location": location, "name": name, "description": description}],
-        }
+        body = TokenServerError(
+            status=error_type,
+            errors=[ErrorDetail(location=location, name=name, description=description)],
+        )
 
         # Build headers based on status code
         headers = {"X-Timestamp": str(int(float(get_weave_timestamp())))}
@@ -341,6 +341,6 @@ class GetTokenRoute(BaseRoute):
         return Response(
             status_code=status_code,
             content_type="application/json",
-            body=json.dumps(body),
+            body=body.model_dump_json(),
             headers=headers,
         )
