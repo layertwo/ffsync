@@ -25,5 +25,17 @@ structure GetProfileOutput {
     uid: String
 
     @documentation("User locale")
-    locale: String
+    locale: String = "en-US"
+
+    @required
+    @documentation("URL to user avatar image")
+    avatar: String
+
+    @required
+    @documentation("Whether the avatar is the default placeholder")
+    avatarDefault: Boolean
+
+    @required
+    @documentation("OIDC subject identifier")
+    sub: String
 }

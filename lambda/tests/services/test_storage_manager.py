@@ -1,6 +1,5 @@
 """Unit tests for StorageManager with DynamoDB stubber"""
 
-from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
@@ -47,7 +46,7 @@ class TestStorageManager:
         collection = storage_manager.get_collection("test-user-123", "bookmarks")
 
         assert collection.name == "bookmarks"
-        assert collection.modified == datetime.fromtimestamp(1234567890.12, tz=timezone.utc)
+        assert collection.modified == 1234567890.12
         assert collection.count == 5
         assert collection.usage == 1024
 
@@ -98,9 +97,8 @@ class TestStorageManager:
 
         assert obj.id == "obj123"
         assert obj.payload == "test_payload"
-        assert obj.modified == datetime.fromtimestamp(1234567890.12, tz=timezone.utc)
+        assert obj.modified == 1234567890.12
         assert obj.sortindex == 100
-        assert obj.ttl == 3600
 
     def test_get_storage_object_not_found(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -149,9 +147,8 @@ class TestStorageManager:
 
         assert obj.id == "obj123"
         assert obj.payload == "test_payload"
-        assert obj.modified == datetime.fromtimestamp(1234567890.12, tz=timezone.utc)
+        assert obj.modified == 1234567890.12
         assert obj.sortindex is None
-        assert obj.ttl is None
 
     def test_create_or_update_collection_without_objects(
         self,
@@ -202,7 +199,7 @@ class TestStorageManager:
         assert collection.modified == mock_timestamp_datetime
         assert collection.count == 0
         assert collection.usage == 0
-        assert batch_result.success == []
+        assert batch_result.model_dump()["success"] == []
         assert batch_result.failed == {}
 
     def test_create_or_update_collection_with_objects(
@@ -218,14 +215,14 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload="payload1",
-                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+                modified=mock_timestamp,
                 sortindex=100,
                 ttl=3600,
             ),
             BasicStorageObject(
                 id="obj2",
                 payload="payload2",
-                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+                modified=mock_timestamp,
             ),
         ]
 
@@ -256,7 +253,7 @@ class TestStorageManager:
                     "SK": "METADATA",
                     "user_id": "test-user-123",
                     "name": "bookmarks",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "modified": Decimal(str(mock_timestamp)),
                     "count": 2,
                     "usage": len("payload1") + len("payload2"),
                 },
@@ -269,7 +266,7 @@ class TestStorageManager:
 
         assert collection.name == "bookmarks"
         assert collection.count == 2
-        assert batch_result.success == ["obj1", "obj2"]
+        assert batch_result.model_dump()["success"] == ["obj1", "obj2"]
         assert batch_result.failed == {}
 
     def test_update_collection(
@@ -307,7 +304,7 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload="newpayload",
-                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+                modified=mock_timestamp,
             )
         ]
 
@@ -329,7 +326,7 @@ class TestStorageManager:
 
         assert collection.name == "bookmarks"
         assert collection.count == 2  # 1 existing + 1 new
-        assert batch_result.success == ["obj1"]
+        assert batch_result.model_dump()["success"] == ["obj1"]
 
     def test_update_collection_not_found(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -351,7 +348,7 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload="payload",
-                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                modified=1234567890.12,
             )
         ]
 
@@ -592,7 +589,7 @@ class TestStorageManager:
         assert result["items"][0].id == "obj1"  # sorted by newest first
         assert result["items"][1].id == "obj2"
         assert result["more"] is False
-        assert result["last_modified"] == datetime.fromtimestamp(1234567891.00, tz=timezone.utc)
+        assert result["last_modified"] == 1234567891.00
 
     def test_get_collection_objects_with_filters(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -716,9 +713,8 @@ class TestStorageManager:
                     "SK": "OBJECT#obj123",
                     "id": "obj123",
                     "payload": "new_payload",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "modified": Decimal(str(mock_timestamp)),
                     "sortindex": 100,
-                    "ttl": None,
                 },
             },
         )
@@ -732,7 +728,7 @@ class TestStorageManager:
 
         assert updated_obj.id == "obj123"
         assert updated_obj.payload == "new_payload"
-        assert updated_obj.modified == datetime.fromtimestamp(mock_timestamp, tz=timezone.utc)
+        assert updated_obj.modified == mock_timestamp
         assert updated_obj.sortindex == 100
 
     def test_update_storage_object_not_found(
@@ -878,7 +874,7 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload="payload1",
-                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+                modified=mock_timestamp,
             )
         ]
 
@@ -946,7 +942,7 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload="newpayload",
-                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+                modified=mock_timestamp,
             )
         ]
 
@@ -1148,7 +1144,6 @@ class TestStorageManager:
 
         assert updated_obj.payload == "new_payload"
         assert updated_obj.sortindex == 150
-        assert updated_obj.ttl == 7200
 
     def test_get_collection_client_error_other(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -1197,7 +1192,7 @@ class TestStorageManager:
 
         assert len(result["items"]) == 0
         assert result["more"] is False
-        assert result["last_modified"] == datetime.fromtimestamp(0.0, tz=timezone.utc)
+        assert result["last_modified"] == 0.0
 
     def test_update_collection_with_mixed_success_fail(
         self,
@@ -1238,12 +1233,12 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload="payload1",
-                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+                modified=mock_timestamp,
             ),
             BasicStorageObject(
                 id="obj2",
                 payload="payload2",
-                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+                modified=mock_timestamp,
             ),
         ]
 
@@ -1263,9 +1258,10 @@ class TestStorageManager:
             "test-user-123", "bookmarks", objects
         )
 
-        assert len(batch_result.success) == 2
-        assert "obj1" in batch_result.success
-        assert "obj2" in batch_result.success
+        success_ids = batch_result.model_dump()["success"]
+        assert len(success_ids) == 2
+        assert "obj1" in success_ids
+        assert "obj2" in success_ids
         assert len(batch_result.failed) == 0
 
     def test_update_collection_with_sortindex_and_ttl(
@@ -1303,7 +1299,7 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload="payload1",
-                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+                modified=mock_timestamp,
                 sortindex=150,
                 ttl=7200,
             )
@@ -1368,9 +1364,7 @@ class TestStorageManager:
         # Stub update_item for collection metadata upsert
         dynamodb_stubber.add_response("update_item", {}, None)
 
-        updated_obj = storage_manager.update_storage_object("test-user-123", "bookmarks", "obj123")
-
-        assert updated_obj.ttl == 3600
+        storage_manager.update_storage_object("test-user-123", "bookmarks", "obj123")
 
     def test_update_storage_object_without_sortindex(
         self,
@@ -1416,7 +1410,6 @@ class TestStorageManager:
         updated_obj = storage_manager.update_storage_object("test-user-123", "bookmarks", "obj123")
 
         assert updated_obj.sortindex is None
-        assert updated_obj.ttl == 3600
 
     def test_get_collection_objects_invalid_sort(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -1457,7 +1450,7 @@ class TestStorageManager:
         )
 
         assert len(result["items"]) == 2
-        assert result["last_modified"] == datetime.fromtimestamp(1234567891.00, tz=timezone.utc)
+        assert result["last_modified"] == 1234567891.00
 
     def test_update_storage_object_with_only_sortindex(
         self,
@@ -1500,9 +1493,8 @@ class TestStorageManager:
                     "SK": "OBJECT#obj123",
                     "id": "obj123",
                     "payload": "old_payload",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "modified": Decimal(str(mock_timestamp)),
                     "sortindex": 200,
-                    "ttl": None,
                 },
             },
         )
@@ -1515,7 +1507,6 @@ class TestStorageManager:
         )
 
         assert updated_obj.sortindex == 200
-        assert updated_obj.ttl is None
 
     def test_update_storage_object_with_sortindex_no_ttl(
         self,
@@ -1564,7 +1555,6 @@ class TestStorageManager:
         )
 
         assert updated_obj.sortindex == 100
-        assert updated_obj.ttl == 3600
 
     def test_update_storage_object_sortindex_without_ttl(
         self,
@@ -1608,9 +1598,8 @@ class TestStorageManager:
                     "SK": "OBJECT#obj123",
                     "id": "obj123",
                     "payload": "old_payload",
-                    "modified": Decimal(datetime.fromtimestamp(mock_timestamp).timestamp()),
+                    "modified": Decimal(str(mock_timestamp)),
                     "sortindex": 100,
-                    "ttl": None,
                 },
             },
         )
@@ -1621,7 +1610,6 @@ class TestStorageManager:
         updated_obj = storage_manager.update_storage_object("test-user-123", "bookmarks", "obj123")
 
         assert updated_obj.sortindex == 100
-        assert updated_obj.ttl is None
 
     def test_create_collection_batch_limit_exceeded(
         self, storage_manager, dynamodb_stubber, storage_table_name
@@ -1634,7 +1622,7 @@ class TestStorageManager:
             BasicStorageObject(
                 id=f"obj{i}",
                 payload="x",
-                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                modified=1234567890.12,
             )
             for i in range(101)
         ]
@@ -1654,7 +1642,7 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload=large_payload,
-                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                modified=1234567890.12,
             )
         ]
 
@@ -1746,7 +1734,7 @@ class TestStorageManager:
             BasicStorageObject(
                 id=f"obj{i}",
                 payload="x",
-                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                modified=1234567890.12,
             )
             for i in range(101)
         ]
@@ -1766,7 +1754,7 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload=large_payload,
-                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                modified=1234567890.12,
             )
         ]
 
@@ -2484,7 +2472,7 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload=new_payload,
-                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+                modified=mock_timestamp,
             )
         ]
 
@@ -2525,7 +2513,7 @@ class TestStorageManager:
         assert (
             collection.count == 1
         ), f"Overwriting existing BSO must not increment count; got {collection.count}"
-        assert batch_result.success == ["obj1"]
+        assert batch_result.model_dump()["success"] == ["obj1"]
 
     # ── TDD: tests written before code fixes (these fail until fixed) ─────────
 
@@ -2568,7 +2556,7 @@ class TestStorageManager:
             BasicStorageObject(
                 id="obj1",
                 payload="newpayload",
-                modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+                modified=mock_timestamp,
             )
         ]
 
@@ -2606,7 +2594,7 @@ class TestStorageManager:
         assert (
             collection.count == 1
         ), f"Updating existing BSO must not increment count; got {collection.count}"
-        assert batch_result.success == ["obj1"]
+        assert batch_result.model_dump()["success"] == ["obj1"]
 
     def test_delete_collection_with_pagination(
         self,
@@ -2843,7 +2831,7 @@ class TestStorageManager:
         obj = BasicStorageObject(
             id="obj1",
             payload=new_payload,
-            modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+            modified=mock_timestamp,
         )
 
         # Collection existence check — found, so collection_exists=True
@@ -2903,7 +2891,7 @@ class TestStorageManager:
         # Count stays at 5 (no new objects), usage increments by (10 - 3) = 7
         assert collection.count == 5
         assert collection.usage == 107
-        assert batch_result.success == ["obj1"]
+        assert batch_result.model_dump()["success"] == ["obj1"]
         assert batch_result.failed == {}
 
     def test_create_or_update_collection_adds_new_bso_to_existing_collection(
@@ -2925,7 +2913,7 @@ class TestStorageManager:
         obj = BasicStorageObject(
             id="obj_new",
             payload=new_payload,
-            modified=datetime.fromtimestamp(mock_timestamp, tz=timezone.utc),
+            modified=mock_timestamp,
         )
 
         # Collection existence check — found, so collection_exists=True
@@ -2970,7 +2958,7 @@ class TestStorageManager:
         # Count goes from 3 → 4 (one new BSO), usage goes from 50 → 59 (+9 bytes)
         assert collection.count == 4
         assert collection.usage == 59
-        assert batch_result.success == ["obj_new"]
+        assert batch_result.model_dump()["success"] == ["obj_new"]
         assert batch_result.failed == {}
 
     def test_get_collection_objects_not_full(

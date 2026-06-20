@@ -33,19 +33,22 @@ structure BasicStorageObject {
 }
 
 /// Storage Object input for create/update operations
+///
+/// Per SyncStorage 1.5, PUT bodies are partial updates: any field may be
+/// omitted. Use this same shape for both single-object PUT and batch POST.
 structure BasicStorageObjectInput {
     @documentation("Unique identifier within the collection")
-    @required
     id: ObjectId
 
     @documentation("JSON payload of the storage object")
-    @required
     payload: String
 
     @documentation("Sort index for ordering")
+    @range(min: -999999999, max: 999999999)
     sortindex: Integer
 
     @documentation("Time-to-live in seconds")
+    @range(min: 1, max: 999999999)
     ttl: Integer
 }
 

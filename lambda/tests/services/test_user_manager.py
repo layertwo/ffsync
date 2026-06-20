@@ -1,6 +1,5 @@
 """Unit tests for UserManager with DynamoDB stubber"""
 
-from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
@@ -99,7 +98,7 @@ class TestUserManager:
         assert user.user_id == user_id
         assert user.generation == 5
         assert user.client_state == ""
-        assert user.created_at == datetime.fromtimestamp(existing_timestamp, tz=timezone.utc)
+        assert user.created_at == existing_timestamp
 
     def test_get_or_create_user_dynamodb_unavailable(
         self,
@@ -471,7 +470,7 @@ class TestUserManager:
         assert user.user_id == user_id
         assert user.generation == 5  # Generation unchanged
         assert user.client_state == client_state
-        assert user.created_at == datetime.fromtimestamp(existing_timestamp, tz=timezone.utc)
+        assert user.created_at == existing_timestamp
 
     def test_get_or_create_user_existing_user_different_client_state(
         self,
@@ -553,8 +552,8 @@ class TestUserManager:
         assert user.generation == 6  # Generation incremented
         assert user.client_state == new_client_state
         assert user.client_state_history == [old_client_state]  # History updated
-        assert user.created_at == datetime.fromtimestamp(existing_timestamp, tz=timezone.utc)
-        assert user.updated_at == datetime.fromtimestamp(mock_timestamp, tz=timezone.utc)
+        assert user.created_at == existing_timestamp
+        assert user.updated_at == mock_timestamp
 
     def test_get_or_create_user_client_state_change_dynamodb_unavailable(
         self,

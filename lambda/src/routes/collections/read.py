@@ -8,7 +8,6 @@ from src.shared.base_route import BaseRoute
 from src.shared.exceptions import ValidationException
 from src.shared.models import (
     BSOListAdapter,
-    BSOOutput,
     ValidationError,
     validate_collection_name,
 )
@@ -93,14 +92,8 @@ class ReadCollectionRoute(BaseRoute):
                 full=self._parse_bool(query_params.get("full", "1")),
             )
 
-            # Get last modified timestamp
-            last_modified = objects.get("last_modified")
-            if isinstance(last_modified, float):
-                last_modified_ts = last_modified
-            elif last_modified is not None and hasattr(last_modified, "timestamp"):
-                last_modified_ts = last_modified.timestamp()
-            else:
-                last_modified_ts = 0.0
+            # last_modified is now a float (epoch seconds) from storage_manager
+            last_modified_ts = objects.get("last_modified") or 0.0
 
             # Check conditional GET (Requirement 6.1, 6.2)
             if if_modified_since:
@@ -120,10 +113,12 @@ class ReadCollectionRoute(BaseRoute):
             response_headers = {"X-Last-Modified": str(last_modified_ts)}
 
             if full:
-                # Return full BSO objects (without TTL field per Requirement 11.4)
-                bso_models = [BSOOutput.from_bso(obj) for obj in items]
-                response_headers["X-Weave-Records"] = str(len(bso_models))
-                body = BSOListAdapter.dump_json(bso_models, exclude_none=True).decode()
+                # TTL is write-only per Mozilla spec (Requirement 11.4); exclude
+                # from response since storage carries it as an extra field.
+                response_headers["X-Weave-Records"] = str(len(items))
+                body = BSOListAdapter.dump_json(
+                    items, exclude_none=True, exclude={"__all__": {"ttl"}}
+                ).decode()
             else:
                 # Return just BSO IDs
                 ids = [obj.id for obj in items]

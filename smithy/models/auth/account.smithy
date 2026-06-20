@@ -56,7 +56,7 @@ structure AccountCreateInput {
 
     @required
     @documentation("Stretched password (authPW) as hex string")
-    authPW: String
+    authPW: AuthPWHex
 }
 
 @output
@@ -98,7 +98,7 @@ structure AccountLoginInput {
 
     @required
     @documentation("Stretched password (authPW) as hex string")
-    authPW: String
+    authPW: AuthPWHex
 
     @httpQuery("keys")
     @documentation("If true, include keyFetchToken in the response")
@@ -194,3 +194,7 @@ structure ScopedKeyDataEntry {
     @documentation("Key rotation timestamp in epoch milliseconds")
     keyRotationTimestamp: Long
 }
+
+@pattern("^[0-9a-f]{64}$")
+@length(min: 64, max: 64)
+string AuthPWHex

@@ -103,9 +103,8 @@ structure OAuthTokenOutput {
     @documentation("JWT access token")
     access_token: String
 
-    @required
     @documentation("Token type (always 'bearer')")
-    token_type: String
+    token_type: String = "bearer"
 
     @required
     @documentation("Token validity duration in seconds")
@@ -118,6 +117,7 @@ structure OAuthTokenOutput {
     @documentation("Refresh token for obtaining new access tokens")
     refresh_token: String
 
+    @required
     @documentation("Authentication timestamp in seconds")
     auth_at: Long
 

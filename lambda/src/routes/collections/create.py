@@ -1,5 +1,4 @@
 import json
-from datetime import datetime, timezone
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -93,6 +92,7 @@ class CreateCollectionRoute(BaseRoute):
             # Parse objects from request body - support application/json only
             # API Gateway will reject unsupported Content-Types
             objects = []
+            ttls: dict[str, int] = {}
             if body:
                 try:
                     body_data = json.loads(body)
@@ -111,13 +111,13 @@ class CreateCollectionRoute(BaseRoute):
                             id=obj["id"],
                             payload=obj["payload"],
                             sortindex=obj.get("sortindex"),
-                            ttl=obj.get("ttl"),
-                            modified=datetime.fromtimestamp(
-                                0, tz=timezone.utc
-                            ),  # Will be set by storage manager
+                            modified=0.0,  # set by storage_manager
                         )
                         for obj in objects_data
                     ]
+                    ttls = {
+                        obj["id"]: obj["ttl"] for obj in objects_data if obj.get("ttl") is not None
+                    }
                 except (json.JSONDecodeError, KeyError) as e:
                     raise ValidationException(f"Invalid request body: {e}")
 
@@ -131,11 +131,11 @@ class CreateCollectionRoute(BaseRoute):
 
             # Create/update collection using storage manager
             collection_data, batch_result = self.storage_manager.create_or_update_collection(
-                user_id, collection_name, objects if objects else None
+                user_id, collection_name, objects if objects else None, ttls=ttls or None
             )
 
             # Return Mozilla-compliant response format (Requirement 3.2)
-            modified_ts = collection_data.modified.timestamp()
+            modified_ts = collection_data.modified
             result = BatchResultOutput(
                 modified=modified_ts,
                 success=batch_result.success,
@@ -187,6 +187,6 @@ class CreateCollectionRoute(BaseRoute):
         try:
             timestamp = float(if_unmodified_since)
             collection = self.storage_manager.get_collection(user_id, collection_name)
-            return collection.modified <= datetime.fromtimestamp(timestamp, tz=timezone.utc)
+            return collection.modified <= timestamp
         except ValueError, Exception:  # pragma: nocover
             return True  # If we can't check, allow the operation

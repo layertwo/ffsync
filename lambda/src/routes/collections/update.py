@@ -1,5 +1,4 @@
 import json
-from datetime import datetime, timezone
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -69,13 +68,11 @@ class UpdateCollectionRoute(BaseRoute):
                         id=obj["id"],
                         payload=obj["payload"],
                         sortindex=obj.get("sortindex"),
-                        ttl=obj.get("ttl"),
-                        modified=datetime.fromtimestamp(
-                            0, tz=timezone.utc
-                        ),  # Will be set by DynamoDB service
+                        modified=0.0,  # set by storage_manager
                     )
                     for obj in objects_data
                 ]
+                ttls = {obj["id"]: obj["ttl"] for obj in objects_data if obj.get("ttl") is not None}
             except (json.JSONDecodeError, KeyError) as e:
                 raise ValidationException(f"Invalid request body: {e}")
 
@@ -94,10 +91,11 @@ class UpdateCollectionRoute(BaseRoute):
                 collection_name=collection_name,
                 objects=objects,
                 if_unmodified_since=if_unmodified_since,
+                ttls=ttls or None,
             )
 
             # Return Mozilla-compliant response format
-            modified_ts = collection_data.modified.timestamp()
+            modified_ts = collection_data.modified
             result = BatchResultOutput(
                 modified=modified_ts,
                 success=batch_result.success,

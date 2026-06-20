@@ -1,7 +1,6 @@
 """Tests for BSO route handlers"""
 
 import json
-from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
@@ -72,7 +71,7 @@ class TestReadBSORoute:
         bso = BasicStorageObject(
             id="item123",
             payload="bookmark_data",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             sortindex=100,
             ttl=3600,
         )
@@ -113,7 +112,7 @@ class TestReadBSORoute:
         bso = BasicStorageObject(
             id="obj456",
             payload="history_data",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             sortindex=None,
             ttl=None,
         )
@@ -238,7 +237,7 @@ class TestUpdateBSORoute:
         updated_bso = BasicStorageObject(
             id="item123",
             payload="data",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             sortindex=None,
             ttl=None,
         )
@@ -290,7 +289,7 @@ class TestUpdateBSORoute:
         updated_bso = BasicStorageObject(
             id="item123",
             payload="updated_data",
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
             sortindex=200,
             ttl=7200,
         )
@@ -386,7 +385,7 @@ class TestUpdateBSORoute:
         updated_bso = BasicStorageObject(
             id="item123",
             payload="data",
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
             sortindex=None,
             ttl=None,
         )
@@ -771,7 +770,7 @@ class TestReadBSORouteConditionalGET:
         bso = BasicStorageObject(
             id="item123",
             payload="data",
-            modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+            modified=1234567890.12,
             sortindex=None,
             ttl=None,
         )
@@ -801,7 +800,7 @@ class TestReadBSORouteConditionalGET:
         bso = BasicStorageObject(
             id="item123",
             payload="data",
-            modified=datetime.fromtimestamp(1234567900.00, tz=timezone.utc),
+            modified=1234567900.00,
             sortindex=None,
             ttl=None,
         )
@@ -1294,7 +1293,7 @@ class TestUpdateBSORouteValidation:
         updated_bso = BasicStorageObject(
             id="item123",
             payload="existing_data",
-            modified=datetime.fromtimestamp(1234567891.00, tz=timezone.utc),
+            modified=1234567891.00,
             sortindex=50,
             ttl=None,
         )

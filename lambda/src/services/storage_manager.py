@@ -1,6 +1,5 @@
 """Storage manager for DynamoDB operations"""
 
-from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Dict, List, Optional
 
@@ -16,6 +15,8 @@ from src.shared.models import (
     BasicStorageObject,
     BatchResult,
     CollectionData,
+    bso_to_item,
+    collection_to_item,
     get_current_timestamp,
 )
 
@@ -172,7 +173,8 @@ class StorageManager:
         collection_name: str,
         objects: List[BasicStorageObject],
         collection_exists: bool,
-        modified: datetime,
+        modified: float,
+        ttls: Optional[dict[str, int]] = None,
     ) -> tuple[list[str], dict, int, int]:
         """Write a batch of BSOs using BatchGetItem + batch_writer.
 
@@ -207,9 +209,9 @@ class StorageManager:
                     payload=obj.payload,
                     modified=modified,
                     sortindex=obj.sortindex,
-                    ttl=obj.ttl,
                 )
-                obj_item = updated_obj.to_item(user_id, collection_name)
+                obj_ttl = (ttls or {}).get(obj.id)
+                obj_item = bso_to_item(updated_obj, user_id, collection_name, ttl=obj_ttl)
                 items_to_write.append((obj.id, obj_item, obj_delta, is_new_bso))
             except Exception as e:  # pragma: nocover
                 failed[obj.id] = [str(e)]
@@ -236,6 +238,7 @@ class StorageManager:
         collection_name: str,
         objects: Optional[List[BasicStorageObject]] = None,
         if_unmodified_since: Optional[float] = None,
+        ttls: Optional[dict[str, int]] = None,
     ) -> tuple[CollectionData, BatchResult]:
         """Create or update a collection
 
@@ -278,7 +281,7 @@ class StorageManager:
 
         # Check optimistic concurrency control (Requirements 5.1, 5.2, 5.3)
         if if_unmodified_since is not None and existing_collection is not None:
-            existing_modified_ts = existing_collection.modified.timestamp()
+            existing_modified_ts = existing_collection.modified
 
             # if_unmodified_since=0 means "create only if not exists"
             if if_unmodified_since == 0:
@@ -292,12 +295,11 @@ class StorageManager:
                     f"Collection '{collection_name}' was modified since {if_unmodified_since}"
                 )
 
-        modified_timestamp = get_current_timestamp()
-        modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
+        modified = get_current_timestamp()
 
         # Write objects using batch operations
         success, failed, new_objects_count, usage_delta = self._write_batch_objects(
-            user_id, collection_name, objects, collection_exists, modified
+            user_id, collection_name, objects, collection_exists, modified, ttls=ttls
         )
 
         # Write collection metadata after objects so counts reflect actual success
@@ -320,7 +322,7 @@ class StorageManager:
                     "#usage": "usage",
                 },
                 ExpressionAttributeValues={
-                    ":modified": Decimal(str(modified_timestamp)),
+                    ":modified": Decimal(str(modified)),
                     ":name": collection_name,
                     ":user_id": user_id,
                     ":count_delta": new_objects_count,
@@ -334,8 +336,7 @@ class StorageManager:
             collection_data = CollectionData(
                 name=collection_name, modified=modified, count=new_count, usage=new_usage
             )
-            metadata_item = collection_data.to_item(user_id)
-            self.table.put_item(Item=metadata_item)
+            self.table.put_item(Item=collection_to_item(collection_data, user_id))
 
         collection_data = CollectionData(
             name=collection_name, modified=modified, count=new_count, usage=new_usage
@@ -350,6 +351,7 @@ class StorageManager:
         collection_name: str,
         objects: List[BasicStorageObject],
         if_unmodified_since: Optional[float] = None,
+        ttls: Optional[dict[str, int]] = None,
     ) -> tuple[CollectionData, BatchResult]:
         """Update a collection
 
@@ -388,18 +390,17 @@ class StorageManager:
 
         # Check optimistic concurrency control
         if if_unmodified_since is not None:
-            existing_modified_ts = collection.modified.timestamp()
+            existing_modified_ts = collection.modified
             if existing_modified_ts > if_unmodified_since:
                 raise PreconditionFailedException(
                     f"Collection '{collection_name}' was modified since {if_unmodified_since}"
                 )
 
-        modified_timestamp = get_current_timestamp()
-        modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
+        modified = get_current_timestamp()
 
         # Write objects using batch operations
         success, failed, new_objects_count, usage_delta = self._write_batch_objects(
-            user_id, collection_name, objects, True, modified
+            user_id, collection_name, objects, True, modified, ttls=ttls
         )
 
         # Atomically update collection metadata with ADD to avoid race conditions
@@ -421,7 +422,7 @@ class StorageManager:
                 "#usage": "usage",
             },
             ExpressionAttributeValues={
-                ":modified": Decimal(str(modified_timestamp)),
+                ":modified": Decimal(str(modified)),
                 ":name": collection_name,
                 ":user_id": user_id,
                 ":count_delta": new_objects_count,
@@ -607,11 +608,9 @@ class StorageManager:
         # Apply newer/older filters for BatchGetItem path (not pushed to DynamoDB)
         if id_set is not None:
             if newer is not None:
-                newer_dt = datetime.fromtimestamp(newer, tz=timezone.utc)
-                items = [obj for obj in items if obj.modified > newer_dt]
+                items = [obj for obj in items if obj.modified > newer]
             if older is not None:
-                older_dt = datetime.fromtimestamp(older, tz=timezone.utc)
-                items = [obj for obj in items if obj.modified < older_dt]
+                items = [obj for obj in items if obj.modified < older]
 
         # Sort items
         if sort == "newest":
@@ -621,11 +620,11 @@ class StorageManager:
         elif sort == "index":
             items.sort(key=lambda x: (x.sortindex or 0, x.modified), reverse=True)
 
-        # Get last modified - return as datetime
+        # Get last modified (epoch seconds, float)
         if items:
             last_modified = max(obj.modified for obj in items)
         else:
-            last_modified = datetime.fromtimestamp(0.0, tz=timezone.utc)
+            last_modified = 0.0
 
         # Apply pagination
         total_items = len(items)
@@ -675,7 +674,7 @@ class StorageManager:
 
             # Check optimistic concurrency control (Requirements 5.1, 5.2, 5.3)
             if if_unmodified_since is not None:
-                existing_modified_ts = existing_obj.modified.timestamp()
+                existing_modified_ts = existing_obj.modified
 
                 # if_unmodified_since=0 means "create only if not exists"
                 if if_unmodified_since == 0:
@@ -700,27 +699,25 @@ class StorageManager:
             existing_obj = BasicStorageObject(
                 id=object_id,
                 payload="",
-                modified=datetime.fromtimestamp(0, tz=timezone.utc),
+                modified=0.0,
                 sortindex=None,
-                ttl=None,
             )
 
-        modified_timestamp = get_current_timestamp()
-        modified = datetime.fromtimestamp(modified_timestamp, tz=timezone.utc)
+        modified = get_current_timestamp()
 
-        # Update provided fields
+        # Update provided fields. `ttl` is DynamoDB-only and isn't a wire field;
+        # callers pass it via kwargs and we thread it through to bso_to_item.
         payload = kwargs.get("payload", existing_obj.payload)
         sortindex = kwargs.get("sortindex", existing_obj.sortindex)
-        ttl = kwargs.get("ttl", existing_obj.ttl)
+        ttl = kwargs.get("ttl")
 
         obj = BasicStorageObject(
             id=object_id,
             payload=payload,
             modified=modified,
             sortindex=sortindex,
-            ttl=ttl,
         )
-        self.table.put_item(Item=obj.to_item(user_id, collection_name))
+        self.table.put_item(Item=bso_to_item(obj, user_id, collection_name, ttl=ttl))
 
         # Upsert collection metadata so list_collections reflects this write.
         # DynamoDB update_item creates the item if it doesn't exist, and ADD
@@ -743,7 +740,7 @@ class StorageManager:
                 "#usage": "usage",
             },
             ExpressionAttributeValues={
-                ":modified": Decimal(str(modified_timestamp)),
+                ":modified": Decimal(str(modified)),
                 ":name": collection_name,
                 ":user_id": user_id,
                 ":count_delta": count_delta,
@@ -825,15 +822,13 @@ class StorageManager:
                     pass
 
         # Update collection's last-modified time (reusing initial get_collection result)
-        modified_dt = datetime.fromtimestamp(modified, tz=timezone.utc)
         collection_data = CollectionData(
             name=collection_name,
-            modified=modified_dt,
+            modified=modified,
             count=collection.count,
             usage=collection.usage,
         )
-        metadata_item = collection_data.to_item(user_id)
-        self.table.put_item(Item=metadata_item)
+        self.table.put_item(Item=collection_to_item(collection_data, user_id))
 
         return modified
 

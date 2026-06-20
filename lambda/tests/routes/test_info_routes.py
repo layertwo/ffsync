@@ -1,7 +1,6 @@
 """Tests for info route handlers"""
 
 import json
-from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -56,19 +55,19 @@ class TestReadCollectionsInfoRoute:
         collections = [
             CollectionData(
                 name="bookmarks",
-                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                modified=1234567890.12,
                 count=5,
                 usage=1024,
             ),
             CollectionData(
                 name="history",
-                modified=datetime.fromtimestamp(1234567880.00, tz=timezone.utc),
+                modified=1234567880.00,
                 count=10,
                 usage=2048,
             ),
             CollectionData(
                 name="tabs",
-                modified=datetime.fromtimestamp(1234567870.00, tz=timezone.utc),
+                modified=1234567870.00,
                 count=3,
                 usage=512,
             ),
@@ -152,19 +151,19 @@ class TestReadCollectionCountsRoute:
         collections = [
             CollectionData(
                 name="bookmarks",
-                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                modified=1234567890.12,
                 count=15,
                 usage=1024,
             ),
             CollectionData(
                 name="history",
-                modified=datetime.fromtimestamp(1234567880.00, tz=timezone.utc),
+                modified=1234567880.00,
                 count=100,
                 usage=2048,
             ),
             CollectionData(
                 name="tabs",
-                modified=datetime.fromtimestamp(1234567870.00, tz=timezone.utc),
+                modified=1234567870.00,
                 count=7,
                 usage=512,
             ),
@@ -239,19 +238,19 @@ class TestReadCollectionUsageRoute:
         collections = [
             CollectionData(
                 name="bookmarks",
-                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                modified=1234567890.12,
                 count=5,
                 usage=1024,  # 1 KB
             ),
             CollectionData(
                 name="history",
-                modified=datetime.fromtimestamp(1234567880.00, tz=timezone.utc),
+                modified=1234567880.00,
                 count=10,
                 usage=4096,  # 4 KB
             ),
             CollectionData(
                 name="tabs",
-                modified=datetime.fromtimestamp(1234567870.00, tz=timezone.utc),
+                modified=1234567870.00,
                 count=3,
                 usage=512,  # 0.5 KB
             ),
@@ -326,19 +325,19 @@ class TestReadQuotaInfoRoute:
         collections = [
             CollectionData(
                 name="bookmarks",
-                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                modified=1234567890.12,
                 count=5,
                 usage=1024,  # 1 KB
             ),
             CollectionData(
                 name="history",
-                modified=datetime.fromtimestamp(1234567880.00, tz=timezone.utc),
+                modified=1234567880.00,
                 count=10,
                 usage=2048,  # 2 KB
             ),
             CollectionData(
                 name="tabs",
-                modified=datetime.fromtimestamp(1234567870.00, tz=timezone.utc),
+                modified=1234567870.00,
                 count=3,
                 usage=512,  # 0.5 KB
             ),
@@ -369,7 +368,7 @@ class TestReadQuotaInfoRoute:
         collections = [
             CollectionData(
                 name="bookmarks",
-                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                modified=1234567890.12,
                 count=5,
                 usage=2048,  # 2 KB
             ),
@@ -415,7 +414,7 @@ class TestReadQuotaInfoRoute:
         collections = [
             CollectionData(
                 name="bookmarks",
-                modified=datetime.fromtimestamp(1234567890.12, tz=timezone.utc),
+                modified=1234567890.12,
                 count=25,
                 usage=5120,  # 5 KB
             )
