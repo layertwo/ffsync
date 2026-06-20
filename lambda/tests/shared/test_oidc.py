@@ -109,7 +109,7 @@ class TestErrorDetail:
     def test_asdict(self):
         error = ErrorDetail(location="header", name="Accept", description="Unsupported media type")
 
-        data = asdict(error)
+        data = error.model_dump()
 
         assert isinstance(data, dict)
         assert data["location"] == "header"
