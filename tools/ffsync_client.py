@@ -9,6 +9,7 @@ using HAWK authentication.
 import json
 import logging
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import click
 import requests
@@ -64,11 +65,10 @@ class FFSyncClient:
             api_endpoint: API endpoint URL
             algorithm: HAWK hash algorithm (default: sha256)
         """
-        from urllib.parse import urlparse
-        
+
         self.base_url = api_endpoint.rstrip("/")
         self.logger = logging.getLogger(__name__)
-        
+
         # Parse the API endpoint to extract host for HAWK signing
         parsed = urlparse(self.base_url)
         self.hawk_host = parsed.hostname or ""
@@ -131,9 +131,7 @@ class FFSyncClient:
             elif response.status_code >= 400:
                 try:
                     error_data = response.json()
-                    FFSyncError(
-                        f"API error: {response.status_code}: {error_data}"
-                    )
+                    FFSyncError(f"API error: {response.status_code}: {error_data}")
                 except json.JSONDecodeError:
                     raise FFSyncError(f"HTTP {response.status_code}: {response.text}")
 
@@ -269,9 +267,7 @@ class FFSyncClient:
         if ttl is not None:
             data["ttl"] = ttl
 
-        return self._put_json(
-            f"/storage/{collection_name}/{object_id}", data, headers=headers
-        )
+        return self._put_json(f"/storage/{collection_name}/{object_id}", data, headers=headers)
 
     def delete_bso(self, collection_name: str, object_id: str) -> Dict[str, Any]:
         """Delete a specific storage object"""
@@ -286,9 +282,7 @@ class FFSyncClient:
 def setup_logging(verbose: bool = False):
     """Setup logging configuration"""
     level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
+    logging.basicConfig(level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
 def load_hawk_credentials(credentials_file: str) -> Dict[str, str]:
@@ -336,9 +330,7 @@ def get_client(ctx):
 )
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 @click.pass_context
-def cli(
-    ctx, hawk_id, hawk_key, api_endpoint, credentials_file, algorithm, verbose
-):
+def cli(ctx, hawk_id, hawk_key, api_endpoint, credentials_file, algorithm, verbose):
     """FFSync API Client - Interact with Firefox Sync storage API using HAWK authentication
 
     Credentials can be provided via:
@@ -367,7 +359,7 @@ def cli(
             creds = load_hawk_credentials(credentials_file)
             hawk_id = creds.get("id")
             hawk_key = creds.get("key")
-            api_endpoint = "https://storage.beta.ffsync.layertwo.dev" #creds.get("api_endpoint")
+            api_endpoint = "https://storage.beta.ffsync.layertwo.dev"  # creds.get("api_endpoint")
             algorithm = creds.get("hashalg", algorithm)
 
         # Validate required credentials
@@ -477,9 +469,7 @@ def collection_create(ctx, name):
         client = get_client(ctx)
         result = client.create_collection(name)
         click.echo(json.dumps(result, indent=2))
-        click.echo(
-            click.style(f"✓ Collection '{name}' created successfully", fg="green")
-        )
+        click.echo(click.style(f"✓ Collection '{name}' created successfully", fg="green"))
     except FFSyncError as e:
         click.echo(click.style(f"FFSync Error: {e}", fg="red"), err=True)
         ctx.exit(1)
@@ -514,9 +504,7 @@ def collection_delete(ctx, name, yes):
         client = get_client(ctx)
         result = client.delete_collection(name)
         click.echo(json.dumps(result, indent=2))
-        click.echo(
-            click.style(f"✓ Collection '{name}' deleted successfully", fg="green")
-        )
+        click.echo(click.style(f"✓ Collection '{name}' deleted successfully", fg="green"))
     except FFSyncError as e:
         click.echo(click.style(f"FFSync Error: {e}", fg="red"), err=True)
         ctx.exit(1)
@@ -552,9 +540,7 @@ def bso_get(ctx, collection, object_id):
 @click.option("--ttl", type=int, help="Time-to-live in seconds")
 @click.option("--if-unmodified-since", type=int, help="Conditional update timestamp")
 @click.pass_context
-def bso_update(
-    ctx, collection, object_id, payload, sortindex, ttl, if_unmodified_since
-):
+def bso_update(ctx, collection, object_id, payload, sortindex, ttl, if_unmodified_since):
     """Update a storage object"""
     try:
         client = get_client(ctx)

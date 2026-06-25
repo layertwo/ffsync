@@ -1,0 +1,38 @@
+[project]
+name = "ffsync-tools"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "requests==2.34.2",
+    "requests-hawk==1.2.1",
+    "click==8.4.1",
+]
+
+
+[dependency-groups]
+dev = [
+    "black==26.5.1",
+    "isort==8.0.1",
+    "types-requests==2.33.0.20260518",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--verbose",
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=term",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=100",
+    "-n=auto"
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py314"]
+
+[tool.isort]
+profile = "black"
+line_length = 100

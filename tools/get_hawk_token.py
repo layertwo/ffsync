@@ -136,9 +136,7 @@ def exchange_code_for_token(
     )
 
 
-def exchange_for_hawk_credentials(
-    token_server_url: str, access_token: str
-) -> HawkCredentials:
+def exchange_for_hawk_credentials(token_server_url: str, access_token: str) -> HawkCredentials:
     """Exchange OIDC token for HAWK credentials."""
     url = f"{token_server_url}/1.0/sync/1.5"
 
@@ -182,9 +180,7 @@ class CallbackHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.end_headers()
-            self.wfile.write(
-                b"<h1>Authentication failed</h1><p>You can close this window.</p>"
-            )
+            self.wfile.write(b"<h1>Authentication failed</h1><p>You can close this window.</p>")
             return
 
         CallbackHandler.auth_code = params.get("code", [None])[0]
@@ -193,9 +189,7 @@ class CallbackHandler(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
         self.end_headers()
-        self.wfile.write(
-            b"<h1>Authentication successful!</h1><p>You can close this window.</p>"
-        )
+        self.wfile.write(b"<h1>Authentication successful!</h1><p>You can close this window.</p>")
 
     def log_message(self, format, *args):
         """Suppress HTTP server logs."""
@@ -238,9 +232,7 @@ def wait_for_callback(expected_state: str, port: int) -> str:
     help="OAuth client secret (for confidential clients)",
 )
 @click.option("--token-server-url", required=True, help="Firefox Sync Token Server URL")
-@click.option(
-    "--scopes", default="openid profile email", help="Space-separated OAuth scopes"
-)
+@click.option("--scopes", default="openid profile email", help="Space-separated OAuth scopes")
 @click.option("--port", default=8765, help="Local callback server port")
 @click.option("--redirect-uri", default=None, help="Override redirect URI")
 @click.option("--json-only", is_flag=True, help="Output only JSON")
@@ -349,7 +341,7 @@ def main(
         padding = 4 - (len(hawk_id_padded) % 4)
         if padding != 4:
             hawk_id_padded += "=" * padding
-        
+
         decoded = base64.urlsafe_b64decode(hawk_id_padded).decode("utf-8")
         parts = decoded.split(":")
         if len(parts) == 3:
@@ -369,7 +361,7 @@ def main(
         "duration": hawk.duration,
         "hashalg": hawk.hashalg,
     }
-    
+
     if expiry_iso:
         hawk_dict["expires_at"] = expiry_iso
 
