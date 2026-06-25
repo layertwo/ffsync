@@ -5,7 +5,7 @@ requires-python = ">=3.14"
 dependencies = [
     "requests==2.34.2",
     "requests-hawk==1.2.1",
-    "click==8.4.1",
+    "click==8.4.2",
 ]
 
 
