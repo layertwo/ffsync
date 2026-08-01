@@ -5,7 +5,7 @@ requires-python = ">=3.14"
 dependencies = [
     "aws-lambda-powertools==3.31.1",
     "boto3==1.43.53",
-    "cryptography==49.0.0",
+    "cryptography==50.0.0",
     "pydantic==2.13.4",
     "mohawk==1.1.0",
     "PyJWT==2.13.0",
