@@ -1,6 +1,6 @@
 plugins {
     `java-library`
-    id("software.amazon.smithy.gradle.smithy-jar") version "1.4.0"
+    id("software.amazon.smithy.gradle.smithy-jar") version "1.5.0"
 }
 
 repositories {
@@ -12,9 +12,9 @@ smithy {
 }
 
 dependencies {
-    smithyBuild("software.amazon.smithy:smithy-aws-traits:1.72.1")
-    smithyBuild("software.amazon.smithy:smithy-aws-apigateway-traits:1.72.1")
-    smithyBuild("software.amazon.smithy:smithy-validation-model:1.72.1")
-    smithyBuild("software.amazon.smithy:smithy-openapi:1.72.1")
-    smithyBuild("software.amazon.smithy:smithy-aws-apigateway-openapi:1.72.1")
+    smithyBuild("software.amazon.smithy:smithy-aws-traits:1.73.0")
+    smithyBuild("software.amazon.smithy:smithy-aws-apigateway-traits:1.73.0")
+    smithyBuild("software.amazon.smithy:smithy-validation-model:1.73.0")
+    smithyBuild("software.amazon.smithy:smithy-openapi:1.73.0")
+    smithyBuild("software.amazon.smithy:smithy-aws-apigateway-openapi:1.73.0")
 }
