@@ -74,6 +74,11 @@ src = ["src/", "tests/"]
 profile = "black"
 src_paths = ["src/", "tests/"]
 line_length = 100
+# Relative src_paths above are anchored to isort's `directory`, which datamodel-codegen
+# overrides to the codegen output dir -- they then miss, `src` looks third-party, and
+# generated/ loses the blank line before its first-party imports. Pin it here instead.
+# No trailing slash: a known_* entry ending in "/" is os.listdir()-expanded and will crash.
+known_first_party = ["src"]
 
 [tool.flake8]
 max-line-length = 100
