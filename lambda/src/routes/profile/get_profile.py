@@ -1,9 +1,11 @@
 """GetProfile route — GET /v1/profile (OAuth Bearer auth)"""
 
 import json
+from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.metrics import Metrics, MetricUnit
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.jwt_verifier import JWTVerifier
@@ -25,13 +27,13 @@ class GetProfileRoute(BaseRoute):
         self._auth_account_manager = auth_account_manager
         self._metrics = metrics
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.get("/v1/profile")
-        def handle_get_profile():
+        def handle_get_profile() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
-        headers = event.headers or {}
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
+        headers = event.headers
         auth_header = headers.get("authorization", "")
 
         if not auth_header:

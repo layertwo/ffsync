@@ -3,9 +3,12 @@
 import re
 import time
 import uuid
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from boto3.dynamodb.conditions import Attr
+
+if TYPE_CHECKING:
+    from types_boto3_dynamodb.service_resource import Table
 
 DEVICE_PREFIX = "DEVICE"
 _HAWK_ID_PATTERN = re.compile(r'id="([^"]+)"')
@@ -14,7 +17,7 @@ _HAWK_ID_PATTERN = re.compile(r'id="([^"]+)"')
 class DeviceManager:
     """Manages FxA device records in DynamoDB."""
 
-    def __init__(self, table):
+    def __init__(self, table: "Table"):
         self.table = table
 
     def _device_pk(self, uid: str, device_id: str) -> str:
@@ -60,7 +63,7 @@ class DeviceManager:
             FilterExpression=Attr("PK").begins_with(f"{DEVICE_PREFIX}#{uid}#")
         )
         devices = []
-        for item in response.get("Items", []):
+        for item in cast(list[dict[str, Any]], response.get("Items", [])):
             item.pop("PK", None)
             if filter_idle_timestamp and item.get("lastAccessTime", 0) < filter_idle_timestamp:
                 continue

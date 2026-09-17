@@ -1,37 +1,42 @@
 """Unit tests for DeviceManager with DynamoDB stubber"""
 
-from unittest.mock import ANY, patch
+from typing import TYPE_CHECKING, Generator
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
+from botocore.stub import Stubber
 
 from src.services.device_manager import DeviceManager
+
+if TYPE_CHECKING:
+    from types_boto3_dynamodb.service_resource import Table
 
 
 class TestDeviceManager:
     """Test DeviceManager DynamoDB operations"""
 
     @pytest.fixture
-    def manager(self, dynamodb_table):
+    def manager(self, dynamodb_table: "Table") -> DeviceManager:
         """Create DeviceManager instance with stubbed table"""
         return DeviceManager(table=dynamodb_table)
 
     @pytest.fixture
-    def sample_uid(self):
+    def sample_uid(self) -> str:
         return "abcdef1234567890abcdef1234567890"
 
     @pytest.fixture
-    def sample_session_token_id(self):
+    def sample_session_token_id(self) -> str:
         return "session-token-id-abc123"
 
     @pytest.fixture
-    def mock_time(self):
+    def mock_time(self) -> Generator[MagicMock, None, None]:
         """Mock time.time() for device_manager"""
         with patch("src.services.device_manager.time") as mock:
             mock.time.return_value = 1000000.0
             yield mock
 
     @pytest.fixture
-    def mock_uuid(self):
+    def mock_uuid(self) -> Generator[MagicMock, None, None]:
         """Mock uuid.uuid4() for device_manager"""
         with patch("src.services.device_manager.uuid") as mock:
             mock_uuid4 = mock.uuid4.return_value
@@ -42,14 +47,14 @@ class TestDeviceManager:
 
     def test_upsert_device_creates_new(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_session_token_id,
-        mock_time,
-        mock_uuid,
-    ):
+        manager: DeviceManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_session_token_id: str,
+        mock_time: MagicMock,
+        mock_uuid: MagicMock,
+    ) -> None:
         """upsert_device without id generates UUID and stores new device"""
         generated_id = "aabbccdd11223344aabbccdd11223344"
 
@@ -94,13 +99,13 @@ class TestDeviceManager:
 
     def test_upsert_device_updates_existing(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_session_token_id,
-        mock_time,
-    ):
+        manager: DeviceManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_session_token_id: str,
+        mock_time: MagicMock,
+    ) -> None:
         """upsert_device with id merges fields into existing device"""
         device_id = "existing-device-id-00000000000000"
 
@@ -160,11 +165,11 @@ class TestDeviceManager:
 
     def test_get_devices_returns_all(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-    ):
+        manager: DeviceManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+    ) -> None:
         """get_devices returns all devices for a user"""
         device_id_1 = "device-1-00000000000000000000"
         device_id_2 = "device-2-00000000000000000000"
@@ -208,11 +213,11 @@ class TestDeviceManager:
 
     def test_get_devices_filters_idle(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-    ):
+        manager: DeviceManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+    ) -> None:
         """get_devices excludes devices with lastAccessTime below threshold"""
         device_id_active = "device-active-0000000000000000"
         device_id_idle = "device-idle-00000000000000000"
@@ -251,11 +256,11 @@ class TestDeviceManager:
 
     def test_get_devices_empty(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-    ):
+        manager: DeviceManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+    ) -> None:
         """get_devices returns empty list when scan returns no items"""
         # Stub scan returning no items
         dynamodb_stubber.add_response(

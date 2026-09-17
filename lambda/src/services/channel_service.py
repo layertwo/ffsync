@@ -4,8 +4,13 @@ import json
 import logging
 import time
 import uuid
+from typing import TYPE_CHECKING, Any, cast
 
+from boto3.session import Session
 from botocore.exceptions import ClientError
+
+if TYPE_CHECKING:
+    from types_boto3_dynamodb.service_resource import Table
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +27,12 @@ class ChannelService:
     - CONN#{connectionId} — channelId, expiry
     """
 
-    def __init__(self, table, session):
+    def __init__(self, table: "Table", session: Session):
         self._table = table
         self._session = session
-        self._apigw_clients = {}
+        self._apigw_clients: dict[str, Any] = {}
 
-    def handle(self, event, context):
+    def handle(self, event: dict, context: Any) -> dict[str, Any]:
         """Dispatch on WebSocket route key."""
         route_key = event["requestContext"]["routeKey"]
         connection_id = event["requestContext"]["connectionId"]
@@ -43,7 +48,7 @@ class ChannelService:
         else:
             return {"statusCode": 400, "body": "Unknown route"}
 
-    def _handle_connect(self, event, connection_id):
+    def _handle_connect(self, event: dict, connection_id: str) -> dict[str, Any]:
         """Handle $connect — create or join a channel."""
         params = event.get("queryStringParameters") or {}
         channel_id = params.get("channelId")
@@ -54,7 +59,7 @@ class ChannelService:
         else:
             return self._create_channel(event, connection_id, expiry)
 
-    def _create_channel(self, event, connection_id, expiry):
+    def _create_channel(self, event: dict, connection_id: str, expiry: int) -> dict[str, Any]:
         """Create a new channel with this connection as the first member."""
         channel_id = str(uuid.uuid4())
         logger.info("Creating channel=%s for connection=%s", channel_id, connection_id)
@@ -87,7 +92,7 @@ class ChannelService:
 
         return {"statusCode": 200}
 
-    def _join_channel(self, channel_id, connection_id, expiry):
+    def _join_channel(self, channel_id: str, connection_id: str, expiry: int) -> dict[str, Any]:
         """Join an existing channel atomically."""
         logger.info("Joining channel=%s connection=%s", channel_id, connection_id)
         try:
@@ -121,14 +126,14 @@ class ChannelService:
 
         return {"statusCode": 200}
 
-    def _handle_disconnect(self, connection_id):
+    def _handle_disconnect(self, connection_id: str) -> None:
         """Handle disconnect — remove connection from channel."""
         # Delete reverse lookup first (idempotent guard against double-disconnect)
         result = self._table.get_item(Key={"PK": f"CONN#{connection_id}"})
         if "Item" not in result:
             return
 
-        channel_id = result["Item"]["channelId"]
+        channel_id = cast(dict[str, Any], result["Item"])["channelId"]
         self._table.delete_item(Key={"PK": f"CONN#{connection_id}"})
 
         # Get channel to find connection index
@@ -136,7 +141,7 @@ class ChannelService:
         if "Item" not in channel_result:
             return
 
-        connections = channel_result["Item"]["connections"]
+        connections = cast(dict[str, Any], channel_result["Item"])["connections"]
         if connection_id in connections:
             index = connections.index(connection_id)
             self._table.update_item(
@@ -144,7 +149,7 @@ class ChannelService:
                 UpdateExpression=f"REMOVE connections[{index}]",
             )
 
-    def _handle_message(self, event, connection_id):
+    def _handle_message(self, event: dict, connection_id: str) -> dict[str, Any]:
         """Handle incoming message — relay to other connections."""
         logger.info("Message from connection=%s", connection_id)
         # Look up channel for this connection
@@ -152,7 +157,7 @@ class ChannelService:
         if "Item" not in result:
             return {"statusCode": 404, "body": "Connection not found"}
 
-        channel_id = result["Item"]["channelId"]
+        channel_id = cast(dict[str, Any], result["Item"])["channelId"]
 
         # Atomic message count increment with limit check
         try:
@@ -180,14 +185,16 @@ class ChannelService:
         if "Item" not in channel_result:
             return {"statusCode": 404, "body": "Channel not found"}
 
-        connections = channel_result["Item"]["connections"]
+        connections = cast(dict[str, Any], channel_result["Item"])["connections"]
         message_body = event.get("body", "")
 
         self._relay_message(event, connection_id, connections, message_body)
 
         return {"statusCode": 200}
 
-    def _relay_message(self, event, sender_connection_id, connections, message_body):
+    def _relay_message(
+        self, event: dict, sender_connection_id: str, connections: list, message_body: str
+    ) -> None:
         """Relay message to all connections except sender."""
         data = json.dumps(
             {
@@ -199,7 +206,7 @@ class ChannelService:
             if conn_id != sender_connection_id:
                 self._post_to_connection(event, conn_id, data)
 
-    def _post_to_connection(self, event, connection_id, data):
+    def _post_to_connection(self, event: dict, connection_id: str, data: str) -> None:
         """Post data to a WebSocket connection via API Gateway Management API."""
         client = self._get_apigw_client(event)
         try:
@@ -211,7 +218,7 @@ class ChannelService:
             logger.warning("Connection %s is gone, cleaning up", connection_id)
             self._handle_disconnect(connection_id)
 
-    def _get_apigw_client(self, event):
+    def _get_apigw_client(self, event: dict) -> Any:
         """Lazy API Gateway Management API client, cached by endpoint.
 
         Uses the execute-api domain (not the custom domain) because the

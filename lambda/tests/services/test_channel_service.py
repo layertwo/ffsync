@@ -1,10 +1,13 @@
 """Unit tests for ChannelService with DynamoDB stubber"""
 
 import json
-from unittest.mock import patch
+from typing import TYPE_CHECKING, Any, Dict, Optional, cast
+from unittest.mock import MagicMock, patch
 
+import boto3
 import pytest
 from botocore.exceptions import ClientError
+from botocore.stub import Stubber
 
 from src.services.channel_service import (
     CHANNEL_TTL_SECONDS,
@@ -13,12 +16,22 @@ from src.services.channel_service import (
     ChannelService,
 )
 
+if TYPE_CHECKING:
+    from types_boto3_apigatewaymanagementapi.client import ApiGatewayManagementApiClient
+    from types_boto3_dynamodb.client import DynamoDBClient
+    from types_boto3_dynamodb.service_resource import Table
+
 CHANNEL_TABLE_NAME = "test-channel-table"
 FIXED_UUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 FIXED_TIME = 1700000000
 
 
-def _ws_event(route_key="$default", connection_id="conn-1", body=None, query_params=None):
+def _ws_event(
+    route_key: str = "$default",
+    connection_id: str = "conn-1",
+    body: Optional[str] = None,
+    query_params: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
     """Build a WebSocket API Gateway event dict."""
     event = {
         "requestContext": {
@@ -38,14 +51,22 @@ class TestChannelService:
     """Test ChannelService DynamoDB operations"""
 
     @pytest.fixture
-    def channel_table(self, boto_session, dynamodb_stubber):
+    def channel_table(
+        self, boto_session: boto3.session.Session, dynamodb_stubber: Stubber
+    ) -> "Table":
         resource = boto_session.resource("dynamodb")
         table = resource.Table(CHANNEL_TABLE_NAME)
-        table.meta.client = dynamodb_stubber.client
+        table.meta.client = cast("DynamoDBClient", dynamodb_stubber.client)
         return table
 
     @pytest.fixture
-    def service(self, channel_table, boto_session, apigw_client, apigw_stubber):
+    def service(
+        self,
+        channel_table: "Table",
+        boto_session: boto3.session.Session,
+        apigw_client: "ApiGatewayManagementApiClient",
+        apigw_stubber: Stubber,
+    ) -> ChannelService:
         svc = ChannelService(table=channel_table, session=boto_session)
         # Pre-populate the APIGW client cache with the shared stubbed client.
         # The key must match what _get_apigw_client computes from _ws_event():
@@ -57,7 +78,7 @@ class TestChannelService:
 
     # -- Constants ------------------------------------------------------------
 
-    def test_constants(self):
+    def test_constants(self) -> None:
         assert MAX_CONNECTIONS_PER_CHANNEL == 3
         assert MAX_MESSAGES_PER_CHANNEL == 10
         assert CHANNEL_TTL_SECONDS == 300
@@ -68,12 +89,12 @@ class TestChannelService:
     @patch("src.services.channel_service.time.time", return_value=FIXED_TIME)
     def test_create_channel(
         self,
-        mock_time,
-        mock_uuid,
-        service,
-        dynamodb_stubber,
-        apigw_stubber,
-    ):
+        mock_time: MagicMock,
+        mock_uuid: MagicMock,
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+        apigw_stubber: Stubber,
+    ) -> None:
         """Create channel stores metadata + reverse lookup + sends channelId."""
         expiry = FIXED_TIME + CHANNEL_TTL_SECONDS
 
@@ -127,10 +148,10 @@ class TestChannelService:
     @patch("src.services.channel_service.time.time", return_value=FIXED_TIME)
     def test_join_channel(
         self,
-        mock_time,
-        service,
-        dynamodb_stubber,
-    ):
+        mock_time: MagicMock,
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """Join existing channel via atomic update_item + reverse lookup."""
         expiry = FIXED_TIME + CHANNEL_TTL_SECONDS
         channel_id = "existing-channel"
@@ -165,9 +186,9 @@ class TestChannelService:
 
     def test_join_nonexistent_channel_returns_404(
         self,
-        service,
-        dynamodb_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """ConditionalCheckFailed + empty get_item => 404."""
         channel_id = "no-such-channel"
 
@@ -201,9 +222,9 @@ class TestChannelService:
 
     def test_join_full_channel_returns_403(
         self,
-        service,
-        dynamodb_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """ConditionalCheckFailed + channel exists => 403."""
         channel_id = "full-channel"
 
@@ -244,9 +265,9 @@ class TestChannelService:
 
     def test_disconnect_cleans_up(
         self,
-        service,
-        dynamodb_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """Disconnect removes reverse lookup then patches connections list."""
         channel_id = "chan-1"
 
@@ -305,9 +326,9 @@ class TestChannelService:
 
     def test_disconnect_unknown_connection(
         self,
-        service,
-        dynamodb_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """Disconnect with no reverse lookup => no-op."""
         # get_item for CONN# => empty
         dynamodb_stubber.add_response(
@@ -328,10 +349,10 @@ class TestChannelService:
 
     def test_relay_message(
         self,
-        service,
-        dynamodb_stubber,
-        apigw_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+        apigw_stubber: Stubber,
+    ) -> None:
         """Message relayed to other connections in the channel."""
         channel_id = "chan-1"
 
@@ -395,9 +416,9 @@ class TestChannelService:
 
     def test_unknown_connection_message_returns_404(
         self,
-        service,
-        dynamodb_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """Message from unknown connection => 404."""
         # get_item for CONN# => empty
         dynamodb_stubber.add_response(
@@ -418,9 +439,9 @@ class TestChannelService:
 
     def test_channel_not_found_on_message_returns_404(
         self,
-        service,
-        dynamodb_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """Message with valid connection but missing channel => 404."""
         channel_id = "gone-channel"
 
@@ -466,9 +487,9 @@ class TestChannelService:
 
     def test_message_limit_returns_429(
         self,
-        service,
-        dynamodb_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """Message count at limit => 429."""
         channel_id = "busy-channel"
 
@@ -521,10 +542,10 @@ class TestChannelService:
 
     def test_gone_exception_triggers_cleanup(
         self,
-        service,
-        dynamodb_stubber,
-        apigw_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+        apigw_stubber: Stubber,
+    ) -> None:
         """When post_to_connection raises GoneException, stale conn is cleaned up."""
         channel_id = "chan-1"
 
@@ -632,10 +653,10 @@ class TestChannelService:
 
     def test_empty_body_relay(
         self,
-        service,
-        dynamodb_stubber,
-        apigw_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+        apigw_stubber: Stubber,
+    ) -> None:
         """Relay works when body is missing from event."""
         channel_id = "chan-1"
 
@@ -697,9 +718,9 @@ class TestChannelService:
 
     def test_lazy_apigw_client_init(
         self,
-        channel_table,
-        boto_session,
-    ):
+        channel_table: "Table",
+        boto_session: boto3.session.Session,
+    ) -> None:
         """Client is created lazily on first use and cached by endpoint."""
         svc = ChannelService(table=channel_table, session=boto_session)
         assert svc._apigw_clients == {}
@@ -718,9 +739,9 @@ class TestChannelService:
 
     def test_disconnect_channel_gone_after_conn_delete(
         self,
-        service,
-        dynamodb_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """Disconnect when channel disappears between CONN delete and channel lookup."""
         channel_id = "vanished-chan"
 
@@ -769,9 +790,9 @@ class TestChannelService:
 
     def test_disconnect_connection_not_in_list(
         self,
-        service,
-        dynamodb_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """Disconnect when connection is not in the channel's connections list."""
         channel_id = "chan-1"
 
@@ -827,9 +848,9 @@ class TestChannelService:
 
     def test_join_unexpected_client_error_reraised(
         self,
-        service,
-        dynamodb_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """Non-ConditionalCheckFailed ClientError is re-raised on join."""
         dynamodb_stubber.add_client_error(
             "update_item",
@@ -849,9 +870,9 @@ class TestChannelService:
 
     def test_message_unexpected_client_error_reraised(
         self,
-        service,
-        dynamodb_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """Non-ConditionalCheckFailed ClientError is re-raised on message."""
         channel_id = "chan-1"
 
@@ -886,9 +907,9 @@ class TestChannelService:
 
     def test_message_channel_gone_after_count_update(
         self,
-        service,
-        dynamodb_stubber,
-    ):
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+    ) -> None:
         """Channel disappears between message count update and connections fetch."""
         channel_id = "ephemeral-chan"
 
@@ -928,7 +949,7 @@ class TestChannelService:
 
     # -- Unknown route --------------------------------------------------------
 
-    def test_unknown_route_returns_400(self, service):
+    def test_unknown_route_returns_400(self, service: ChannelService) -> None:
         """Unknown route key returns 400."""
         event = _ws_event(route_key="$unknown")
         result = service.handle(event, None)

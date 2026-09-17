@@ -2,8 +2,10 @@
 
 import json
 import re
+from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.fxa_crypto import constant_time_compare, derive_verify_hash
@@ -25,12 +27,12 @@ class AccountLoginRoute(BaseRoute):
         self._account_manager = account_manager
         self._token_manager = token_manager
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.post("/v1/account/login")
-        def handle_account_login():
+        def handle_account_login() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         # Parse body
         body_str = event.body
         if not body_str:

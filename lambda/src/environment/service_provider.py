@@ -2,11 +2,13 @@ import functools
 import json
 import os
 from functools import cached_property
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import boto3
 from aws_lambda_powertools.event_handler import CORSConfig, Response
 from aws_lambda_powertools.logging import Logger
 from aws_lambda_powertools.metrics import Metrics
+from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from src.middlewares.hawk_auth import HawkAuthenticationError, HawkAuthMiddleware, UidMismatchError
 from src.middlewares.request_logging import RequestLoggingMiddleware
@@ -59,6 +61,9 @@ from src.services.storage_manager import StorageManager
 from src.services.token_generator import TokenGenerator
 from src.services.user_manager import UserManager
 
+if TYPE_CHECKING:
+    from types_boto3_dynamodb.service_resource import DynamoDBServiceResource, Table
+
 
 @functools.lru_cache(maxsize=1)
 def create_service_provider() -> "ServiceProvider":  # pragma: nocover
@@ -70,7 +75,7 @@ def create_service_provider() -> "ServiceProvider":  # pragma: nocover
     return ServiceProvider()
 
 
-def lambda_entrypoint(fn):
+def lambda_entrypoint(fn: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator that injects a cached ServiceProvider when none is provided.
 
     In production, creates/reuses a cached ServiceProvider via lru_cache.
@@ -78,7 +83,9 @@ def lambda_entrypoint(fn):
     """
 
     @functools.wraps(fn)
-    def wrapper(event, context, service_provider=None):
+    def wrapper(
+        event: dict, context: LambdaContext, service_provider: Optional["ServiceProvider"] = None
+    ) -> Any:
         if service_provider is None:  # pragma: nocover
             service_provider = create_service_provider()
         try:
@@ -102,24 +109,24 @@ class ServiceProvider:
         return "layertwo-ffsync/1.0"
 
     @cached_property
-    def aws_region(self):  # pragma: nocover
+    def aws_region(self) -> Optional[str]:  # pragma: nocover
         return os.environ.get("AWS_REGION")
 
     @cached_property
-    def session(self):  # pragma: nocover
+    def session(self) -> boto3.Session:  # pragma: nocover
         return boto3.Session(region_name=self.aws_region)
 
     @cached_property
-    def table_name(self):
-        return os.environ.get("STORAGE_TABLE_NAME")
+    def table_name(self) -> str:
+        return os.environ["STORAGE_TABLE_NAME"]
 
     @cached_property
-    def dynamodb_resource(self):  # pragma: nocover
+    def dynamodb_resource(self) -> "DynamoDBServiceResource":  # pragma: nocover
         """Shared DynamoDB resource — reuses a single connection pool."""
         return self.session.resource("dynamodb")
 
     @cached_property
-    def dynamodb_table(self):
+    def dynamodb_table(self) -> "Table":
         """Create DynamoDB Table resource"""
         return self.dynamodb_resource.Table(self.table_name)
 
@@ -128,11 +135,11 @@ class ServiceProvider:
         return StorageManager(table=self.dynamodb_table)
 
     @cached_property
-    def token_users_table_name(self):
-        return os.environ.get("TOKEN_USERS_TABLE_NAME")
+    def token_users_table_name(self) -> str:
+        return os.environ["TOKEN_USERS_TABLE_NAME"]
 
     @cached_property
-    def token_users_table(self):
+    def token_users_table(self) -> "Table":
         """Create DynamoDB Table resource for token users"""
         return self.dynamodb_resource.Table(self.token_users_table_name)
 
@@ -142,14 +149,14 @@ class ServiceProvider:
 
     @cached_property
     def _storage_exception_handlers(self) -> dict:
-        def handle_hawk_auth(ex):
+        def handle_hawk_auth(ex: Exception) -> Response:
             return Response(
                 status_code=401,
                 content_type="application/json",
                 body='{"error": "Unauthorized"}',
             )
 
-        def handle_uid_mismatch(ex):
+        def handle_uid_mismatch(ex: Exception) -> Response:
             return Response(
                 status_code=403,
                 content_type="application/json",
@@ -163,7 +170,7 @@ class ServiceProvider:
 
     @cached_property
     def _auth_exception_handlers(self) -> dict:
-        def handle_hawk_auth(ex):
+        def handle_hawk_auth(ex: Exception) -> Response:
             return Response(
                 status_code=401,
                 content_type="application/json",
@@ -175,7 +182,7 @@ class ServiceProvider:
         }
 
     @cached_property
-    def storage_api_router(self):
+    def storage_api_router(self) -> ApiRouter:
         return ApiRouter(
             routes=[
                 DeleteAllRootRoute(self.storage_manager),
@@ -214,7 +221,7 @@ class ServiceProvider:
         return os.environ["OIDC_CLIENT_ID"]
 
     @cached_property
-    def base_domain(self):
+    def base_domain(self) -> Optional[str]:
         return os.environ.get("BASE_DOMAIN")
 
     @cached_property
@@ -270,11 +277,11 @@ class ServiceProvider:
     # Auth API properties
 
     @cached_property
-    def auth_table_name(self):
-        return os.environ.get("AUTH_TABLE_NAME")
+    def auth_table_name(self) -> str:
+        return os.environ["AUTH_TABLE_NAME"]
 
     @cached_property
-    def auth_table(self):
+    def auth_table(self) -> "Table":
         """DynamoDB Table for auth accounts, sessions, and OAuth codes"""
         return self.dynamodb_resource.Table(self.auth_table_name)
 
@@ -283,7 +290,7 @@ class ServiceProvider:
         return os.environ["AUTH_SIGNING_KEY_ID"]
 
     @cached_property
-    def kms_client(self):  # pragma: nocover
+    def kms_client(self) -> Any:  # pragma: nocover
         return self.session.client("kms")
 
     @cached_property
@@ -327,7 +334,7 @@ class ServiceProvider:
         )
 
     @cached_property
-    def auth_api_router(self):
+    def auth_api_router(self) -> ApiRouter:
         """Create API router for Auth API with all FxA-compatible routes"""
         return ApiRouter(
             routes=[
@@ -404,7 +411,7 @@ class ServiceProvider:
         )
 
     @cached_property
-    def token_api_router(self):
+    def token_api_router(self) -> ApiRouter:
         """Create API router for Token API (sync token issuance)"""
         return ApiRouter(
             routes=[
@@ -422,7 +429,7 @@ class ServiceProvider:
         )
 
     @cached_property
-    def profile_api_router(self):
+    def profile_api_router(self) -> ApiRouter:
         """Create API router for Profile API (OAuth Bearer auth)"""
         return ApiRouter(
             routes=[
@@ -440,15 +447,15 @@ class ServiceProvider:
     # HAWK Authorizer properties
 
     @cached_property
-    def token_cache_table_name(self):
-        return os.environ.get("TOKEN_CACHE_TABLE_NAME")
+    def token_cache_table_name(self) -> str:
+        return os.environ["TOKEN_CACHE_TABLE_NAME"]
 
     @cached_property
     def token_duration(self) -> int:
         return int(os.environ["TOKEN_DURATION"])
 
     @cached_property
-    def token_cache_table(self):
+    def token_cache_table(self) -> "Table":
         """Create DynamoDB Table resource for token cache"""
         return self.dynamodb_resource.Table(self.token_cache_table_name)
 
@@ -464,11 +471,11 @@ class ServiceProvider:
     # Channel Service properties
 
     @cached_property
-    def channel_table_name(self):
-        return os.environ.get("CHANNEL_TABLE_NAME")
+    def channel_table_name(self) -> str:
+        return os.environ["CHANNEL_TABLE_NAME"]
 
     @cached_property
-    def channel_table(self):
+    def channel_table(self) -> "Table":
         """DynamoDB Table for pairing channel state"""
         resource = self.session.resource("dynamodb")
         return resource.Table(self.channel_table_name)

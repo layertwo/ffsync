@@ -1,10 +1,10 @@
 """Tests for info route handlers"""
 
-import json
 from typing import Any
 from unittest.mock import MagicMock
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.routes.info.read_collections import ReadCollectionsInfoRoute
 from src.routes.info.read_configuration import ReadConfigurationRoute
@@ -12,6 +12,7 @@ from src.routes.info.read_counts import ReadCollectionCountsRoute
 from src.routes.info.read_quota import ReadQuotaInfoRoute
 from src.routes.info.read_usage import ReadCollectionUsageRoute
 from src.shared.models import CollectionData
+from tests.conftest import json_body
 
 TEST_USER_ID = "test-user-123"
 
@@ -27,7 +28,7 @@ def with_auth(event_dict: dict) -> dict:
 class TestReadCollectionsInfoRoute:
     """Tests for ReadCollectionsInfoRoute"""
 
-    def test_bind_registers_route(self, mock_storage_manager):
+    def test_bind_registers_route(self, mock_storage_manager: MagicMock) -> None:
         """Test that bind registers the GET route and handler works through resolver"""
         mock_storage_manager.list_collections.return_value = []
         route = ReadCollectionsInfoRoute(mock_storage_manager)
@@ -46,7 +47,7 @@ class TestReadCollectionsInfoRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success_mozilla_format(self, mock_storage_manager):
+    def test_handle_success_mozilla_format(self, mock_storage_manager: MagicMock) -> None:
         """Test successful retrieval of collections info in Mozilla format (name -> timestamp)"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
@@ -74,13 +75,12 @@ class TestReadCollectionsInfoRoute:
         ]
         mock_storage_manager.list_collections.return_value = collections
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         mock_storage_manager.list_collections.assert_called_once()
         assert response.status_code == 200
 
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         # Mozilla format: object mapping collection names to timestamps
         assert body == {
             "bookmarks": 1234567890.12,
@@ -88,7 +88,7 @@ class TestReadCollectionsInfoRoute:
             "tabs": 1234567870.00,
         }
 
-    def test_handle_empty_collections(self, mock_storage_manager):
+    def test_handle_empty_collections(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when no collections exist"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
@@ -96,15 +96,14 @@ class TestReadCollectionsInfoRoute:
 
         mock_storage_manager.list_collections.return_value = []
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         # Mozilla format: empty object
         assert body == {}
 
-    def test_handle_generic_exception(self, mock_storage_manager):
+    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of generic exceptions"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
@@ -112,18 +111,17 @@ class TestReadCollectionsInfoRoute:
 
         mock_storage_manager.list_collections.side_effect = Exception("Database error")
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 500
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Internal server error"
 
 
 class TestReadCollectionCountsRoute:
     """Tests for ReadCollectionCountsRoute"""
 
-    def test_bind_registers_route(self, mock_storage_manager):
+    def test_bind_registers_route(self, mock_storage_manager: MagicMock) -> None:
         """Test that bind registers the GET route and handler works through resolver"""
         mock_storage_manager.list_collections.return_value = []
         route = ReadCollectionCountsRoute(mock_storage_manager)
@@ -142,7 +140,7 @@ class TestReadCollectionCountsRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success_mozilla_format(self, mock_storage_manager):
+    def test_handle_success_mozilla_format(self, mock_storage_manager: MagicMock) -> None:
         """Test successful retrieval of collection counts in Mozilla format (name -> count)"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
@@ -170,15 +168,14 @@ class TestReadCollectionCountsRoute:
         ]
         mock_storage_manager.list_collections.return_value = collections
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         # Mozilla format: object mapping collection names to counts directly
         assert body == {"bookmarks": 15, "history": 100, "tabs": 7}
 
-    def test_handle_empty_collections(self, mock_storage_manager):
+    def test_handle_empty_collections(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when no collections exist"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
@@ -186,15 +183,14 @@ class TestReadCollectionCountsRoute:
 
         mock_storage_manager.list_collections.return_value = []
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         # Mozilla format: empty object
         assert body == {}
 
-    def test_handle_generic_exception(self, mock_storage_manager):
+    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of generic exceptions"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
@@ -202,7 +198,7 @@ class TestReadCollectionCountsRoute:
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 500
 
@@ -210,7 +206,7 @@ class TestReadCollectionCountsRoute:
 class TestReadCollectionUsageRoute:
     """Tests for ReadCollectionUsageRoute"""
 
-    def test_bind_registers_route(self, mock_storage_manager):
+    def test_bind_registers_route(self, mock_storage_manager: MagicMock) -> None:
         """Test that bind registers the GET route and handler works through resolver"""
         mock_storage_manager.list_collections.return_value = []
         route = ReadCollectionUsageRoute(mock_storage_manager)
@@ -229,7 +225,7 @@ class TestReadCollectionUsageRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success_mozilla_format(self, mock_storage_manager):
+    def test_handle_success_mozilla_format(self, mock_storage_manager: MagicMock) -> None:
         """Test successful retrieval of collection usage in Mozilla format (name -> usage in KB)"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
@@ -257,15 +253,14 @@ class TestReadCollectionUsageRoute:
         ]
         mock_storage_manager.list_collections.return_value = collections
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         # Mozilla format: object mapping collection names to usage in KB (not bytes)
         assert body == {"bookmarks": 1.0, "history": 4.0, "tabs": 0.5}
 
-    def test_handle_empty_collections(self, mock_storage_manager):
+    def test_handle_empty_collections(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when no collections exist"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
@@ -273,15 +268,14 @@ class TestReadCollectionUsageRoute:
 
         mock_storage_manager.list_collections.return_value = []
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         # Mozilla format: empty object
         assert body == {}
 
-    def test_handle_generic_exception(self, mock_storage_manager):
+    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of generic exceptions"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
@@ -289,7 +283,7 @@ class TestReadCollectionUsageRoute:
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 500
 
@@ -297,7 +291,7 @@ class TestReadCollectionUsageRoute:
 class TestReadQuotaInfoRoute:
     """Tests for ReadQuotaInfoRoute"""
 
-    def test_bind_registers_route(self, mock_storage_manager):
+    def test_bind_registers_route(self, mock_storage_manager: MagicMock) -> None:
         """Test that bind registers the GET route and handler works through resolver"""
         mock_storage_manager.list_collections.return_value = []
         route = ReadQuotaInfoRoute(mock_storage_manager)
@@ -316,7 +310,7 @@ class TestReadQuotaInfoRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success_mozilla_format(self, mock_storage_manager):
+    def test_handle_success_mozilla_format(self, mock_storage_manager: MagicMock) -> None:
         """Test successful retrieval of quota information in Mozilla format [usage_kb, quota_kb]"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
@@ -344,11 +338,10 @@ class TestReadQuotaInfoRoute:
         ]
         mock_storage_manager.list_collections.return_value = collections
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
 
         # Mozilla format: [usage_kb, quota_kb or null]
         assert isinstance(body, list)
@@ -358,7 +351,7 @@ class TestReadQuotaInfoRoute:
         # Default quota is None (not enforced)
         assert body[1] is None
 
-    def test_handle_with_quota_limit(self, mock_storage_manager):
+    def test_handle_with_quota_limit(self, mock_storage_manager: MagicMock) -> None:
         """Test quota info with a configured quota limit"""
         quota_kb = 10240  # 10 MB in KB
         route = ReadQuotaInfoRoute(mock_storage_manager, quota_kb=quota_kb)
@@ -375,17 +368,16 @@ class TestReadQuotaInfoRoute:
         ]
         mock_storage_manager.list_collections.return_value = collections
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
 
         # Mozilla format: [usage_kb, quota_kb]
         assert body[0] == 2.0  # 2048 bytes = 2 KB
         assert body[1] == 10240  # Configured quota
 
-    def test_handle_no_collections(self, mock_storage_manager):
+    def test_handle_no_collections(self, mock_storage_manager: MagicMock) -> None:
         """Test quota info when no collections exist"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
@@ -393,11 +385,10 @@ class TestReadQuotaInfoRoute:
 
         mock_storage_manager.list_collections.return_value = []
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
 
         # Mozilla format: [usage_kb, quota_kb or null]
         assert isinstance(body, list)
@@ -405,7 +396,7 @@ class TestReadQuotaInfoRoute:
         assert body[0] == 0.0  # No usage
         assert body[1] is None  # No quota enforced
 
-    def test_handle_single_collection(self, mock_storage_manager):
+    def test_handle_single_collection(self, mock_storage_manager: MagicMock) -> None:
         """Test quota info with single collection"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
@@ -421,17 +412,16 @@ class TestReadQuotaInfoRoute:
         ]
         mock_storage_manager.list_collections.return_value = collections
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
 
         # Mozilla format: [usage_kb, quota_kb or null]
         assert body[0] == 5.0  # 5120 bytes = 5 KB
         assert body[1] is None
 
-    def test_handle_generic_exception(self, mock_storage_manager):
+    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of generic exceptions"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
@@ -439,79 +429,75 @@ class TestReadQuotaInfoRoute:
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 500
 
-    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
         event: dict[str, Any] = {"requestContext": {}}
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 401
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Unauthorized"
 
 
 class TestReadCollectionsInfoRouteUnauthorized:
     """Tests for ReadCollectionsInfoRoute unauthorized cases"""
 
-    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
         event: dict[str, Any] = {"requestContext": {}}
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 401
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Unauthorized"
 
 
 class TestReadCollectionCountsRouteUnauthorized:
     """Tests for ReadCollectionCountsRoute unauthorized cases"""
 
-    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
         event: dict[str, Any] = {"requestContext": {}}
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 401
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Unauthorized"
 
 
 class TestReadCollectionUsageRouteUnauthorized:
     """Tests for ReadCollectionUsageRoute unauthorized cases"""
 
-    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
         event: dict[str, Any] = {"requestContext": {}}
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 401
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Unauthorized"
 
 
 class TestReadConfigurationRoute:
     """Tests for ReadConfigurationRoute"""
 
-    def test_bind_registers_route(self):
+    def test_bind_registers_route(self) -> None:
         """Test that bind registers the GET route and handler works through resolver"""
         route = ReadConfigurationRoute()
         app = APIGatewayRestResolver()
@@ -527,17 +513,16 @@ class TestReadConfigurationRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_default_configuration(self):
+    def test_handle_default_configuration(self) -> None:
         """Test successful retrieval of default server configuration"""
         route = ReadConfigurationRoute()
 
         event: dict[str, Any] = {}
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
 
         # Required fields per Mozilla spec
         assert body["max_request_bytes"] == 2 * 1024 * 1024  # 2 MB
@@ -549,7 +534,7 @@ class TestReadConfigurationRoute:
         assert "max_total_records" not in body
         assert "max_total_bytes" not in body
 
-    def test_handle_custom_configuration(self):
+    def test_handle_custom_configuration(self) -> None:
         """Test configuration with custom limits"""
         route = ReadConfigurationRoute(
             max_request_bytes=1024 * 1024,  # 1 MB
@@ -562,11 +547,10 @@ class TestReadConfigurationRoute:
 
         event: dict[str, Any] = {}
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
 
         assert body["max_request_bytes"] == 1024 * 1024
         assert body["max_post_records"] == 50
@@ -575,7 +559,7 @@ class TestReadConfigurationRoute:
         assert body["max_total_records"] == 1000
         assert body["max_total_bytes"] == 10 * 1024 * 1024
 
-    def test_handle_partial_optional_configuration(self):
+    def test_handle_partial_optional_configuration(self) -> None:
         """Test configuration with only some optional limits"""
         route = ReadConfigurationRoute(
             max_total_records=500,
@@ -584,11 +568,10 @@ class TestReadConfigurationRoute:
 
         event: dict[str, Any] = {}
 
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
 
         # Required fields present
         assert "max_request_bytes" in body

@@ -8,7 +8,7 @@ from src.shared.token import TokenResponse
 class TestTokenResponse:
     """Tests for TokenResponse model"""
 
-    def test_creation_with_all_fields(self):
+    def test_creation_with_all_fields(self) -> None:
         token = TokenResponse(
             id="hawk_id_base64",
             key="hawk_key_hex_64_chars",
@@ -25,7 +25,7 @@ class TestTokenResponse:
         assert token.duration == 300
         assert token.hashalg == "sha256"
 
-    def test_duration_is_300_seconds(self):
+    def test_duration_is_300_seconds(self) -> None:
         token = TokenResponse(
             id="test_id",
             key="test_key",
@@ -36,7 +36,7 @@ class TestTokenResponse:
         )
         assert token.duration == 300
 
-    def test_hashalg_is_sha256(self):
+    def test_hashalg_is_sha256(self) -> None:
         token = TokenResponse(
             id="test_id",
             key="test_key",
@@ -47,7 +47,7 @@ class TestTokenResponse:
         )
         assert token.hashalg == "sha256"
 
-    def test_api_endpoint_format(self):
+    def test_api_endpoint_format(self) -> None:
         token = TokenResponse(
             id="test_id",
             key="test_key",
@@ -60,7 +60,7 @@ class TestTokenResponse:
         assert "/1.5/" in token.api_endpoint
         assert token.api_endpoint.endswith("user456")
 
-    def test_asdict(self):
+    def test_asdict(self) -> None:
         token = TokenResponse(
             id="dict_id",
             key="dict_key",
@@ -80,7 +80,7 @@ class TestTokenResponse:
         assert data["duration"] == 300
         assert data["hashalg"] == "sha256"
 
-    def test_uid_is_numeric(self):
+    def test_uid_is_numeric(self) -> None:
         token = TokenResponse(
             id="test_id",
             key="test_key",
@@ -92,7 +92,7 @@ class TestTokenResponse:
         assert isinstance(token.uid, int)
         assert token.uid > 0
 
-    def test_different_uids_for_different_users(self):
+    def test_different_uids_for_different_users(self) -> None:
         token1 = TokenResponse(
             id="id1",
             key="key1",

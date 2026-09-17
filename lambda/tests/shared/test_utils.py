@@ -13,7 +13,7 @@ from src.shared.utils import (
 class TestWeaveTimestamp:
     """Test Weave timestamp generation (Requirements 9.1, 9.2)"""
 
-    def test_get_weave_timestamp_format(self):
+    def test_get_weave_timestamp_format(self) -> None:
         """Test that get_weave_timestamp returns correct format"""
         timestamp = get_weave_timestamp()
 
@@ -27,7 +27,7 @@ class TestWeaveTimestamp:
         float_value = float(timestamp)
         assert float_value > 0
 
-    def test_get_weave_timestamp_precision(self):
+    def test_get_weave_timestamp_precision(self) -> None:
         """Test that get_weave_timestamp has exactly 2 decimal places"""
         timestamp = get_weave_timestamp()
 
@@ -40,7 +40,7 @@ class TestWeaveTimestamp:
 class TestExtractHawkRequestParams:
     """Test extract_hawk_request_params helper"""
 
-    def test_extracts_domain_name_from_request_context(self):
+    def test_extracts_domain_name_from_request_context(self) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "POST",
@@ -55,7 +55,7 @@ class TestExtractHawkRequestParams:
         assert host == "auth.prod.ffsync.layertwo.dev"
         assert port == 443
 
-    def test_appends_query_string_to_path(self):
+    def test_appends_query_string_to_path(self) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "POST",
@@ -68,7 +68,7 @@ class TestExtractHawkRequestParams:
         method, path, host, port = extract_hawk_request_params(event)
         assert path == "/v1/session/destroy?service=sync"
 
-    def test_falls_back_to_host_header_when_no_request_context(self):
+    def test_falls_back_to_host_header_when_no_request_context(self) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "GET",
@@ -79,7 +79,7 @@ class TestExtractHawkRequestParams:
         method, path, host, port = extract_hawk_request_params(event)
         assert host == "fallback.example.com"
 
-    def test_falls_back_to_localhost_when_no_host_or_context(self):
+    def test_falls_back_to_localhost_when_no_host_or_context(self) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "GET",
@@ -90,7 +90,7 @@ class TestExtractHawkRequestParams:
         method, path, host, port = extract_hawk_request_params(event)
         assert host == "localhost"
 
-    def test_no_query_string_when_none(self):
+    def test_no_query_string_when_none(self) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "GET",

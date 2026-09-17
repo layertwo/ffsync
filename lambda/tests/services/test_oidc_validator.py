@@ -1,6 +1,7 @@
 """Unit tests for OIDCValidator"""
 
 from datetime import datetime, timezone
+from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import jwt
@@ -21,22 +22,22 @@ def current_timestamp() -> int:
 
 
 @pytest.fixture
-def provider_url():
+def provider_url() -> str:
     return "https://auth.example.com"
 
 
 @pytest.fixture
-def client_id():
+def client_id() -> str:
     return "test-client-id"
 
 
 @pytest.fixture
-def validator(provider_url, client_id):
+def validator(provider_url: str, client_id: str) -> OIDCValidator:
     return OIDCValidator(provider_url, client_id, user_agent="foobar", metrics=MagicMock())
 
 
 @pytest.fixture
-def mock_provider_config():
+def mock_provider_config() -> Dict[str, str]:
     return {
         "issuer": "https://auth.example.com",
         "jwks_uri": "https://auth.example.com/.well-known/jwks.json",
@@ -49,24 +50,24 @@ def mock_provider_config():
 class TestOIDCValidatorInit:
     """Test OIDCValidator initialization"""
 
-    def test_init_strips_trailing_slash(self, client_id):
+    def test_init_strips_trailing_slash(self, client_id: str) -> None:
         """Test that trailing slash is stripped from provider URL"""
         validator = OIDCValidator(
             "https://auth.example.com/", client_id, user_agent="foobar", metrics=MagicMock()
         )
         assert validator.provider_url == "https://auth.example.com"
 
-    def test_init_stores_client_id(self, provider_url, client_id):
+    def test_init_stores_client_id(self, provider_url: str, client_id: str) -> None:
         """Test that client_id is stored correctly"""
         validator = OIDCValidator(provider_url, client_id, user_agent="foobar", metrics=MagicMock())
         assert validator.client_id == client_id
 
-    def test_init_default_clock_skew_tolerance(self, provider_url, client_id):
+    def test_init_default_clock_skew_tolerance(self, provider_url: str, client_id: str) -> None:
         """Test that default clock_skew_tolerance is 300 seconds"""
         validator = OIDCValidator(provider_url, client_id, user_agent="foobar", metrics=MagicMock())
         assert validator.clock_skew_tolerance == 300
 
-    def test_init_custom_clock_skew_tolerance(self, provider_url, client_id):
+    def test_init_custom_clock_skew_tolerance(self, provider_url: str, client_id: str) -> None:
         """Test that custom clock_skew_tolerance is stored correctly"""
         validator = OIDCValidator(
             provider_url,
@@ -77,12 +78,12 @@ class TestOIDCValidatorInit:
         )
         assert validator.clock_skew_tolerance == 600
 
-    def test_init_default_cache_ttl_seconds(self, provider_url, client_id):
+    def test_init_default_cache_ttl_seconds(self, provider_url: str, client_id: str) -> None:
         """Test that default cache_ttl_seconds is 3600 seconds"""
         validator = OIDCValidator(provider_url, client_id, user_agent="foobar", metrics=MagicMock())
         assert validator.cache_ttl_seconds == 3600
 
-    def test_init_custom_cache_ttl_seconds(self, provider_url, client_id):
+    def test_init_custom_cache_ttl_seconds(self, provider_url: str, client_id: str) -> None:
         """Test that custom cache_ttl_seconds is stored correctly"""
         validator = OIDCValidator(
             provider_url,
@@ -97,7 +98,9 @@ class TestOIDCValidatorInit:
 class TestDiscoverProviderConfig:
     """Test discover_provider_config method"""
 
-    def test_discover_provider_config_success(self, validator, mock_provider_config):
+    def test_discover_provider_config_success(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test successful provider config discovery"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -115,7 +118,9 @@ class TestDiscoverProviderConfig:
                 headers={"User-Agent": "foobar"},
             )
 
-    def test_discover_provider_config_caching(self, validator, mock_provider_config):
+    def test_discover_provider_config_caching(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test that provider config is cached"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -132,7 +137,9 @@ class TestDiscoverProviderConfig:
             # Should only call once due to caching
             assert mock_get.call_count == 1
 
-    def test_discover_provider_config_cache_expiry(self, validator, mock_provider_config):
+    def test_discover_provider_config_cache_expiry(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test that cache expires after TTL"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -154,8 +161,8 @@ class TestDiscoverProviderConfig:
             assert mock_get.call_count == 2
 
     def test_discover_provider_config_custom_cache_ttl(
-        self, provider_url, client_id, mock_provider_config
-    ):
+        self, provider_url: str, client_id: str, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test that custom cache TTL is respected"""
         validator = OIDCValidator(
             provider_url,
@@ -191,9 +198,9 @@ class TestDiscoverProviderConfig:
 
             assert mock_get.call_count == 2
 
-    def test_discover_provider_config_timeout(self, validator):
+    def test_discover_provider_config_timeout(self, validator: OIDCValidator) -> None:
         """Test ServiceUnavailableError on timeout"""
-        import requests  # type: ignore[import-untyped]
+        import requests
 
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_get.side_effect = requests.exceptions.Timeout()
@@ -203,9 +210,9 @@ class TestDiscoverProviderConfig:
 
             assert "timed out" in str(exc_info.value.message)
 
-    def test_discover_provider_config_connection_error(self, validator):
+    def test_discover_provider_config_connection_error(self, validator: OIDCValidator) -> None:
         """Test ServiceUnavailableError on connection error"""
-        import requests  # type: ignore[import-untyped]
+        import requests
 
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_get.side_effect = requests.exceptions.ConnectionError()
@@ -215,9 +222,9 @@ class TestDiscoverProviderConfig:
 
             assert "unreachable" in str(exc_info.value.message)
 
-    def test_discover_provider_config_http_error(self, validator):
+    def test_discover_provider_config_http_error(self, validator: OIDCValidator) -> None:
         """Test ServiceUnavailableError on HTTP error"""
-        import requests  # type: ignore[import-untyped]
+        import requests
 
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -232,7 +239,7 @@ class TestDiscoverProviderConfig:
 
             assert "returned error" in str(exc_info.value.message)
 
-    def test_discover_provider_config_invalid_json(self, validator):
+    def test_discover_provider_config_invalid_json(self, validator: OIDCValidator) -> None:
         """Test ServiceUnavailableError on invalid config"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -249,7 +256,9 @@ class TestDiscoverProviderConfig:
 class TestValidateToken:
     """Test validate_token method"""
 
-    def test_validate_token_success(self, validator, mock_provider_config):
+    def test_validate_token_success(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test successful token validation"""
         mock_claims = {
             "sub": "user123",
@@ -281,7 +290,9 @@ class TestValidateToken:
                     assert claims.aud == "test-client-id"
                     assert claims.email == "user@example.com"
 
-    def test_validate_token_expired(self, validator, mock_provider_config):
+    def test_validate_token_expired(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test InvalidCredentialsError on expired token"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -302,7 +313,9 @@ class TestValidateToken:
 
                     assert "expired" in str(exc_info.value.message)
 
-    def test_validate_token_invalid_audience(self, validator, mock_provider_config):
+    def test_validate_token_invalid_audience(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test InvalidCredentialsError on invalid audience"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -323,7 +336,9 @@ class TestValidateToken:
 
                     assert "audience" in str(exc_info.value.message)
 
-    def test_validate_token_invalid_issuer(self, validator, mock_provider_config):
+    def test_validate_token_invalid_issuer(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test InvalidCredentialsError on invalid issuer"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -344,7 +359,9 @@ class TestValidateToken:
 
                     assert "issuer" in str(exc_info.value.message)
 
-    def test_validate_token_missing_sub_claim(self, validator, mock_provider_config):
+    def test_validate_token_missing_sub_claim(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test InvalidCredentialsError when sub claim is missing"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -365,7 +382,9 @@ class TestValidateToken:
 
                     assert "missing required claim" in str(exc_info.value.message).lower()
 
-    def test_validate_token_invalid_signature(self, validator, mock_provider_config):
+    def test_validate_token_invalid_signature(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test InvalidTokenError on invalid signature"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -386,7 +405,9 @@ class TestValidateToken:
 
                     assert "Invalid token" in str(exc_info.value.message)
 
-    def test_validate_token_jwk_client_error(self, validator, mock_provider_config):
+    def test_validate_token_jwk_client_error(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test InvalidTokenError when JWK client fails"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -404,7 +425,9 @@ class TestValidateToken:
 
                 assert "signing key" in str(exc_info.value.message)
 
-    def test_validate_token_audience_as_list(self, validator, mock_provider_config):
+    def test_validate_token_audience_as_list(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test handling of audience claim as list"""
         mock_claims = {
             "sub": "user123",
@@ -433,7 +456,9 @@ class TestValidateToken:
                     # Should take first audience from list
                     assert claims.aud == "test-client-id"
 
-    def test_validate_token_empty_sub_claim(self, validator, mock_provider_config):
+    def test_validate_token_empty_sub_claim(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test InvalidCredentialsError when sub claim is empty string"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -460,7 +485,9 @@ class TestValidateToken:
 
                     assert "sub claim" in str(exc_info.value.message)
 
-    def test_validate_token_empty_audience_list(self, validator, mock_provider_config):
+    def test_validate_token_empty_audience_list(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test handling of empty audience list"""
         mock_claims = {
             "sub": "user123",
@@ -489,7 +516,9 @@ class TestValidateToken:
                     # Should return empty string for empty audience list
                     assert claims.aud == ""
 
-    def test_validate_token_unexpected_exception(self, validator, mock_provider_config):
+    def test_validate_token_unexpected_exception(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test InvalidTokenError on unexpected exception"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -511,7 +540,7 @@ class TestValidateToken:
 
                     assert "Token validation failed" in str(exc_info.value.message)
 
-    def test_validate_token_service_unavailable_reraise(self, validator):
+    def test_validate_token_service_unavailable_reraise(self, validator: OIDCValidator) -> None:
         """Test ServiceUnavailableError is re-raised during token validation"""
         with patch.object(validator, "discover_provider_config") as mock_discover:
             mock_discover.side_effect = ServiceUnavailableError("Provider unreachable")
@@ -521,7 +550,9 @@ class TestValidateToken:
 
             assert "Provider unreachable" in str(exc_info.value.message)
 
-    def test_validate_token_timestamp_within_tolerance(self, validator, mock_provider_config):
+    def test_validate_token_timestamp_within_tolerance(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test successful validation when timestamp is within tolerance"""
         current_time = int(datetime.now(timezone.utc).timestamp())
         mock_claims = {
@@ -551,7 +582,9 @@ class TestValidateToken:
                     assert claims.sub == "user123"
                     assert claims.iat == current_time - 100
 
-    def test_validate_token_timestamp_exceeds_tolerance(self, validator, mock_provider_config):
+    def test_validate_token_timestamp_exceeds_tolerance(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test InvalidTimestampError when timestamp exceeds tolerance"""
         from src.shared.exceptions import InvalidTimestampError
 
@@ -585,8 +618,8 @@ class TestValidateToken:
                     assert "300 seconds" in str(exc_info.value.message)
 
     def test_validate_token_timestamp_future_exceeds_tolerance(
-        self, validator, mock_provider_config
-    ):
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test InvalidTimestampError when future timestamp exceeds tolerance"""
         from src.shared.exceptions import InvalidTimestampError
 
@@ -618,7 +651,9 @@ class TestValidateToken:
 
                     assert "400 seconds" in str(exc_info.value.message)
 
-    def test_validate_token_custom_tolerance(self, provider_url, client_id, mock_provider_config):
+    def test_validate_token_custom_tolerance(
+        self, provider_url: str, client_id: str, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test timestamp validation with custom tolerance"""
         validator = OIDCValidator(
             provider_url,
@@ -654,7 +689,9 @@ class TestValidateToken:
 
                     assert claims.sub == "user123"
 
-    def test_validate_token_no_iat_claim(self, validator, mock_provider_config):
+    def test_validate_token_no_iat_claim(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test validation succeeds when iat claim is missing (optional validation)"""
         current_time = int(datetime.now(timezone.utc).timestamp())
         mock_claims = {
@@ -684,7 +721,9 @@ class TestValidateToken:
 
                     assert claims.sub == "user123"
 
-    def test_validate_token_uses_current_time(self, validator, mock_provider_config):
+    def test_validate_token_uses_current_time(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test that validation uses current time internally"""
         mock_claims = {
             "sub": "user123",
@@ -716,7 +755,9 @@ class TestValidateToken:
 class TestGetJwkClient:
     """Test _get_jwk_client method"""
 
-    def test_get_jwk_client_creates_client(self, validator, mock_provider_config):
+    def test_get_jwk_client_creates_client(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test that _get_jwk_client creates PyJWKClient on first call"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -738,7 +779,9 @@ class TestGetJwkClient:
                     headers={"User-Agent": "foobar"},
                 )
 
-    def test_get_jwk_client_custom_cache_ttl(self, provider_url, client_id, mock_provider_config):
+    def test_get_jwk_client_custom_cache_ttl(
+        self, provider_url: str, client_id: str, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test that _get_jwk_client uses custom cache TTL"""
         validator = OIDCValidator(
             provider_url,
@@ -768,7 +811,9 @@ class TestGetJwkClient:
                     headers={"User-Agent": "foobar"},
                 )
 
-    def test_get_jwk_client_caches_client(self, validator, mock_provider_config):
+    def test_get_jwk_client_caches_client(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test that _get_jwk_client returns cached client on subsequent calls"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()
@@ -793,7 +838,9 @@ class TestGetJwkClient:
 class TestClearCache:
     """Test clear_cache method"""
 
-    def test_clear_cache(self, validator, mock_provider_config):
+    def test_clear_cache(
+        self, validator: OIDCValidator, mock_provider_config: Dict[str, str]
+    ) -> None:
         """Test that clear_cache resets all cached data"""
         with patch("src.services.oidc_validator.requests.get") as mock_get:
             mock_response = MagicMock()

@@ -1,10 +1,11 @@
 """ScopedKeyData route — POST /v1/account/scoped-key-data"""
 
 import json
-from typing import Sequence
+from typing import Any, Sequence
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 from pydantic import ValidationError as PydanticValidationError
 
 from src.services.auth_account_manager import AuthAccountManager
@@ -23,12 +24,12 @@ class ScopedKeyDataRoute(BaseRoute):
         self._account_manager = account_manager
         self.middlewares = middlewares
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.post("/v1/account/scoped-key-data", middlewares=list(self.middlewares))
-        def handle_scoped_key_data():
+        def handle_scoped_key_data() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         uid = event["requestContext"]["hawk_uid"]
 
         # Parse and validate body

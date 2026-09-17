@@ -14,7 +14,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from itertools import permutations
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional, Tuple, cast
 
 import mohawk
 import mohawk.exc
@@ -28,6 +28,9 @@ from src.shared.exceptions import (
     InvalidHawkHeaderException,
     InvalidHawkSignatureException,
 )
+
+if TYPE_CHECKING:
+    from types_boto3_dynamodb.service_resource import Table
 
 logger = Logger(child=True)
 
@@ -60,7 +63,10 @@ class HawkService:
     """
 
     def __init__(
-        self, token_cache_table, timestamp_skew_tolerance: int = 60, token_duration: int = 300
+        self,
+        token_cache_table: "Table",
+        timestamp_skew_tolerance: int = 60,
+        token_duration: int = 300,
     ):
         self.token_cache_table = token_cache_table
         self.timestamp_skew_tolerance = timestamp_skew_tolerance
@@ -103,7 +109,7 @@ class HawkService:
                 path = corrected
 
         # Credentials lookup called by mohawk during MAC verification
-        def credentials_map(sender_id):
+        def credentials_map(sender_id: str) -> dict:
             hawk_key, cached_user_id, cached_generation = self.get_hawk_key_from_cache(sender_id)
             if cached_generation != generation:
                 raise InvalidGenerationException(
@@ -149,7 +155,7 @@ class HawkService:
             user_id=user_id, generation=generation, expiry=expiry, hawk_id=hawk_id
         )
 
-    def _seen_nonce(self, sender_id, nonce, timestamp):
+    def _seen_nonce(self, sender_id: str, nonce: str, timestamp: str) -> bool:
         """Check if a nonce has been seen before (replay protection).
 
         Uses DynamoDB conditional write: if the nonce record already exists,
@@ -264,7 +270,7 @@ class HawkService:
             response = self.token_cache_table.get_item(Key={"PK": f"TOKEN#{hawk_id}"})
             if "Item" not in response:
                 raise AuthenticationException(f"HAWK token not found: {hawk_id}")
-            item = response["Item"]
+            item = cast(dict[str, Any], response["Item"])
             return (item["hawk_key"], item["user_id"], int(item["generation"]))
         except ClientError as e:
             logger.error(f"Failed to retrieve HAWK token from cache: {e}")

@@ -12,12 +12,13 @@ Tests the complete end-to-end flow:
 
 import json
 import time
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from botocore.stub import ANY
+from botocore.stub import ANY, Stubber
 
 from src.entrypoint.storage_api import lambda_handler as storage_handler
 from src.entrypoint.token_api import lambda_handler as token_handler
+from src.environment.service_provider import ServiceProvider
 from src.services.token_generator import TokenGenerator
 from tests.fixtures.integration import (
     build_hawk_auth_header,
@@ -30,10 +31,10 @@ class TestTokenServerToStorageServerFlow:
 
     def test_complete_token_issuance_and_validation_flow(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test complete flow: Token issuance -> HAWK middleware auth -> Storage access.
 
@@ -194,10 +195,10 @@ class TestTokenServerToStorageServerFlow:
 
     def test_token_server_stores_credentials_for_middleware_validation(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that Token Server stores HAWK credentials in cache for middleware validation.
 
@@ -317,10 +318,10 @@ class TestTokenServerToStorageServerFlow:
 
     def test_expired_token_rejected_by_middleware(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that expired HAWK tokens are rejected by StorageHawkMiddleware.
 
@@ -359,10 +360,10 @@ class TestTokenServerToStorageServerFlow:
 
     def test_invalid_hawk_signature_rejected_by_middleware(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that invalid HAWK signatures are rejected by StorageHawkMiddleware.
 
@@ -416,10 +417,10 @@ class TestTokenServerToStorageServerFlow:
 
     def test_generation_mismatch_rejected_by_middleware(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that tokens with mismatched generation numbers are rejected.
 

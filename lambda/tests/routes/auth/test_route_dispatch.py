@@ -3,6 +3,7 @@
 These tests exercise the bind() closure bodies which unit tests call directly via handle().
 """
 
+from typing import Dict, Optional
 from unittest.mock import MagicMock
 
 from src.routes.auth.account_attached_clients import AccountAttachedClientsRoute
@@ -23,9 +24,17 @@ from src.routes.auth.scoped_key_data import ScopedKeyDataRoute
 from src.routes.auth.session_destroy import SessionDestroyRoute
 from src.routes.auth.session_status import SessionStatusRoute
 from src.services.api_router import ApiRouter
+from src.shared.base_route import BaseRoute
 
 
-def _make_event(method, path, headers=None, body=None, qs=None, hawk_uid=None):
+def _make_event(
+    method: str,
+    path: str,
+    headers: Optional[Dict[str, str]] = None,
+    body: Optional[str] = None,
+    qs: Optional[Dict[str, str]] = None,
+    hawk_uid: Optional[str] = None,
+) -> dict:
     ctx = {"requestId": "test"}
     if hawk_uid:
         ctx["hawk_uid"] = hawk_uid
@@ -40,20 +49,20 @@ def _make_event(method, path, headers=None, body=None, qs=None, hawk_uid=None):
     }
 
 
-def _make_context():
+def _make_context() -> MagicMock:
     ctx = MagicMock()
     ctx.function_name = "test"
     return ctx
 
 
-def _router(route):
+def _router(route: BaseRoute) -> ApiRouter:
     return ApiRouter(routes=[route], middlewares=[])
 
 
 class TestRouteDispatch:
     """Verify each route's bind closure is exercised via ApiRouter."""
 
-    def test_account_status_dispatches(self):
+    def test_account_status_dispatches(self) -> None:
         mgr = MagicMock()
         mgr.get_account_by_email.return_value = None
         router = _router(AccountStatusRoute(account_manager=mgr))
@@ -62,7 +71,7 @@ class TestRouteDispatch:
         )
         assert result["statusCode"] == 200
 
-    def test_account_create_dispatches(self):
+    def test_account_create_dispatches(self) -> None:
         route = AccountCreateRoute(
             account_manager=MagicMock(), token_manager=MagicMock(), oidc_validator=MagicMock()
         )
@@ -71,19 +80,19 @@ class TestRouteDispatch:
         )
         assert result["statusCode"] == 401
 
-    def test_account_login_dispatches(self):
+    def test_account_login_dispatches(self) -> None:
         route = AccountLoginRoute(account_manager=MagicMock(), token_manager=MagicMock())
         result = _router(route).handler(
             _make_event("POST", "/v1/account/login", body="{}"), _make_context()
         )
         assert result["statusCode"] == 400
 
-    def test_account_keys_dispatches(self):
+    def test_account_keys_dispatches(self) -> None:
         route = AccountKeysRoute(account_manager=MagicMock(), token_manager=MagicMock())
         result = _router(route).handler(_make_event("GET", "/v1/account/keys"), _make_context())
         assert result["statusCode"] == 401
 
-    def test_scoped_key_data_dispatches(self):
+    def test_scoped_key_data_dispatches(self) -> None:
         mgr = MagicMock()
         mgr.get_account_by_uid.return_value = None
         route = ScopedKeyDataRoute(account_manager=mgr, middlewares=[])
@@ -99,7 +108,7 @@ class TestRouteDispatch:
         # Account not found returns 401
         assert result["statusCode"] == 401
 
-    def test_session_status_dispatches(self):
+    def test_session_status_dispatches(self) -> None:
         route = SessionStatusRoute(middlewares=[])
         result = _router(route).handler(
             _make_event("GET", "/v1/session/status", hawk_uid="uid1"),
@@ -107,7 +116,7 @@ class TestRouteDispatch:
         )
         assert result["statusCode"] == 200
 
-    def test_session_destroy_dispatches(self):
+    def test_session_destroy_dispatches(self) -> None:
         route = SessionDestroyRoute(token_manager=MagicMock(), middlewares=[])
         result = _router(route).handler(
             _make_event("POST", "/v1/session/destroy"),
@@ -115,7 +124,7 @@ class TestRouteDispatch:
         )
         assert result["statusCode"] == 200
 
-    def test_oauth_authorization_dispatches(self):
+    def test_oauth_authorization_dispatches(self) -> None:
         route = OAuthAuthorizationRoute(oauth_code_manager=MagicMock(), middlewares=[])
         result = _router(route).handler(
             _make_event(
@@ -129,7 +138,7 @@ class TestRouteDispatch:
         # Missing client_id returns 400
         assert result["statusCode"] == 400
 
-    def test_oauth_token_dispatches(self):
+    def test_oauth_token_dispatches(self) -> None:
         route = OAuthTokenRoute(
             oauth_code_manager=MagicMock(),
             jwt_service=MagicMock(),
@@ -141,14 +150,14 @@ class TestRouteDispatch:
         )
         assert result["statusCode"] == 400
 
-    def test_oauth_destroy_dispatches(self):
+    def test_oauth_destroy_dispatches(self) -> None:
         route = OAuthDestroyRoute(oauth_code_manager=MagicMock())
         result = _router(route).handler(
             _make_event("POST", "/v1/oauth/destroy", body="{}"), _make_context()
         )
         assert result["statusCode"] in (200, 400)
 
-    def test_oidc_discovery_dispatches(self):
+    def test_oidc_discovery_dispatches(self) -> None:
         jwt_svc = MagicMock()
         jwt_svc.issuer = "https://auth.example.com"
         route = OIDCDiscoveryRoute(jwt_service=jwt_svc)
@@ -157,14 +166,14 @@ class TestRouteDispatch:
         )
         assert result["statusCode"] == 200
 
-    def test_jwks_dispatches(self):
+    def test_jwks_dispatches(self) -> None:
         jwt_svc = MagicMock()
         jwt_svc.get_public_key_jwk.return_value = {"kty": "RSA", "kid": "test"}
         route = JWKSRoute(jwt_service=jwt_svc)
         result = _router(route).handler(_make_event("GET", "/v1/jwks"), _make_context())
         assert result["statusCode"] == 200
 
-    def test_oidc_provider_config_dispatches(self):
+    def test_oidc_provider_config_dispatches(self) -> None:
         validator = MagicMock()
         validator.discover_provider_config.return_value = MagicMock(
             authorization_endpoint="https://idp.example.com/authorize"
@@ -173,7 +182,7 @@ class TestRouteDispatch:
         result = _router(route).handler(_make_event("GET", "/v1/oidc/config"), _make_context())
         assert result["statusCode"] == 200
 
-    def test_oidc_code_exchange_dispatches(self):
+    def test_oidc_code_exchange_dispatches(self) -> None:
         route = OIDCCodeExchangeRoute(
             oidc_validator=MagicMock(),
             account_manager=MagicMock(),
@@ -185,7 +194,7 @@ class TestRouteDispatch:
         )
         assert result["statusCode"] == 400
 
-    def test_account_device_dispatches(self):
+    def test_account_device_dispatches(self) -> None:
         mgr = MagicMock()
         mgr.upsert_device.return_value = {"id": "dev1", "name": "Test"}
         route = AccountDeviceRoute(device_manager=mgr, middlewares=[])
@@ -195,7 +204,7 @@ class TestRouteDispatch:
         )
         assert result["statusCode"] == 200
 
-    def test_account_devices_dispatches(self):
+    def test_account_devices_dispatches(self) -> None:
         mgr = MagicMock()
         mgr.get_devices.return_value = []
         route = AccountDevicesRoute(device_manager=mgr, middlewares=[])
@@ -205,7 +214,7 @@ class TestRouteDispatch:
         )
         assert result["statusCode"] == 200
 
-    def test_account_attached_clients_dispatches(self):
+    def test_account_attached_clients_dispatches(self) -> None:
         mgr = MagicMock()
         mgr.get_devices.return_value = []
         route = AccountAttachedClientsRoute(device_manager=mgr, middlewares=[])
@@ -215,7 +224,7 @@ class TestRouteDispatch:
         )
         assert result["statusCode"] == 200
 
-    def test_account_devices_notify_dispatches(self):
+    def test_account_devices_notify_dispatches(self) -> None:
         route = AccountDevicesNotifyRoute(middlewares=[])
         result = _router(route).handler(
             _make_event("POST", "/v1/account/devices/notify", body="{}", hawk_uid="uid1"),

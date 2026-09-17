@@ -1,8 +1,10 @@
 """AccountStatus route — GET /v1/account/status"""
 
 import json
+from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.auth_account_manager import AuthAccountManager
 from src.shared.base_route import BaseRoute
@@ -15,12 +17,12 @@ class AccountStatusRoute(BaseRoute):
     def __init__(self, account_manager: AuthAccountManager):
         self._account_manager = account_manager
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.get("/v1/account/status")
-        def handle_account_status():
+        def handle_account_status() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         params = event.query_string_parameters or {}
         email = params.get("email")
         if not email:

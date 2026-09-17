@@ -1,12 +1,14 @@
 """Shared test fixtures and configuration"""
 
 import json
+from typing import Any, Generator
 from unittest.mock import MagicMock, Mock, patch
 
+import boto3
 import pytest
+from aws_lambda_powertools.event_handler import Response
 
 from src.environment.service_provider import ServiceProvider
-from src.services.token_generator import TokenGenerator
 from src.shared.models import (
     BasicStorageObject,
     BatchResult,
@@ -16,49 +18,49 @@ from tests.fixtures.boto import *  # noqa: F403,F401
 
 
 @pytest.fixture
-def storage_table_name():
+def storage_table_name() -> str:
     return "test-storage-table"
 
 
 @pytest.fixture
-def token_users_table_name():
+def token_users_table_name() -> str:
     return "test-token-users-table"
 
 
 @pytest.fixture
-def oidc_provider_url():
+def oidc_provider_url() -> str:
     return "https://auth.example.com"
 
 
 @pytest.fixture
-def oidc_client_id():
+def oidc_client_id() -> str:
     return "test-client-id"
 
 
 @pytest.fixture
-def base_domain():
+def base_domain() -> str:
     return "sync.example.com"
 
 
 @pytest.fixture
-def token_cache_table_name():
+def token_cache_table_name() -> str:
     return "test-token-cache-table"
 
 
 @pytest.fixture(autouse=True)
 def setup_environment(
-    monkeypatch,
-    aws_region_name,
-    aws_access_key_id,
-    aws_secret_access_key,
-    aws_session_token,
-    storage_table_name,
-    token_users_table_name,
-    token_cache_table_name,
-    oidc_provider_url,
-    oidc_client_id,
-    base_domain,
-):
+    monkeypatch: pytest.MonkeyPatch,
+    aws_region_name: str,
+    aws_access_key_id: str,
+    aws_secret_access_key: str,
+    aws_session_token: str,
+    storage_table_name: str,
+    token_users_table_name: str,
+    token_cache_table_name: str,
+    oidc_provider_url: str,
+    oidc_client_id: str,
+    base_domain: str,
+) -> None:
     """Mock environment variables"""
     monkeypatch.setenv("AWS_REGION", aws_region_name)
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", aws_access_key_id)
@@ -80,12 +82,12 @@ def setup_environment(
 
 
 @pytest.fixture
-def mock_service_provider(boto_session):
+def mock_service_provider(boto_session: boto3.Session) -> ServiceProvider:
     return ServiceProvider()
 
 
 @pytest.fixture
-def mock_storage_manager():
+def mock_storage_manager() -> MagicMock:
     """Mock StorageManager for testing route handlers"""
     manager = MagicMock()
 
@@ -123,44 +125,25 @@ def mock_storage_manager():
 
 
 @pytest.fixture
-def test_user_id():
+def test_user_id() -> str:
     """Test user ID for authenticated requests"""
     return "test-user-123"
 
 
-def make_event_with_auth(event_dict: dict, user_id: str = "test-user-123") -> dict:
-    """Helper to add hawk_uid to an event dict"""
-    if "requestContext" not in event_dict:
-        event_dict["requestContext"] = {}
-    event_dict["requestContext"]["hawk_uid"] = user_id
-    return event_dict
+def json_body(response: Response[Any]) -> Any:
+    """Decode a route Response body as JSON. powertools types it Optional; assert once here."""
+    assert response.body is not None, f"expected a JSON body, got {response.status_code}"
+    return json.loads(response.body)
+
+
+def header(response: Response[Any], name: str) -> str:
+    """Single response header value (powertools types them str | list[str])."""
+    value = response.headers[name]
+    return value if isinstance(value, str) else value[0]
 
 
 @pytest.fixture
-def sample_lambda_event(test_user_id):
-    """Sample Lambda event structure"""
-    uid = str(TokenGenerator.generate_uid(test_user_id, 0))
-    return {
-        "httpMethod": "GET",
-        "path": f"/1.5/{uid}/storage/test_collection/test_object",
-        "pathParameters": {
-            "uid": uid,
-            "collectionName": "test_collection",
-            "objectId": "test_object",
-        },
-        "headers": {"Content-Type": "application/json"},
-        "body": None,
-        "queryStringParameters": None,
-        "requestContext": {
-            "requestId": "test-request-id",
-            "accountId": "123456789012",
-            "hawk_uid": test_user_id,
-        },
-    }
-
-
-@pytest.fixture
-def sample_lambda_context():
+def sample_lambda_context() -> Mock:
     """Sample Lambda context object"""
     context = Mock()
     context.function_name = "test-function"
@@ -174,7 +157,7 @@ def sample_lambda_context():
 
 
 @pytest.fixture
-def sample_bso():
+def sample_bso() -> BasicStorageObject:
     """Sample BasicStorageObject"""
     return BasicStorageObject(
         id="test_bso",
@@ -186,7 +169,7 @@ def sample_bso():
 
 
 @pytest.fixture
-def sample_collection():
+def sample_collection() -> CollectionData:
     """Sample CollectionData"""
     return CollectionData(
         name="bookmarks",
@@ -197,7 +180,7 @@ def sample_collection():
 
 
 @pytest.fixture
-def sample_batch_result():
+def sample_batch_result() -> BatchResult:
     """Sample BatchResult"""
     return BatchResult(
         success=["obj1", "obj2", "obj3"],
@@ -206,53 +189,15 @@ def sample_batch_result():
     )
 
 
-@pytest.fixture
-def post_event_with_body(test_user_id):
-    """Sample POST event with body"""
-    uid = str(TokenGenerator.generate_uid(test_user_id, 0))
-    return {
-        "httpMethod": "POST",
-        "path": f"/1.5/{uid}/storage/test_collection",
-        "pathParameters": {"uid": uid, "collectionName": "test_collection"},
-        "headers": {"Content-Type": "application/json"},
-        "body": json.dumps({"objects": [{"id": "obj1", "payload": "data1", "sortindex": 100}]}),
-        "queryStringParameters": None,
-    }
-
-
-@pytest.fixture
-def delete_event(test_user_id):
-    """Sample DELETE event"""
-    uid = str(TokenGenerator.generate_uid(test_user_id, 0))
-    return {
-        "httpMethod": "DELETE",
-        "path": f"/1.5/{uid}/storage/test_collection/test_object",
-        "pathParameters": {
-            "uid": uid,
-            "collectionName": "test_collection",
-            "objectId": "test_object",
-        },
-        "headers": {},
-        "body": None,
-        "queryStringParameters": None,
-    }
-
-
 # Timestamp fixtures for testing
 @pytest.fixture
-def mock_timestamp():
+def mock_timestamp() -> float:
     """Mock timestamp value used across tests"""
     return 1234567890.00
 
 
 @pytest.fixture
-def mock_timestamp_datetime(mock_timestamp):
-    """Mock timestamp (kept for backwards-compat with existing test sigs)."""
-    return mock_timestamp
-
-
-@pytest.fixture
-def mock_datetime_now(mock_timestamp):
+def mock_datetime_now(mock_timestamp: float) -> Generator[None, None, None]:
     """Mock time.time() for user_manager tests"""
     with patch("src.services.user_manager.time") as mock:
         mock.time.return_value = mock_timestamp
@@ -260,22 +205,22 @@ def mock_datetime_now(mock_timestamp):
 
 
 @pytest.fixture
-def mock_get_current_timestamp(mock_timestamp):
+def mock_get_current_timestamp(mock_timestamp: float) -> Generator[None, None, None]:
     """Mock get_current_timestamp() for storage_manager tests"""
     with patch("src.services.storage_manager.get_current_timestamp", return_value=mock_timestamp):
         yield
 
 
 @pytest.fixture
-def base_url():
+def base_url() -> str:
     return "sync.example.com"
 
 
 @pytest.fixture
-def storage_domain(base_url):
+def storage_domain(base_url: str) -> str:
     return f"storage.{base_url}"
 
 
 @pytest.fixture
-def storage_url(storage_domain):
+def storage_url(storage_domain: str) -> str:
     return f"https://{storage_domain}"

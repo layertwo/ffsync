@@ -2,8 +2,10 @@
 
 import hashlib
 import json
+from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.oauth_code_manager import OAuthCodeManager
 from src.shared.base_route import BaseRoute
@@ -15,12 +17,12 @@ class OAuthDestroyRoute(BaseRoute):
     def __init__(self, oauth_code_manager: OAuthCodeManager):
         self._oauth_code_manager = oauth_code_manager
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.post("/v1/oauth/destroy")
-        def handle_oauth_destroy():
+        def handle_oauth_destroy() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         body_str = event.body
         if not body_str:
             return Response(

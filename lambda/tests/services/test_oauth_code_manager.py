@@ -10,17 +10,17 @@ from src.services.oauth_code_manager import OAuthCodeManager
 
 
 @pytest.fixture
-def mock_table():
+def mock_table() -> MagicMock:
     return MagicMock()
 
 
 @pytest.fixture
-def manager(mock_table):
+def manager(mock_table: MagicMock) -> OAuthCodeManager:
     return OAuthCodeManager(table=mock_table, code_ttl_seconds=600, refresh_ttl_seconds=86400)
 
 
 class TestCreateAuthorizationCode:
-    def test_returns_code_string(self, manager):
+    def test_returns_code_string(self, manager: OAuthCodeManager) -> None:
         code = manager.create_authorization_code(
             uid="uid1",
             client_id="client1",
@@ -31,7 +31,7 @@ class TestCreateAuthorizationCode:
         assert isinstance(code, str)
         assert len(code) > 0
 
-    def test_stores_code_in_dynamo(self, manager, mock_table):
+    def test_stores_code_in_dynamo(self, manager: OAuthCodeManager, mock_table: MagicMock) -> None:
         manager.create_authorization_code(
             uid="uid1",
             client_id="client1",
@@ -50,7 +50,9 @@ class TestCreateAuthorizationCode:
         assert item["keysJwe"] == ""
         assert "expiry" in item
 
-    def test_stores_keys_jwe_in_dynamo(self, manager, mock_table):
+    def test_stores_keys_jwe_in_dynamo(
+        self, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         manager.create_authorization_code(
             uid="uid1",
             client_id="client1",
@@ -63,7 +65,7 @@ class TestCreateAuthorizationCode:
         item = mock_table.put_item.call_args.kwargs["Item"]
         assert item["keysJwe"] == "some-jwe-value"
 
-    def test_different_calls_produce_different_codes(self, manager):
+    def test_different_calls_produce_different_codes(self, manager: OAuthCodeManager) -> None:
         code1 = manager.create_authorization_code(
             uid="uid1",
             client_id="client1",
@@ -83,7 +85,9 @@ class TestCreateAuthorizationCode:
 
 class TestConsumeAuthorizationCode:
     @patch("src.services.oauth_code_manager.time")
-    def test_returns_code_data_atomically(self, mock_time, manager, mock_table):
+    def test_returns_code_data_atomically(
+        self, mock_time: MagicMock, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         mock_time.time.return_value = 1000000.0
         mock_table.delete_item.return_value = {
             "Attributes": {
@@ -111,7 +115,9 @@ class TestConsumeAuthorizationCode:
         assert call_kwargs["ConditionExpression"] == "attribute_exists(PK)"
 
     @patch("src.services.oauth_code_manager.time")
-    def test_returns_empty_keys_jwe_when_missing(self, mock_time, manager, mock_table):
+    def test_returns_empty_keys_jwe_when_missing(
+        self, mock_time: MagicMock, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         mock_time.time.return_value = 1000000.0
         mock_table.delete_item.return_value = {
             "Attributes": {
@@ -128,7 +134,9 @@ class TestConsumeAuthorizationCode:
         assert result is not None
         assert result["keysJwe"] == ""
 
-    def test_returns_none_for_unknown_code(self, manager, mock_table):
+    def test_returns_none_for_unknown_code(
+        self, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         mock_table.delete_item.side_effect = ClientError(
             {"Error": {"Code": "ConditionalCheckFailedException", "Message": ""}},
             "DeleteItem",
@@ -137,7 +145,9 @@ class TestConsumeAuthorizationCode:
         assert result is None
 
     @patch("src.services.oauth_code_manager.time")
-    def test_returns_none_for_expired_code(self, mock_time, manager, mock_table):
+    def test_returns_none_for_expired_code(
+        self, mock_time: MagicMock, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         mock_time.time.return_value = 1000000.0
         mock_table.delete_item.return_value = {
             "Attributes": {
@@ -155,12 +165,14 @@ class TestConsumeAuthorizationCode:
 
 
 class TestCreateRefreshToken:
-    def test_returns_token_string(self, manager):
+    def test_returns_token_string(self, manager: OAuthCodeManager) -> None:
         token = manager.create_refresh_token(uid="uid1", client_id="client1", scope="openid")
         assert isinstance(token, str)
         assert len(token) > 0
 
-    def test_stores_refresh_in_dynamo(self, manager, mock_table):
+    def test_stores_refresh_in_dynamo(
+        self, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         manager.create_refresh_token(uid="uid1", client_id="client1", scope="openid")
         mock_table.put_item.assert_called_once()
         item = mock_table.put_item.call_args.kwargs["Item"]
@@ -173,7 +185,9 @@ class TestCreateRefreshToken:
 
 class TestConsumeRefreshToken:
     @patch("src.services.oauth_code_manager.time")
-    def test_returns_data_atomically(self, mock_time, manager, mock_table):
+    def test_returns_data_atomically(
+        self, mock_time: MagicMock, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         mock_time.time.return_value = 1000000.0
         token_hash = hashlib.sha256(b"token123").hexdigest()
         mock_table.delete_item.return_value = {
@@ -193,7 +207,9 @@ class TestConsumeRefreshToken:
         assert call_kwargs["ReturnValues"] == "ALL_OLD"
         assert call_kwargs["ConditionExpression"] == "attribute_exists(PK)"
 
-    def test_returns_none_for_unknown_token(self, manager, mock_table):
+    def test_returns_none_for_unknown_token(
+        self, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         mock_table.delete_item.side_effect = ClientError(
             {"Error": {"Code": "ConditionalCheckFailedException", "Message": ""}},
             "DeleteItem",
@@ -202,7 +218,9 @@ class TestConsumeRefreshToken:
         assert result is None
 
     @patch("src.services.oauth_code_manager.time")
-    def test_returns_none_for_expired_token(self, mock_time, manager, mock_table):
+    def test_returns_none_for_expired_token(
+        self, mock_time: MagicMock, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         mock_time.time.return_value = 1000000.0
         token_hash = hashlib.sha256(b"token123").hexdigest()
         mock_table.delete_item.return_value = {
@@ -220,7 +238,9 @@ class TestConsumeRefreshToken:
 
 class TestConsumeAuthorizationCodeEdgeCases:
     @patch("src.services.oauth_code_manager.time")
-    def test_reraises_non_conditional_error(self, mock_time, manager, mock_table):
+    def test_reraises_non_conditional_error(
+        self, mock_time: MagicMock, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         mock_time.time.return_value = 1000000.0
         mock_table.delete_item.side_effect = ClientError(
             {"Error": {"Code": "InternalServerError", "Message": ""}},
@@ -231,7 +251,9 @@ class TestConsumeAuthorizationCodeEdgeCases:
         assert exc_info.value.response["Error"]["Code"] == "InternalServerError"
 
     @patch("src.services.oauth_code_manager.time")
-    def test_returns_none_for_empty_attributes(self, mock_time, manager, mock_table):
+    def test_returns_none_for_empty_attributes(
+        self, mock_time: MagicMock, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         mock_time.time.return_value = 1000000.0
         mock_table.delete_item.return_value = {}
         result = manager.consume_authorization_code("abc")
@@ -240,7 +262,9 @@ class TestConsumeAuthorizationCodeEdgeCases:
 
 class TestConsumeRefreshTokenEdgeCases:
     @patch("src.services.oauth_code_manager.time")
-    def test_reraises_non_conditional_error(self, mock_time, manager, mock_table):
+    def test_reraises_non_conditional_error(
+        self, mock_time: MagicMock, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         mock_time.time.return_value = 1000000.0
         mock_table.delete_item.side_effect = ClientError(
             {"Error": {"Code": "InternalServerError", "Message": ""}},
@@ -251,7 +275,9 @@ class TestConsumeRefreshTokenEdgeCases:
         assert exc_info.value.response["Error"]["Code"] == "InternalServerError"
 
     @patch("src.services.oauth_code_manager.time")
-    def test_returns_none_for_empty_attributes(self, mock_time, manager, mock_table):
+    def test_returns_none_for_empty_attributes(
+        self, mock_time: MagicMock, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
         mock_time.time.return_value = 1000000.0
         mock_table.delete_item.return_value = {}
         result = manager.consume_refresh_token("hash")
@@ -259,7 +285,7 @@ class TestConsumeRefreshTokenEdgeCases:
 
 
 class TestVerifyCodeChallenge:
-    def test_valid_s256_challenge(self, manager):
+    def test_valid_s256_challenge(self, manager: OAuthCodeManager) -> None:
         # verifier -> SHA256 -> base64url = challenge
         import base64
 
@@ -268,21 +294,21 @@ class TestVerifyCodeChallenge:
         challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
         assert manager.verify_code_challenge(verifier, challenge, "S256") is True
 
-    def test_invalid_s256_challenge(self, manager):
+    def test_invalid_s256_challenge(self, manager: OAuthCodeManager) -> None:
         assert manager.verify_code_challenge("wrong", "invalid_challenge", "S256") is False
 
-    def test_plain_challenge(self, manager):
+    def test_plain_challenge(self, manager: OAuthCodeManager) -> None:
         verifier = "plain-challenge-value"
         assert manager.verify_code_challenge(verifier, verifier, "plain") is True
 
-    def test_plain_challenge_mismatch(self, manager):
+    def test_plain_challenge_mismatch(self, manager: OAuthCodeManager) -> None:
         assert manager.verify_code_challenge("a", "b", "plain") is False
 
-    def test_unsupported_method_returns_false(self, manager):
+    def test_unsupported_method_returns_false(self, manager: OAuthCodeManager) -> None:
         assert manager.verify_code_challenge("v", "c", "unsupported") is False
 
 
 class TestDeleteRefreshToken:
-    def test_deletes_by_hash(self, manager, mock_table):
+    def test_deletes_by_hash(self, manager: OAuthCodeManager, mock_table: MagicMock) -> None:
         manager.delete_refresh_token("somehash")
         mock_table.delete_item.assert_called_once()

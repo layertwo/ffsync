@@ -7,20 +7,18 @@ import pytest
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.routes.auth.account_device import AccountDeviceRoute
+from tests.conftest import json_body
 
 
 @pytest.fixture
-def device_manager():
-    return MagicMock()
-
-
-@pytest.fixture
-def route(device_manager):
+def route(device_manager: MagicMock) -> AccountDeviceRoute:
     return AccountDeviceRoute(device_manager=device_manager, middlewares=[])
 
 
 class TestAccountDevice:
-    def test_create_device_returns_200(self, route, device_manager):
+    def test_create_device_returns_200(
+        self, route: AccountDeviceRoute, device_manager: MagicMock
+    ) -> None:
         device_manager.upsert_device.return_value = {
             "id": "dev1",
             "name": "My Firefox",
@@ -40,7 +38,7 @@ class TestAccountDevice:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["id"] == "dev1"
         assert body["name"] == "My Firefox"
         device_manager.upsert_device.assert_called_once_with(
@@ -49,7 +47,9 @@ class TestAccountDevice:
             {"name": "My Firefox", "type": "desktop"},
         )
 
-    def test_update_device_returns_200(self, route, device_manager):
+    def test_update_device_returns_200(
+        self, route: AccountDeviceRoute, device_manager: MagicMock
+    ) -> None:
         device_manager.upsert_device.return_value = {
             "id": "existing-dev",
             "name": "Updated Name",
@@ -71,7 +71,7 @@ class TestAccountDevice:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["id"] == "existing-dev"
         assert body["name"] == "Updated Name"
         device_manager.upsert_device.assert_called_once_with(
@@ -80,7 +80,9 @@ class TestAccountDevice:
             {"id": "existing-dev", "name": "Updated Name", "type": "mobile"},
         )
 
-    def test_missing_body_returns_200(self, route, device_manager):
+    def test_missing_body_returns_200(
+        self, route: AccountDeviceRoute, device_manager: MagicMock
+    ) -> None:
         device_manager.upsert_device.return_value = {
             "id": "auto-id",
             "name": "",
@@ -100,13 +102,13 @@ class TestAccountDevice:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["id"] == "auto-id"
         device_manager.upsert_device.assert_called_once_with("uid1", "token123", {})
 
 
 class TestAccountDeviceBind:
-    def test_bind_registers_post_route(self, route):
+    def test_bind_registers_post_route(self, route: AccountDeviceRoute) -> None:
         mock_api = MagicMock()
         mock_api.post = MagicMock(return_value=lambda f: f)
         route.bind(mock_api)

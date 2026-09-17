@@ -21,7 +21,7 @@ from src.services.fxa_crypto import (
 class TestNamespace:
     """Tests for the NAMESPACE constant."""
 
-    def test_namespace_value(self):
+    def test_namespace_value(self) -> None:
         """Test that NAMESPACE matches the FxA protocol namespace."""
         assert NAMESPACE == "identity.mozilla.com/picl/v1/"
 
@@ -29,33 +29,33 @@ class TestNamespace:
 class TestDeriveAuthPw:
     """Tests for derive_auth_pw function."""
 
-    def test_returns_32_bytes(self):
+    def test_returns_32_bytes(self) -> None:
         """Test that derive_auth_pw returns exactly 32 bytes."""
         qs_pw = b"\x00" * 32
         result = derive_auth_pw(qs_pw)
         assert len(result) == 32
 
-    def test_returns_bytes(self):
+    def test_returns_bytes(self) -> None:
         """Test that derive_auth_pw returns bytes type."""
         qs_pw = b"\x00" * 32
         result = derive_auth_pw(qs_pw)
         assert isinstance(result, bytes)
 
-    def test_deterministic(self):
+    def test_deterministic(self) -> None:
         """Test that the same input produces the same output."""
         qs_pw = b"\xab\xcd" * 16
         result1 = derive_auth_pw(qs_pw)
         result2 = derive_auth_pw(qs_pw)
         assert result1 == result2
 
-    def test_differs_from_unwrap_bkey(self):
+    def test_differs_from_unwrap_bkey(self) -> None:
         """Test that authPW differs from unwrapBKey for the same input."""
         qs_pw = b"\x01\x02\x03" * 11  # 33 bytes, arbitrary length
         auth_pw = derive_auth_pw(qs_pw)
         unwrap_bkey = derive_unwrap_bkey(qs_pw)
         assert auth_pw != unwrap_bkey
 
-    def test_different_inputs_produce_different_outputs(self):
+    def test_different_inputs_produce_different_outputs(self) -> None:
         """Test that different inputs produce different outputs."""
         result1 = derive_auth_pw(b"\x00" * 32)
         result2 = derive_auth_pw(b"\x01" * 32)
@@ -65,26 +65,26 @@ class TestDeriveAuthPw:
 class TestDeriveUnwrapBkey:
     """Tests for derive_unwrap_bkey function."""
 
-    def test_returns_32_bytes(self):
+    def test_returns_32_bytes(self) -> None:
         """Test that derive_unwrap_bkey returns exactly 32 bytes."""
         qs_pw = b"\x00" * 32
         result = derive_unwrap_bkey(qs_pw)
         assert len(result) == 32
 
-    def test_returns_bytes(self):
+    def test_returns_bytes(self) -> None:
         """Test that derive_unwrap_bkey returns bytes type."""
         qs_pw = b"\x00" * 32
         result = derive_unwrap_bkey(qs_pw)
         assert isinstance(result, bytes)
 
-    def test_deterministic(self):
+    def test_deterministic(self) -> None:
         """Test that the same input produces the same output."""
         qs_pw = b"\xab\xcd" * 16
         result1 = derive_unwrap_bkey(qs_pw)
         result2 = derive_unwrap_bkey(qs_pw)
         assert result1 == result2
 
-    def test_different_inputs_produce_different_outputs(self):
+    def test_different_inputs_produce_different_outputs(self) -> None:
         """Test that different inputs produce different outputs."""
         result1 = derive_unwrap_bkey(b"\x00" * 32)
         result2 = derive_unwrap_bkey(b"\x01" * 32)
@@ -94,32 +94,32 @@ class TestDeriveUnwrapBkey:
 class TestDeriveVerifyHash:
     """Tests for derive_verify_hash function."""
 
-    def test_returns_32_bytes(self):
+    def test_returns_32_bytes(self) -> None:
         """Test that derive_verify_hash returns exactly 32 bytes."""
         auth_pw = b"\x00" * 32
         result = derive_verify_hash(auth_pw)
         assert len(result) == 32
 
-    def test_returns_bytes(self):
+    def test_returns_bytes(self) -> None:
         """Test that derive_verify_hash returns bytes type."""
         auth_pw = b"\x00" * 32
         result = derive_verify_hash(auth_pw)
         assert isinstance(result, bytes)
 
-    def test_deterministic(self):
+    def test_deterministic(self) -> None:
         """Test that the same input produces the same output."""
         auth_pw = b"\xab\xcd" * 16
         result1 = derive_verify_hash(auth_pw)
         result2 = derive_verify_hash(auth_pw)
         assert result1 == result2
 
-    def test_different_inputs_produce_different_outputs(self):
+    def test_different_inputs_produce_different_outputs(self) -> None:
         """Test that different inputs produce different outputs."""
         result1 = derive_verify_hash(b"\x00" * 32)
         result2 = derive_verify_hash(b"\x01" * 32)
         assert result1 != result2
 
-    def test_chained_derivation(self):
+    def test_chained_derivation(self) -> None:
         """Test that derive_verify_hash(derive_auth_pw(qsPW)) works correctly."""
         qs_pw = b"\xaa" * 32
         auth_pw = derive_auth_pw(qs_pw)
@@ -131,19 +131,19 @@ class TestDeriveVerifyHash:
 class TestDeriveTokenId:
     """Tests for derive_token_id function."""
 
-    def test_returns_32_bytes(self):
+    def test_returns_32_bytes(self) -> None:
         """Test that derive_token_id returns exactly 32 bytes."""
         token = b"\x00" * 32
         result = derive_token_id(token, "identity.mozilla.com/picl/v1/sessionToken")
         assert len(result) == 32
 
-    def test_returns_bytes(self):
+    def test_returns_bytes(self) -> None:
         """Test that derive_token_id returns bytes type."""
         token = b"\x00" * 32
         result = derive_token_id(token, "identity.mozilla.com/picl/v1/sessionToken")
         assert isinstance(result, bytes)
 
-    def test_deterministic(self):
+    def test_deterministic(self) -> None:
         """Test that the same inputs produce the same output."""
         token = b"\xab\xcd" * 16
         info = "identity.mozilla.com/picl/v1/sessionToken"
@@ -151,7 +151,7 @@ class TestDeriveTokenId:
         result2 = derive_token_id(token, info)
         assert result1 == result2
 
-    def test_differs_from_req_hmac_key(self):
+    def test_differs_from_req_hmac_key(self) -> None:
         """Test that tokenId differs from reqHMACkey for the same input."""
         token = b"\x00" * 32
         info = "identity.mozilla.com/picl/v1/sessionToken"
@@ -159,7 +159,7 @@ class TestDeriveTokenId:
         req_hmac_key = derive_req_hmac_key(token, info)
         assert token_id != req_hmac_key
 
-    def test_differs_from_key_request_key(self):
+    def test_differs_from_key_request_key(self) -> None:
         """Test that tokenId differs from keyRequestKey for the same input."""
         token = b"\x00" * 32
         info = "identity.mozilla.com/picl/v1/keyFetchToken"
@@ -171,19 +171,19 @@ class TestDeriveTokenId:
 class TestDeriveReqHmacKey:
     """Tests for derive_req_hmac_key function."""
 
-    def test_returns_32_bytes(self):
+    def test_returns_32_bytes(self) -> None:
         """Test that derive_req_hmac_key returns exactly 32 bytes."""
         token = b"\x00" * 32
         result = derive_req_hmac_key(token, "identity.mozilla.com/picl/v1/sessionToken")
         assert len(result) == 32
 
-    def test_returns_bytes(self):
+    def test_returns_bytes(self) -> None:
         """Test that derive_req_hmac_key returns bytes type."""
         token = b"\x00" * 32
         result = derive_req_hmac_key(token, "identity.mozilla.com/picl/v1/sessionToken")
         assert isinstance(result, bytes)
 
-    def test_deterministic(self):
+    def test_deterministic(self) -> None:
         """Test that the same inputs produce the same output."""
         token = b"\xab\xcd" * 16
         info = "identity.mozilla.com/picl/v1/sessionToken"
@@ -191,7 +191,7 @@ class TestDeriveReqHmacKey:
         result2 = derive_req_hmac_key(token, info)
         assert result1 == result2
 
-    def test_differs_from_key_request_key(self):
+    def test_differs_from_key_request_key(self) -> None:
         """Test that reqHMACkey differs from keyRequestKey for the same input."""
         token = b"\x00" * 32
         info = "identity.mozilla.com/picl/v1/keyFetchToken"
@@ -203,19 +203,19 @@ class TestDeriveReqHmacKey:
 class TestDeriveKeyRequestKey:
     """Tests for derive_key_request_key function."""
 
-    def test_returns_32_bytes(self):
+    def test_returns_32_bytes(self) -> None:
         """Test that derive_key_request_key returns exactly 32 bytes."""
         token = b"\x00" * 32
         result = derive_key_request_key(token, "identity.mozilla.com/picl/v1/keyFetchToken")
         assert len(result) == 32
 
-    def test_returns_bytes(self):
+    def test_returns_bytes(self) -> None:
         """Test that derive_key_request_key returns bytes type."""
         token = b"\x00" * 32
         result = derive_key_request_key(token, "identity.mozilla.com/picl/v1/keyFetchToken")
         assert isinstance(result, bytes)
 
-    def test_deterministic(self):
+    def test_deterministic(self) -> None:
         """Test that the same inputs produce the same output."""
         token = b"\xab\xcd" * 16
         info = "identity.mozilla.com/picl/v1/keyFetchToken"
@@ -227,7 +227,7 @@ class TestDeriveKeyRequestKey:
 class TestTokenDerivedKeysAllDifferent:
     """Tests that all three token-derived keys differ from each other."""
 
-    def test_all_three_keys_differ(self):
+    def test_all_three_keys_differ(self) -> None:
         """Test that tokenId, reqHMACkey, and keyRequestKey are all distinct."""
         token = b"\x42" * 32
         info = "identity.mozilla.com/picl/v1/keyFetchToken"
@@ -240,7 +240,7 @@ class TestTokenDerivedKeysAllDifferent:
         assert token_id != key_request_key
         assert req_hmac_key != key_request_key
 
-    def test_different_info_produces_different_keys(self):
+    def test_different_info_produces_different_keys(self) -> None:
         """Test that different info strings produce different derived keys."""
         token = b"\x42" * 32
         info1 = "identity.mozilla.com/picl/v1/sessionToken"
@@ -254,7 +254,7 @@ class TestTokenDerivedKeysAllDifferent:
 class TestEncryptKeyBundle:
     """Tests for encrypt_key_bundle function."""
 
-    def test_returns_96_bytes(self):
+    def test_returns_96_bytes(self) -> None:
         """Test that encrypt_key_bundle returns exactly 96 bytes (64 ciphertext + 32 HMAC)."""
         key_request_key = b"\x00" * 32
         k_a = b"\x11" * 32
@@ -262,7 +262,7 @@ class TestEncryptKeyBundle:
         result = encrypt_key_bundle(key_request_key, k_a, wrap_kb)
         assert len(result) == 96
 
-    def test_returns_bytes(self):
+    def test_returns_bytes(self) -> None:
         """Test that encrypt_key_bundle returns bytes type."""
         key_request_key = b"\x00" * 32
         k_a = b"\x11" * 32
@@ -270,7 +270,7 @@ class TestEncryptKeyBundle:
         result = encrypt_key_bundle(key_request_key, k_a, wrap_kb)
         assert isinstance(result, bytes)
 
-    def test_ciphertext_differs_from_plaintext(self):
+    def test_ciphertext_differs_from_plaintext(self) -> None:
         """Test that the ciphertext portion differs from the plaintext (kA || wrapKB)."""
         key_request_key = b"\xaa" * 32
         k_a = b"\x11" * 32
@@ -280,7 +280,7 @@ class TestEncryptKeyBundle:
         plaintext = k_a + wrap_kb
         assert ciphertext != plaintext
 
-    def test_deterministic(self):
+    def test_deterministic(self) -> None:
         """Test that the same inputs produce the same output."""
         key_request_key = b"\xaa" * 32
         k_a = b"\x11" * 32
@@ -289,7 +289,7 @@ class TestEncryptKeyBundle:
         result2 = encrypt_key_bundle(key_request_key, k_a, wrap_kb)
         assert result1 == result2
 
-    def test_different_keys_produce_different_output(self):
+    def test_different_keys_produce_different_output(self) -> None:
         """Test that different keyRequestKeys produce different bundles."""
         k_a = b"\x11" * 32
         wrap_kb = b"\x22" * 32
@@ -297,7 +297,7 @@ class TestEncryptKeyBundle:
         result2 = encrypt_key_bundle(b"\xbb" * 32, k_a, wrap_kb)
         assert result1 != result2
 
-    def test_mac_is_last_32_bytes(self):
+    def test_mac_is_last_32_bytes(self) -> None:
         """Test that the MAC (last 32 bytes) is a valid HMAC-SHA256 digest length."""
         key_request_key = b"\xaa" * 32
         k_a = b"\x11" * 32
@@ -310,22 +310,22 @@ class TestEncryptKeyBundle:
 class TestGenerateRandomBytes:
     """Tests for generate_random_bytes function."""
 
-    def test_default_length(self):
+    def test_default_length(self) -> None:
         """Test that default length is 32 bytes."""
         result = generate_random_bytes()
         assert len(result) == 32
 
-    def test_custom_length(self):
+    def test_custom_length(self) -> None:
         """Test generation with custom length."""
         result = generate_random_bytes(64)
         assert len(result) == 64
 
-    def test_returns_bytes(self):
+    def test_returns_bytes(self) -> None:
         """Test that generate_random_bytes returns bytes type."""
         result = generate_random_bytes()
         assert isinstance(result, bytes)
 
-    def test_different_each_call(self):
+    def test_different_each_call(self) -> None:
         """Test that successive calls produce different values."""
         result1 = generate_random_bytes()
         result2 = generate_random_bytes()
@@ -335,30 +335,30 @@ class TestGenerateRandomBytes:
 class TestConstantTimeCompare:
     """Tests for constant_time_compare function."""
 
-    def test_equal_bytes_returns_true(self):
+    def test_equal_bytes_returns_true(self) -> None:
         """Test that equal byte strings return True."""
         a = b"\x01\x02\x03"
         assert constant_time_compare(a, a) is True
 
-    def test_equal_values_returns_true(self):
+    def test_equal_values_returns_true(self) -> None:
         """Test that equal-valued byte strings return True."""
         a = b"\x01\x02\x03"
         b = b"\x01\x02\x03"
         assert constant_time_compare(a, b) is True
 
-    def test_different_bytes_returns_false(self):
+    def test_different_bytes_returns_false(self) -> None:
         """Test that different byte strings return False."""
         a = b"\x01\x02\x03"
         b = b"\x04\x05\x06"
         assert constant_time_compare(a, b) is False
 
-    def test_different_lengths_returns_false(self):
+    def test_different_lengths_returns_false(self) -> None:
         """Test that byte strings of different lengths return False."""
         a = b"\x01\x02\x03"
         b = b"\x01\x02"
         assert constant_time_compare(a, b) is False
 
-    def test_empty_bytes_returns_true(self):
+    def test_empty_bytes_returns_true(self) -> None:
         """Test that two empty byte strings return True."""
         assert constant_time_compare(b"", b"") is True
 
@@ -366,25 +366,25 @@ class TestConstantTimeCompare:
 class TestKnownVectors:
     """Regression tests with pinned HKDF outputs to catch protocol-breaking changes."""
 
-    def test_derive_auth_pw_known_vector(self):
+    def test_derive_auth_pw_known_vector(self) -> None:
         """Test derive_auth_pw against a pinned output for bytes(32)."""
         qs_pw = bytes(32)
         result = derive_auth_pw(qs_pw)
         assert result.hex() == "addd287a170e5d4ab0a06a143a64fe3c6ab805ad0be1a38bd1ba5093c8fe124d"
 
-    def test_derive_verify_hash_chained_known_vector(self):
+    def test_derive_verify_hash_chained_known_vector(self) -> None:
         """Test derive_verify_hash(derive_auth_pw(bytes(32))) against a pinned output."""
         auth_pw = derive_auth_pw(bytes(32))
         result = derive_verify_hash(auth_pw)
         assert result.hex() == "b1873a935b3c91146743a9292107634b314a3ae6daf859f7fc0f986da557c27e"
 
-    def test_derive_unwrap_bkey_known_vector(self):
+    def test_derive_unwrap_bkey_known_vector(self) -> None:
         """Test derive_unwrap_bkey against a pinned output for bytes(32)."""
         qs_pw = bytes(32)
         result = derive_unwrap_bkey(qs_pw)
         assert result.hex() == "ad0e1de4f2362227e01eba2764d8d97c38ee1886bc13bcaa5d98690f0dee7781"
 
-    def test_encrypt_key_bundle_known_vector(self):
+    def test_encrypt_key_bundle_known_vector(self) -> None:
         """Test encrypt_key_bundle against a pinned 96-byte output for bytes(32) inputs."""
         result = encrypt_key_bundle(bytes(32), bytes(32), bytes(32))
         assert (
@@ -397,7 +397,7 @@ class TestKnownVectors:
 class TestDeriveTokenKeys:
     """Tests for derive_token_keys function."""
 
-    def test_returns_three_32_byte_keys(self):
+    def test_returns_three_32_byte_keys(self) -> None:
         """Test that derive_token_keys returns a tuple of three 32-byte keys."""
         token = b"\x00" * 32
         info = "identity.mozilla.com/picl/v1/sessionToken"
@@ -406,7 +406,7 @@ class TestDeriveTokenKeys:
         assert len(req_hmac_key) == 32
         assert len(key_request_key) == 32
 
-    def test_returns_tuple(self):
+    def test_returns_tuple(self) -> None:
         """Test that derive_token_keys returns a tuple."""
         token = b"\x00" * 32
         info = "identity.mozilla.com/picl/v1/sessionToken"
@@ -414,7 +414,7 @@ class TestDeriveTokenKeys:
         assert isinstance(result, tuple)
         assert len(result) == 3
 
-    def test_matches_individual_derivations(self):
+    def test_matches_individual_derivations(self) -> None:
         """Test that derive_token_keys matches the individual derivation functions."""
         token = b"\x42" * 32
         info = "identity.mozilla.com/picl/v1/keyFetchToken"
@@ -423,7 +423,7 @@ class TestDeriveTokenKeys:
         assert req_hmac_key == derive_req_hmac_key(token, info)
         assert key_request_key == derive_key_request_key(token, info)
 
-    def test_deterministic(self):
+    def test_deterministic(self) -> None:
         """Test that the same inputs produce the same outputs."""
         token = b"\xab\xcd" * 16
         info = "identity.mozilla.com/picl/v1/sessionToken"
@@ -431,7 +431,7 @@ class TestDeriveTokenKeys:
         result2 = derive_token_keys(token, info)
         assert result1 == result2
 
-    def test_all_three_keys_differ(self):
+    def test_all_three_keys_differ(self) -> None:
         """Test that all three returned keys are distinct."""
         token = b"\x42" * 32
         info = "identity.mozilla.com/picl/v1/keyFetchToken"

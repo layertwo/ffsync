@@ -1,15 +1,19 @@
 """Tests for Auth API lambda entrypoint"""
 
 import json
+from unittest.mock import Mock
 
 from src.entrypoint import auth_api_handler
+from src.environment.service_provider import ServiceProvider
 from src.services.api_router import ApiRouter
 
 
 class TestAuthApiErrors:
     """Tests for auth API error handling"""
 
-    def test_unknown_route_returns_404(self, mock_service_provider, sample_lambda_context):
+    def test_unknown_route_returns_404(
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """Test request to unknown path returns 404"""
         event = {
             "httpMethod": "GET",
@@ -23,8 +27,8 @@ class TestAuthApiErrors:
         assert result["statusCode"] == 404
 
     def test_session_route_without_auth_returns_401(
-        self, mock_service_provider, sample_lambda_context
-    ):
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """Test session-protected route without auth header returns 401 via exception handler.
 
         The HawkAuthMiddleware raises HawkAuthenticationError which is caught
@@ -50,7 +54,9 @@ class TestAuthApiErrors:
 class TestServiceProviderAuthApiProperties:
     """Tests for ServiceProvider auth API property initialization"""
 
-    def test_auth_api_router_creates_router_with_routes(self, mock_service_provider):
+    def test_auth_api_router_creates_router_with_routes(
+        self, mock_service_provider: ServiceProvider
+    ) -> None:
         """Test auth_api_router creates ApiRouter with auth routes"""
         router = mock_service_provider.auth_api_router
 

@@ -2,9 +2,12 @@
 
 import logging
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from botocore.exceptions import ClientError
+
+if TYPE_CHECKING:
+    from types_boto3_dynamodb.service_resource import Table
 
 _PK = "PK"
 ACCOUNT_PREFIX = "ACCOUNT"
@@ -17,7 +20,7 @@ logger = logging.getLogger(__name__)
 class AuthAccountManager:
     """Manages FxA account operations with DynamoDB"""
 
-    def __init__(self, table):
+    def __init__(self, table: "Table"):
         """Initialize AuthAccountManager
 
         Args:
@@ -153,7 +156,7 @@ class AuthAccountManager:
         if "Item" not in response:
             return None
 
-        uid = response["Item"]["uid"]
+        uid = cast(dict[str, Any], response["Item"])["uid"]
 
         # Look up ACCOUNT# record
         return self.get_account_by_uid(uid)
@@ -197,7 +200,7 @@ class AuthAccountManager:
         if "Item" not in response:
             return None
 
-        uid = response["Item"]["uid"]
+        uid = cast(dict[str, Any], response["Item"])["uid"]
         return self.get_account_by_uid(uid)
 
     def get_account_by_uid(self, uid: str) -> Optional[dict]:

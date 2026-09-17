@@ -1,16 +1,18 @@
 """Tests for Token API lambda entrypoint"""
 
 import json
+from unittest.mock import Mock
 
 import pytest
 
 from src.entrypoint import token_api_handler
+from src.environment.service_provider import ServiceProvider
 from src.services.api_router import ApiRouter
 from src.services.oidc_validator import OIDCValidator
 
 
 @pytest.fixture
-def token_request_event():
+def token_request_event() -> dict:
     """Sample token request event"""
     return {
         "httpMethod": "GET",
@@ -28,7 +30,9 @@ def token_request_event():
 class TestTokenApiAuthErrors:
     """Tests for authentication error handling - these don't need OIDC validation"""
 
-    def test_missing_auth_header_returns_401(self, mock_service_provider, sample_lambda_context):
+    def test_missing_auth_header_returns_401(
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """Test request without Authorization header returns 401"""
         event = {
             "httpMethod": "GET",
@@ -41,7 +45,9 @@ class TestTokenApiAuthErrors:
         result = token_api_handler(event, sample_lambda_context, mock_service_provider)
         assert result["statusCode"] == 401
 
-    def test_missing_auth_header_error_format(self, mock_service_provider, sample_lambda_context):
+    def test_missing_auth_header_error_format(
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """Test missing auth header returns proper error format"""
         event = {
             "httpMethod": "GET",
@@ -58,7 +64,9 @@ class TestTokenApiAuthErrors:
         assert body["errors"][0]["name"] == "Authorization"
         assert body["errors"][0]["location"] == "header"
 
-    def test_malformed_auth_header_returns_400(self, mock_service_provider, sample_lambda_context):
+    def test_malformed_auth_header_returns_400(
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """Test request with malformed Authorization header returns 400"""
         event = {
             "httpMethod": "GET",
@@ -71,7 +79,9 @@ class TestTokenApiAuthErrors:
         result = token_api_handler(event, sample_lambda_context, mock_service_provider)
         assert result["statusCode"] == 400
 
-    def test_malformed_auth_header_error_format(self, mock_service_provider, sample_lambda_context):
+    def test_malformed_auth_header_error_format(
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """Test malformed auth header returns proper error format"""
         event = {
             "httpMethod": "GET",
@@ -89,7 +99,9 @@ class TestTokenApiAuthErrors:
 class TestTokenApiValidationErrors:
     """Tests for request validation error handling"""
 
-    def test_invalid_content_type_returns_415(self, mock_service_provider, sample_lambda_context):
+    def test_invalid_content_type_returns_415(
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """Test request with invalid Content-Type returns 415"""
         event = {
             "httpMethod": "GET",
@@ -105,7 +117,9 @@ class TestTokenApiValidationErrors:
         result = token_api_handler(event, sample_lambda_context, mock_service_provider)
         assert result["statusCode"] == 415
 
-    def test_invalid_content_type_error_format(self, mock_service_provider, sample_lambda_context):
+    def test_invalid_content_type_error_format(
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """Test invalid content type returns proper error format"""
         event = {
             "httpMethod": "GET",
@@ -126,7 +140,7 @@ class TestTokenApiValidationErrors:
 class TestServiceProviderTokenApiProperties:
     """Tests for ServiceProvider token API property initialization"""
 
-    def test_oidc_validator_uses_env_vars(self, mock_service_provider):
+    def test_oidc_validator_uses_env_vars(self, mock_service_provider: ServiceProvider) -> None:
         """Test oidc_validator is initialized with config from env vars"""
         validator = mock_service_provider.oidc_validator
 
@@ -134,7 +148,9 @@ class TestServiceProviderTokenApiProperties:
         assert validator.provider_url == "https://auth.example.com"
         assert validator.client_id == "test-client-id"
 
-    def test_token_api_router_creates_router_with_routes(self, mock_service_provider):
+    def test_token_api_router_creates_router_with_routes(
+        self, mock_service_provider: ServiceProvider
+    ) -> None:
         """Test token_api_router creates ApiRouter with token route"""
         router = mock_service_provider.token_api_router
 

@@ -1,5 +1,8 @@
+from typing import Any
+
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.shared.base_route import BaseRoute
 from src.shared.models import ConfigurationOutput
@@ -33,12 +36,12 @@ class ReadConfigurationRoute(BaseRoute):
         self.max_total_records = max_total_records
         self.max_total_bytes = max_total_bytes
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.get("/1.5/<uid>/info/configuration")
-        def handle_request(uid: str):
+        def handle_request(uid: str) -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         """
         Get server configuration limits.
 

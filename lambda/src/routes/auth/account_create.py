@@ -3,8 +3,10 @@
 import json
 import re
 import uuid
+from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.fxa_crypto import derive_verify_hash, generate_random_bytes
@@ -30,14 +32,14 @@ class AccountCreateRoute(BaseRoute):
         self._token_manager = token_manager
         self._oidc_validator = oidc_validator
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.post("/v1/account/create")
-        def handle_account_create():
+        def handle_account_create() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         # Validate OIDC Bearer token
-        headers = event.headers or {}
+        headers = event.headers
         auth_header = headers.get("authorization")
         if not auth_header:
             return self._error(401, 110, "Missing Authorization header")

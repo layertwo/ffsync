@@ -1,15 +1,19 @@
 """Tests for Profile API lambda entrypoint"""
 
 import json
+from unittest.mock import Mock
 
 from src.entrypoint import profile_api_handler
+from src.environment.service_provider import ServiceProvider
 from src.services.api_router import ApiRouter
 
 
 class TestProfileApiAuthErrors:
     """Tests for authentication error handling"""
 
-    def test_missing_auth_header_returns_401(self, mock_service_provider, sample_lambda_context):
+    def test_missing_auth_header_returns_401(
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """Test request without Authorization header returns 401"""
         event = {
             "httpMethod": "GET",
@@ -22,7 +26,9 @@ class TestProfileApiAuthErrors:
         result = profile_api_handler(event, sample_lambda_context, mock_service_provider)
         assert result["statusCode"] == 401
 
-    def test_missing_auth_header_error_format(self, mock_service_provider, sample_lambda_context):
+    def test_missing_auth_header_error_format(
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """Test missing auth header returns proper error body"""
         event = {
             "httpMethod": "GET",
@@ -40,7 +46,9 @@ class TestProfileApiAuthErrors:
 class TestServiceProviderProfileApiProperties:
     """Tests for ServiceProvider profile API property initialization"""
 
-    def test_profile_api_router_creates_router_with_routes(self, mock_service_provider):
+    def test_profile_api_router_creates_router_with_routes(
+        self, mock_service_provider: ServiceProvider
+    ) -> None:
         """Test profile_api_router creates ApiRouter with profile route"""
         router = mock_service_provider.profile_api_router
 

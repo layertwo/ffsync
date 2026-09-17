@@ -1,26 +1,23 @@
 """Unit tests for AccountDevices route"""
 
-import json
 from unittest.mock import MagicMock
 
 import pytest
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.routes.auth.account_devices import AccountDevicesRoute
+from tests.conftest import json_body
 
 
 @pytest.fixture
-def device_manager():
-    return MagicMock()
-
-
-@pytest.fixture
-def route(device_manager):
+def route(device_manager: MagicMock) -> AccountDevicesRoute:
     return AccountDevicesRoute(device_manager=device_manager, middlewares=[])
 
 
 class TestAccountDevices:
-    def test_returns_device_list(self, route, device_manager):
+    def test_returns_device_list(
+        self, route: AccountDevicesRoute, device_manager: MagicMock
+    ) -> None:
         device_manager.get_devices.return_value = [
             {
                 "id": "dev1",
@@ -51,13 +48,15 @@ class TestAccountDevices:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert len(body) == 2
         assert body[0]["isCurrentDevice"] is True
         assert body[1]["isCurrentDevice"] is False
         device_manager.get_devices.assert_called_once_with("uid1", None)
 
-    def test_filters_idle_devices(self, route, device_manager):
+    def test_filters_idle_devices(
+        self, route: AccountDevicesRoute, device_manager: MagicMock
+    ) -> None:
         device_manager.get_devices.return_value = []
         event = APIGatewayProxyEvent(
             {
@@ -73,7 +72,9 @@ class TestAccountDevices:
         assert response.status_code == 200
         device_manager.get_devices.assert_called_once_with("uid1", 1609459200000)
 
-    def test_returns_empty_list(self, route, device_manager):
+    def test_returns_empty_list(
+        self, route: AccountDevicesRoute, device_manager: MagicMock
+    ) -> None:
         device_manager.get_devices.return_value = []
         event = APIGatewayProxyEvent(
             {
@@ -87,12 +88,12 @@ class TestAccountDevices:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body == []
 
 
 class TestAccountDevicesBind:
-    def test_bind_registers_get_route(self, route):
+    def test_bind_registers_get_route(self, route: AccountDevicesRoute) -> None:
         mock_api = MagicMock()
         mock_api.get = MagicMock(return_value=lambda f: f)
         route.bind(mock_api)
