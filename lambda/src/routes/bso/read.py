@@ -1,7 +1,9 @@
 import json
+from typing import Any
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -23,22 +25,17 @@ class ReadBSORoute(BaseRoute):
     def __init__(self, storage_manager: StorageManager):
         self.storage_manager = storage_manager
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.get("/1.5/<uid>/storage/<collectionName>/<objectId>")
-        def handle_request(uid: str, collectionName: str, objectId: str):
+        def handle_request(uid: str, collectionName: str, objectId: str) -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         """Get a specific storage object"""
         try:
-            # Extract user_id from authorizer context
-            user_id = event.get("requestContext", {}).get("hawk_uid")
+            user_id = self.hawk_uid(event)
             if not user_id:
-                return Response(
-                    status_code=401,
-                    content_type="application/json",
-                    body=json.dumps({"error": "Unauthorized"}),
-                )
+                return self.unauthorized()
 
             path_params = event.path_parameters or {}
             collection_name = path_params["collectionName"]
@@ -50,7 +47,7 @@ class ReadBSORoute(BaseRoute):
                 raise ValidationException(str(e))
 
             # Handle conditional GET headers (Requirements 6.1-6.4)
-            headers = event.get("headers", {})
+            headers = event.headers
             if_modified_since_header = headers.get("x-if-modified-since")
             if_unmodified_since_header = headers.get("x-if-unmodified-since")
 

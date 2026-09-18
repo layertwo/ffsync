@@ -1,8 +1,10 @@
 """OIDCDiscovery route — GET /.well-known/openid-configuration"""
 
 import json
+from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.jwt_service import JWTService
 from src.shared.base_route import BaseRoute
@@ -14,12 +16,12 @@ class OIDCDiscoveryRoute(BaseRoute):
     def __init__(self, jwt_service: JWTService):
         self._jwt_service = jwt_service
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.get("/.well-known/openid-configuration")
-        def handle_oidc_discovery():
+        def handle_oidc_discovery() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         issuer = self._jwt_service.issuer
 
         return Response(

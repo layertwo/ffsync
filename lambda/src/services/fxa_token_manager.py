@@ -2,15 +2,18 @@
 
 import re
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 import mohawk
 import mohawk.exc
 from aws_lambda_powertools import Logger
-from aws_lambda_powertools.metrics import MetricUnit
+from aws_lambda_powertools.metrics import Metrics, MetricUnit
 from botocore.exceptions import ClientError
 
 from src.services import fxa_crypto
+
+if TYPE_CHECKING:
+    from types_boto3_dynamodb.service_resource import Table
 
 logger = Logger(child=True)
 
@@ -37,8 +40,8 @@ class FxATokenManager:
 
     def __init__(
         self,
-        table,
-        metrics,
+        table: "Table",
+        metrics: Metrics,
         session_ttl_seconds: int = 2592000,
         keyfetch_ttl_seconds: int = 300,
     ):
@@ -109,7 +112,7 @@ class FxATokenManager:
         if "Item" not in response:
             return None
 
-        item = response["Item"]
+        item = cast(dict[str, Any], response["Item"])
 
         # Check expiry server-side
         if item.get("expiry", 0) < int(time.time()):
@@ -117,7 +120,7 @@ class FxATokenManager:
 
         return item["uid"]
 
-    def _seen_nonce(self, sender_id, nonce, timestamp):
+    def _seen_nonce(self, sender_id: str, nonce: str, timestamp: str) -> bool:
         """Check if a nonce has been seen before (replay protection).
 
         Uses DynamoDB conditional write: if the nonce record already exists,
@@ -137,7 +140,15 @@ class FxATokenManager:
                 return True  # Replay detected
             raise
 
-    def _verify_hawk(self, authorization_header, method, path, host, port, credentials_map):
+    def _verify_hawk(
+        self,
+        authorization_header: str,
+        method: str,
+        path: str,
+        host: str,
+        port: int,
+        credentials_map: Callable[[str], dict],
+    ) -> bool:
         """Verify Hawk signature using mohawk.Receiver.
 
         Returns True on success, False on any authentication failure.
@@ -185,11 +196,11 @@ class FxATokenManager:
         """Verify Hawk HMAC signature for session-authenticated routes."""
         uid_holder = {}
 
-        def credentials_map(sender_id):
+        def credentials_map(sender_id: str) -> dict:
             response = self.table.get_item(Key={_PK: f"{SESSION_PREFIX}#{sender_id}"})
             if "Item" not in response:
                 raise mohawk.exc.CredentialsLookupError("Session not found")
-            item = response["Item"]
+            item = cast(dict[str, Any], response["Item"])
             if item.get("expiry", 0) < int(time.time()):
                 raise mohawk.exc.CredentialsLookupError("Session expired")
             key = item.get("reqHMACkey")
@@ -217,7 +228,7 @@ class FxATokenManager:
         """
         result_holder = {}
 
-        def credentials_map(sender_id):
+        def credentials_map(sender_id: str) -> dict:
             try:
                 response = self.table.delete_item(
                     Key={_PK: f"{KEYFETCH_PREFIX}#{sender_id}"},
@@ -228,7 +239,7 @@ class FxATokenManager:
                 if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
                     raise mohawk.exc.CredentialsLookupError("Token not found")
                 raise
-            item = response.get("Attributes")
+            item = cast(Optional[dict[str, Any]], response.get("Attributes"))
             if not item:
                 raise mohawk.exc.CredentialsLookupError("Token not found")
             if item.get("expiry", 0) < int(time.time()):
@@ -306,7 +317,7 @@ class FxATokenManager:
                 return None
             raise
 
-        item = response.get("Attributes")
+        item = cast(Optional[dict[str, Any]], response.get("Attributes"))
         if not item:
             return None
 

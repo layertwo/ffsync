@@ -6,7 +6,7 @@ import time
 from functools import cached_property
 
 from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey, RSAPublicNumbers
 from cryptography.hazmat.primitives.hashes import SHA256
 
 from src.services.jwt_service import JWTService
@@ -82,7 +82,7 @@ class JWTVerifier:
         )
 
     @cached_property
-    def _public_key(self):
+    def _public_key(self) -> RSAPublicKey:
         """Construct and cache the RSA public key from JWK."""
         jwk = self._jwt_service.get_public_key_jwk()
         n_bytes = self._b64url_decode(jwk["n"])

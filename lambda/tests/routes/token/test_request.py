@@ -1,6 +1,5 @@
 """Unit tests for RequestTokenRoute"""
 
-import json
 from http import HTTPStatus
 from unittest.mock import MagicMock
 
@@ -21,25 +20,28 @@ from src.shared.exceptions import (
 from src.shared.oidc import OIDCTokenClaims
 from src.shared.token import TokenResponse
 from src.shared.user import UserRecord
+from tests.conftest import header, json_body
 
 
 @pytest.fixture
-def mock_oidc_validator():
+def mock_oidc_validator() -> MagicMock:
     return MagicMock()
 
 
 @pytest.fixture
-def mock_user_manager():
+def mock_user_manager() -> MagicMock:
     return MagicMock()
 
 
 @pytest.fixture
-def mock_token_generator():
+def mock_token_generator() -> MagicMock:
     return MagicMock()
 
 
 @pytest.fixture
-def request_token_route(mock_oidc_validator, mock_user_manager, mock_token_generator):
+def request_token_route(
+    mock_oidc_validator: MagicMock, mock_user_manager: MagicMock, mock_token_generator: MagicMock
+) -> GetTokenRoute:
     return GetTokenRoute(
         oidc_validator=mock_oidc_validator,
         user_manager=mock_user_manager,
@@ -49,7 +51,7 @@ def request_token_route(mock_oidc_validator, mock_user_manager, mock_token_gener
 
 
 @pytest.fixture
-def valid_event():
+def valid_event() -> APIGatewayProxyEvent:
     """Valid GET request to token endpoint"""
     return APIGatewayProxyEvent(
         {
@@ -64,7 +66,7 @@ def valid_event():
 
 
 @pytest.fixture
-def mock_oidc_claims():
+def mock_oidc_claims() -> OIDCTokenClaims:
     return OIDCTokenClaims(
         sub="user123",
         iss="https://auth.example.com",
@@ -76,7 +78,7 @@ def mock_oidc_claims():
 
 
 @pytest.fixture
-def mock_user_record():
+def mock_user_record() -> UserRecord:
     return UserRecord(
         user_id="user123",
         generation=0,
@@ -87,7 +89,7 @@ def mock_user_record():
 
 
 @pytest.fixture
-def mock_token_response():
+def mock_token_response() -> TokenResponse:
     return TokenResponse(
         id="dXNlcjEyMzowOjEyMzQ1Njc4OTA",
         key="a" * 64,
@@ -102,8 +104,11 @@ class TestRequestTokenRouteInit:
     """Test RequestTokenRoute initialization"""
 
     def test_init_stores_dependencies(
-        self, mock_oidc_validator, mock_user_manager, mock_token_generator
-    ):
+        self,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test that dependencies are stored correctly"""
         route = GetTokenRoute(
             oidc_validator=mock_oidc_validator,
@@ -119,7 +124,7 @@ class TestRequestTokenRouteInit:
 class TestRequestTokenRouteBind:
     """Test bind method"""
 
-    def test_bind_registers_get_route(self, request_token_route):
+    def test_bind_registers_get_route(self, request_token_route: GetTokenRoute) -> None:
         """Test that bind registers GET route"""
         mock_api = MagicMock()
         mock_api.get = MagicMock(return_value=lambda f: f)
@@ -135,22 +140,25 @@ class TestRequestTokenRouteHandle:
 
     def test_handle_success(
         self,
-        request_token_route,
-        valid_event,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test successful token issuance"""
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.OK
         assert response.content_type == "application/json"
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["id"] == mock_token_response.id
         assert body["key"] == mock_token_response.key
         assert body["api_endpoint"] == mock_token_response.api_endpoint
@@ -158,7 +166,7 @@ class TestRequestTokenRouteHandle:
         assert body["duration"] == 300
         assert body["hashalg"] == "sha256"
 
-    def test_handle_missing_auth_header(self, request_token_route):
+    def test_handle_missing_auth_header(self, request_token_route: GetTokenRoute) -> None:
         """Test missing Authorization header returns 401"""
         event = APIGatewayProxyEvent(
             {
@@ -170,11 +178,11 @@ class TestRequestTokenRouteHandle:
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "invalid-credentials"
         assert "Missing Authorization header" in body["errors"][0]["description"]
 
-    def test_handle_malformed_auth_header(self, request_token_route):
+    def test_handle_malformed_auth_header(self, request_token_route: GetTokenRoute) -> None:
         """Test malformed Authorization header returns 400"""
         event = APIGatewayProxyEvent(
             {
@@ -186,108 +194,128 @@ class TestRequestTokenRouteHandle:
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.BAD_REQUEST
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "invalid-request"
         assert "Malformed Authorization header" in body["errors"][0]["description"]
 
-    def test_handle_invalid_credentials_error(self, request_token_route, valid_event):
+    def test_handle_invalid_credentials_error(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test InvalidCredentialsError returns 401"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidCredentialsError(
-            "Token expired"
-        )
+        mock_oidc_validator.validate_token.side_effect = InvalidCredentialsError("Token expired")
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "invalid-credentials"
 
-    def test_handle_invalid_token_error(self, request_token_route, valid_event):
+    def test_handle_invalid_token_error(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test InvalidTokenError returns 401"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidTokenError(
-            "Invalid signature"
-        )
+        mock_oidc_validator.validate_token.side_effect = InvalidTokenError("Invalid signature")
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "invalid-credentials"
 
-    def test_handle_service_unavailable_error(self, request_token_route, valid_event):
+    def test_handle_service_unavailable_error(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test ServiceUnavailableError returns 503"""
-        request_token_route.oidc_validator.validate_token.side_effect = ServiceUnavailableError(
+        mock_oidc_validator.validate_token.side_effect = ServiceUnavailableError(
             "OIDC provider unreachable"
         )
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "service-unavailable"
 
-    def test_handle_validation_exception(self, request_token_route, valid_event):
+    def test_handle_validation_exception(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test ValidationException returns 400"""
-        request_token_route.oidc_validator.validate_token.side_effect = ValidationException(
+        mock_oidc_validator.validate_token.side_effect = ValidationException(
             "Invalid request format"
         )
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.BAD_REQUEST
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "invalid-request"
 
-    def test_handle_unexpected_error(self, request_token_route, valid_event):
+    def test_handle_unexpected_error(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test unexpected error returns 500"""
-        request_token_route.oidc_validator.validate_token.side_effect = RuntimeError(
-            "Unexpected error"
-        )
+        mock_oidc_validator.validate_token.side_effect = RuntimeError("Unexpected error")
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "internal-error"
 
     def test_handle_calls_services_in_order(
         self,
-        request_token_route,
-        valid_event,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test that services are called in correct order"""
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         # Configure generate_uid to return a known value
         expected_uid = 7351813628096158130
-        request_token_route.token_generator.generate_uid.return_value = expected_uid
+        mock_token_generator.generate_uid.return_value = expected_uid
 
         request_token_route.handle(valid_event)
 
         # Verify OIDC validator was called with the token
-        request_token_route.oidc_validator.validate_token.assert_called_once_with(
-            "valid-oidc-token"
-        )
+        mock_oidc_validator.validate_token.assert_called_once_with("valid-oidc-token")
 
         # Verify generate_uid was called with user_id from OIDC claims
-        request_token_route.token_generator.generate_uid.assert_called_once_with("user123", 0)
+        mock_token_generator.generate_uid.assert_called_once_with("user123", 0)
 
         # Verify user manager was called with uid and client_state (empty string default)
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
+        mock_user_manager.get_or_create_user.assert_called_once_with("user123", "")
 
         # Verify token generator was called with user_id, uid, and generation
-        request_token_route.token_generator.generate_token.assert_called_once_with(
+        mock_token_generator.generate_token.assert_called_once_with(
             user_id="user123",
             uid=expected_uid,
             generation=0,
         )
 
-    def test_handle_null_headers(self, request_token_route):
+    def test_handle_null_headers(self, request_token_route: GetTokenRoute) -> None:
         """Test handling of null headers"""
         event = APIGatewayProxyEvent(
             {
@@ -302,11 +330,14 @@ class TestRequestTokenRouteHandle:
 
     def test_handle_request_context_identity_missing(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test handling when requestContext.identity raises KeyError"""
         event = APIGatewayProxyEvent(
             {
@@ -316,9 +347,9 @@ class TestRequestTokenRouteHandle:
                 "requestContext": {},  # Empty requestContext triggers KeyError on identity access
             }
         )
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
@@ -326,11 +357,14 @@ class TestRequestTokenRouteHandle:
 
     def test_handle_case_insensitive_auth_header(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test that Authorization header lookup is case-insensitive"""
         event = APIGatewayProxyEvent(
             {
@@ -339,9 +373,9 @@ class TestRequestTokenRouteHandle:
                 "headers": {"Authorization": "Bearer valid-token"},
             }
         )
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
@@ -351,12 +385,14 @@ class TestRequestTokenRouteHandle:
 class TestExtractBearerToken:
     """Test _extract_bearer_token method"""
 
-    def test_extract_bearer_token_valid(self, request_token_route):
+    def test_extract_bearer_token_valid(self, request_token_route: GetTokenRoute) -> None:
         """Test extracting valid Bearer token"""
         token = request_token_route._extract_bearer_token("Bearer my-token-123")
         assert token == "my-token-123"
 
-    def test_extract_bearer_token_case_insensitive(self, request_token_route):
+    def test_extract_bearer_token_case_insensitive(
+        self, request_token_route: GetTokenRoute
+    ) -> None:
         """Test Bearer keyword is case-insensitive"""
         token = request_token_route._extract_bearer_token("bearer my-token")
         assert token == "my-token"
@@ -364,13 +400,13 @@ class TestExtractBearerToken:
         token = request_token_route._extract_bearer_token("BEARER my-token")
         assert token == "my-token"
 
-    def test_extract_bearer_token_with_spaces(self, request_token_route):
+    def test_extract_bearer_token_with_spaces(self, request_token_route: GetTokenRoute) -> None:
         """Test token extraction with multiple spaces after Bearer"""
         # The regex \s+ consumes all whitespace between Bearer and token
         token = request_token_route._extract_bearer_token("Bearer  token-with-spaces")
         assert token == "token-with-spaces"
 
-    def test_extract_bearer_token_invalid_format(self, request_token_route):
+    def test_extract_bearer_token_invalid_format(self, request_token_route: GetTokenRoute) -> None:
         """Test None returned for invalid format"""
         token = request_token_route._extract_bearer_token("Basic dXNlcjpwYXNz")
         assert token is None
@@ -379,7 +415,7 @@ class TestExtractBearerToken:
 class TestErrorResponse:
     """Test _error_response method"""
 
-    def test_error_response_structure(self, request_token_route):
+    def test_error_response_structure(self, request_token_route: GetTokenRoute) -> None:
         """Test error response has correct structure"""
         response = request_token_route._error_response(
             status_code=HTTPStatus.UNAUTHORIZED,
@@ -392,7 +428,7 @@ class TestErrorResponse:
         assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert response.content_type == "application/json"
 
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "invalid-credentials"
         assert len(body["errors"]) == 1
         assert body["errors"][0]["location"] == "header"
@@ -403,7 +439,9 @@ class TestErrorResponse:
 class TestContentTypeValidation:
     """Test Content-Type validation"""
 
-    def test_handle_invalid_content_type_returns_415(self, request_token_route):
+    def test_handle_invalid_content_type_returns_415(
+        self, request_token_route: GetTokenRoute
+    ) -> None:
         """Test invalid Content-Type returns 415"""
         event = APIGatewayProxyEvent(
             {
@@ -419,17 +457,20 @@ class TestContentTypeValidation:
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "unsupported-media-type"
         assert "Content-Type" in body["errors"][0]["name"]
 
     def test_handle_valid_content_type_json(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test application/json Content-Type is accepted"""
         event = APIGatewayProxyEvent(
             {
@@ -442,9 +483,9 @@ class TestContentTypeValidation:
                 "body": '{"some": "data"}',
             }
         )
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
@@ -452,11 +493,14 @@ class TestContentTypeValidation:
 
     def test_handle_valid_content_type_form(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test application/x-www-form-urlencoded Content-Type is accepted"""
         event = APIGatewayProxyEvent(
             {
@@ -469,9 +513,9 @@ class TestContentTypeValidation:
                 "body": "key=value",
             }
         )
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
@@ -479,11 +523,14 @@ class TestContentTypeValidation:
 
     def test_handle_content_type_with_charset(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test Content-Type with charset parameter is accepted"""
         event = APIGatewayProxyEvent(
             {
@@ -496,9 +543,9 @@ class TestContentTypeValidation:
                 "body": '{"some": "data"}',
             }
         )
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
@@ -506,11 +553,14 @@ class TestContentTypeValidation:
 
     def test_handle_no_body_skips_content_type_validation(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test Content-Type validation is skipped when no body"""
         event = APIGatewayProxyEvent(
             {
@@ -523,9 +573,9 @@ class TestContentTypeValidation:
                 "body": None,
             }
         )
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
@@ -533,11 +583,14 @@ class TestContentTypeValidation:
 
     def test_handle_empty_body_skips_content_type_validation(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test Content-Type validation is skipped when body is empty string"""
         event = APIGatewayProxyEvent(
             {
@@ -550,9 +603,9 @@ class TestContentTypeValidation:
                 "body": "",
             }
         )
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
@@ -562,14 +615,14 @@ class TestContentTypeValidation:
 class TestBearerTokenPattern:
     """Test BEARER_TOKEN_PATTERN regex"""
 
-    def test_pattern_matches_valid_bearer(self):
+    def test_pattern_matches_valid_bearer(self) -> None:
         """Test pattern matches valid Bearer tokens"""
         assert BEARER_TOKEN_PATTERN.match("Bearer token123")
         assert BEARER_TOKEN_PATTERN.match("bearer token123")
         assert BEARER_TOKEN_PATTERN.match("BEARER token123")
         assert BEARER_TOKEN_PATTERN.match("Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.xxx")
 
-    def test_pattern_rejects_invalid_formats(self):
+    def test_pattern_rejects_invalid_formats(self) -> None:
         """Test pattern rejects invalid formats"""
         assert not BEARER_TOKEN_PATTERN.match("Basic dXNlcjpwYXNz")
         assert not BEARER_TOKEN_PATTERN.match("token123")
@@ -582,11 +635,14 @@ class TestXClientStateHeader:
 
     def test_valid_client_state_passed_to_user_manager(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test valid X-Client-State is passed to user manager"""
         event = APIGatewayProxyEvent(
             {
@@ -599,25 +655,26 @@ class TestXClientStateHeader:
             }
         )
         expected_uid = 7351813628096158130
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_uid.return_value = expected_uid
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_uid.return_value = expected_uid
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            "user123", "abcdef123456"
-        )
+        mock_user_manager.get_or_create_user.assert_called_once_with("user123", "abcdef123456")
 
     def test_client_state_case_insensitive_header(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test X-Client-State header lookup is case-insensitive"""
         event = APIGatewayProxyEvent(
             {
@@ -630,25 +687,26 @@ class TestXClientStateHeader:
             }
         )
         expected_uid = 7351813628096158130
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_uid.return_value = expected_uid
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_uid.return_value = expected_uid
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            "user123", "ABCDEF"
-        )
+        mock_user_manager.get_or_create_user.assert_called_once_with("user123", "ABCDEF")
 
     def test_missing_client_state_defaults_to_empty_string(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test missing X-Client-State defaults to empty string"""
         event = APIGatewayProxyEvent(
             {
@@ -660,17 +718,19 @@ class TestXClientStateHeader:
             }
         )
         expected_uid = 7351813628096158130
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_uid.return_value = expected_uid
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_uid.return_value = expected_uid
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
+        mock_user_manager.get_or_create_user.assert_called_once_with("user123", "")
 
-    def test_invalid_client_state_special_chars_returns_400(self, request_token_route):
+    def test_invalid_client_state_special_chars_returns_400(
+        self, request_token_route: GetTokenRoute
+    ) -> None:
         """Test X-Client-State with invalid special characters returns 400"""
         event = APIGatewayProxyEvent(
             {
@@ -685,12 +745,14 @@ class TestXClientStateHeader:
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.BAD_REQUEST
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "invalid-request"
         assert body["errors"][0]["name"] == "X-Client-State"
         assert "urlsafe-base64" in body["errors"][0]["description"].lower()
 
-    def test_invalid_client_state_too_long_returns_400(self, request_token_route):
+    def test_invalid_client_state_too_long_returns_400(
+        self, request_token_route: GetTokenRoute
+    ) -> None:
         """Test X-Client-State longer than 32 chars returns 400"""
         event = APIGatewayProxyEvent(
             {
@@ -705,17 +767,20 @@ class TestXClientStateHeader:
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.BAD_REQUEST
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "invalid-request"
         assert body["errors"][0]["name"] == "X-Client-State"
 
     def test_valid_client_state_max_length(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test X-Client-State at max length (32 chars) is accepted"""
         event = APIGatewayProxyEvent(
             {
@@ -727,9 +792,9 @@ class TestXClientStateHeader:
                 },
             }
         )
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
@@ -737,11 +802,14 @@ class TestXClientStateHeader:
 
     def test_valid_client_state_with_underscore(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test X-Client-State with underscore is accepted (urlsafe-base64)"""
         event = APIGatewayProxyEvent(
             {
@@ -754,25 +822,26 @@ class TestXClientStateHeader:
             }
         )
         expected_uid = 7351813628096158130
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_uid.return_value = expected_uid
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_uid.return_value = expected_uid
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            "user123", "abc_def_123"
-        )
+        mock_user_manager.get_or_create_user.assert_called_once_with("user123", "abc_def_123")
 
     def test_valid_client_state_with_hyphen(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test X-Client-State with hyphen is accepted (urlsafe-base64)"""
         event = APIGatewayProxyEvent(
             {
@@ -785,25 +854,26 @@ class TestXClientStateHeader:
             }
         )
         expected_uid = 7351813628096158130
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_uid.return_value = expected_uid
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_uid.return_value = expected_uid
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            "user123", "abc-def-123"
-        )
+        mock_user_manager.get_or_create_user.assert_called_once_with("user123", "abc-def-123")
 
     def test_valid_client_state_with_period(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test X-Client-State with period is accepted (urlsafe-base64 + period)"""
         event = APIGatewayProxyEvent(
             {
@@ -816,25 +886,26 @@ class TestXClientStateHeader:
             }
         )
         expected_uid = 7351813628096158130
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_uid.return_value = expected_uid
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_uid.return_value = expected_uid
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            "user123", "abc.def.123"
-        )
+        mock_user_manager.get_or_create_user.assert_called_once_with("user123", "abc.def.123")
 
     def test_valid_client_state_mixed_urlsafe_chars(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test X-Client-State with mixed urlsafe-base64 + period chars is accepted"""
         event = APIGatewayProxyEvent(
             {
@@ -847,25 +918,26 @@ class TestXClientStateHeader:
             }
         )
         expected_uid = 7351813628096158130
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_uid.return_value = expected_uid
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_uid.return_value = expected_uid
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with(
-            "user123", "aB3_xY-z.9Q"
-        )
+        mock_user_manager.get_or_create_user.assert_called_once_with("user123", "aB3_xY-z.9Q")
 
     def test_empty_client_state_is_valid(
         self,
-        request_token_route,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test empty X-Client-State header value is valid"""
         event = APIGatewayProxyEvent(
             {
@@ -878,15 +950,15 @@ class TestXClientStateHeader:
             }
         )
         expected_uid = 7351813628096158130
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_uid.return_value = expected_uid
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_uid.return_value = expected_uid
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.OK
-        request_token_route.user_manager.get_or_create_user.assert_called_once_with("user123", "")
+        mock_user_manager.get_or_create_user.assert_called_once_with("user123", "")
 
 
 class TestXTimestampHeader:
@@ -894,26 +966,31 @@ class TestXTimestampHeader:
 
     def test_success_response_includes_timestamp_header(
         self,
-        request_token_route,
-        valid_event,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test successful response includes X-Timestamp header"""
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.OK
         assert "X-Timestamp" in response.headers
         # Verify it's a valid integer timestamp
-        timestamp = int(response.headers["X-Timestamp"])
+        timestamp = int(header(response, "X-Timestamp"))
         assert timestamp > 0
 
-    def test_error_response_includes_timestamp_header(self, request_token_route):
+    def test_error_response_includes_timestamp_header(
+        self, request_token_route: GetTokenRoute
+    ) -> None:
         """Test error response includes X-Timestamp header"""
         event = APIGatewayProxyEvent(
             {
@@ -927,30 +1004,35 @@ class TestXTimestampHeader:
         assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert "X-Timestamp" in response.headers
         # Verify it's a valid integer timestamp
-        timestamp = int(response.headers["X-Timestamp"])
+        timestamp = int(header(response, "X-Timestamp"))
         assert timestamp > 0
 
     def test_timestamp_is_integer_format(
         self,
-        request_token_route,
-        valid_event,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test X-Timestamp value is an integer (no decimal)"""
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(valid_event)
 
-        timestamp_str = response.headers["X-Timestamp"]
+        timestamp_str = header(response, "X-Timestamp")
         # Should be a string representation of an integer (no decimal point)
         assert "." not in timestamp_str
         assert timestamp_str.isdigit()
 
-    def test_validation_error_includes_timestamp_header(self, request_token_route):
+    def test_validation_error_includes_timestamp_header(
+        self, request_token_route: GetTokenRoute
+    ) -> None:
         """Test validation error (400) includes X-Timestamp header"""
         event = APIGatewayProxyEvent(
             {
@@ -966,9 +1048,14 @@ class TestXTimestampHeader:
         assert response.status_code == HTTPStatus.BAD_REQUEST
         assert "X-Timestamp" in response.headers
 
-    def test_service_unavailable_includes_timestamp_header(self, request_token_route, valid_event):
+    def test_service_unavailable_includes_timestamp_header(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test service unavailable (503) includes X-Timestamp header"""
-        request_token_route.oidc_validator.validate_token.side_effect = ServiceUnavailableError(
+        mock_oidc_validator.validate_token.side_effect = ServiceUnavailableError(
             "OIDC provider unreachable"
         )
 
@@ -981,67 +1068,92 @@ class TestXTimestampHeader:
 class TestNewErrorStatuses:
     """Test new error status types per Mozilla spec"""
 
-    def test_handle_invalid_timestamp_error(self, request_token_route, valid_event):
+    def test_handle_invalid_timestamp_error(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test InvalidTimestampError returns 401 with invalid-timestamp status"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidTimestampError(
+        mock_oidc_validator.validate_token.side_effect = InvalidTimestampError(
             "Token timestamp differs significantly from server time"
         )
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "invalid-timestamp"
         assert body["errors"][0]["location"] == "header"
         assert body["errors"][0]["name"] == "Authorization"
         assert "timestamp" in body["errors"][0]["description"].lower()
 
-    def test_handle_invalid_generation_error(self, request_token_route, valid_event):
+    def test_handle_invalid_generation_error(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test InvalidGenerationError returns 401 with invalid-generation status"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidGenerationError(
+        mock_oidc_validator.validate_token.side_effect = InvalidGenerationError(
             "Token generation number is outdated"
         )
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "invalid-generation"
         assert body["errors"][0]["location"] == "header"
         assert body["errors"][0]["name"] == "Authorization"
         assert "generation" in body["errors"][0]["description"].lower()
 
-    def test_handle_invalid_client_state_error(self, request_token_route, valid_event):
+    def test_handle_invalid_client_state_error(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test InvalidClientStateError returns 401 with invalid-client-state status"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidClientStateError(
+        mock_oidc_validator.validate_token.side_effect = InvalidClientStateError(
             "Client state has been seen before"
         )
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "invalid-client-state"
         assert body["errors"][0]["location"] == "header"
         assert body["errors"][0]["name"] == "X-Client-State"
 
-    def test_handle_new_users_disabled_error(self, request_token_route, valid_event):
+    def test_handle_new_users_disabled_error(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test NewUsersDisabledError returns 401 with new-users-disabled status"""
-        request_token_route.oidc_validator.validate_token.side_effect = NewUsersDisabledError(
+        mock_oidc_validator.validate_token.side_effect = NewUsersDisabledError(
             "New user registration is disabled"
         )
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["status"] == "new-users-disabled"
         assert body["errors"][0]["location"] == "server"
         assert body["errors"][0]["name"] == "registration"
 
-    def test_invalid_timestamp_includes_x_timestamp_header(self, request_token_route, valid_event):
+    def test_invalid_timestamp_includes_x_timestamp_header(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test InvalidTimestampError response includes X-Timestamp header"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidTimestampError(
+        mock_oidc_validator.validate_token.side_effect = InvalidTimestampError(
             "Token timestamp differs significantly from server time"
         )
 
@@ -1049,12 +1161,17 @@ class TestNewErrorStatuses:
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert "X-Timestamp" in response.headers
-        timestamp = int(response.headers["X-Timestamp"])
+        timestamp = int(header(response, "X-Timestamp"))
         assert timestamp > 0
 
-    def test_invalid_generation_includes_x_timestamp_header(self, request_token_route, valid_event):
+    def test_invalid_generation_includes_x_timestamp_header(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test InvalidGenerationError response includes X-Timestamp header"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidGenerationError(
+        mock_oidc_validator.validate_token.side_effect = InvalidGenerationError(
             "Token generation number is outdated"
         )
 
@@ -1064,10 +1181,13 @@ class TestNewErrorStatuses:
         assert "X-Timestamp" in response.headers
 
     def test_invalid_client_state_includes_x_timestamp_header(
-        self, request_token_route, valid_event
-    ):
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test InvalidClientStateError response includes X-Timestamp header"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidClientStateError(
+        mock_oidc_validator.validate_token.side_effect = InvalidClientStateError(
             "Client state has been seen before"
         )
 
@@ -1076,9 +1196,14 @@ class TestNewErrorStatuses:
         assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert "X-Timestamp" in response.headers
 
-    def test_new_users_disabled_includes_x_timestamp_header(self, request_token_route, valid_event):
+    def test_new_users_disabled_includes_x_timestamp_header(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test NewUsersDisabledError response includes X-Timestamp header"""
-        request_token_route.oidc_validator.validate_token.side_effect = NewUsersDisabledError(
+        mock_oidc_validator.validate_token.side_effect = NewUsersDisabledError(
             "New user registration is disabled"
         )
 
@@ -1092,10 +1217,13 @@ class TestRetryAfterHeader:
     """Test Retry-After header on 503 responses"""
 
     def test_service_unavailable_includes_retry_after_header(
-        self, request_token_route, valid_event
-    ):
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test 503 response includes Retry-After header"""
-        request_token_route.oidc_validator.validate_token.side_effect = ServiceUnavailableError(
+        mock_oidc_validator.validate_token.side_effect = ServiceUnavailableError(
             "OIDC provider unreachable"
         )
 
@@ -1104,13 +1232,18 @@ class TestRetryAfterHeader:
         assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
         assert "Retry-After" in response.headers
         # Verify it's a valid integer
-        retry_after = int(response.headers["Retry-After"])
+        retry_after = int(header(response, "Retry-After"))
         assert retry_after > 0
 
-    def test_retry_after_header_value_is_correct(self, request_token_route, valid_event):
+    def test_retry_after_header_value_is_correct(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test Retry-After header value matches configured value"""
         # Default is 30 seconds
-        request_token_route.oidc_validator.validate_token.side_effect = ServiceUnavailableError(
+        mock_oidc_validator.validate_token.side_effect = ServiceUnavailableError(
             "OIDC provider unreachable"
         )
 
@@ -1120,8 +1253,12 @@ class TestRetryAfterHeader:
         assert response.headers["Retry-After"] == "30"
 
     def test_retry_after_header_custom_value(
-        self, mock_oidc_validator, mock_user_manager, mock_token_generator, valid_event
-    ):
+        self,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+        valid_event: APIGatewayProxyEvent,
+    ) -> None:
         """Test Retry-After header uses custom configured value"""
         # Create route with custom retry_after_seconds
         route = GetTokenRoute(
@@ -1140,7 +1277,9 @@ class TestRetryAfterHeader:
         assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
         assert response.headers["Retry-After"] == "60"
 
-    def test_non_503_responses_do_not_include_retry_after(self, request_token_route):
+    def test_non_503_responses_do_not_include_retry_after(
+        self, request_token_route: GetTokenRoute
+    ) -> None:
         """Test non-503 responses do not include Retry-After header"""
         # Test 401 error
         event = APIGatewayProxyEvent(
@@ -1155,7 +1294,9 @@ class TestRetryAfterHeader:
         assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert "Retry-After" not in response.headers
 
-    def test_400_error_does_not_include_retry_after(self, request_token_route):
+    def test_400_error_does_not_include_retry_after(
+        self, request_token_route: GetTokenRoute
+    ) -> None:
         """Test 400 error does not include Retry-After header"""
         event = APIGatewayProxyEvent(
             {
@@ -1171,11 +1312,14 @@ class TestRetryAfterHeader:
         assert response.status_code == HTTPStatus.BAD_REQUEST
         assert "Retry-After" not in response.headers
 
-    def test_500_error_does_not_include_retry_after(self, request_token_route, valid_event):
+    def test_500_error_does_not_include_retry_after(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test 500 error does not include Retry-After header"""
-        request_token_route.oidc_validator.validate_token.side_effect = RuntimeError(
-            "Unexpected error"
-        )
+        mock_oidc_validator.validate_token.side_effect = RuntimeError("Unexpected error")
 
         response = request_token_route.handle(valid_event)
 
@@ -1186,7 +1330,9 @@ class TestRetryAfterHeader:
 class TestWWWAuthenticateHeader:
     """Test WWW-Authenticate header on 401 responses"""
 
-    def test_missing_auth_header_includes_www_authenticate(self, request_token_route):
+    def test_missing_auth_header_includes_www_authenticate(
+        self, request_token_route: GetTokenRoute
+    ) -> None:
         """Test 401 response for missing auth header includes WWW-Authenticate"""
         event = APIGatewayProxyEvent(
             {
@@ -1199,81 +1345,37 @@ class TestWWWAuthenticateHeader:
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert "WWW-Authenticate" in response.headers
-        assert response.headers["WWW-Authenticate"].startswith("Bearer")
+        assert header(response, "WWW-Authenticate").startswith("Bearer")
 
-    def test_invalid_credentials_includes_www_authenticate(self, request_token_route, valid_event):
-        """Test 401 response for invalid credentials includes WWW-Authenticate"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidCredentialsError(
-            "Token expired"
-        )
-
-        response = request_token_route.handle(valid_event)
-
-        assert response.status_code == HTTPStatus.UNAUTHORIZED
-        assert "WWW-Authenticate" in response.headers
-        assert response.headers["WWW-Authenticate"].startswith("Bearer")
-
-    def test_invalid_token_includes_www_authenticate(self, request_token_route, valid_event):
-        """Test 401 response for invalid token includes WWW-Authenticate"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidTokenError(
-            "Invalid signature"
-        )
-
-        response = request_token_route.handle(valid_event)
-
-        assert response.status_code == HTTPStatus.UNAUTHORIZED
-        assert "WWW-Authenticate" in response.headers
-        assert response.headers["WWW-Authenticate"].startswith("Bearer")
-
-    def test_invalid_timestamp_includes_www_authenticate(self, request_token_route, valid_event):
-        """Test 401 response for invalid timestamp includes WWW-Authenticate"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidTimestampError(
-            "Token timestamp differs significantly from server time"
-        )
+    @pytest.mark.parametrize(
+        "error",
+        [
+            InvalidCredentialsError("Token expired"),
+            InvalidTokenError("Invalid signature"),
+            InvalidTimestampError("Token timestamp differs significantly from server time"),
+            InvalidGenerationError("Token generation number is outdated"),
+            InvalidClientStateError("Client state has been seen before"),
+            NewUsersDisabledError("New user registration is disabled"),
+        ],
+        ids=lambda e: type(e).__name__,
+    )
+    def test_validation_errors_include_www_authenticate(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+        error: Exception,
+    ) -> None:
+        """Every 401 raised by token validation carries WWW-Authenticate: Bearer"""
+        mock_oidc_validator.validate_token.side_effect = error
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert "WWW-Authenticate" in response.headers
-        assert response.headers["WWW-Authenticate"].startswith("Bearer")
+        assert header(response, "WWW-Authenticate").startswith("Bearer")
 
-    def test_invalid_generation_includes_www_authenticate(self, request_token_route, valid_event):
-        """Test 401 response for invalid generation includes WWW-Authenticate"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidGenerationError(
-            "Token generation number is outdated"
-        )
-
-        response = request_token_route.handle(valid_event)
-
-        assert response.status_code == HTTPStatus.UNAUTHORIZED
-        assert "WWW-Authenticate" in response.headers
-        assert response.headers["WWW-Authenticate"].startswith("Bearer")
-
-    def test_invalid_client_state_includes_www_authenticate(self, request_token_route, valid_event):
-        """Test 401 response for invalid client state includes WWW-Authenticate"""
-        request_token_route.oidc_validator.validate_token.side_effect = InvalidClientStateError(
-            "Client state has been seen before"
-        )
-
-        response = request_token_route.handle(valid_event)
-
-        assert response.status_code == HTTPStatus.UNAUTHORIZED
-        assert "WWW-Authenticate" in response.headers
-        assert response.headers["WWW-Authenticate"].startswith("Bearer")
-
-    def test_new_users_disabled_includes_www_authenticate(self, request_token_route, valid_event):
-        """Test 401 response for new users disabled includes WWW-Authenticate"""
-        request_token_route.oidc_validator.validate_token.side_effect = NewUsersDisabledError(
-            "New user registration is disabled"
-        )
-
-        response = request_token_route.handle(valid_event)
-
-        assert response.status_code == HTTPStatus.UNAUTHORIZED
-        assert "WWW-Authenticate" in response.headers
-        assert response.headers["WWW-Authenticate"].startswith("Bearer")
-
-    def test_www_authenticate_header_format(self, request_token_route):
+    def test_www_authenticate_header_format(self, request_token_route: GetTokenRoute) -> None:
         """Test WWW-Authenticate header has correct Bearer format"""
         event = APIGatewayProxyEvent(
             {
@@ -1285,7 +1387,7 @@ class TestWWWAuthenticateHeader:
         response = request_token_route.handle(event)
 
         assert response.status_code == HTTPStatus.UNAUTHORIZED
-        www_auth = response.headers["WWW-Authenticate"]
+        www_auth = header(response, "WWW-Authenticate")
         # Should be in format: Bearer realm="...", error="..."
         assert www_auth.startswith("Bearer")
         assert "realm=" in www_auth
@@ -1293,24 +1395,29 @@ class TestWWWAuthenticateHeader:
 
     def test_non_401_responses_do_not_include_www_authenticate(
         self,
-        request_token_route,
-        valid_event,
-        mock_oidc_claims,
-        mock_user_record,
-        mock_token_response,
-    ):
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_claims: OIDCTokenClaims,
+        mock_user_record: UserRecord,
+        mock_token_response: TokenResponse,
+        mock_oidc_validator: MagicMock,
+        mock_user_manager: MagicMock,
+        mock_token_generator: MagicMock,
+    ) -> None:
         """Test non-401 responses do not include WWW-Authenticate header"""
         # Test 200 success response
-        request_token_route.oidc_validator.validate_token.return_value = mock_oidc_claims
-        request_token_route.user_manager.get_or_create_user.return_value = mock_user_record
-        request_token_route.token_generator.generate_token.return_value = mock_token_response
+        mock_oidc_validator.validate_token.return_value = mock_oidc_claims
+        mock_user_manager.get_or_create_user.return_value = mock_user_record
+        mock_token_generator.generate_token.return_value = mock_token_response
 
         response = request_token_route.handle(valid_event)
 
         assert response.status_code == HTTPStatus.OK
         assert "WWW-Authenticate" not in response.headers
 
-    def test_400_error_does_not_include_www_authenticate(self, request_token_route):
+    def test_400_error_does_not_include_www_authenticate(
+        self, request_token_route: GetTokenRoute
+    ) -> None:
         """Test 400 error does not include WWW-Authenticate header"""
         event = APIGatewayProxyEvent(
             {
@@ -1326,9 +1433,14 @@ class TestWWWAuthenticateHeader:
         assert response.status_code == HTTPStatus.BAD_REQUEST
         assert "WWW-Authenticate" not in response.headers
 
-    def test_503_error_does_not_include_www_authenticate(self, request_token_route, valid_event):
+    def test_503_error_does_not_include_www_authenticate(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test 503 error does not include WWW-Authenticate header"""
-        request_token_route.oidc_validator.validate_token.side_effect = ServiceUnavailableError(
+        mock_oidc_validator.validate_token.side_effect = ServiceUnavailableError(
             "OIDC provider unreachable"
         )
 
@@ -1337,11 +1449,14 @@ class TestWWWAuthenticateHeader:
         assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
         assert "WWW-Authenticate" not in response.headers
 
-    def test_500_error_does_not_include_www_authenticate(self, request_token_route, valid_event):
+    def test_500_error_does_not_include_www_authenticate(
+        self,
+        request_token_route: GetTokenRoute,
+        valid_event: APIGatewayProxyEvent,
+        mock_oidc_validator: MagicMock,
+    ) -> None:
         """Test 500 error does not include WWW-Authenticate header"""
-        request_token_route.oidc_validator.validate_token.side_effect = RuntimeError(
-            "Unexpected error"
-        )
+        mock_oidc_validator.validate_token.side_effect = RuntimeError("Unexpected error")
 
         response = request_token_route.handle(valid_event)
 

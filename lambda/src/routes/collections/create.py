@@ -1,7 +1,9 @@
 import json
+from typing import Any
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -26,25 +28,20 @@ class CreateCollectionRoute(BaseRoute):
     def __init__(self, storage_manager: StorageManager):
         self.storage_manager = storage_manager
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.post("/1.5/<uid>/storage/<collectionName>")
-        def handle_request(uid: str, collectionName: str):
+        def handle_request(uid: str, collectionName: str) -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         """Create a new collection or batch create/update objects"""
         try:
-            # Extract user_id from authorizer context
-            user_id = event.get("requestContext", {}).get("hawk_uid")
+            user_id = self.hawk_uid(event)
             if not user_id:
-                return Response(
-                    status_code=401,
-                    content_type="application/json",
-                    body=json.dumps({"error": "Unauthorized"}),
-                )
+                return self.unauthorized()
 
             path_params = event.path_parameters or {}
-            headers = event.headers or {}
+            headers = event.headers
             body = event.body
             collection_name = path_params["collectionName"]
 
@@ -182,7 +179,9 @@ class CreateCollectionRoute(BaseRoute):
                 body=json.dumps({"error": "Internal server error"}),
             )
 
-    def _check_precondition(self, user_id, collection_name, if_unmodified_since):
+    def _check_precondition(
+        self, user_id: str, collection_name: str, if_unmodified_since: str | float
+    ) -> bool:
         """Check if collection was modified since given timestamp"""
         try:
             timestamp = float(if_unmodified_since)

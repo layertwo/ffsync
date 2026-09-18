@@ -2,10 +2,11 @@
 
 import json
 import re
-from typing import Sequence
+from typing import Any, Sequence
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.fxa_token_manager import FxATokenManager
 from src.shared.base_route import BaseRoute
@@ -24,14 +25,14 @@ class SessionDestroyRoute(BaseRoute):
         self._token_manager = token_manager
         self.middlewares = middlewares
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.post("/v1/session/destroy", middlewares=list(self.middlewares))
-        def handle_session_destroy():
+        def handle_session_destroy() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         # Extract token id from Hawk header for deletion
-        headers = event.headers or {}
+        headers = event.headers
         auth_header = headers.get("authorization", "")
         match = HAWK_ID_PATTERN.search(auth_header)
         if match:  # pragma: no branch

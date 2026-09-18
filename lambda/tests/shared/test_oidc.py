@@ -8,7 +8,7 @@ from src.shared.oidc import ErrorDetail, OIDCProviderConfig, OIDCTokenClaims
 class TestOIDCTokenClaims:
     """Tests for OIDCTokenClaims model"""
 
-    def test_creation_with_all_fields(self):
+    def test_creation_with_all_fields(self) -> None:
         claims = OIDCTokenClaims(
             sub="user123",
             iss="https://auth.example.com",
@@ -25,7 +25,7 @@ class TestOIDCTokenClaims:
         assert claims.iat == 1234567800
         assert claims.email == "user@example.com"
 
-    def test_creation_without_email(self):
+    def test_creation_without_email(self) -> None:
         claims = OIDCTokenClaims(
             sub="user456",
             iss="https://auth.example.com",
@@ -37,7 +37,7 @@ class TestOIDCTokenClaims:
         assert claims.sub == "user456"
         assert claims.email is None
 
-    def test_exp_greater_than_iat(self):
+    def test_exp_greater_than_iat(self) -> None:
         claims = OIDCTokenClaims(
             sub="user",
             iss="https://auth.example.com",
@@ -48,7 +48,7 @@ class TestOIDCTokenClaims:
 
         assert claims.exp > claims.iat
 
-    def test_asdict(self):
+    def test_asdict(self) -> None:
         claims = OIDCTokenClaims(
             sub="dictuser",
             iss="https://auth.example.com",
@@ -67,7 +67,7 @@ class TestOIDCTokenClaims:
 class TestOIDCProviderConfig:
     """Tests for OIDCProviderConfig model"""
 
-    def test_creation_with_all_fields(self):
+    def test_creation_with_all_fields(self) -> None:
         config = OIDCProviderConfig(
             issuer="https://auth.example.com",
             jwks_uri="https://auth.example.com/jwks",
@@ -86,7 +86,7 @@ class TestOIDCProviderConfig:
 class TestErrorDetail:
     """Tests for ErrorDetail model"""
 
-    def test_creation_with_all_fields(self):
+    def test_creation_with_all_fields(self) -> None:
         error = ErrorDetail(
             location="header",
             name="Authorization",
@@ -97,16 +97,16 @@ class TestErrorDetail:
         assert error.name == "Authorization"
         assert error.description == "Missing authorization header"
 
-    def test_creation_with_body_location(self):
+    def test_creation_with_body_location(self) -> None:
         error = ErrorDetail(location="body", name="email", description="Invalid email format")
         assert error.location == "body"
         assert error.name == "email"
 
-    def test_creation_with_query_location(self):
+    def test_creation_with_query_location(self) -> None:
         error = ErrorDetail(location="query", name="limit", description="Limit must be positive")
         assert error.location == "query"
 
-    def test_asdict(self):
+    def test_asdict(self) -> None:
         error = ErrorDetail(location="header", name="Accept", description="Unsupported media type")
 
         data = error.model_dump()

@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
+
 
 def get_weave_timestamp() -> str:
     """
@@ -14,7 +16,7 @@ def get_weave_timestamp() -> str:
     return f"{datetime.now(timezone.utc).timestamp():.2f}"
 
 
-def extract_hawk_request_params(event) -> tuple[str, str, str, int]:
+def extract_hawk_request_params(event: APIGatewayProxyEvent) -> tuple[str, str, str, int]:
     """Extract (method, path, host, port) for Hawk MAC verification.
 
     Uses request_context.domain_name (the custom domain) rather than

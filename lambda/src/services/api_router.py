@@ -29,12 +29,12 @@ class ApiRouter:
         self._register_middleware()
         self._register_routes()
 
-    def _register_exception_handlers(self, handlers: dict):
+    def _register_exception_handlers(self, handlers: dict) -> None:
         for exc_type, handler_fn in handlers.items():
             self.app.exception_handler(exc_type)(handler_fn)
 
         @self.app.exception_handler(RequestValidationError)
-        def _handle_request_validation(ex: RequestValidationError):  # pragma: nocover
+        def _handle_request_validation(ex: RequestValidationError) -> Response:  # pragma: nocover
             return Response(
                 status_code=422,
                 content_type="application/json",
@@ -42,22 +42,22 @@ class ApiRouter:
             )
 
         @self.app.exception_handler(ResponseValidationError)
-        def _handle_response_validation(ex: ResponseValidationError):  # pragma: nocover
+        def _handle_response_validation(ex: ResponseValidationError) -> Response:  # pragma: nocover
             return Response(
                 status_code=500,
                 content_type="application/json",
                 body=json.dumps({"error": "Internal server error"}),
             )
 
-    def _register_middleware(self):
+    def _register_middleware(self) -> None:
         """Register middleware handlers"""
-        self.app.use(middlewares=self._middlewares)  # type: ignore
+        self.app.use(middlewares=list(self._middlewares))
 
-    def _register_routes(self):
+    def _register_routes(self) -> None:
         """Register routes by calling each route's bind method"""
         for route in self._routes:
             route.bind(self.app)
 
-    def handler(self, event: dict, context: LambdaContext):
+    def handler(self, event: dict, context: LambdaContext) -> dict:
         """Main Lambda handler entry point"""
         return self.app.resolve(event=event, context=context)

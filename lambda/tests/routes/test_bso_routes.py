@@ -16,6 +16,7 @@ from src.shared.exceptions import (
     ValidationException,
 )
 from src.shared.models import BasicStorageObject
+from tests.conftest import json_body
 
 TEST_USER_ID = "test-user-123"
 
@@ -31,7 +32,7 @@ def with_auth(event_dict: dict) -> dict:
 class TestReadBSORoute:
     """Tests for ReadBSORoute"""
 
-    def test_bind_registers_route(self, mock_storage_manager):
+    def test_bind_registers_route(self, mock_storage_manager: MagicMock) -> None:
         """Test that bind registers the GET route and handler works through resolver"""
         route = ReadBSORoute(mock_storage_manager)
         app = APIGatewayRestResolver()
@@ -53,7 +54,7 @@ class TestReadBSORoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success(self, mock_storage_manager):
+    def test_handle_success(self, mock_storage_manager: MagicMock) -> None:
         """Test successful BSO retrieval"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -84,8 +85,7 @@ class TestReadBSORoute:
         )
         assert response.status_code == 200
 
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["id"] == "item123"
         assert body["payload"] == "bookmark_data"
         assert body["modified"] == 1234567890.12
@@ -94,7 +94,7 @@ class TestReadBSORoute:
         assert "ttl" not in body
         assert response.headers["X-Last-Modified"] == "1234567890.12"
 
-    def test_handle_success_without_optional_fields(self, mock_storage_manager):
+    def test_handle_success_without_optional_fields(self, mock_storage_manager: MagicMock) -> None:
         """Test BSO retrieval when sortindex and ttl are None"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -121,12 +121,11 @@ class TestReadBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "sortindex" not in body
         assert "ttl" not in body
 
-    def test_handle_validation_exception(self, mock_storage_manager):
+    def test_handle_validation_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of ValidationException"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -148,11 +147,10 @@ class TestReadBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "error" in body
 
-    def test_handle_collection_not_found(self, mock_storage_manager):
+    def test_handle_collection_not_found(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of CollectionNotFoundException"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -174,11 +172,10 @@ class TestReadBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 404
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "error" in body
 
-    def test_handle_storage_object_not_found(self, mock_storage_manager):
+    def test_handle_storage_object_not_found(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of StorageObjectNotFoundException"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -200,11 +197,10 @@ class TestReadBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 404
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "error" in body
 
-    def test_handle_generic_exception(self, mock_storage_manager):
+    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of generic exceptions"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -224,15 +220,14 @@ class TestReadBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 500
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Internal server error"
 
 
 class TestUpdateBSORoute:
     """Tests for UpdateBSORoute"""
 
-    def test_bind_registers_route(self, mock_storage_manager):
+    def test_bind_registers_route(self, mock_storage_manager: MagicMock) -> None:
         """Test that bind registers the PUT route and handler works through resolver"""
         updated_bso = BasicStorageObject(
             id="item123",
@@ -262,7 +257,7 @@ class TestUpdateBSORoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success(self, mock_storage_manager):
+    def test_handle_success(self, mock_storage_manager: MagicMock) -> None:
         """Test successful BSO update"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -298,11 +293,10 @@ class TestUpdateBSORoute:
         response = route.handle(event)
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body == 1234567891.0
 
-    def test_handle_invalid_json(self, mock_storage_manager):
+    def test_handle_invalid_json(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of invalid JSON body"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -323,7 +317,7 @@ class TestUpdateBSORoute:
 
         assert response.status_code == 400
 
-    def test_handle_non_object_body(self, mock_storage_manager):
+    def test_handle_non_object_body(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of non-object JSON body (e.g. array or string)"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -344,7 +338,7 @@ class TestUpdateBSORoute:
 
         assert response.status_code == 400
 
-    def test_handle_object_id_mismatch(self, mock_storage_manager):
+    def test_handle_object_id_mismatch(self, mock_storage_manager: MagicMock) -> None:
         """Test validation when object ID doesn't match path"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -365,7 +359,7 @@ class TestUpdateBSORoute:
 
         assert response.status_code == 400
 
-    def test_handle_with_precondition_header(self, mock_storage_manager):
+    def test_handle_with_precondition_header(self, mock_storage_manager: MagicMock) -> None:
         """Test with X-If-Unmodified-Since header"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -395,7 +389,7 @@ class TestUpdateBSORoute:
 
         assert response.status_code == 200
 
-    def test_handle_invalid_precondition_header(self, mock_storage_manager):
+    def test_handle_invalid_precondition_header(self, mock_storage_manager: MagicMock) -> None:
         """Test with invalid X-If-Unmodified-Since header"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -416,7 +410,7 @@ class TestUpdateBSORoute:
 
         assert response.status_code == 400
 
-    def test_handle_collection_not_found(self, mock_storage_manager):
+    def test_handle_collection_not_found(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of CollectionNotFoundException"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -441,7 +435,7 @@ class TestUpdateBSORoute:
 
         assert response.status_code == 404
 
-    def test_handle_object_not_found(self, mock_storage_manager):
+    def test_handle_object_not_found(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of StorageObjectNotFoundException"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -466,7 +460,7 @@ class TestUpdateBSORoute:
 
         assert response.status_code == 404
 
-    def test_handle_precondition_failed(self, mock_storage_manager):
+    def test_handle_precondition_failed(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of PreconditionFailedException"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -491,7 +485,7 @@ class TestUpdateBSORoute:
 
         assert response.status_code == 412
 
-    def test_handle_validation_exception(self, mock_storage_manager):
+    def test_handle_validation_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of ValidationException"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -514,7 +508,7 @@ class TestUpdateBSORoute:
 
         assert response.status_code == 400
 
-    def test_handle_generic_exception(self, mock_storage_manager):
+    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of generic exceptions"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -541,7 +535,7 @@ class TestUpdateBSORoute:
 class TestDeleteBSORoute:
     """Tests for DeleteBSORoute"""
 
-    def test_bind_registers_route(self, mock_storage_manager):
+    def test_bind_registers_route(self, mock_storage_manager: MagicMock) -> None:
         """Test that bind registers the DELETE route and handler works through resolver"""
         mock_storage_manager.delete_storage_object.return_value = 1234567890.12
         route = DeleteBSORoute(mock_storage_manager)
@@ -563,7 +557,7 @@ class TestDeleteBSORoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success(self, mock_storage_manager):
+    def test_handle_success(self, mock_storage_manager: MagicMock) -> None:
         """Test successful BSO deletion"""
         route = DeleteBSORoute(mock_storage_manager)
 
@@ -586,11 +580,10 @@ class TestDeleteBSORoute:
             "test-user-123", "bookmarks", "item123"
         )
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["modified"] == 1234567892.00
 
-    def test_handle_validation_exception(self, mock_storage_manager):
+    def test_handle_validation_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of ValidationException"""
         route = DeleteBSORoute(mock_storage_manager)
 
@@ -611,7 +604,7 @@ class TestDeleteBSORoute:
 
         assert response.status_code == 400
 
-    def test_handle_collection_not_found(self, mock_storage_manager):
+    def test_handle_collection_not_found(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of CollectionNotFoundException"""
         route = DeleteBSORoute(mock_storage_manager)
 
@@ -634,7 +627,7 @@ class TestDeleteBSORoute:
 
         assert response.status_code == 404
 
-    def test_handle_object_not_found(self, mock_storage_manager):
+    def test_handle_object_not_found(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of StorageObjectNotFoundException"""
         route = DeleteBSORoute(mock_storage_manager)
 
@@ -657,7 +650,7 @@ class TestDeleteBSORoute:
 
         assert response.status_code == 404
 
-    def test_handle_generic_exception(self, mock_storage_manager):
+    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of generic exceptions"""
         route = DeleteBSORoute(mock_storage_manager)
 
@@ -682,7 +675,7 @@ class TestDeleteBSORoute:
 class TestReadBSORouteUnauthorized:
     """Tests for ReadBSORoute unauthorized cases"""
 
-    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -701,15 +694,14 @@ class TestReadBSORouteUnauthorized:
         response = route.handle(event)
 
         assert response.status_code == 401
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Unauthorized"
 
 
 class TestDeleteBSORouteUnauthorized:
     """Tests for DeleteBSORoute unauthorized cases"""
 
-    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""
         route = DeleteBSORoute(mock_storage_manager)
 
@@ -727,15 +719,14 @@ class TestDeleteBSORouteUnauthorized:
         response = route.handle(event)
 
         assert response.status_code == 401
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Unauthorized"
 
 
 class TestUpdateBSORouteUnauthorized:
     """Tests for UpdateBSORoute unauthorized cases"""
 
-    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -755,15 +746,14 @@ class TestUpdateBSORouteUnauthorized:
         response = route.handle(event)
 
         assert response.status_code == 401
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Unauthorized"
 
 
 class TestReadBSORouteConditionalGET:
     """Tests for ReadBSORoute conditional GET support (Requirements 6.1-6.4)"""
 
-    def test_handle_if_modified_since_not_modified(self, mock_storage_manager):
+    def test_handle_if_modified_since_not_modified(self, mock_storage_manager: MagicMock) -> None:
         """Test 304 Not Modified when resource hasn't changed"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -793,7 +783,7 @@ class TestReadBSORouteConditionalGET:
         assert response.status_code == 304
         assert response.headers["X-Last-Modified"] == "1234567890.12"
 
-    def test_handle_if_modified_since_modified(self, mock_storage_manager):
+    def test_handle_if_modified_since_modified(self, mock_storage_manager: MagicMock) -> None:
         """Test 200 OK when resource has been modified"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -821,11 +811,10 @@ class TestReadBSORouteConditionalGET:
         response = route.handle(event)
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["id"] == "item123"
 
-    def test_handle_if_modified_since_invalid_format(self, mock_storage_manager):
+    def test_handle_if_modified_since_invalid_format(self, mock_storage_manager: MagicMock) -> None:
         """Test 400 Bad Request for invalid X-If-Modified-Since header"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -844,11 +833,10 @@ class TestReadBSORouteConditionalGET:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "Invalid X-If-Modified-Since header" in body["error"]
 
-    def test_handle_if_modified_since_negative(self, mock_storage_manager):
+    def test_handle_if_modified_since_negative(self, mock_storage_manager: MagicMock) -> None:
         """Test 400 Bad Request for negative X-If-Modified-Since value"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -867,11 +855,10 @@ class TestReadBSORouteConditionalGET:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "Invalid X-If-Modified-Since header" in body["error"]
 
-    def test_handle_both_conditional_headers(self, mock_storage_manager):
+    def test_handle_both_conditional_headers(self, mock_storage_manager: MagicMock) -> None:
         """Test 400 Bad Request when both X-If-Modified-Since and X-If-Unmodified-Since are present"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -893,15 +880,14 @@ class TestReadBSORouteConditionalGET:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "Cannot specify both" in body["error"]
 
 
 class TestReadBSORouteInvalidInputs:
     """Tests that validate_collection_name and validate_bso_id are called in ReadBSORoute"""
 
-    def test_handle_invalid_collection_name(self, mock_storage_manager):
+    def test_handle_invalid_collection_name(self, mock_storage_manager: MagicMock) -> None:
         """Test that invalid collection name returns 400 without calling storage"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -923,7 +909,7 @@ class TestReadBSORouteInvalidInputs:
         assert response.status_code == 400
         mock_storage_manager.get_storage_object.assert_not_called()
 
-    def test_handle_invalid_bso_id(self, mock_storage_manager):
+    def test_handle_invalid_bso_id(self, mock_storage_manager: MagicMock) -> None:
         """Test that invalid BSO ID returns 400 without calling storage"""
         route = ReadBSORoute(mock_storage_manager)
 
@@ -949,7 +935,7 @@ class TestReadBSORouteInvalidInputs:
 class TestUpdateBSORouteInvalidCollectionName:
     """Tests that validate_collection_name is called before body parsing in UpdateBSORoute"""
 
-    def test_handle_invalid_collection_name(self, mock_storage_manager):
+    def test_handle_invalid_collection_name(self, mock_storage_manager: MagicMock) -> None:
         """Test that invalid collection name returns 400 without calling storage"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -976,7 +962,7 @@ class TestUpdateBSORouteInvalidCollectionName:
 class TestDeleteBSORouteInvalidInputs:
     """Tests that validate_collection_name and validate_bso_id are called in DeleteBSORoute"""
 
-    def test_handle_invalid_collection_name(self, mock_storage_manager):
+    def test_handle_invalid_collection_name(self, mock_storage_manager: MagicMock) -> None:
         """Test that invalid collection name returns 400 without calling storage"""
         route = DeleteBSORoute(mock_storage_manager)
 
@@ -997,7 +983,7 @@ class TestDeleteBSORouteInvalidInputs:
         assert response.status_code == 400
         mock_storage_manager.delete_storage_object.assert_not_called()
 
-    def test_handle_invalid_bso_id(self, mock_storage_manager):
+    def test_handle_invalid_bso_id(self, mock_storage_manager: MagicMock) -> None:
         """Test that invalid BSO ID returns 400 without calling storage"""
         route = DeleteBSORoute(mock_storage_manager)
 
@@ -1022,7 +1008,7 @@ class TestDeleteBSORouteInvalidInputs:
 class TestUpdateBSORouteValidation:
     """Tests for UpdateBSORoute validation (Requirements 10.1-10.5)"""
 
-    def test_handle_payload_too_large(self, mock_storage_manager):
+    def test_handle_payload_too_large(self, mock_storage_manager: MagicMock) -> None:
         """Test 413 Request Too Large for oversized payload"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -1045,11 +1031,10 @@ class TestUpdateBSORouteValidation:
         response = route.handle(event)
 
         assert response.status_code == 413
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "Payload size" in body["error"] or "payload" in body["error"].lower()
 
-    def test_handle_bso_id_too_long(self, mock_storage_manager):
+    def test_handle_bso_id_too_long(self, mock_storage_manager: MagicMock) -> None:
         """Test 400 Bad Request for BSO ID exceeding 64 characters"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -1071,11 +1056,10 @@ class TestUpdateBSORouteValidation:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "BSO ID length" in body["error"]
 
-    def test_handle_bso_id_non_printable_ascii(self, mock_storage_manager):
+    def test_handle_bso_id_non_printable_ascii(self, mock_storage_manager: MagicMock) -> None:
         """Test 400 Bad Request for BSO ID with non-printable ASCII"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -1097,11 +1081,10 @@ class TestUpdateBSORouteValidation:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "non-printable ASCII" in body["error"]
 
-    def test_handle_sortindex_invalid(self, mock_storage_manager):
+    def test_handle_sortindex_invalid(self, mock_storage_manager: MagicMock) -> None:
         """Test 400 Bad Request for invalid sortindex (Pydantic rejects non-int)"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -1121,11 +1104,10 @@ class TestUpdateBSORouteValidation:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "sortindex" in body["error"]
 
-    def test_handle_sortindex_exceeds_max(self, mock_storage_manager):
+    def test_handle_sortindex_exceeds_max(self, mock_storage_manager: MagicMock) -> None:
         """Test 400 Bad Request for sortindex exceeding 9 digits"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -1145,11 +1127,10 @@ class TestUpdateBSORouteValidation:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "sortindex" in body["error"]
 
-    def test_handle_ttl_invalid(self, mock_storage_manager):
+    def test_handle_ttl_invalid(self, mock_storage_manager: MagicMock) -> None:
         """Test 400 Bad Request for invalid TTL (Pydantic rejects non-int)"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -1169,11 +1150,10 @@ class TestUpdateBSORouteValidation:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "ttl" in body["error"]
 
-    def test_handle_ttl_negative(self, mock_storage_manager):
+    def test_handle_ttl_negative(self, mock_storage_manager: MagicMock) -> None:
         """Test 400 Bad Request for negative TTL (Pydantic enforces gt=0)"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -1193,11 +1173,10 @@ class TestUpdateBSORouteValidation:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "ttl" in body["error"]
 
-    def test_handle_ttl_exceeds_max(self, mock_storage_manager):
+    def test_handle_ttl_exceeds_max(self, mock_storage_manager: MagicMock) -> None:
         """Test 400 Bad Request for TTL exceeding 9 digits (Pydantic enforces le=999999999)"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -1217,11 +1196,10 @@ class TestUpdateBSORouteValidation:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "ttl" in body["error"]
 
-    def test_handle_none_body(self, mock_storage_manager):
+    def test_handle_none_body(self, mock_storage_manager: MagicMock) -> None:
         """Test 400 Bad Request when body is None"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -1241,11 +1219,10 @@ class TestUpdateBSORouteValidation:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "Invalid request body" in body["error"]
 
-    def test_handle_payload_too_large_multibyte(self, mock_storage_manager):
+    def test_handle_payload_too_large_multibyte(self, mock_storage_manager: MagicMock) -> None:
         """Test 413 for payload within char limit but exceeding byte limit (multi-byte)"""
         route = UpdateBSORoute(mock_storage_manager)
 
@@ -1269,11 +1246,10 @@ class TestUpdateBSORouteValidation:
         response = route.handle(event)
 
         assert response.status_code == 413
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "Payload size" in body["error"]
 
-    def test_handle_no_payload(self, mock_storage_manager):
+    def test_handle_no_payload(self, mock_storage_manager: MagicMock) -> None:
         """Test successful update without payload (partial update)"""
         route = UpdateBSORoute(mock_storage_manager)
 

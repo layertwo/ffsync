@@ -3,9 +3,11 @@
 import hashlib
 import json
 import time
+from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.metrics import Metrics, MetricUnit
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.fxa_token_manager import FxATokenManager
@@ -36,12 +38,12 @@ class OAuthTokenRoute(BaseRoute):
         self._metrics = metrics
         self._token_manager = token_manager
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.post("/v1/oauth/token")
-        def handle_oauth_token():
+        def handle_oauth_token() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         body_str = event.body
         if not body_str:
             return self._error(400, 107, "Missing request body")
@@ -191,12 +193,12 @@ class OAuthTokenRoute(BaseRoute):
             body=result.model_dump_json(exclude_none=True),
         )
 
-    def _handle_fxa_credentials(self, event, body: dict) -> Response:
+    def _handle_fxa_credentials(self, event: APIGatewayProxyEvent, body: dict) -> Response:
         """Issue an access token using Hawk-authenticated session credentials."""
         if self._token_manager is None:
             return self._error(400, 107, "fxa-credentials grant not supported")
 
-        headers = event.headers or {}
+        headers = event.headers
         auth_header = headers.get("authorization", "")
         if not auth_header:
             return self._error(401, 110, "Missing or invalid authorization")

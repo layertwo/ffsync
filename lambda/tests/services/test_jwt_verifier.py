@@ -18,7 +18,7 @@ def _b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
-def _generate_test_keypair():
+def _generate_test_keypair() -> tuple[rsa.RSAPrivateKey, dict[str, str]]:
     """Generate an RSA keypair for testing."""
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public_key = private_key.public_key()
@@ -38,7 +38,7 @@ def _generate_test_keypair():
     return private_key, jwk
 
 
-def _sign_jwt(private_key, payload: dict, header: dict | None = None) -> str:
+def _sign_jwt(private_key: rsa.RSAPrivateKey, payload: dict, header: dict | None = None) -> str:
     """Sign a JWT with the given private key."""
     if header is None:
         header = {"alg": "RS256", "typ": "JWT", "kid": "test-kid"}
@@ -54,12 +54,12 @@ def _sign_jwt(private_key, payload: dict, header: dict | None = None) -> str:
 
 
 @pytest.fixture
-def keypair():
+def keypair() -> tuple[rsa.RSAPrivateKey, dict[str, str]]:
     return _generate_test_keypair()
 
 
 @pytest.fixture
-def mock_jwt_service(keypair):
+def mock_jwt_service(keypair: tuple[rsa.RSAPrivateKey, dict[str, str]]) -> MagicMock:
     _, jwk = keypair
     svc = MagicMock()
     svc.get_public_key_jwk.return_value = jwk
@@ -68,12 +68,14 @@ def mock_jwt_service(keypair):
 
 
 @pytest.fixture
-def verifier(mock_jwt_service):
+def verifier(mock_jwt_service: MagicMock) -> JWTVerifier:
     return JWTVerifier(jwt_service=mock_jwt_service)
 
 
 class TestJWTVerifier:
-    def test_valid_token(self, verifier, keypair):
+    def test_valid_token(
+        self, verifier: JWTVerifier, keypair: tuple[rsa.RSAPrivateKey, dict[str, str]]
+    ) -> None:
         private_key, _ = keypair
         now = int(time.time())
         payload = {
@@ -90,7 +92,9 @@ class TestJWTVerifier:
         assert claims.exp == now + 900
         assert claims.fxa_uid is None
 
-    def test_fxa_uid_extracted_from_token(self, verifier, keypair):
+    def test_fxa_uid_extracted_from_token(
+        self, verifier: JWTVerifier, keypair: tuple[rsa.RSAPrivateKey, dict[str, str]]
+    ) -> None:
         private_key, _ = keypair
         now = int(time.time())
         payload = {
@@ -105,7 +109,9 @@ class TestJWTVerifier:
         assert claims.sub == "oidc-sub-123"
         assert claims.fxa_uid == "uid-abc123"
 
-    def test_expired_token_raises(self, verifier, keypair):
+    def test_expired_token_raises(
+        self, verifier: JWTVerifier, keypair: tuple[rsa.RSAPrivateKey, dict[str, str]]
+    ) -> None:
         private_key, _ = keypair
         now = int(time.time())
         payload = {
@@ -118,7 +124,7 @@ class TestJWTVerifier:
         with pytest.raises(InvalidTokenError, match="expired"):
             verifier.validate_token(token)
 
-    def test_invalid_signature_raises(self, verifier):
+    def test_invalid_signature_raises(self, verifier: JWTVerifier) -> None:
         # Sign with a different key
         other_private_key, _ = _generate_test_keypair()
         now = int(time.time())
@@ -132,7 +138,9 @@ class TestJWTVerifier:
         with pytest.raises(InvalidTokenError, match="signature"):
             verifier.validate_token(token)
 
-    def test_missing_sub_raises(self, verifier, keypair):
+    def test_missing_sub_raises(
+        self, verifier: JWTVerifier, keypair: tuple[rsa.RSAPrivateKey, dict[str, str]]
+    ) -> None:
         private_key, _ = keypair
         now = int(time.time())
         payload = {"iss": "https://auth.example.com", "iat": now, "exp": now + 900}
@@ -140,7 +148,9 @@ class TestJWTVerifier:
         with pytest.raises(InvalidTokenError, match="sub"):
             verifier.validate_token(token)
 
-    def test_missing_exp_raises(self, verifier, keypair):
+    def test_missing_exp_raises(
+        self, verifier: JWTVerifier, keypair: tuple[rsa.RSAPrivateKey, dict[str, str]]
+    ) -> None:
         private_key, _ = keypair
         now = int(time.time())
         payload = {"sub": "user123", "iss": "https://auth.example.com", "iat": now}
@@ -148,11 +158,13 @@ class TestJWTVerifier:
         with pytest.raises(InvalidTokenError, match="exp"):
             verifier.validate_token(token)
 
-    def test_invalid_jwt_format_raises(self, verifier):
+    def test_invalid_jwt_format_raises(self, verifier: JWTVerifier) -> None:
         with pytest.raises(InvalidTokenError, match="format"):
             verifier.validate_token("not-a-jwt")
 
-    def test_unsupported_algorithm_raises(self, verifier, keypair):
+    def test_unsupported_algorithm_raises(
+        self, verifier: JWTVerifier, keypair: tuple[rsa.RSAPrivateKey, dict[str, str]]
+    ) -> None:
         private_key, _ = keypair
         now = int(time.time())
         payload = {
@@ -165,20 +177,24 @@ class TestJWTVerifier:
         with pytest.raises(InvalidTokenError, match="algorithm"):
             verifier.validate_token(token)
 
-    def test_invalid_header_base64_raises(self, verifier):
+    def test_invalid_header_base64_raises(self, verifier: JWTVerifier) -> None:
         # Create a token with invalid base64 header
         token = "!!!invalid!!!.eyJzdWIiOiJ0ZXN0In0.signature"
         with pytest.raises(InvalidTokenError, match="header"):
             verifier.validate_token(token)
 
-    def test_invalid_payload_base64_raises(self, verifier, keypair):
+    def test_invalid_payload_base64_raises(
+        self, verifier: JWTVerifier, keypair: tuple[rsa.RSAPrivateKey, dict[str, str]]
+    ) -> None:
         # Create a token with valid header but invalid payload
         header_b64 = _b64url(json.dumps({"alg": "RS256", "typ": "JWT"}).encode())
         token = f"{header_b64}.!!!invalid!!!.signature"
         with pytest.raises(InvalidTokenError, match="payload"):
             verifier.validate_token(token)
 
-    def test_invalid_issuer_raises(self, verifier, keypair):
+    def test_invalid_issuer_raises(
+        self, verifier: JWTVerifier, keypair: tuple[rsa.RSAPrivateKey, dict[str, str]]
+    ) -> None:
         private_key, _ = keypair
         now = int(time.time())
         payload = {
@@ -191,7 +207,9 @@ class TestJWTVerifier:
         with pytest.raises(InvalidTokenError, match="issuer"):
             verifier.validate_token(token)
 
-    def test_client_id_mapped_to_aud(self, verifier, keypair):
+    def test_client_id_mapped_to_aud(
+        self, verifier: JWTVerifier, keypair: tuple[rsa.RSAPrivateKey, dict[str, str]]
+    ) -> None:
         private_key, _ = keypair
         now = int(time.time())
         payload = {

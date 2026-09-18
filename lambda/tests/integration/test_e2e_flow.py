@@ -12,11 +12,14 @@ Tests the complete authentication and authorization flow:
 
 import json
 import time
+from typing import Generator
+from unittest.mock import Mock
 
 import pytest
-from botocore.stub import ANY
+from botocore.stub import ANY, Stubber
 
 from src.entrypoint.storage_api import lambda_handler as storage_handler
+from src.environment.service_provider import ServiceProvider
 from src.services.hawk_service import HawkCredentials
 from src.services.token_generator import TokenGenerator
 from tests.fixtures.integration import (
@@ -29,8 +32,11 @@ class TestHawkMiddlewareToStorageAPIFlow:
     """Test end-to-end flow from HAWK middleware to Storage API"""
 
     def test_successful_authentication_flow(
-        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
-    ):
+        self,
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test successful HAWK authentication via middleware and Storage API access.
 
@@ -108,7 +114,9 @@ class TestHawkMiddlewareToStorageAPIFlow:
         body = json.loads(storage_response["body"])
         assert body == []
 
-    def test_authentication_failure_returns_401(self, mock_service_provider, sample_lambda_context):
+    def test_authentication_failure_returns_401(
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """
         Test that invalid HAWK credentials return 401 from middleware.
 
@@ -133,8 +141,8 @@ class TestHawkMiddlewareToStorageAPIFlow:
         assert storage_response["statusCode"] == 401
 
     def test_missing_authorization_header_returns_401(
-        self, mock_service_provider, sample_lambda_context
-    ):
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """
         Test that requests without Authorization header are rejected by middleware.
         """
@@ -157,7 +165,9 @@ class TestHawkMiddlewareToStorageAPIFlow:
 class TestUidMismatch:
     """Test that UID mismatch is rejected by middleware"""
 
-    def test_uid_mismatch_returns_403(self, mock_service_provider, sample_lambda_context):
+    def test_uid_mismatch_returns_403(
+        self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
+    ) -> None:
         """
         Test that a request where the URL uid does not match the authenticated
         user's expected uid returns 403 via the UidMismatchError exception handler.
@@ -170,7 +180,7 @@ class TestUidMismatch:
             expiry=9999999999,
             hawk_id="test-hawk-id",
         )
-        mock_service_provider.hawk_service.validate = lambda *a, **kw: creds
+        mock_service_provider.hawk_service.validate = lambda *a, **kw: creds  # type: ignore[method-assign]
 
         # Build event with WRONG uid in URL path (doesn't match user_id+generation)
         storage_event = build_storage_event(
@@ -193,12 +203,16 @@ class TestUserIsolation:
     """Test that users can only access their own data"""
 
     @pytest.fixture(autouse=True)
-    def mock_hawk_validate(self, mock_service_provider):
+    def mock_hawk_validate(
+        self, mock_service_provider: ServiceProvider
+    ) -> Generator[None, None, None]:
         """Mock hawk_service.validate to bypass auth for user isolation tests."""
         self._mock_validate = mock_service_provider.hawk_service.validate
         yield
 
-    def _set_hawk_user(self, mock_service_provider, user_id, generation=0):
+    def _set_hawk_user(
+        self, mock_service_provider: ServiceProvider, user_id: str, generation: int = 0
+    ) -> None:
         """Configure hawk_service.validate to return credentials for given user."""
         creds = HawkCredentials(
             user_id=user_id,
@@ -206,11 +220,14 @@ class TestUserIsolation:
             expiry=9999999999,
             hawk_id="test-hawk-id",
         )
-        mock_service_provider.hawk_service.validate = lambda *a, **kw: creds
+        mock_service_provider.hawk_service.validate = lambda *a, **kw: creds  # type: ignore[method-assign]
 
     def test_user_can_read_own_collection(
-        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
-    ):
+        self,
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that a user can successfully list their own collection.
         """
@@ -248,8 +265,11 @@ class TestUserIsolation:
         assert body == ["bso-001"]
 
     def test_different_users_query_different_namespaces(
-        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
-    ):
+        self,
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that two different users querying the same collection name
         actually query different DynamoDB partition keys.
@@ -323,8 +343,11 @@ class TestUserIsolation:
         assert user1_body != user2_body
 
     def test_user_cannot_access_missing_bso_in_other_namespace(
-        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
-    ):
+        self,
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that when User2 tries to access a BSO ID that exists in User1's
         namespace, they get 404.
@@ -346,8 +369,11 @@ class TestUserIsolation:
         assert response["statusCode"] == 404
 
     def test_info_collections_scoped_to_user(
-        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
-    ):
+        self,
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that /info/collections returns only the authenticated user's collections.
         """
@@ -394,8 +420,11 @@ class TestUserIsolation:
         assert len(body) == 2
 
     def test_delete_all_scoped_to_user(
-        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
-    ):
+        self,
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that DELETE /storage only deletes the authenticated user's data.
         """

@@ -19,7 +19,7 @@ class RequestLoggingMiddleware(BaseMiddlewareHandler):
         method = event.get("httpMethod", "UNKNOWN")
         path = event.get("path", "UNKNOWN")
 
-        user_id = event.get("requestContext", {}).get("hawk_uid", "anonymous")  # type: ignore
+        user_id = (event.get("requestContext") or {}).get("hawk_uid", "anonymous")
 
         logger.info(
             "Request received",

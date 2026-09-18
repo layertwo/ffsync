@@ -3,17 +3,17 @@ name = "ffsync-lambda-handler"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
-    "aws-lambda-powertools==3.34.0",
-    "boto3==1.43.89",
+    "aws-lambda-powertools==3.35.0",
+    "boto3==1.43.96",
     "cryptography==50.0.1",
     "pydantic==2.13.5",
     "mohawk==1.1.0",
-    "PyJWT==2.13.0",
+    "PyJWT==2.14.0",
     "requests==2.34.2"
 ]
 
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
@@ -23,10 +23,10 @@ dev = [
     "flake8==7.3.0",
     "Flake8-pyproject==1.2.4",
     "mypy==2.3.1",
-    "types-boto3==1.43.89",
+    "types-boto3[apigatewaymanagementapi,dynamodb,kms]==1.43.96",
     "hypothesis>=6.0.0",
-    "types-requests==2.33.0.20260712",
-    "datamodel-code-generator==0.76.2",
+    "types-requests==v2.33.0.20260906",
+    "datamodel-code-generator==0.82.0",
 ]
 
 [tool.pytest.ini_options]
@@ -118,9 +118,12 @@ select = [
 
 [tool.mypy]
 check_untyped_defs = true
-show_error_codes = true
+disallow_untyped_defs = true
 pretty = true
-ignore_missing_imports = true
+# Deliberately NOT ignore_missing_imports: it turns an uninstalled stub package into a silent
+# Any, so an annotation like `table: "Table"` type-checks while checking nothing. Scope the
+# fallback per-module below instead, so a missing stub surfaces as an error.
+warn_unused_ignores = true  # keeps the remaining `type: ignore`s from rotting
 files = ["src/", "tests/"]
 exclude = [
     "__pycache__",
@@ -129,3 +132,12 @@ exclude = [
     "htmlcov",
 ]
 plugins = ["pydantic.mypy"]
+
+# mohawk ships no stubs and has no types-* package on PyPI.
+[[tool.mypy.overrides]]
+module = ["mohawk", "mohawk.*"]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_typed = true  # Use field names rather than aliases for constructors
+

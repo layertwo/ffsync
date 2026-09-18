@@ -2,11 +2,14 @@
 
 import re
 from dataclasses import asdict
+from typing import Any
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.metrics import Metrics, MetricUnit
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
+from src.services.jwt_verifier import JWTVerifier
 from src.services.token_generator import TokenGenerator
 from src.services.user_manager import UserManager
 from src.shared.base_route import BaseRoute
@@ -35,24 +38,24 @@ class GetTokenRoute(BaseRoute):
 
     def __init__(
         self,
-        oidc_validator,
+        oidc_validator: JWTVerifier,
         user_manager: UserManager,
         token_generator: TokenGenerator,
         metrics: Metrics,
         retry_after_seconds: int = 30,
     ):
-        self.oidc_validator = oidc_validator  # OIDCValidator or JWTVerifier
+        self.oidc_validator = oidc_validator
         self.user_manager = user_manager
         self.token_generator = token_generator
         self._metrics = metrics
         self.retry_after_seconds = retry_after_seconds
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.get("/1.0/sync/1.5")
-        def handle_request():
+        def handle_request() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         """Handle token creation request."""
         try:
             body = event.body
@@ -69,7 +72,7 @@ class GetTokenRoute(BaseRoute):
                 source_ip = identity.source_ip if identity else None
             except KeyError, AttributeError:
                 source_ip = None
-            headers = event.headers or {}
+            headers = event.headers
             user_agent = headers.get("user-agent")
 
             auth_header = headers.get("authorization")
@@ -265,10 +268,12 @@ class GetTokenRoute(BaseRoute):
                 exception_type=type(e).__name__,
             )
 
-    def _validate_content_type(self, body, event) -> Response | None:
+    def _validate_content_type(
+        self, body: str | None, event: APIGatewayProxyEvent
+    ) -> Response | None:
         if not body:
             return None
-        headers = event.headers or {}
+        headers = event.headers
         content_type = headers.get("content-type")
         if content_type and not self._is_valid_content_type(content_type):
             logger.warning("Invalid Content-Type", extra={"content_type": content_type})
@@ -303,7 +308,7 @@ class GetTokenRoute(BaseRoute):
         name: str,
         description: str,
         log_level: str = "warning",
-        **extra_log_fields,
+        **extra_log_fields: Any,
     ) -> Response:
         log_extra = {
             "status_code": status_code,

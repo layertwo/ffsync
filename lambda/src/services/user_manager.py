@@ -2,12 +2,15 @@
 
 import time
 from decimal import Decimal
-from typing import List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional, cast
 
 from botocore.exceptions import ClientError
 
 from src.shared.exceptions import InvalidClientStateError, ServiceUnavailableError
 from src.shared.user import UserRecord
+
+if TYPE_CHECKING:
+    from types_boto3_dynamodb.service_resource import Table
 
 _PK = "PK"
 PK_PREFIX = "USER"
@@ -17,7 +20,7 @@ MAX_CLIENT_STATE_HISTORY = 50
 class UserManager:
     """Manages user operations with DynamoDB for the Token Server"""
 
-    def __init__(self, table):
+    def __init__(self, table: "Table"):
         """Initialize UserManager
 
         Args:
@@ -298,7 +301,7 @@ class UserManager:
                 ReturnValues="ALL_NEW",
             )
 
-            updated_item = response["Attributes"]
+            updated_item = cast(dict[str, Any], response["Attributes"])
             return updated_item["generation"]
 
         except ClientError as e:

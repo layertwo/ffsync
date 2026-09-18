@@ -22,19 +22,19 @@ class TestTokenGenerator:
     """Test TokenGenerator orchestration logic with mocked HawkService"""
 
     @pytest.fixture
-    def mock_hawk_service(self):
+    def mock_hawk_service(self) -> MagicMock:
         """Mock HawkService for testing orchestration"""
         service = MagicMock()
         service.token_duration = 300
         return service
 
     @pytest.fixture
-    def token_generator(self, storage_domain, mock_hawk_service):
+    def token_generator(self, storage_domain: str, mock_hawk_service: MagicMock) -> TokenGenerator:
         """TokenGenerator instance with mocked HawkService"""
         return TokenGenerator(storage_domain=storage_domain, hawk_service=mock_hawk_service)
 
     @pytest.fixture
-    def mock_hawk_credentials(self):
+    def mock_hawk_credentials(self) -> HawkCredentials:
         """Mock HawkCredentials returned by HawkService"""
         return HawkCredentials(
             user_id="user123",
@@ -46,7 +46,7 @@ class TestTokenGenerator:
 
     # ========== UID Generation Tests ==========
 
-    def test_generate_uid_consistency(self, token_generator):
+    def test_generate_uid_consistency(self, token_generator: TokenGenerator) -> None:
         """Test UID is consistent for same user_id and generation
 
         Validates: Requirements 4.1, 4.2
@@ -59,7 +59,7 @@ class TestTokenGenerator:
 
         assert uid1 == uid2
 
-    def test_generate_uid_different_users(self, token_generator):
+    def test_generate_uid_different_users(self, token_generator: TokenGenerator) -> None:
         """Test UID differs for different user_ids
 
         Validates: Requirements 4.1, 4.2
@@ -69,7 +69,7 @@ class TestTokenGenerator:
 
         assert uid1 != uid2
 
-    def test_generate_uid_changes_with_generation(self, token_generator):
+    def test_generate_uid_changes_with_generation(self, token_generator: TokenGenerator) -> None:
         """Test UID changes when generation changes (node reset)
 
         Validates: Requirements 2.4, 4.1
@@ -85,7 +85,7 @@ class TestTokenGenerator:
         assert uid_gen1 != uid_gen2
         assert uid_gen0 != uid_gen2
 
-    def test_generate_uid_positive(self, token_generator):
+    def test_generate_uid_positive(self, token_generator: TokenGenerator) -> None:
         """Test UID is always positive
 
         Validates: Requirements 4.1, 4.2
@@ -101,8 +101,11 @@ class TestTokenGenerator:
     # ========== Token Generation Orchestration Tests ==========
 
     def test_generate_token_calls_hawk_service_correctly(
-        self, token_generator, mock_hawk_service, mock_hawk_credentials
-    ):
+        self,
+        token_generator: TokenGenerator,
+        mock_hawk_service: MagicMock,
+        mock_hawk_credentials: HawkCredentials,
+    ) -> None:
         """Test generate_token calls HawkService.generate_hawk_credentials with correct params
 
         Validates: Requirements 4.1, 4.2, 4.3, 4.4
@@ -119,8 +122,11 @@ class TestTokenGenerator:
         mock_hawk_service.generate_hawk_credentials.assert_called_once_with(user_id, generation)
 
     def test_generate_token_stores_credentials_in_cache(
-        self, token_generator, mock_hawk_service, mock_hawk_credentials
-    ):
+        self,
+        token_generator: TokenGenerator,
+        mock_hawk_service: MagicMock,
+        mock_hawk_credentials: HawkCredentials,
+    ) -> None:
         """Test generate_token stores credentials via HawkService.store_token_in_cache
 
         Validates: Requirements 4.1, 4.2, 4.5
@@ -137,8 +143,11 @@ class TestTokenGenerator:
         mock_hawk_service.store_token_in_cache.assert_called_once_with(mock_hawk_credentials)
 
     def test_generate_token_returns_complete_response(
-        self, token_generator, mock_hawk_service, mock_hawk_credentials
-    ):
+        self,
+        token_generator: TokenGenerator,
+        mock_hawk_service: MagicMock,
+        mock_hawk_credentials: HawkCredentials,
+    ) -> None:
         """Test generate_token returns TokenResponse with all required fields
 
         Validates: Requirements 1.1, 4.1, 4.2
@@ -161,8 +170,11 @@ class TestTokenGenerator:
         assert token.hashalg is not None
 
     def test_generate_token_uses_hawk_credentials(
-        self, token_generator, mock_hawk_service, mock_hawk_credentials
-    ):
+        self,
+        token_generator: TokenGenerator,
+        mock_hawk_service: MagicMock,
+        mock_hawk_credentials: HawkCredentials,
+    ) -> None:
         """Test generate_token uses HAWK credentials from HawkService
 
         Validates: Requirements 4.1, 4.2, 4.3, 4.4
@@ -180,8 +192,12 @@ class TestTokenGenerator:
         assert token.key == mock_hawk_credentials.hawk_key
 
     def test_generate_token_constructs_api_endpoint_correctly(
-        self, token_generator, storage_url, mock_hawk_service, mock_hawk_credentials
-    ):
+        self,
+        token_generator: TokenGenerator,
+        storage_url: str,
+        mock_hawk_service: MagicMock,
+        mock_hawk_credentials: HawkCredentials,
+    ) -> None:
         """Test generate_token constructs api_endpoint with correct format
 
         Validates: Requirements 2.3, 2.5
@@ -198,8 +214,11 @@ class TestTokenGenerator:
         assert token.api_endpoint == f"{storage_url}/1.5/{uid}"
 
     def test_generate_token_uses_provided_uid(
-        self, token_generator, mock_hawk_service, mock_hawk_credentials
-    ):
+        self,
+        token_generator: TokenGenerator,
+        mock_hawk_service: MagicMock,
+        mock_hawk_credentials: HawkCredentials,
+    ) -> None:
         """Test generate_token uses the uid parameter provided (not generating its own)
 
         Validates: Requirements 2.1, 4.1
@@ -216,8 +235,12 @@ class TestTokenGenerator:
         assert token.uid == uid
 
     def test_generate_token_different_uids_different_endpoints(
-        self, token_generator, storage_url, mock_hawk_service, mock_hawk_credentials
-    ):
+        self,
+        token_generator: TokenGenerator,
+        storage_url: str,
+        mock_hawk_service: MagicMock,
+        mock_hawk_credentials: HawkCredentials,
+    ) -> None:
         """Test different uids result in different api_endpoints
 
         Validates: Requirements 2.2, 2.3
@@ -236,8 +259,11 @@ class TestTokenGenerator:
         assert token2.api_endpoint == f"{storage_url}/1.5/222222"
 
     def test_generate_token_duration_from_hawk_service(
-        self, token_generator, mock_hawk_service, mock_hawk_credentials
-    ):
+        self,
+        token_generator: TokenGenerator,
+        mock_hawk_service: MagicMock,
+        mock_hawk_credentials: HawkCredentials,
+    ) -> None:
         """Test generate_token uses duration from HawkService
 
         Validates: Requirements 1.5, 4.1
@@ -254,8 +280,11 @@ class TestTokenGenerator:
         assert token.duration == 300
 
     def test_generate_token_hashalg_constant(
-        self, token_generator, mock_hawk_service, mock_hawk_credentials
-    ):
+        self,
+        token_generator: TokenGenerator,
+        mock_hawk_service: MagicMock,
+        mock_hawk_credentials: HawkCredentials,
+    ) -> None:
         """Test generate_token always uses sha256 hash algorithm
 
         Validates: Requirements 4.1, 4.2
@@ -273,7 +302,7 @@ class TestTokenGenerator:
 
     # ========== Class Constants Tests ==========
 
-    def test_hash_algorithm_constant(self):
+    def test_hash_algorithm_constant(self) -> None:
         """Test HASH_ALGORITHM class constant is sha256
 
         Validates: Requirements 4.1, 4.2

@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import (
 from src.services.jwt_service import JWTService
 
 
-def _generate_test_rsa_key():
+def _generate_test_rsa_key() -> tuple[rsa.RSAPrivateKey, bytes]:
     """Generate a test RSA key pair for round-trip testing."""
     private_key = rsa.generate_private_key(
         public_exponent=65537,
@@ -29,12 +29,12 @@ def _generate_test_rsa_key():
 
 
 @pytest.fixture
-def rsa_keys():
+def rsa_keys() -> tuple[rsa.RSAPrivateKey, bytes]:
     return _generate_test_rsa_key()
 
 
 @pytest.fixture
-def mock_kms(rsa_keys):
+def mock_kms(rsa_keys: tuple[rsa.RSAPrivateKey, bytes]) -> MagicMock:
     _, public_key_der = rsa_keys
     client = MagicMock()
     client.get_public_key.return_value = {
@@ -51,7 +51,7 @@ def mock_kms(rsa_keys):
 
 
 @pytest.fixture
-def service(mock_kms):
+def service(mock_kms: MagicMock) -> JWTService:
     return JWTService(
         kms_client=mock_kms,
         signing_key_id="key-123",
@@ -60,12 +60,12 @@ def service(mock_kms):
 
 
 class TestIssuerProperty:
-    def test_returns_issuer(self, service):
+    def test_returns_issuer(self, service: JWTService) -> None:
         assert service.issuer == "https://auth.prod.ffsync.layertwo.dev"
 
 
 class TestSignJWT:
-    def test_returns_three_part_jwt(self, service):
+    def test_returns_three_part_jwt(self, service: JWTService) -> None:
         token = service.sign_jwt(
             sub="user1",
             scope="https://identity.mozilla.com/apps/oldsync",
@@ -74,7 +74,7 @@ class TestSignJWT:
         parts = token.split(".")
         assert len(parts) == 3
 
-    def test_header_specifies_rs256(self, service):
+    def test_header_specifies_rs256(self, service: JWTService) -> None:
         token = service.sign_jwt(sub="user1", scope="openid", ttl=300)
         # Add padding for base64 decode
         header_b64 = token.split(".")[0]
@@ -84,7 +84,7 @@ class TestSignJWT:
         assert header["typ"] == "JWT"
         assert "kid" in header
 
-    def test_payload_contains_claims(self, service):
+    def test_payload_contains_claims(self, service: JWTService) -> None:
         token = service.sign_jwt(sub="user1", scope="openid", ttl=300)
         payload_b64 = token.split(".")[1]
         payload_b64 += "=" * (4 - len(payload_b64) % 4)
@@ -96,35 +96,35 @@ class TestSignJWT:
         assert "iat" in payload
         assert payload["exp"] - payload["iat"] == 300
 
-    def test_payload_contains_client_id(self, service):
+    def test_payload_contains_client_id(self, service: JWTService) -> None:
         token = service.sign_jwt(sub="user1", scope="openid", ttl=300, client_id="test-client")
         payload_b64 = token.split(".")[1]
         payload_b64 += "=" * (4 - len(payload_b64) % 4)
         payload = json.loads(base64.urlsafe_b64decode(payload_b64))
         assert payload["client_id"] == "test-client"
 
-    def test_payload_omits_client_id_when_none(self, service):
+    def test_payload_omits_client_id_when_none(self, service: JWTService) -> None:
         token = service.sign_jwt(sub="user1", scope="openid", ttl=300)
         payload_b64 = token.split(".")[1]
         payload_b64 += "=" * (4 - len(payload_b64) % 4)
         payload = json.loads(base64.urlsafe_b64decode(payload_b64))
         assert "client_id" not in payload
 
-    def test_payload_contains_fxa_uid(self, service):
+    def test_payload_contains_fxa_uid(self, service: JWTService) -> None:
         token = service.sign_jwt(sub="oidc-sub", scope="openid", ttl=300, fxa_uid="uid1")
         payload_b64 = token.split(".")[1]
         payload_b64 += "=" * (4 - len(payload_b64) % 4)
         payload = json.loads(base64.urlsafe_b64decode(payload_b64))
         assert payload["fxa_uid"] == "uid1"
 
-    def test_payload_omits_fxa_uid_when_none(self, service):
+    def test_payload_omits_fxa_uid_when_none(self, service: JWTService) -> None:
         token = service.sign_jwt(sub="user1", scope="openid", ttl=300)
         payload_b64 = token.split(".")[1]
         payload_b64 += "=" * (4 - len(payload_b64) % 4)
         payload = json.loads(base64.urlsafe_b64decode(payload_b64))
         assert "fxa_uid" not in payload
 
-    def test_calls_kms_sign(self, service, mock_kms):
+    def test_calls_kms_sign(self, service: JWTService, mock_kms: MagicMock) -> None:
         service.sign_jwt(sub="user1", scope="openid", ttl=300)
         mock_kms.sign.assert_called_once()
         call_kwargs = mock_kms.sign.call_args.kwargs
@@ -132,7 +132,7 @@ class TestSignJWT:
         assert call_kwargs["SigningAlgorithm"] == "RSASSA_PKCS1_V1_5_SHA_256"
         assert call_kwargs["MessageType"] == "RAW"
 
-    def test_different_subs_produce_different_tokens(self, service):
+    def test_different_subs_produce_different_tokens(self, service: JWTService) -> None:
         token1 = service.sign_jwt(sub="user1", scope="openid", ttl=300)
         token2 = service.sign_jwt(sub="user2", scope="openid", ttl=300)
         # Headers may be the same but payloads should differ
@@ -140,7 +140,7 @@ class TestSignJWT:
 
 
 class TestGetPublicKeyJWK:
-    def test_returns_jwk_dict(self, service):
+    def test_returns_jwk_dict(self, service: JWTService) -> None:
         jwk = service.get_public_key_jwk()
         assert isinstance(jwk, dict)
         assert jwk["kty"] == "RSA"
@@ -150,13 +150,13 @@ class TestGetPublicKeyJWK:
         assert "e" in jwk
         assert "kid" in jwk
 
-    def test_caches_public_key(self, service, mock_kms):
+    def test_caches_public_key(self, service: JWTService, mock_kms: MagicMock) -> None:
         service.get_public_key_jwk()
         service.get_public_key_jwk()
         # Should only call KMS once due to caching
         mock_kms.get_public_key.assert_called_once()
 
-    def test_kid_matches_header(self, service):
+    def test_kid_matches_header(self, service: JWTService) -> None:
         jwk = service.get_public_key_jwk()
         token = service.sign_jwt(sub="user1", scope="openid", ttl=300)
         header_b64 = token.split(".")[0]

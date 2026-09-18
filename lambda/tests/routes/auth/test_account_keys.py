@@ -1,26 +1,16 @@
 """Unit tests for AccountKeys route"""
 
-import json
 from unittest.mock import MagicMock
 
 import pytest
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.routes.auth.account_keys import AccountKeysRoute
+from tests.conftest import json_body
 
 
 @pytest.fixture
-def mock_account_manager():
-    return MagicMock()
-
-
-@pytest.fixture
-def mock_token_manager():
-    return MagicMock()
-
-
-@pytest.fixture
-def route(mock_account_manager, mock_token_manager):
+def route(mock_account_manager: MagicMock, mock_token_manager: MagicMock) -> AccountKeysRoute:
     return AccountKeysRoute(
         account_manager=mock_account_manager,
         token_manager=mock_token_manager,
@@ -28,7 +18,12 @@ def route(mock_account_manager, mock_token_manager):
 
 
 class TestAccountKeys:
-    def test_success_returns_bundle(self, route, mock_account_manager, mock_token_manager):
+    def test_success_returns_bundle(
+        self,
+        route: AccountKeysRoute,
+        mock_account_manager: MagicMock,
+        mock_token_manager: MagicMock,
+    ) -> None:
         token_id_hex = "aa" * 32
         raw_token_hex = "bb" * 32
         mock_token_manager.verify_keyfetch_hawk.return_value = {
@@ -51,12 +46,14 @@ class TestAccountKeys:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "bundle" in body
         # bundle = 64 bytes ciphertext + 32 bytes HMAC = 96 bytes = 192 hex chars
         assert len(body["bundle"]) == 192
 
-    def test_invalid_token_returns_401(self, route, mock_token_manager):
+    def test_invalid_token_returns_401(
+        self, route: AccountKeysRoute, mock_token_manager: MagicMock
+    ) -> None:
         mock_token_manager.verify_keyfetch_hawk.return_value = None
         event = APIGatewayProxyEvent(
             {
@@ -69,7 +66,7 @@ class TestAccountKeys:
         response = route.handle(event)
         assert response.status_code == 401
 
-    def test_missing_auth_header_returns_401(self, route):
+    def test_missing_auth_header_returns_401(self, route: AccountKeysRoute) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "GET",
@@ -81,7 +78,12 @@ class TestAccountKeys:
         response = route.handle(event)
         assert response.status_code == 401
 
-    def test_account_not_found_returns_401(self, route, mock_token_manager, mock_account_manager):
+    def test_account_not_found_returns_401(
+        self,
+        route: AccountKeysRoute,
+        mock_token_manager: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         mock_token_manager.verify_keyfetch_hawk.return_value = {
             "uid": "uid1",
             "keyFetchToken": "bb" * 32,
@@ -98,7 +100,9 @@ class TestAccountKeys:
         response = route.handle(event)
         assert response.status_code == 401
 
-    def test_consumed_token_second_request_returns_401(self, route, mock_token_manager):
+    def test_consumed_token_second_request_returns_401(
+        self, route: AccountKeysRoute, mock_token_manager: MagicMock
+    ) -> None:
         mock_token_manager.verify_keyfetch_hawk.return_value = None
         event = APIGatewayProxyEvent(
             {
@@ -113,7 +117,7 @@ class TestAccountKeys:
 
 
 class TestAccountKeysBind:
-    def test_bind_registers_get_route(self, route):
+    def test_bind_registers_get_route(self, route: AccountKeysRoute) -> None:
         mock_api = MagicMock()
         mock_api.get = MagicMock(return_value=lambda f: f)
         route.bind(mock_api)

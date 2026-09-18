@@ -13,11 +13,13 @@ Tests the complete Token Server flow with focus on:
 
 import json
 import time
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from botocore.stub import ANY
+import pytest
+from botocore.stub import ANY, Stubber
 
 from src.entrypoint.token_api import lambda_handler as token_handler
+from src.environment.service_provider import ServiceProvider
 
 
 class TestGetMethodTokenIssuance:
@@ -25,10 +27,10 @@ class TestGetMethodTokenIssuance:
 
     def test_get_method_token_issuance_complete_flow(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test complete GET method token issuance flow.
 
@@ -136,10 +138,10 @@ class TestGetMethodTokenIssuance:
 
     def test_get_method_response_structure_matches_mozilla_spec(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that response structure exactly matches Mozilla Token Server API v1.0 spec.
 
@@ -214,10 +216,10 @@ class TestClientStateHistory:
 
     def test_client_state_change_flow(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test client state change increments generation and updates history.
 
@@ -376,10 +378,10 @@ class TestClientStateHistory:
 
     def test_rejection_of_previously_seen_client_state(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that previously-seen client state is rejected.
 
@@ -462,10 +464,10 @@ class TestClientStateHistory:
 
     def test_rejection_of_empty_state_when_history_exists(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that empty client state is rejected when history contains non-empty values.
 
@@ -552,10 +554,10 @@ class TestNewErrorStatuses:
 
     def test_invalid_timestamp_response(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test invalid-timestamp error status.
 
@@ -597,10 +599,10 @@ class TestNewErrorStatuses:
 
     def test_invalid_generation_response(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test invalid-generation error status.
 
@@ -620,10 +622,10 @@ class TestNewErrorStatuses:
 
     def test_invalid_client_state_response(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test invalid-client-state error status.
 
@@ -640,11 +642,11 @@ class TestNewErrorStatuses:
 
     def test_new_users_disabled_response(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-        monkeypatch,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """
         Test new-users-disabled error status.
 
@@ -710,10 +712,10 @@ class TestResponseHeaders:
 
     def test_x_timestamp_on_200_response(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test X-Timestamp header on successful 200 response.
 
@@ -791,10 +793,10 @@ class TestResponseHeaders:
 
     def test_x_timestamp_on_401_response(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test X-Timestamp header on 401 error response.
 
@@ -829,10 +831,10 @@ class TestResponseHeaders:
 
     def test_www_authenticate_on_401_response(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test WWW-Authenticate header on 401 response.
 
@@ -865,10 +867,10 @@ class TestResponseHeaders:
 
     def test_all_headers_on_401_response(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that 401 responses include both X-Timestamp and WWW-Authenticate.
 
@@ -902,10 +904,10 @@ class TestNodeReset:
 
     def test_uid_changes_when_client_state_changes(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that uid changes when client state changes (node reset).
 
@@ -1068,10 +1070,10 @@ class TestNodeReset:
 
     def test_api_endpoint_changes_when_client_state_changes(
         self,
-        mock_service_provider,
-        dynamodb_stubber,
-        sample_lambda_context,
-    ):
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """
         Test that api_endpoint changes when client state changes.
 

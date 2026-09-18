@@ -1,10 +1,11 @@
 """AccountDevice route — POST /v1/account/device"""
 
 import json
-from typing import Sequence
+from typing import Any, Sequence
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.device_manager import DeviceManager
 from src.shared.base_route import BaseRoute
@@ -22,12 +23,12 @@ class AccountDeviceRoute(BaseRoute):
         self._device_manager = device_manager
         self.middlewares = middlewares
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.post("/v1/account/device", middlewares=list(self.middlewares))
-        def handle_account_device():
+        def handle_account_device() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         uid = event["requestContext"]["hawk_uid"]
         session_token_id = event["requestContext"].get("hawk_token_id", "")
         body = json.loads(event.body or "{}")

@@ -1,6 +1,5 @@
 """Unit tests for GetProfile route"""
 
-import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,20 +8,21 @@ from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 from src.routes.profile.get_profile import GetProfileRoute
 from src.shared.exceptions import InvalidTokenError
 from src.shared.oidc import OIDCTokenClaims
+from tests.conftest import json_body
 
 
 @pytest.fixture
-def mock_jwt_verifier():
+def mock_jwt_verifier() -> MagicMock:
     return MagicMock()
 
 
 @pytest.fixture
-def mock_auth_account_manager():
+def mock_auth_account_manager() -> MagicMock:
     return MagicMock()
 
 
 @pytest.fixture
-def route(mock_jwt_verifier, mock_auth_account_manager):
+def route(mock_jwt_verifier: MagicMock, mock_auth_account_manager: MagicMock) -> GetProfileRoute:
     return GetProfileRoute(
         jwt_verifier=mock_jwt_verifier,
         auth_account_manager=mock_auth_account_manager,
@@ -32,8 +32,11 @@ def route(mock_jwt_verifier, mock_auth_account_manager):
 
 class TestGetProfile:
     def test_valid_bearer_token_with_fxa_uid_returns_200(
-        self, route, mock_jwt_verifier, mock_auth_account_manager
-    ):
+        self,
+        route: GetProfileRoute,
+        mock_jwt_verifier: MagicMock,
+        mock_auth_account_manager: MagicMock,
+    ) -> None:
         mock_jwt_verifier.validate_token.return_value = OIDCTokenClaims(
             sub="oidc-sub-123",
             iss="https://auth.example.com",
@@ -56,7 +59,7 @@ class TestGetProfile:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["email"] == "user@example.com"
         assert body["uid"] == "uid1"
         assert body["locale"] == "en-US"
@@ -64,7 +67,12 @@ class TestGetProfile:
         assert body["sub"] == "uid1"
         mock_auth_account_manager.get_account_by_uid.assert_called_once_with("uid1")
 
-    def test_fallback_to_oidc_sub_lookup(self, route, mock_jwt_verifier, mock_auth_account_manager):
+    def test_fallback_to_oidc_sub_lookup(
+        self,
+        route: GetProfileRoute,
+        mock_jwt_verifier: MagicMock,
+        mock_auth_account_manager: MagicMock,
+    ) -> None:
         """When fxa_uid is absent (older token), fall back to oidcSub lookup."""
         mock_jwt_verifier.validate_token.return_value = OIDCTokenClaims(
             sub="oidc-sub-123",
@@ -88,11 +96,11 @@ class TestGetProfile:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["uid"] == "uid1"
         mock_auth_account_manager.get_account_by_oidc_sub.assert_called_once_with("oidc-sub-123")
 
-    def test_missing_auth_returns_401(self, route):
+    def test_missing_auth_returns_401(self, route: GetProfileRoute) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "GET",
@@ -103,10 +111,10 @@ class TestGetProfile:
         )
         response = route.handle(event)
         assert response.status_code == 401
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["errno"] == 110
 
-    def test_non_bearer_auth_returns_401(self, route):
+    def test_non_bearer_auth_returns_401(self, route: GetProfileRoute) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "GET",
@@ -117,10 +125,12 @@ class TestGetProfile:
         )
         response = route.handle(event)
         assert response.status_code == 401
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["errno"] == 110
 
-    def test_invalid_jwt_returns_401(self, route, mock_jwt_verifier):
+    def test_invalid_jwt_returns_401(
+        self, route: GetProfileRoute, mock_jwt_verifier: MagicMock
+    ) -> None:
         mock_jwt_verifier.validate_token.side_effect = InvalidTokenError("expired")
         event = APIGatewayProxyEvent(
             {
@@ -132,13 +142,16 @@ class TestGetProfile:
         )
         response = route.handle(event)
         assert response.status_code == 401
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["errno"] == 110
         assert "Invalid or expired" in body["message"]
 
     def test_account_not_found_returns_401(
-        self, route, mock_jwt_verifier, mock_auth_account_manager
-    ):
+        self,
+        route: GetProfileRoute,
+        mock_jwt_verifier: MagicMock,
+        mock_auth_account_manager: MagicMock,
+    ) -> None:
         mock_jwt_verifier.validate_token.return_value = OIDCTokenClaims(
             sub="uid-gone",
             iss="https://auth.example.com",
@@ -158,13 +171,13 @@ class TestGetProfile:
         )
         response = route.handle(event)
         assert response.status_code == 401
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["errno"] == 110
         assert "Account not found" in body["message"]
 
 
 class TestGetProfileBind:
-    def test_bind_registers_get_route(self, route):
+    def test_bind_registers_get_route(self, route: GetProfileRoute) -> None:
         mock_api = MagicMock()
         mock_api.get = MagicMock(return_value=lambda f: f)
         route.bind(mock_api)

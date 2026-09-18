@@ -1,28 +1,28 @@
 """Unit tests for OIDCDiscovery route"""
 
-import json
 from unittest.mock import MagicMock, PropertyMock
 
 import pytest
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.routes.auth.oidc_discovery import OIDCDiscoveryRoute
+from tests.conftest import json_body
 
 
 @pytest.fixture
-def mock_jwt_service():
+def mock_jwt_service() -> MagicMock:
     svc = MagicMock()
     type(svc).issuer = PropertyMock(return_value="https://auth.beta.ffsync.layertwo.dev")
     return svc
 
 
 @pytest.fixture
-def route(mock_jwt_service):
+def route(mock_jwt_service: MagicMock) -> OIDCDiscoveryRoute:
     return OIDCDiscoveryRoute(jwt_service=mock_jwt_service)
 
 
 class TestOIDCDiscovery:
-    def test_returns_discovery_document(self, route):
+    def test_returns_discovery_document(self, route: OIDCDiscoveryRoute) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "GET",
@@ -32,7 +32,7 @@ class TestOIDCDiscovery:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["issuer"] == "https://auth.beta.ffsync.layertwo.dev"
         assert body["authorization_endpoint"].endswith("/v1/oauth/authorization")
         assert body["token_endpoint"].endswith("/v1/oauth/token")
@@ -42,7 +42,7 @@ class TestOIDCDiscovery:
 
 
 class TestOIDCDiscoveryBind:
-    def test_bind_registers_get_route(self, route):
+    def test_bind_registers_get_route(self, route: OIDCDiscoveryRoute) -> None:
         mock_api = MagicMock()
         mock_api.get = MagicMock(return_value=lambda f: f)
         route.bind(mock_api)

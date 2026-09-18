@@ -1,10 +1,11 @@
 """OAuthAuthorization route — POST /v1/oauth/authorization"""
 
 import json
-from typing import Sequence
+from typing import Any, Sequence
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.oauth_code_manager import OAuthCodeManager
 from src.shared.base_route import BaseRoute
@@ -29,12 +30,12 @@ class OAuthAuthorizationRoute(BaseRoute):
         self._oauth_code_manager = oauth_code_manager
         self.middlewares = middlewares
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.post("/v1/oauth/authorization", middlewares=list(self.middlewares))
-        def handle_oauth_authorization():
+        def handle_oauth_authorization() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         uid = event["requestContext"]["hawk_uid"]
 
         # Parse body

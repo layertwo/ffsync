@@ -2,10 +2,11 @@
 
 import json
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import mohawk
 import pytest
+from botocore.stub import Stubber
 
 from src.services.token_generator import TokenGenerator
 
@@ -14,7 +15,15 @@ from src.services.token_generator import TokenGenerator
 # ============================================================================
 
 
-def build_hawk_auth_header(hawk_id, hawk_key, method, path, host, port, **kwargs):
+def build_hawk_auth_header(
+    hawk_id: str,
+    hawk_key: Union[str, bytes],
+    method: str,
+    path: str,
+    host: str,
+    port: Union[str, int],
+    **kwargs: Any,
+) -> str:
     """Build a Hawk Authorization header using mohawk.Sender.
 
     Args:
@@ -42,7 +51,7 @@ def build_hawk_auth_header(hawk_id, hawk_key, method, path, host, port, **kwargs
 
 
 @pytest.fixture
-def valid_hawk_credentials():
+def valid_hawk_credentials() -> Dict[str, Any]:
     """Valid HAWK credentials for integration tests"""
     return {
         "user_id": "test-user-123",
@@ -54,7 +63,7 @@ def valid_hawk_credentials():
 
 
 @pytest.fixture
-def expired_hawk_credentials():
+def expired_hawk_credentials() -> Dict[str, Any]:
     """Expired HAWK credentials for testing authentication failures"""
     return {
         "user_id": "test-user-123",
@@ -66,7 +75,7 @@ def expired_hawk_credentials():
 
 
 @pytest.fixture
-def hawk_authorization_header(valid_hawk_credentials):
+def hawk_authorization_header(valid_hawk_credentials: Dict[str, Any]) -> str:
     """Generate a valid HAWK Authorization header"""
     timestamp = int(time.time())
     nonce = "test-nonce-123"
@@ -86,7 +95,7 @@ def hawk_authorization_header(valid_hawk_credentials):
 
 
 @pytest.fixture
-def valid_bso_data():
+def valid_bso_data() -> Dict[str, Any]:
     """Valid BSO data for creation/update"""
     return {
         "id": "test-bso-001",
@@ -97,7 +106,7 @@ def valid_bso_data():
 
 
 @pytest.fixture
-def batch_bso_data():
+def batch_bso_data() -> List[Dict[str, Any]]:
     """Batch of valid BSOs for batch operations"""
     return [
         {
@@ -110,7 +119,7 @@ def batch_bso_data():
 
 
 @pytest.fixture
-def large_batch_bso_data():
+def large_batch_bso_data() -> List[Dict[str, Any]]:
     """Large batch of BSOs for testing limits (100 items)"""
     return [
         {
@@ -122,7 +131,7 @@ def large_batch_bso_data():
 
 
 @pytest.fixture
-def oversized_bso_data():
+def oversized_bso_data() -> Dict[str, Any]:
     """BSO with payload exceeding max size (256 KB)"""
     return {
         "id": "oversized-bso",
@@ -137,7 +146,7 @@ def oversized_bso_data():
 
 
 @pytest.fixture
-def valid_collection_names():
+def valid_collection_names() -> List[str]:
     """List of valid collection names"""
     return [
         "bookmarks",
@@ -154,7 +163,7 @@ def valid_collection_names():
 
 
 @pytest.fixture
-def invalid_collection_names():
+def invalid_collection_names() -> List[str]:
     """List of invalid collection names for validation testing"""
     return [
         "a" * 33,  # Too long (>32 chars)
@@ -268,14 +277,14 @@ def build_authorizer_event(
 
 
 def stub_get_bso(
-    stubber,
+    stubber: Stubber,
     table_name: str,
     user_id: str,
     collection_name: str,
     object_id: str,
     bso_data: Optional[Dict[str, Any]] = None,
     exists: bool = True,
-):
+) -> None:
     """
     Stub a DynamoDB get_item call for retrieving a BSO.
 
@@ -316,12 +325,12 @@ def stub_get_bso(
 
 
 def stub_put_bso(
-    stubber,
+    stubber: Stubber,
     table_name: str,
     user_id: str,
     collection_name: str,
     object_id: str,
-):
+) -> None:
     """
     Stub a DynamoDB put_item call for creating/updating a BSO.
 
@@ -345,12 +354,12 @@ def stub_put_bso(
 
 
 def stub_query_collection(
-    stubber,
+    stubber: Stubber,
     table_name: str,
     user_id: str,
     collection_name: str,
     items: List[Dict[str, Any]],
-):
+) -> None:
     """
     Stub a DynamoDB query call for listing BSOs in a collection.
 
@@ -391,7 +400,7 @@ def stub_query_collection(
 # ============================================================================
 
 
-def assert_successful_response(response: Dict[str, Any], expected_status: int = 200):
+def assert_successful_response(response: Dict[str, Any], expected_status: int = 200) -> None:
     """Assert that a Lambda response is successful"""
     assert response["statusCode"] == expected_status
     assert "headers" in response
@@ -402,7 +411,7 @@ def assert_error_response(
     response: Dict[str, Any],
     expected_status: int,
     expected_code: Optional[int] = None,
-):
+) -> None:
     """
     Assert that a Lambda response is an error.
 
@@ -418,7 +427,7 @@ def assert_error_response(
         assert body == expected_code
 
 
-def assert_bso_response(response: Dict[str, Any], expected_bso: Dict[str, Any]):
+def assert_bso_response(response: Dict[str, Any], expected_bso: Dict[str, Any]) -> None:
     """Assert that a response contains the expected BSO"""
     assert_successful_response(response)
 
@@ -439,7 +448,7 @@ def assert_collection_response(
     response: Dict[str, Any],
     expected_ids: List[str],
     full: bool = False,
-):
+) -> None:
     """
     Assert that a response contains the expected collection data.
 
@@ -471,7 +480,7 @@ def assert_batch_response(
     response: Dict[str, Any],
     expected_success: List[str],
     expected_failed: Optional[Dict[str, str]] = None,
-):
+) -> None:
     """Assert that a batch operation response is correct"""
     assert_successful_response(response)
 
@@ -494,7 +503,7 @@ def assert_batch_response(
 
 
 @pytest.fixture
-def multi_user_test_data():
+def multi_user_test_data() -> Dict[str, Any]:
     """Test data for multiple users to verify isolation"""
     return {
         "user1": {
@@ -528,7 +537,7 @@ def multi_user_test_data():
 # ============================================================================
 
 
-def assert_timestamp_format(timestamp_str: str):
+def assert_timestamp_format(timestamp_str: str) -> None:
     """Assert that a timestamp string has the correct format (2 decimal places)"""
     parts = timestamp_str.split(".")
     assert len(parts) == 2, "Timestamp must have decimal point"
@@ -539,7 +548,7 @@ def assert_timestamp_format(timestamp_str: str):
     assert timestamp > 0, "Timestamp must be positive"
 
 
-def assert_timestamp_headers(response: Dict[str, Any], is_write: bool = False):
+def assert_timestamp_headers(response: Dict[str, Any], is_write: bool = False) -> None:
     """
     Assert that timestamp headers are present and correct.
 

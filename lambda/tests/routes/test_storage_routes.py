@@ -1,15 +1,19 @@
 """Tests for storage route handlers"""
 
 import json
-from typing import Any
-from unittest.mock import MagicMock, patch
+from typing import Any, Generator
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
+from botocore.stub import Stubber
 
 from src.entrypoint.storage_api import lambda_handler as storage_handler
+from src.environment.service_provider import ServiceProvider
 from src.routes.storage.delete_all import DeleteAllStorageRoute
 from src.services.hawk_service import HawkCredentials
 from src.services.token_generator import TokenGenerator
+from tests.conftest import json_body
 
 TEST_USER_ID = "test-user-123"
 TEST_GENERATION = 0
@@ -34,7 +38,7 @@ def build_storage_event(method: str, path: str, user_id: str = TEST_USER_ID) -> 
 
 
 @pytest.fixture(autouse=True)
-def mock_hawk_validate(mock_service_provider):
+def mock_hawk_validate(mock_service_provider: ServiceProvider) -> Generator[None, None, None]:
     """Mock hawk_service.validate to bypass Hawk auth in storage handler tests."""
     creds = HawkCredentials(
         user_id=TEST_USER_ID,
@@ -49,7 +53,12 @@ def mock_hawk_validate(mock_service_provider):
 class TestDeleteAllStorageRoute:
     """Tests for DeleteAllStorageRoute"""
 
-    def test_handle_success(self, mock_service_provider, dynamodb_stubber, sample_lambda_context):
+    def test_handle_success(
+        self,
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """Test successful deletion of all storage"""
         event = build_storage_event(method="DELETE", path="/storage")
 
@@ -114,8 +123,11 @@ class TestDeleteAllStorageRoute:
         assert isinstance(body["modified"], (int, float))
 
     def test_handle_with_empty_storage(
-        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
-    ):
+        self,
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """Test deletion when storage is already empty"""
         event = build_storage_event(method="DELETE", path="/storage")
 
@@ -129,8 +141,11 @@ class TestDeleteAllStorageRoute:
         assert "modified" in body
 
     def test_handle_with_pagination(
-        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
-    ):
+        self,
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """Test deletion with multiple collections (GSI pagination)"""
         event = build_storage_event(method="DELETE", path="/storage")
 
@@ -238,8 +253,11 @@ class TestDeleteAllStorageRoute:
         assert "modified" in body
 
     def test_handle_unauthorized_missing_user_id(
-        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
-    ):
+        self,
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """Test handling when hawk_uid is missing (no auth header -> middleware rejects)"""
         event: dict[str, Any] = {
             "httpMethod": "DELETE",
@@ -258,8 +276,11 @@ class TestDeleteAllStorageRoute:
         assert body["error"] == "Unauthorized"
 
     def test_handle_internal_error(
-        self, mock_service_provider, dynamodb_stubber, sample_lambda_context
-    ):
+        self,
+        mock_service_provider: ServiceProvider,
+        dynamodb_stubber: Stubber,
+        sample_lambda_context: Mock,
+    ) -> None:
         """Test handling of internal server errors"""
         event = build_storage_event(method="DELETE", path="/storage")
 
@@ -276,13 +297,13 @@ class TestDeleteAllStorageRoute:
 class TestDeleteAllStorageRouteUnit:
     """Unit tests for DeleteAllStorageRoute.handle() called directly (bypassing middleware)"""
 
-    def test_missing_user_id_returns_401(self):
+    def test_missing_user_id_returns_401(self) -> None:
         """Route returns 401 when hawk_uid is not in requestContext."""
         route = DeleteAllStorageRoute(storage_manager=MagicMock())
         event: dict = {
             "requestContext": {},
         }
-        response = route.handle(event)
+        response = route.handle(APIGatewayProxyEvent(event))
         assert response.status_code == 401
-        body = json.loads(response.body)  # type: ignore[arg-type]
+        body = json_body(response)
         assert body["error"] == "Unauthorized"

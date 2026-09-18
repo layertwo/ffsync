@@ -1,8 +1,10 @@
 """Unit tests for StorageManager with DynamoDB stubber"""
 
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
+from botocore.stub import Stubber
 
 from src.services.storage_manager import StorageManager
 from src.shared.exceptions import (
@@ -11,16 +13,21 @@ from src.shared.exceptions import (
 )
 from src.shared.models import BasicStorageObject
 
+if TYPE_CHECKING:
+    from types_boto3_dynamodb.service_resource import Table
+
 
 class TestStorageManager:
     """Test StorageManager DynamoDB operations"""
 
     @pytest.fixture
-    def storage_manager(self, dynamodb_table):
+    def storage_manager(self, dynamodb_table: "Table") -> StorageManager:
         """Create StorageManager instance with stubbed table"""
         return StorageManager(table=dynamodb_table)
 
-    def test_get_collection_success(self, storage_manager, dynamodb_stubber, storage_table_name):
+    def test_get_collection_success(
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test successful collection retrieval"""
         dynamodb_stubber.add_response(
             "get_item",
@@ -50,7 +57,9 @@ class TestStorageManager:
         assert collection.count == 5
         assert collection.usage == 1024
 
-    def test_get_collection_not_found(self, storage_manager, dynamodb_stubber, storage_table_name):
+    def test_get_collection_not_found(
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test collection not found"""
         dynamodb_stubber.add_response(
             "get_item",
@@ -68,8 +77,8 @@ class TestStorageManager:
             storage_manager.get_collection("test-user-123", "nonexistent")
 
     def test_get_storage_object_success(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test successful storage object retrieval"""
         dynamodb_stubber.add_response(
             "get_item",
@@ -101,8 +110,8 @@ class TestStorageManager:
         assert obj.sortindex == 100
 
     def test_get_storage_object_not_found(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test storage object not found"""
         dynamodb_stubber.add_response(
             "get_item",
@@ -120,8 +129,8 @@ class TestStorageManager:
             storage_manager.get_storage_object("test-user-123", "bookmarks", "nonexistent")
 
     def test_get_storage_object_without_optional_fields(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test retrieval of storage object without sortindex and ttl"""
         dynamodb_stubber.add_response(
             "get_item",
@@ -152,13 +161,12 @@ class TestStorageManager:
 
     def test_create_or_update_collection_without_objects(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_timestamp_datetime,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test creating collection without objects"""
         # Collection existence check — not found, so this is a new collection
         dynamodb_stubber.add_response(
@@ -196,7 +204,7 @@ class TestStorageManager:
         )
 
         assert collection.name == "bookmarks"
-        assert collection.modified == mock_timestamp_datetime
+        assert collection.modified == mock_timestamp
         assert collection.count == 0
         assert collection.usage == 0
         assert batch_result.model_dump()["success"] == []
@@ -204,12 +212,12 @@ class TestStorageManager:
 
     def test_create_or_update_collection_with_objects(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test creating collection with objects"""
         objects = [
             BasicStorageObject(
@@ -271,12 +279,12 @@ class TestStorageManager:
 
     def test_update_collection(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test updating collection"""
         # Stub get_collection
         dynamodb_stubber.add_response(
@@ -329,8 +337,8 @@ class TestStorageManager:
         assert batch_result.model_dump()["success"] == ["obj1"]
 
     def test_update_collection_not_found(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test updating non-existent collection raises error"""
         dynamodb_stubber.add_response(
             "get_item",
@@ -357,12 +365,12 @@ class TestStorageManager:
 
     def test_delete_collection(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test deleting collection"""
 
         # Stub get_collection to verify it exists
@@ -411,7 +419,9 @@ class TestStorageManager:
         modified = storage_manager.delete_collection("test-user-123", "bookmarks")
         assert modified == mock_timestamp
 
-    def test_list_collections(self, storage_manager, dynamodb_stubber, storage_table_name):
+    def test_list_collections(
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test listing all collections"""
         dynamodb_stubber.add_response(
             "query",
@@ -453,7 +463,9 @@ class TestStorageManager:
         assert collections[1].name == "history"
         assert collections[1].count == 10
 
-    def test_list_collections_empty(self, storage_manager, dynamodb_stubber, storage_table_name):
+    def test_list_collections_empty(
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test listing collections when none exist"""
         dynamodb_stubber.add_response(
             "query",
@@ -470,8 +482,8 @@ class TestStorageManager:
         assert collections == []
 
     def test_list_collections_with_pagination(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test listing collections with pagination"""
         # Stub first page with LastEvaluatedKey
         dynamodb_stubber.add_response(
@@ -550,7 +562,9 @@ class TestStorageManager:
         assert collections[2].name == "passwords"
         assert collections[2].count == 15
 
-    def test_get_collection_objects(self, storage_manager, dynamodb_stubber, storage_table_name):
+    def test_get_collection_objects(
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test getting objects from collection"""
         dynamodb_stubber.add_response(
             "query",
@@ -592,8 +606,8 @@ class TestStorageManager:
         assert result["last_modified"] == 1234567891.00
 
     def test_get_collection_objects_with_filters(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test getting objects with ID filter"""
         # With ids parameter, uses batch_get_item instead of query
         dynamodb_stubber.add_response(
@@ -622,8 +636,8 @@ class TestStorageManager:
         assert result["items"][0].id == "obj1"
 
     def test_get_collection_objects_pagination(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test pagination of collection objects"""
         dynamodb_stubber.add_response(
             "query",
@@ -672,12 +686,12 @@ class TestStorageManager:
 
     def test_update_storage_object(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test updating storage object"""
 
         # Stub get_storage_object to verify it exists
@@ -732,8 +746,12 @@ class TestStorageManager:
         assert updated_obj.sortindex == 100
 
     def test_update_storage_object_not_found(
-        self, storage_manager, dynamodb_stubber, storage_table_name, mock_get_current_timestamp
-    ):
+        self,
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test updating non-existent object creates it (PUT semantics)"""
         dynamodb_stubber.add_response(
             "get_item",
@@ -765,12 +783,12 @@ class TestStorageManager:
 
     def test_delete_storage_object(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test deleting storage object"""
 
         # Stub get_storage_object to verify it exists
@@ -811,8 +829,8 @@ class TestStorageManager:
         assert modified == mock_timestamp
 
     def test_delete_storage_object_not_found(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test deleting non-existent object raises error"""
         dynamodb_stubber.add_response(
             "get_item",
@@ -830,8 +848,8 @@ class TestStorageManager:
             storage_manager.delete_storage_object("test-user-123", "bookmarks", "nonexistent")
 
     def test_get_collection_client_error(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test get_collection with ClientError for ResourceNotFoundException"""
         dynamodb_stubber.add_client_error(
             "get_item",
@@ -843,8 +861,8 @@ class TestStorageManager:
             storage_manager.get_collection("test-user-123", "bookmarks")
 
     def test_get_storage_object_client_error(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test get_storage_object with ClientError for ResourceNotFoundException"""
         dynamodb_stubber.add_client_error(
             "get_item",
@@ -857,12 +875,12 @@ class TestStorageManager:
 
     def test_create_collection_with_failed_object(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test creating collection when batch_write_item fails entirely.
 
         With batch_writer(), per-item error tracking no longer works the same way.
@@ -903,12 +921,12 @@ class TestStorageManager:
 
     def test_update_collection_with_failed_object(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test updating collection when batch_write_item fails entirely.
 
         With batch_writer(), per-item error tracking no longer works.
@@ -963,8 +981,8 @@ class TestStorageManager:
             storage_manager.update_collection("test-user-123", "bookmarks", objects)
 
     def test_get_collection_objects_with_newer_filter(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test getting objects with newer timestamp filter"""
         # newer/older without ids now pushes FilterExpression to DynamoDB
         dynamodb_stubber.add_response(
@@ -991,8 +1009,8 @@ class TestStorageManager:
         assert result["items"][0].id == "obj1"
 
     def test_get_collection_objects_with_older_filter(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test getting objects with older timestamp filter"""
         # older without ids now pushes FilterExpression to DynamoDB
         dynamodb_stubber.add_response(
@@ -1019,8 +1037,8 @@ class TestStorageManager:
         assert result["items"][0].id == "obj2"
 
     def test_get_collection_objects_sort_oldest(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test getting objects sorted by oldest first"""
         dynamodb_stubber.add_response(
             "query",
@@ -1058,8 +1076,8 @@ class TestStorageManager:
         assert result["items"][1].id == "obj1"
 
     def test_get_collection_objects_sort_index(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test getting objects sorted by sortindex"""
         dynamodb_stubber.add_response(
             "query",
@@ -1100,12 +1118,12 @@ class TestStorageManager:
 
     def test_update_storage_object_with_all_fields(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test updating storage object with all optional fields"""
         # Stub get_storage_object to verify it exists
         dynamodb_stubber.add_response(
@@ -1146,8 +1164,8 @@ class TestStorageManager:
         assert updated_obj.sortindex == 150
 
     def test_get_collection_client_error_other(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test get_collection with other ClientError"""
         dynamodb_stubber.add_client_error(
             "get_item",
@@ -1159,8 +1177,8 @@ class TestStorageManager:
             storage_manager.get_collection("test-user-123", "bookmarks")
 
     def test_get_storage_object_client_error_other(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test get_storage_object with other ClientError"""
         dynamodb_stubber.add_client_error(
             "get_item",
@@ -1172,8 +1190,8 @@ class TestStorageManager:
             storage_manager.get_storage_object("test-user-123", "bookmarks", "obj123")
 
     def test_get_collection_objects_empty_result(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test getting objects when collection is empty"""
         dynamodb_stubber.add_response(
             "query",
@@ -1196,12 +1214,12 @@ class TestStorageManager:
 
     def test_update_collection_with_mixed_success_fail(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test updating collection with multiple objects succeeding.
 
         With batch_writer(), per-item error tracking is no longer possible.
@@ -1266,12 +1284,12 @@ class TestStorageManager:
 
     def test_update_collection_with_sortindex_and_ttl(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test updating collection with objects that have sortindex and ttl"""
         # Stub get_collection
         dynamodb_stubber.add_response(
@@ -1325,12 +1343,12 @@ class TestStorageManager:
 
     def test_update_storage_object_preserves_ttl(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test updating storage object preserves ttl when not provided"""
         # Stub get_storage_object with ttl
         dynamodb_stubber.add_response(
@@ -1368,12 +1386,12 @@ class TestStorageManager:
 
     def test_update_storage_object_without_sortindex(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test updating object without providing sortindex to test branch"""
         # Stub get_storage_object - object without sortindex but with ttl
         dynamodb_stubber.add_response(
@@ -1412,8 +1430,8 @@ class TestStorageManager:
         assert updated_obj.sortindex is None
 
     def test_get_collection_objects_invalid_sort(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test getting objects with invalid sort parameter (should not sort)"""
         dynamodb_stubber.add_response(
             "query",
@@ -1454,12 +1472,12 @@ class TestStorageManager:
 
     def test_update_storage_object_with_only_sortindex(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test updating object with only sortindex to test branch"""
         # Stub get_storage_object
         dynamodb_stubber.add_response(
@@ -1510,12 +1528,12 @@ class TestStorageManager:
 
     def test_update_storage_object_with_sortindex_no_ttl(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test updating object with sortindex but no ttl to cover branch"""
         # Stub get_storage_object - has sortindex and ttl
         dynamodb_stubber.add_response(
@@ -1558,12 +1576,12 @@ class TestStorageManager:
 
     def test_update_storage_object_sortindex_without_ttl(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test updating object that has sortindex but no ttl - covering branch 401->405"""
         # Stub get_storage_object - object WITH sortindex but NO ttl
         dynamodb_stubber.add_response(
@@ -1612,8 +1630,8 @@ class TestStorageManager:
         assert updated_obj.sortindex == 100
 
     def test_create_collection_batch_limit_exceeded(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test creating collection with too many objects raises ServerLimitExceededException"""
         from src.shared.exceptions import ServerLimitExceededException
 
@@ -1631,8 +1649,8 @@ class TestStorageManager:
             storage_manager.create_or_update_collection("test-user-123", "bookmarks", objects)
 
     def test_create_collection_batch_size_exceeded(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test creating collection with too large payload raises ServerLimitExceededException"""
         from src.shared.exceptions import ServerLimitExceededException
 
@@ -1651,11 +1669,11 @@ class TestStorageManager:
 
     def test_create_collection_precondition_create_only_fails(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test create-only mode fails when collection exists"""
         from src.shared.exceptions import PreconditionFailedException
 
@@ -1688,11 +1706,11 @@ class TestStorageManager:
 
     def test_create_collection_precondition_modified_since(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test precondition fails when collection modified since timestamp"""
         from src.shared.exceptions import PreconditionFailedException
 
@@ -1724,8 +1742,8 @@ class TestStorageManager:
             )
 
     def test_update_collection_batch_limit_exceeded(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test updating collection with too many objects raises ServerLimitExceededException"""
         from src.shared.exceptions import ServerLimitExceededException
 
@@ -1743,8 +1761,8 @@ class TestStorageManager:
             storage_manager.update_collection("test-user-123", "bookmarks", objects)
 
     def test_update_collection_batch_size_exceeded(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test updating collection with too large payload raises ServerLimitExceededException"""
         from src.shared.exceptions import ServerLimitExceededException
 
@@ -1763,11 +1781,11 @@ class TestStorageManager:
 
     def test_update_collection_precondition_modified_since(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test update precondition fails when collection modified since timestamp"""
         from src.shared.exceptions import PreconditionFailedException
 
@@ -1799,8 +1817,8 @@ class TestStorageManager:
             )
 
     def test_get_collection_objects_ids_limit_exceeded(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test getting objects with too many IDs raises ValidationException"""
         from src.shared.exceptions import ValidationException
 
@@ -1812,11 +1830,11 @@ class TestStorageManager:
 
     def test_update_storage_object_precondition_create_only_fails(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test create-only mode fails when object exists"""
         from src.shared.exceptions import PreconditionFailedException
 
@@ -1852,11 +1870,11 @@ class TestStorageManager:
 
     def test_update_storage_object_precondition_modified_since(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test update precondition fails when object modified since timestamp"""
         from src.shared.exceptions import PreconditionFailedException
 
@@ -1892,11 +1910,11 @@ class TestStorageManager:
 
     def test_update_storage_object_precondition_nonexistent_object(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test precondition fails when checking non-existent object with non-zero timestamp"""
         from src.shared.exceptions import PreconditionFailedException
 
@@ -1924,12 +1942,12 @@ class TestStorageManager:
 
     def test_delete_collection_objects(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test batch deleting multiple objects"""
         # Stub get_collection to verify collection exists (called once, result reused)
         dynamodb_stubber.add_response(
@@ -1966,8 +1984,8 @@ class TestStorageManager:
         assert modified == mock_timestamp
 
     def test_delete_collection_objects_limit_exceeded(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test batch delete with too many IDs raises ValidationException"""
         from src.shared.exceptions import ValidationException
 
@@ -1979,12 +1997,12 @@ class TestStorageManager:
 
     def test_delete_collection_objects_with_error(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test batch delete when batch_write_item fails entirely.
 
         With batch_writer(), per-item error tracking is no longer possible.
@@ -2028,12 +2046,12 @@ class TestStorageManager:
 
     def test_delete_all_storage(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test deleting all storage for a user via list_collections + delete_collection (no scan)"""
         # list_collections: GSI query returns one collection
         dynamodb_stubber.add_response(
@@ -2108,12 +2126,12 @@ class TestStorageManager:
 
     def test_delete_all_storage_with_pagination(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test deleting all storage for a user with multiple collections via paginated GSI query"""
         # list_collections page 1: returns bookmarks, with LastEvaluatedKey
         dynamodb_stubber.add_response(
@@ -2256,11 +2274,8 @@ class TestStorageManager:
         assert modified == mock_timestamp
 
     def test_get_quota(
-        self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test getting quota information"""
         # list_collections uses query with GSI
         dynamodb_stubber.add_response(
@@ -2302,12 +2317,12 @@ class TestStorageManager:
 
     def test_create_collection_precondition_passes(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test precondition passes when collection not modified since timestamp"""
         # Stub get_collection to return collection modified before the precondition timestamp
         dynamodb_stubber.add_response(
@@ -2342,12 +2357,12 @@ class TestStorageManager:
 
     def test_update_collection_precondition_passes(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test update precondition passes when collection not modified since timestamp"""
         # Stub get_collection to return collection modified before the precondition timestamp
         dynamodb_stubber.add_response(
@@ -2382,12 +2397,12 @@ class TestStorageManager:
 
     def test_update_storage_object_precondition_passes(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test update precondition passes when object not modified since timestamp"""
         # Stub get_storage_object to return object modified before the precondition timestamp
         dynamodb_stubber.add_response(
@@ -2428,12 +2443,12 @@ class TestStorageManager:
 
     def test_update_collection_overwrites_existing_bso_usage_delta(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test that overwriting an existing BSO uses net delta (new_size - old_size), not new_size"""
         # Existing collection has usage=100, count=1
         # Existing BSO "obj1" has payload "old" (3 bytes)
@@ -2519,12 +2534,12 @@ class TestStorageManager:
 
     def test_update_collection_count_not_incremented_for_existing_bso(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """TDD: updating an existing BSO must not increment the collection count.
 
         Before fix: new_count = collection.count + len(success) → wrong
@@ -2598,12 +2613,12 @@ class TestStorageManager:
 
     def test_delete_collection_with_pagination(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """TDD: delete_collection must paginate when items span multiple query pages.
 
         Before fix: only first query page is deleted
@@ -2675,12 +2690,12 @@ class TestStorageManager:
 
     def test_delete_all_storage_via_list_and_delete(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """TDD: delete_all_storage must use list_collections + delete_collection, not table.scan.
 
         Before fix: calls table.scan (full table read)
@@ -2758,12 +2773,12 @@ class TestStorageManager:
 
     def test_delete_all_storage_skips_concurrently_deleted_collection(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test that delete_all_storage silently skips collections deleted concurrently.
 
         If a collection is returned by list_collections but has already been deleted
@@ -2813,12 +2828,12 @@ class TestStorageManager:
 
     def test_create_or_update_collection_updates_existing_bso(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test create_or_update_collection when updating an already-existing BSO.
 
         When the collection already exists and the incoming object ID matches an
@@ -2896,12 +2911,12 @@ class TestStorageManager:
 
     def test_create_or_update_collection_adds_new_bso_to_existing_collection(
         self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-        mock_timestamp,
-        mock_get_current_timestamp,
-    ):
+        storage_manager: StorageManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        mock_timestamp: float,
+        mock_get_current_timestamp: None,
+    ) -> None:
         """Test create_or_update_collection when adding a brand-new BSO to an existing collection.
 
         When collection_exists=True but the incoming object ID does not exist yet,
@@ -2962,8 +2977,8 @@ class TestStorageManager:
         assert batch_result.failed == {}
 
     def test_get_collection_objects_not_full(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test get_collection_objects with full=False uses ProjectionExpression"""
         dynamodb_stubber.add_response(
             "query",
@@ -2989,11 +3004,8 @@ class TestStorageManager:
         assert result["items"][0].id == "obj1"
 
     def test_get_collection_objects_with_ids_and_newer(
-        self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test get_collection_objects with ids + newer applies client-side filter"""
         dynamodb_stubber.add_response(
             "batch_get_item",
@@ -3033,11 +3045,8 @@ class TestStorageManager:
         assert result["items"][0].id == "obj2"
 
     def test_get_collection_objects_with_ids_and_older(
-        self,
-        storage_manager,
-        dynamodb_stubber,
-        storage_table_name,
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test get_collection_objects with ids + older applies client-side filter"""
         dynamodb_stubber.add_response(
             "batch_get_item",
@@ -3077,8 +3086,8 @@ class TestStorageManager:
         assert result["items"][0].id == "obj1"
 
     def test_get_collection_objects_query_pagination(
-        self, storage_manager, dynamodb_stubber, storage_table_name
-    ):
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
         """Test get_collection_objects handles DynamoDB query pagination"""
         # First page with LastEvaluatedKey
         dynamodb_stubber.add_response(

@@ -11,6 +11,7 @@ On failure, raises HawkAuthenticationError (handle with router exception handler
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler, NextMiddleware
 from aws_lambda_powertools.metrics import Metrics, MetricUnit
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.fxa_token_manager import FxATokenManager
 from src.services.hawk_service import HawkService
@@ -65,7 +66,15 @@ class HawkAuthMiddleware(BaseMiddlewareHandler):
         self._metrics.add_metric("HawkAuthSuccess", MetricUnit.Count, 1)
         return next_middleware(app)
 
-    def _validate_storage_hawk(self, event, auth_header, method, path, host, port):
+    def _validate_storage_hawk(
+        self,
+        event: APIGatewayProxyEvent,
+        auth_header: str,
+        method: str,
+        path: str,
+        host: str,
+        port: int,
+    ) -> None:
         """Validate storage Hawk token and check URL uid matches authenticated user."""
         assert self._hawk_service is not None
         try:
@@ -86,7 +95,15 @@ class HawkAuthMiddleware(BaseMiddlewareHandler):
 
         event["requestContext"]["hawk_uid"] = creds.user_id
 
-    def _validate_session_hawk(self, event, auth_header, method, path, host, port):
+    def _validate_session_hawk(
+        self,
+        event: APIGatewayProxyEvent,
+        auth_header: str,
+        method: str,
+        path: str,
+        host: str,
+        port: int,
+    ) -> None:
         """Validate FxA session Hawk token."""
         assert self._token_manager is not None
         uid = self._token_manager.verify_session_hawk(auth_header, method, path, host, port)

@@ -10,7 +10,7 @@ helper, which converts float fields to Decimal at the boto3 boundary.
 import re
 import time
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
@@ -76,7 +76,7 @@ def to_dynamo_dict(model: BaseModel) -> dict:
     return {k: _to_dynamo(v) for k, v in model.model_dump().items()}
 
 
-def _to_dynamo(v):
+def _to_dynamo(v: Any) -> Any:
     if isinstance(v, float):
         return Decimal(str(v))
     if isinstance(v, dict):

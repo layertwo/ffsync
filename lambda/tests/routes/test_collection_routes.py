@@ -19,6 +19,7 @@ from src.shared.exceptions import (
     ValidationException,
 )
 from src.shared.models import BasicStorageObject, BatchResult, CollectionData
+from tests.conftest import json_body
 
 TEST_USER_ID = "test-user-123"
 AUTH_CONTEXT = {"requestContext": {"hawk_uid": TEST_USER_ID}}
@@ -33,7 +34,7 @@ def with_auth(event_dict: dict) -> dict:
 class TestCreateCollectionRoute:
     """Tests for CreateCollectionRoute"""
 
-    def test_bind_registers_route(self, mock_storage_manager):
+    def test_bind_registers_route(self, mock_storage_manager: MagicMock) -> None:
         """Test that bind registers the POST route and handler works through resolver"""
         route = CreateCollectionRoute(mock_storage_manager)
         app = APIGatewayRestResolver()
@@ -51,7 +52,7 @@ class TestCreateCollectionRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 201
 
-    def test_handle_success_with_objects(self, mock_storage_manager):
+    def test_handle_success_with_objects(self, mock_storage_manager: MagicMock) -> None:
         """Test successful collection creation with objects"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -91,14 +92,13 @@ class TestCreateCollectionRoute:
         response = route.handle(event)
 
         assert response.status_code == 201
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         # Mozilla-compliant response format
         assert body["modified"] == 1234567890.12
         assert body["success"] == ["obj1", "obj2"]
         assert body["failed"] == {}
 
-    def test_handle_success_with_array_format(self, mock_storage_manager):
+    def test_handle_success_with_array_format(self, mock_storage_manager: MagicMock) -> None:
         """Test collection creation with direct array format"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -134,7 +134,7 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 201
 
-    def test_handle_success_without_objects(self, mock_storage_manager):
+    def test_handle_success_without_objects(self, mock_storage_manager: MagicMock) -> None:
         """Test collection creation without objects"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -164,7 +164,7 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 201
 
-    def test_handle_with_precondition_header(self, mock_storage_manager):
+    def test_handle_with_precondition_header(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of X-If-Unmodified-Since header"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -190,7 +190,7 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 412
 
-    def test_handle_precondition_check_passes(self, mock_storage_manager):
+    def test_handle_precondition_check_passes(self, mock_storage_manager: MagicMock) -> None:
         """Test precondition check when collection hasn't been modified"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -232,7 +232,7 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 201
 
-    def test_handle_invalid_json(self, mock_storage_manager):
+    def test_handle_invalid_json(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of invalid JSON in body"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -250,7 +250,7 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_validation_exception(self, mock_storage_manager):
+    def test_handle_validation_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of ValidationException"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -272,7 +272,7 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_conflict_exception(self, mock_storage_manager):
+    def test_handle_conflict_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of ConflictException"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -292,7 +292,7 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 409
 
-    def test_handle_generic_exception(self, mock_storage_manager):
+    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of generic exceptions"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -312,7 +312,7 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 500
 
-    def test_handle_x_weave_records_exceeds_limit(self, mock_storage_manager):
+    def test_handle_x_weave_records_exceeds_limit(self, mock_storage_manager: MagicMock) -> None:
         """Test X-Weave-Records header exceeding limit returns 400 with code 17"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -329,11 +329,10 @@ class TestCreateCollectionRoute:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body == 17  # CODE_SERVER_LIMIT_EXCEEDED
 
-    def test_handle_x_weave_bytes_exceeds_limit(self, mock_storage_manager):
+    def test_handle_x_weave_bytes_exceeds_limit(self, mock_storage_manager: MagicMock) -> None:
         """Test X-Weave-Bytes header exceeding limit returns 400 with code 17"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -350,11 +349,10 @@ class TestCreateCollectionRoute:
         response = route.handle(event)
 
         assert response.status_code == 400
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body == 17  # CODE_SERVER_LIMIT_EXCEEDED
 
-    def test_handle_x_weave_records_invalid_format(self, mock_storage_manager):
+    def test_handle_x_weave_records_invalid_format(self, mock_storage_manager: MagicMock) -> None:
         """Test X-Weave-Records header with invalid format returns 400"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -372,7 +370,7 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_x_weave_bytes_invalid_format(self, mock_storage_manager):
+    def test_handle_x_weave_bytes_invalid_format(self, mock_storage_manager: MagicMock) -> None:
         """Test X-Weave-Bytes header with invalid format returns 400"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -390,7 +388,7 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_x_weave_records_mismatch(self, mock_storage_manager):
+    def test_handle_x_weave_records_mismatch(self, mock_storage_manager: MagicMock) -> None:
         """Test X-Weave-Records header mismatch with actual records returns 400"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -408,7 +406,7 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_x_weave_bytes_valid(self, mock_storage_manager):
+    def test_handle_x_weave_bytes_valid(self, mock_storage_manager: MagicMock) -> None:
         """Test X-Weave-Bytes header with valid value proceeds normally"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -442,7 +440,7 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 201
 
-    def test_handle_x_weave_records_valid_match(self, mock_storage_manager):
+    def test_handle_x_weave_records_valid_match(self, mock_storage_manager: MagicMock) -> None:
         """Test X-Weave-Records header matching actual records proceeds normally"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -480,7 +478,7 @@ class TestCreateCollectionRoute:
 class TestReadCollectionRoute:
     """Tests for ReadCollectionRoute"""
 
-    def test_bind_registers_route(self, mock_storage_manager):
+    def test_bind_registers_route(self, mock_storage_manager: MagicMock) -> None:
         """Test that bind registers the GET route and handler works through resolver"""
         # Set up mock to return empty collection
         objects = {
@@ -507,7 +505,7 @@ class TestReadCollectionRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_metadata_only(self, mock_storage_manager):
+    def test_handle_metadata_only(self, mock_storage_manager: MagicMock) -> None:
         """Test getting collection - returns empty list when no query params"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -532,12 +530,11 @@ class TestReadCollectionRoute:
         response = route.handle(event)
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         # Mozilla-compliant: returns array of IDs (empty in this case)
         assert body == []
 
-    def test_handle_with_object_filters(self, mock_storage_manager):
+    def test_handle_with_object_filters(self, mock_storage_manager: MagicMock) -> None:
         """Test getting collection objects with filters"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -574,13 +571,12 @@ class TestReadCollectionRoute:
         response = route.handle(event)
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         # Mozilla-compliant: returns flat array of BSO objects
         assert len(body) == 1
         assert body[0]["id"] == "obj1"
 
-    def test_handle_objects_with_pagination(self, mock_storage_manager):
+    def test_handle_objects_with_pagination(self, mock_storage_manager: MagicMock) -> None:
         """Test getting objects with pagination"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -614,14 +610,13 @@ class TestReadCollectionRoute:
         response = route.handle(event)
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         # Mozilla-compliant: returns flat array of IDs (default full=0)
         assert len(body) == 5
         # Check X-Weave-Next-Offset header for pagination
         assert response.headers.get("X-Weave-Next-Offset") == "15"
 
-    def test_handle_objects_without_optional_fields(self, mock_storage_manager):
+    def test_handle_objects_without_optional_fields(self, mock_storage_manager: MagicMock) -> None:
         """Test formatting objects without sortindex/ttl"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -652,13 +647,12 @@ class TestReadCollectionRoute:
 
         response = route.handle(event)
 
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         # Mozilla-compliant: returns flat array of BSO objects
         assert "sortindex" not in body[0]
         assert "ttl" not in body[0]
 
-    def test_handle_validation_exception(self, mock_storage_manager):
+    def test_handle_validation_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of ValidationException"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -678,7 +672,7 @@ class TestReadCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_collection_not_found(self, mock_storage_manager):
+    def test_handle_collection_not_found(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of non-existent collection - returns empty list per Mozilla spec"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -704,11 +698,10 @@ class TestReadCollectionRoute:
 
         # Should return 200 with empty list, not 404
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body == []
 
-    def test_handle_generic_exception(self, mock_storage_manager):
+    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of generic exceptions"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -728,7 +721,7 @@ class TestReadCollectionRoute:
 
         assert response.status_code == 500
 
-    def test_handle_conditional_get_not_modified(self, mock_storage_manager):
+    def test_handle_conditional_get_not_modified(self, mock_storage_manager: MagicMock) -> None:
         """Test conditional GET returns 304 when not modified"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -753,7 +746,7 @@ class TestReadCollectionRoute:
 
         assert response.status_code == 304
 
-    def test_handle_conditional_get_modified(self, mock_storage_manager):
+    def test_handle_conditional_get_modified(self, mock_storage_manager: MagicMock) -> None:
         """Test conditional GET returns 200 when modified"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -778,7 +771,9 @@ class TestReadCollectionRoute:
 
         assert response.status_code == 200
 
-    def test_handle_both_conditional_headers_returns_400(self, mock_storage_manager):
+    def test_handle_both_conditional_headers_returns_400(
+        self, mock_storage_manager: MagicMock
+    ) -> None:
         """Test both X-If-Modified-Since and X-If-Unmodified-Since returns 400"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -799,7 +794,9 @@ class TestReadCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_invalid_if_modified_since_returns_400(self, mock_storage_manager):
+    def test_handle_invalid_if_modified_since_returns_400(
+        self, mock_storage_manager: MagicMock
+    ) -> None:
         """Test invalid X-If-Modified-Since header returns 400"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -817,7 +814,9 @@ class TestReadCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_negative_if_modified_since_returns_400(self, mock_storage_manager):
+    def test_handle_negative_if_modified_since_returns_400(
+        self, mock_storage_manager: MagicMock
+    ) -> None:
         """Test negative X-If-Modified-Since header returns 400"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -835,7 +834,7 @@ class TestReadCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_with_datetime_last_modified(self, mock_storage_manager):
+    def test_handle_with_datetime_last_modified(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when last_modified is a datetime object"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -860,7 +859,7 @@ class TestReadCollectionRoute:
 
         assert response.status_code == 200
 
-    def test_handle_with_none_last_modified(self, mock_storage_manager):
+    def test_handle_with_none_last_modified(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when last_modified is None"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -891,7 +890,7 @@ class TestReadCollectionRoute:
 class TestUpdateCollectionRoute:
     """Tests for UpdateCollectionRoute"""
 
-    def test_bind_registers_route(self, mock_storage_manager):
+    def test_bind_registers_route(self, mock_storage_manager: MagicMock) -> None:
         """Test that bind registers the PUT route and handler works through resolver"""
         collection_data = CollectionData(
             name="bookmarks",
@@ -922,7 +921,7 @@ class TestUpdateCollectionRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success(self, mock_storage_manager):
+    def test_handle_success(self, mock_storage_manager: MagicMock) -> None:
         """Test successful collection update"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -956,7 +955,7 @@ class TestUpdateCollectionRoute:
 
         assert response.status_code == 200
 
-    def test_handle_invalid_json(self, mock_storage_manager):
+    def test_handle_invalid_json(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of invalid JSON in body"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -974,7 +973,7 @@ class TestUpdateCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_direct_array_body(self, mock_storage_manager):
+    def test_handle_direct_array_body(self, mock_storage_manager: MagicMock) -> None:
         """Test batch update with direct JSON array body (SyncStorage API v1.5 format)"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -1008,7 +1007,7 @@ class TestUpdateCollectionRoute:
 
         assert response.status_code == 200
 
-    def test_handle_missing_objects_key(self, mock_storage_manager):
+    def test_handle_missing_objects_key(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of missing 'objects' key in body"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -1026,7 +1025,7 @@ class TestUpdateCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_with_precondition_header(self, mock_storage_manager):
+    def test_handle_with_precondition_header(self, mock_storage_manager: MagicMock) -> None:
         """Test with X-If-Unmodified-Since header"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -1060,7 +1059,9 @@ class TestUpdateCollectionRoute:
 
         assert response.status_code == 200
 
-    def test_handle_passes_precondition_to_storage_manager(self, mock_storage_manager):
+    def test_handle_passes_precondition_to_storage_manager(
+        self, mock_storage_manager: MagicMock
+    ) -> None:
         """Test that X-If-Unmodified-Since header value is forwarded to update_collection"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -1098,7 +1099,7 @@ class TestUpdateCollectionRoute:
             ttls=None,
         )
 
-    def test_handle_invalid_precondition_header(self, mock_storage_manager):
+    def test_handle_invalid_precondition_header(self, mock_storage_manager: MagicMock) -> None:
         """Test with invalid X-If-Unmodified-Since header"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -1116,7 +1117,7 @@ class TestUpdateCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_validation_exception(self, mock_storage_manager):
+    def test_handle_validation_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of ValidationException"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -1136,7 +1137,7 @@ class TestUpdateCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_collection_not_found(self, mock_storage_manager):
+    def test_handle_collection_not_found(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of CollectionNotFoundException"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -1158,7 +1159,7 @@ class TestUpdateCollectionRoute:
 
         assert response.status_code == 404
 
-    def test_handle_precondition_failed(self, mock_storage_manager):
+    def test_handle_precondition_failed(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of PreconditionFailedException"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -1178,7 +1179,7 @@ class TestUpdateCollectionRoute:
 
         assert response.status_code == 412
 
-    def test_handle_generic_exception(self, mock_storage_manager):
+    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of generic exceptions"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -1202,7 +1203,7 @@ class TestUpdateCollectionRoute:
 class TestDeleteCollectionRoute:
     """Tests for DeleteCollectionRoute"""
 
-    def test_bind_registers_route(self, mock_storage_manager):
+    def test_bind_registers_route(self, mock_storage_manager: MagicMock) -> None:
         """Test that bind registers the DELETE route and handler works through resolver"""
         mock_storage_manager.delete_collection.return_value = 1234567890.12
         route = DeleteCollectionRoute(mock_storage_manager)
@@ -1222,7 +1223,7 @@ class TestDeleteCollectionRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success(self, mock_storage_manager):
+    def test_handle_success(self, mock_storage_manager: MagicMock) -> None:
         """Test successful collection deletion"""
         route = DeleteCollectionRoute(mock_storage_manager)
 
@@ -1241,11 +1242,10 @@ class TestDeleteCollectionRoute:
 
         mock_storage_manager.delete_collection.assert_called_once_with(TEST_USER_ID, "bookmarks")
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["modified"] == 1234567892.00
 
-    def test_handle_validation_exception(self, mock_storage_manager):
+    def test_handle_validation_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of ValidationException"""
         route = DeleteCollectionRoute(mock_storage_manager)
 
@@ -1264,7 +1264,7 @@ class TestDeleteCollectionRoute:
 
         assert response.status_code == 400
 
-    def test_handle_collection_not_found(self, mock_storage_manager):
+    def test_handle_collection_not_found(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of CollectionNotFoundException"""
         route = DeleteCollectionRoute(mock_storage_manager)
 
@@ -1285,7 +1285,7 @@ class TestDeleteCollectionRoute:
 
         assert response.status_code == 404
 
-    def test_handle_generic_exception(self, mock_storage_manager):
+    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of generic exceptions"""
         route = DeleteCollectionRoute(mock_storage_manager)
 
@@ -1304,7 +1304,7 @@ class TestDeleteCollectionRoute:
 
         assert response.status_code == 500
 
-    def test_handle_selective_deletion(self, mock_storage_manager):
+    def test_handle_selective_deletion(self, mock_storage_manager: MagicMock) -> None:
         """Test selective deletion with ids parameter"""
         route = DeleteCollectionRoute(mock_storage_manager)
 
@@ -1325,15 +1325,14 @@ class TestDeleteCollectionRoute:
             TEST_USER_ID, "bookmarks", ["obj1", "obj2", "obj3"]
         )
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["modified"] == 1234567892.00
 
 
 class TestListCollectionsRoute:
     """Tests for ListCollectionsRoute"""
 
-    def test_bind_registers_route(self, mock_storage_manager):
+    def test_bind_registers_route(self, mock_storage_manager: MagicMock) -> None:
         """Test that bind registers the GET route and handler works through resolver"""
         mock_storage_manager.list_collections.return_value = []
         route = ListCollectionsRoute(mock_storage_manager)
@@ -1353,7 +1352,7 @@ class TestListCollectionsRoute:
         result = app.resolve(event, MagicMock())
         assert result["statusCode"] == 200
 
-    def test_handle_success(self, mock_storage_manager):
+    def test_handle_success(self, mock_storage_manager: MagicMock) -> None:
         """Test successful collection listing"""
         route = ListCollectionsRoute(mock_storage_manager)
 
@@ -1384,12 +1383,11 @@ class TestListCollectionsRoute:
         response = route.handle(event)
 
         assert response.status_code == 200
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert len(body["collections"]) == 2
         assert body["collections"][0]["name"] == "bookmarks"
 
-    def test_handle_generic_exception(self, mock_storage_manager):
+    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of generic exceptions"""
         route = ListCollectionsRoute(mock_storage_manager)
 
@@ -1411,7 +1409,7 @@ class TestListCollectionsRoute:
 class TestCreateCollectionRouteUnauthorized:
     """Tests for CreateCollectionRoute unauthorized cases"""
 
-    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -1427,15 +1425,14 @@ class TestCreateCollectionRouteUnauthorized:
         response = route.handle(event)
 
         assert response.status_code == 401
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Unauthorized"
 
 
 class TestDeleteCollectionRouteUnauthorized:
     """Tests for DeleteCollectionRoute unauthorized cases"""
 
-    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""
         route = DeleteCollectionRoute(mock_storage_manager)
 
@@ -1449,15 +1446,14 @@ class TestDeleteCollectionRouteUnauthorized:
         response = route.handle(event)
 
         assert response.status_code == 401
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Unauthorized"
 
 
 class TestListCollectionsRouteUnauthorized:
     """Tests for ListCollectionsRoute unauthorized cases"""
 
-    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""
         route = ListCollectionsRoute(mock_storage_manager)
 
@@ -1470,15 +1466,14 @@ class TestListCollectionsRouteUnauthorized:
         response = route.handle(event)
 
         assert response.status_code == 401
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Unauthorized"
 
 
 class TestReadCollectionRouteUnauthorized:
     """Tests for ReadCollectionRoute unauthorized cases"""
 
-    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -1492,15 +1487,14 @@ class TestReadCollectionRouteUnauthorized:
         response = route.handle(event)
 
         assert response.status_code == 401
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Unauthorized"
 
 
 class TestUpdateCollectionRouteUnauthorized:
     """Tests for UpdateCollectionRoute unauthorized cases"""
 
-    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager):
+    def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -1516,15 +1510,14 @@ class TestUpdateCollectionRouteUnauthorized:
         response = route.handle(event)
 
         assert response.status_code == 401
-        assert response.body is not None
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["error"] == "Unauthorized"
 
 
 class TestCreateCollectionRouteInvalidCollectionName:
     """Tests that validate_collection_name is called before storage in CreateCollectionRoute"""
 
-    def test_handle_invalid_collection_name(self, mock_storage_manager):
+    def test_handle_invalid_collection_name(self, mock_storage_manager: MagicMock) -> None:
         """Test that invalid collection name returns 400 without calling storage"""
         route = CreateCollectionRoute(mock_storage_manager)
 
@@ -1547,7 +1540,7 @@ class TestCreateCollectionRouteInvalidCollectionName:
 class TestReadCollectionRouteInvalidCollectionName:
     """Tests that validate_collection_name is called before storage in ReadCollectionRoute"""
 
-    def test_handle_invalid_collection_name(self, mock_storage_manager):
+    def test_handle_invalid_collection_name(self, mock_storage_manager: MagicMock) -> None:
         """Test that invalid collection name returns 400 without calling storage"""
         route = ReadCollectionRoute(mock_storage_manager)
 
@@ -1570,7 +1563,7 @@ class TestReadCollectionRouteInvalidCollectionName:
 class TestUpdateCollectionRouteInvalidCollectionName:
     """Tests that validate_collection_name is called before storage in UpdateCollectionRoute"""
 
-    def test_handle_invalid_collection_name(self, mock_storage_manager):
+    def test_handle_invalid_collection_name(self, mock_storage_manager: MagicMock) -> None:
         """Test that invalid collection name returns 400 without calling storage"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
@@ -1593,7 +1586,7 @@ class TestUpdateCollectionRouteInvalidCollectionName:
 class TestDeleteCollectionRouteInvalidCollectionName:
     """Tests that validate_collection_name is called before storage in DeleteCollectionRoute"""
 
-    def test_handle_invalid_collection_name(self, mock_storage_manager):
+    def test_handle_invalid_collection_name(self, mock_storage_manager: MagicMock) -> None:
         """Test that invalid collection name returns 400 without calling storage"""
         route = DeleteCollectionRoute(mock_storage_manager)
 

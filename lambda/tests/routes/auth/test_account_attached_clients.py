@@ -1,26 +1,23 @@
 """Unit tests for AccountAttachedClients route"""
 
-import json
 from unittest.mock import MagicMock
 
 import pytest
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.routes.auth.account_attached_clients import AccountAttachedClientsRoute
+from tests.conftest import json_body
 
 
 @pytest.fixture
-def device_manager():
-    return MagicMock()
-
-
-@pytest.fixture
-def route(device_manager):
+def route(device_manager: MagicMock) -> AccountAttachedClientsRoute:
     return AccountAttachedClientsRoute(device_manager=device_manager, middlewares=[])
 
 
 class TestAccountAttachedClients:
-    def test_returns_attached_clients(self, route, device_manager):
+    def test_returns_attached_clients(
+        self, route: AccountAttachedClientsRoute, device_manager: MagicMock
+    ) -> None:
         device_manager.get_devices.return_value = [
             {
                 "id": "dev1",
@@ -43,7 +40,7 @@ class TestAccountAttachedClients:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert len(body) == 1
         client = body[0]
         assert client["clientId"] is None
@@ -59,7 +56,9 @@ class TestAccountAttachedClients:
         assert client["userAgent"] == ""
         assert client["os"] is None
 
-    def test_is_current_session_set(self, route, device_manager):
+    def test_is_current_session_set(
+        self, route: AccountAttachedClientsRoute, device_manager: MagicMock
+    ) -> None:
         device_manager.get_devices.return_value = [
             {
                 "id": "dev1",
@@ -89,11 +88,13 @@ class TestAccountAttachedClients:
             }
         )
         response = route.handle(event)
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body[0]["isCurrentSession"] is True
         assert body[1]["isCurrentSession"] is False
 
-    def test_returns_empty_list(self, route, device_manager):
+    def test_returns_empty_list(
+        self, route: AccountAttachedClientsRoute, device_manager: MagicMock
+    ) -> None:
         device_manager.get_devices.return_value = []
         event = APIGatewayProxyEvent(
             {
@@ -107,12 +108,12 @@ class TestAccountAttachedClients:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body == []
 
 
 class TestAccountAttachedClientsBind:
-    def test_bind_registers_get_route(self, route):
+    def test_bind_registers_get_route(self, route: AccountAttachedClientsRoute) -> None:
         mock_api = MagicMock()
         mock_api.get = MagicMock(return_value=lambda f: f)
         route.bind(mock_api)

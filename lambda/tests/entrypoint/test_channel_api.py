@@ -1,13 +1,14 @@
 """Tests for Channel API lambda entrypoint"""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 from src.entrypoint import channel_api_handler
+from src.environment.service_provider import ServiceProvider
 from src.services.channel_service import ChannelService
 
 
 class TestChannelApiHandler:
-    def test_delegates_to_channel_service(self, sample_lambda_context):
+    def test_delegates_to_channel_service(self, sample_lambda_context: Mock) -> None:
         """Handler delegates to channel_service.handle."""
         mock_channel = MagicMock(spec=ChannelService)
         mock_channel.handle.return_value = {"statusCode": 200}
@@ -33,16 +34,18 @@ class TestChannelApiHandler:
 class TestServiceProviderChannelProperties:
     """Tests for ServiceProvider channel property initialization"""
 
-    def test_channel_table_name_from_env(self, mock_service_provider):
+    def test_channel_table_name_from_env(self, mock_service_provider: ServiceProvider) -> None:
         """Test channel_table_name reads from environment."""
         assert mock_service_provider.channel_table_name == "test-channel-table"
 
-    def test_channel_table_creates_table_resource(self, mock_service_provider):
+    def test_channel_table_creates_table_resource(
+        self, mock_service_provider: ServiceProvider
+    ) -> None:
         """Test channel_table returns a DynamoDB Table resource."""
         table = mock_service_provider.channel_table
         assert table is not None
 
-    def test_channel_service_creates_instance(self, mock_service_provider):
+    def test_channel_service_creates_instance(self, mock_service_provider: ServiceProvider) -> None:
         """Test channel_service property creates ChannelService."""
         service = mock_service_provider.channel_service
         assert isinstance(service, ChannelService)

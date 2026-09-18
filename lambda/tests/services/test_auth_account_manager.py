@@ -1,55 +1,60 @@
 """Unit tests for AuthAccountManager with DynamoDB stubber"""
 
-from unittest.mock import patch
+from typing import TYPE_CHECKING, Generator
+from unittest.mock import MagicMock, patch
 
 import pytest
 from botocore.exceptions import ClientError
+from botocore.stub import Stubber
 
 from src.services.auth_account_manager import AuthAccountManager
+
+if TYPE_CHECKING:
+    from types_boto3_dynamodb.service_resource import Table
 
 
 class TestAuthAccountManager:
     """Test AuthAccountManager DynamoDB operations"""
 
     @pytest.fixture
-    def manager(self, dynamodb_table):
+    def manager(self, dynamodb_table: "Table") -> AuthAccountManager:
         """Create AuthAccountManager instance with stubbed table"""
         return AuthAccountManager(table=dynamodb_table)
 
     @pytest.fixture
-    def sample_uid(self):
+    def sample_uid(self) -> str:
         return "abcdef1234567890abcdef1234567890"
 
     @pytest.fixture
-    def sample_email(self):
+    def sample_email(self) -> str:
         return "Test.User@Example.com"
 
     @pytest.fixture
-    def sample_normalized_email(self):
+    def sample_normalized_email(self) -> str:
         return "test.user@example.com"
 
     @pytest.fixture
-    def sample_verify_hash(self):
+    def sample_verify_hash(self) -> str:
         return "a" * 64
 
     @pytest.fixture
-    def sample_k_a(self):
+    def sample_k_a(self) -> str:
         return "b" * 64
 
     @pytest.fixture
-    def sample_wrap_kb(self):
+    def sample_wrap_kb(self) -> str:
         return "c" * 64
 
     @pytest.fixture
-    def sample_oidc_sub(self):
+    def sample_oidc_sub(self) -> str:
         return "oidc-sub-12345"
 
     @pytest.fixture
-    def sample_key_rotation_secret(self):
+    def sample_key_rotation_secret(self) -> str:
         return "d" * 64
 
     @pytest.fixture
-    def mock_time(self):
+    def mock_time(self) -> Generator[MagicMock, None, None]:
         """Mock time.time() for auth_account_manager"""
         with patch("src.services.auth_account_manager.time") as mock:
             mock.time.return_value = 1234567890.0
@@ -59,19 +64,19 @@ class TestAuthAccountManager:
 
     def test_create_account_stores_email_then_account_records(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_email,
-        sample_normalized_email,
-        sample_verify_hash,
-        sample_k_a,
-        sample_wrap_kb,
-        sample_oidc_sub,
-        sample_key_rotation_secret,
-        mock_time,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_email: str,
+        sample_normalized_email: str,
+        sample_verify_hash: str,
+        sample_k_a: str,
+        sample_wrap_kb: str,
+        sample_oidc_sub: str,
+        sample_key_rotation_secret: str,
+        mock_time: MagicMock,
+    ) -> None:
         """Test create_account stores EMAIL# first then ACCOUNT# record"""
         # Stub put_item for EMAIL# record first (with condition)
         dynamodb_stubber.add_response(
@@ -133,16 +138,16 @@ class TestAuthAccountManager:
 
     def test_create_account_normalizes_email(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_verify_hash,
-        sample_k_a,
-        sample_wrap_kb,
-        sample_oidc_sub,
-        mock_time,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_verify_hash: str,
+        sample_k_a: str,
+        sample_wrap_kb: str,
+        sample_oidc_sub: str,
+        mock_time: MagicMock,
+    ) -> None:
         """Test that email is lowercased and stripped during creation"""
         email = "  User@EXAMPLE.COM  "
         normalized = "user@example.com"
@@ -206,18 +211,18 @@ class TestAuthAccountManager:
 
     def test_create_account_rejects_duplicate_email(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_email,
-        sample_normalized_email,
-        sample_verify_hash,
-        sample_k_a,
-        sample_wrap_kb,
-        sample_oidc_sub,
-        mock_time,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_email: str,
+        sample_normalized_email: str,
+        sample_verify_hash: str,
+        sample_k_a: str,
+        sample_wrap_kb: str,
+        sample_oidc_sub: str,
+        mock_time: MagicMock,
+    ) -> None:
         """Test that duplicate email raises ValueError"""
         # Stub EMAIL# put to fail with ConditionalCheckFailedException
         dynamodb_stubber.add_client_error(
@@ -238,18 +243,18 @@ class TestAuthAccountManager:
 
     def test_create_account_cleans_up_email_on_oidcsub_write_failure(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_email,
-        sample_normalized_email,
-        sample_verify_hash,
-        sample_k_a,
-        sample_wrap_kb,
-        sample_oidc_sub,
-        mock_time,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_email: str,
+        sample_normalized_email: str,
+        sample_verify_hash: str,
+        sample_k_a: str,
+        sample_wrap_kb: str,
+        sample_oidc_sub: str,
+        mock_time: MagicMock,
+    ) -> None:
         """If OIDCSUB# put fails, EMAIL# record is cleaned up"""
         # Stub successful EMAIL# put
         dynamodb_stubber.add_response(
@@ -294,18 +299,18 @@ class TestAuthAccountManager:
 
     def test_create_account_oidcsub_failure_with_email_cleanup_failure(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_email,
-        sample_normalized_email,
-        sample_verify_hash,
-        sample_k_a,
-        sample_wrap_kb,
-        sample_oidc_sub,
-        mock_time,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_email: str,
+        sample_normalized_email: str,
+        sample_verify_hash: str,
+        sample_k_a: str,
+        sample_wrap_kb: str,
+        sample_oidc_sub: str,
+        mock_time: MagicMock,
+    ) -> None:
         """If OIDCSUB# put fails and EMAIL# cleanup also fails, original error is raised"""
         # Stub successful EMAIL# put
         dynamodb_stubber.add_response(
@@ -349,12 +354,12 @@ class TestAuthAccountManager:
 
     def test_ensure_oidcsub_record_creates_when_missing(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_oidc_sub,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_oidc_sub: str,
+    ) -> None:
         """Creates OIDCSUB# record when it doesn't exist"""
         dynamodb_stubber.add_response(
             "put_item",
@@ -373,12 +378,12 @@ class TestAuthAccountManager:
 
     def test_ensure_oidcsub_record_noop_when_exists(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_oidc_sub,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_oidc_sub: str,
+    ) -> None:
         """No-op when OIDCSUB# record already exists"""
         dynamodb_stubber.add_client_error(
             "put_item",
@@ -390,12 +395,12 @@ class TestAuthAccountManager:
 
     def test_ensure_oidcsub_record_raises_unexpected_error(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_oidc_sub,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_oidc_sub: str,
+    ) -> None:
         """Unexpected errors are re-raised"""
         dynamodb_stubber.add_client_error(
             "put_item",
@@ -408,9 +413,9 @@ class TestAuthAccountManager:
 
     def test_ensure_oidcsub_record_noop_when_empty_sub(
         self,
-        manager,
-        sample_uid,
-    ):
+        manager: AuthAccountManager,
+        sample_uid: str,
+    ) -> None:
         """No-op when oidc_sub is empty"""
         manager.ensure_oidcsub_record(sample_uid, "")
 
@@ -418,16 +423,16 @@ class TestAuthAccountManager:
 
     def test_get_account_by_oidc_sub_returns_account(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_normalized_email,
-        sample_verify_hash,
-        sample_k_a,
-        sample_wrap_kb,
-        sample_oidc_sub,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_normalized_email: str,
+        sample_verify_hash: str,
+        sample_k_a: str,
+        sample_wrap_kb: str,
+        sample_oidc_sub: str,
+    ) -> None:
         """Test get_account_by_oidc_sub returns account for existing OIDC subject"""
         # Stub get_item for OIDCSUB# record
         dynamodb_stubber.add_response(
@@ -473,10 +478,10 @@ class TestAuthAccountManager:
 
     def test_get_account_by_oidc_sub_returns_none_for_unknown(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+    ) -> None:
         """Test get_account_by_oidc_sub returns None for unknown OIDC subject"""
         oidc_sub = "unknown-oidc-sub"
 
@@ -496,17 +501,17 @@ class TestAuthAccountManager:
 
     def test_get_account_by_email_returns_account(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_email,
-        sample_normalized_email,
-        sample_verify_hash,
-        sample_k_a,
-        sample_wrap_kb,
-        sample_oidc_sub,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_email: str,
+        sample_normalized_email: str,
+        sample_verify_hash: str,
+        sample_k_a: str,
+        sample_wrap_kb: str,
+        sample_oidc_sub: str,
+    ) -> None:
         """Test get_account_by_email returns account for existing email"""
         # Stub get_item for EMAIL# record
         dynamodb_stubber.add_response(
@@ -559,10 +564,10 @@ class TestAuthAccountManager:
 
     def test_get_account_by_email_returns_none_for_unknown(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+    ) -> None:
         """Test get_account_by_email returns None for unknown email"""
         email = "unknown@example.com"
 
@@ -584,16 +589,16 @@ class TestAuthAccountManager:
 
     def test_get_account_by_uid_returns_account(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_normalized_email,
-        sample_verify_hash,
-        sample_k_a,
-        sample_wrap_kb,
-        sample_oidc_sub,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_normalized_email: str,
+        sample_verify_hash: str,
+        sample_k_a: str,
+        sample_wrap_kb: str,
+        sample_oidc_sub: str,
+    ) -> None:
         """Test get_account_by_uid returns account for existing uid"""
         # Stub get_item for ACCOUNT# record
         dynamodb_stubber.add_response(
@@ -631,10 +636,10 @@ class TestAuthAccountManager:
 
     def test_get_account_by_uid_returns_none_for_unknown(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+    ) -> None:
         """Test get_account_by_uid returns None for unknown uid"""
         uid = "nonexistent-uid-00000000000000000"
 
@@ -654,18 +659,18 @@ class TestAuthAccountManager:
 
     def test_create_account_cleans_up_on_account_write_failure(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_email,
-        sample_normalized_email,
-        sample_verify_hash,
-        sample_k_a,
-        sample_wrap_kb,
-        sample_oidc_sub,
-        mock_time,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_email: str,
+        sample_normalized_email: str,
+        sample_verify_hash: str,
+        sample_k_a: str,
+        sample_wrap_kb: str,
+        sample_oidc_sub: str,
+        mock_time: MagicMock,
+    ) -> None:
         """If ACCOUNT# put fails, EMAIL# and OIDCSUB# records are cleaned up"""
         # Stub successful EMAIL# put
         dynamodb_stubber.add_response(
@@ -733,18 +738,18 @@ class TestAuthAccountManager:
 
     def test_create_account_cleans_up_even_if_cleanup_fails(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_email,
-        sample_normalized_email,
-        sample_verify_hash,
-        sample_k_a,
-        sample_wrap_kb,
-        sample_oidc_sub,
-        mock_time,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_email: str,
+        sample_normalized_email: str,
+        sample_verify_hash: str,
+        sample_k_a: str,
+        sample_wrap_kb: str,
+        sample_oidc_sub: str,
+        mock_time: MagicMock,
+    ) -> None:
         """If ACCOUNT# put fails and cleanup also fails, the original error is raised"""
         # Stub successful EMAIL# put
         dynamodb_stubber.add_response(
@@ -808,18 +813,18 @@ class TestAuthAccountManager:
 
     def test_create_account_reraises_unexpected_client_error(
         self,
-        manager,
-        dynamodb_stubber,
-        storage_table_name,
-        sample_uid,
-        sample_email,
-        sample_normalized_email,
-        sample_verify_hash,
-        sample_k_a,
-        sample_wrap_kb,
-        sample_oidc_sub,
-        mock_time,
-    ):
+        manager: AuthAccountManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+        sample_email: str,
+        sample_normalized_email: str,
+        sample_verify_hash: str,
+        sample_k_a: str,
+        sample_wrap_kb: str,
+        sample_oidc_sub: str,
+        mock_time: MagicMock,
+    ) -> None:
         """Test that unexpected ClientErrors on EMAIL# put are re-raised"""
         # Stub EMAIL# put to fail with unexpected error
         dynamodb_stubber.add_client_error(

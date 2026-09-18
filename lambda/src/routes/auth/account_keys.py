@@ -1,8 +1,10 @@
 """AccountKeys route — GET /v1/account/keys"""
 
 import json
+from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.fxa_crypto import derive_key_request_key, encrypt_key_bundle
@@ -23,14 +25,14 @@ class AccountKeysRoute(BaseRoute):
         self._account_manager = account_manager
         self._token_manager = token_manager
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.get("/v1/account/keys")
-        def handle_account_keys():
+        def handle_account_keys() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         # Authenticate via key-fetch token with Hawk HMAC verification
-        headers = event.headers or {}
+        headers = event.headers
         auth_header = headers.get("authorization", "")
         if not auth_header:
             return self._error(401, 110, "Missing or invalid authorization")

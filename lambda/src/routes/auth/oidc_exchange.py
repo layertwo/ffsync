@@ -2,11 +2,13 @@
 
 import json
 import time
+from typing import Any
 
 import requests
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.metrics import Metrics, MetricUnit
+from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.oidc_validator import OIDCValidator
@@ -22,12 +24,12 @@ class OIDCProviderConfigRoute(BaseRoute):
     def __init__(self, oidc_validator: OIDCValidator):
         self._oidc_validator = oidc_validator
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.get("/v1/oidc/config")
-        def handle_oidc_provider_config():
+        def handle_oidc_provider_config() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         try:
             config = self._oidc_validator.discover_provider_config()
         except Exception:
@@ -64,12 +66,12 @@ class OIDCCodeExchangeRoute(BaseRoute):
     def _default_headers(self) -> dict[str, str]:
         return {"User-Agent": self._user_agent}
 
-    def bind(self, app: APIGatewayRestResolver):
+    def bind(self, app: APIGatewayRestResolver) -> None:
         @app.post("/v1/oidc/exchange")
-        def handle_oidc_code_exchange():
+        def handle_oidc_code_exchange() -> Response[Any]:
             return self.handle(app.current_event)
 
-    def handle(self, event) -> Response:
+    def handle(self, event: APIGatewayProxyEvent) -> Response:
         # Parse request body
         try:
             body = json.loads(event.body or "{}")

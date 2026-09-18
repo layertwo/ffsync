@@ -1,7 +1,7 @@
 """Storage manager for DynamoDB operations"""
 
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from botocore.exceptions import ClientError
 
@@ -20,6 +20,9 @@ from src.shared.models import (
     get_current_timestamp,
 )
 
+if TYPE_CHECKING:
+    from types_boto3_dynamodb.service_resource import Table
+
 _PK = "PK"
 _SK = "SK"
 
@@ -32,7 +35,7 @@ MAX_IDS_PER_REQUEST = 100  # Max IDs in ids= parameter
 class StorageManager:
     """Manages storage operations with DynamoDB"""
 
-    def __init__(self, table):
+    def __init__(self, table: "Table"):
         """Initialize StorageManager
 
         Args:
@@ -647,7 +650,7 @@ class StorageManager:
         collection_name: str,
         object_id: str,
         if_unmodified_since: Optional[float] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> BasicStorageObject:
         """Update a storage object
 

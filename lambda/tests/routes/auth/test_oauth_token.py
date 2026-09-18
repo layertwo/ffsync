@@ -7,30 +7,21 @@ import pytest
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.routes.auth.oauth_token import OAuthTokenRoute
+from tests.conftest import json_body
 
 
 @pytest.fixture
-def mock_oauth_code_manager():
+def mock_jwt_service() -> MagicMock:
     return MagicMock()
 
 
 @pytest.fixture
-def mock_jwt_service():
-    return MagicMock()
-
-
-@pytest.fixture
-def mock_account_manager():
-    return MagicMock()
-
-
-@pytest.fixture
-def mock_token_manager():
-    return MagicMock()
-
-
-@pytest.fixture
-def route(mock_oauth_code_manager, mock_jwt_service, mock_account_manager, mock_token_manager):
+def route(
+    mock_oauth_code_manager: MagicMock,
+    mock_jwt_service: MagicMock,
+    mock_account_manager: MagicMock,
+    mock_token_manager: MagicMock,
+) -> OAuthTokenRoute:
     return OAuthTokenRoute(
         oauth_code_manager=mock_oauth_code_manager,
         jwt_service=mock_jwt_service,
@@ -47,12 +38,12 @@ class TestOAuthTokenAuthorizationCode:
     )
     def test_success_returns_tokens(
         self,
-        mock_verify,
-        route,
-        mock_oauth_code_manager,
-        mock_jwt_service,
-        mock_account_manager,
-    ):
+        mock_verify: MagicMock,
+        route: OAuthTokenRoute,
+        mock_oauth_code_manager: MagicMock,
+        mock_jwt_service: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         mock_oauth_code_manager.consume_authorization_code.return_value = {
             "uid": "uid1",
             "clientId": "client1",
@@ -85,7 +76,7 @@ class TestOAuthTokenAuthorizationCode:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["access_token"] == "jwt-access-token"
         assert body["refresh_token"] == "refresh-tok"
         assert body["token_type"] == "bearer"
@@ -99,12 +90,12 @@ class TestOAuthTokenAuthorizationCode:
     )
     def test_omits_keys_jwe_when_empty(
         self,
-        mock_verify,
-        route,
-        mock_oauth_code_manager,
-        mock_jwt_service,
-        mock_account_manager,
-    ):
+        mock_verify: MagicMock,
+        route: OAuthTokenRoute,
+        mock_oauth_code_manager: MagicMock,
+        mock_jwt_service: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         mock_oauth_code_manager.consume_authorization_code.return_value = {
             "uid": "uid1",
             "clientId": "client1",
@@ -137,10 +128,12 @@ class TestOAuthTokenAuthorizationCode:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "keys_jwe" not in body
 
-    def test_invalid_code_returns_400(self, route, mock_oauth_code_manager):
+    def test_invalid_code_returns_400(
+        self, route: OAuthTokenRoute, mock_oauth_code_manager: MagicMock
+    ) -> None:
         mock_oauth_code_manager.consume_authorization_code.return_value = None
         event = APIGatewayProxyEvent(
             {
@@ -165,8 +158,12 @@ class TestOAuthTokenAuthorizationCode:
         return_value=False,
     )
     def test_invalid_pkce_returns_400(
-        self, mock_verify, route, mock_oauth_code_manager, mock_account_manager
-    ):
+        self,
+        mock_verify: MagicMock,
+        route: OAuthTokenRoute,
+        mock_oauth_code_manager: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         mock_oauth_code_manager.consume_authorization_code.return_value = {
             "uid": "uid1",
             "clientId": "client1",
@@ -200,8 +197,12 @@ class TestOAuthTokenAuthorizationCode:
 
 class TestOAuthTokenRefreshToken:
     def test_success_returns_new_access_token(
-        self, route, mock_oauth_code_manager, mock_jwt_service, mock_account_manager
-    ):
+        self,
+        route: OAuthTokenRoute,
+        mock_oauth_code_manager: MagicMock,
+        mock_jwt_service: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         token = "refresh-token-value"
         mock_oauth_code_manager.consume_refresh_token.return_value = {
             "uid": "uid1",
@@ -231,11 +232,13 @@ class TestOAuthTokenRefreshToken:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["access_token"] == "new-jwt"
         assert body["refresh_token"] == "new-refresh"
 
-    def test_invalid_refresh_token_returns_400(self, route, mock_oauth_code_manager):
+    def test_invalid_refresh_token_returns_400(
+        self, route: OAuthTokenRoute, mock_oauth_code_manager: MagicMock
+    ) -> None:
         mock_oauth_code_manager.consume_refresh_token.return_value = None
         event = APIGatewayProxyEvent(
             {
@@ -256,7 +259,9 @@ class TestOAuthTokenRefreshToken:
 
 
 class TestOAuthTokenAuthCodeEdgeCases:
-    def test_missing_code_returns_400(self, route, mock_oauth_code_manager):
+    def test_missing_code_returns_400(
+        self, route: OAuthTokenRoute, mock_oauth_code_manager: MagicMock
+    ) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "POST",
@@ -269,8 +274,11 @@ class TestOAuthTokenAuthCodeEdgeCases:
         assert response.status_code == 400
 
     def test_missing_code_verifier_when_challenge_present_returns_400(
-        self, route, mock_oauth_code_manager, mock_account_manager
-    ):
+        self,
+        route: OAuthTokenRoute,
+        mock_oauth_code_manager: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         mock_oauth_code_manager.consume_authorization_code.return_value = {
             "uid": "uid1",
             "clientId": "client1",
@@ -300,8 +308,11 @@ class TestOAuthTokenAuthCodeEdgeCases:
         assert response.status_code == 400
 
     def test_account_not_found_returns_400(
-        self, route, mock_oauth_code_manager, mock_account_manager
-    ):
+        self,
+        route: OAuthTokenRoute,
+        mock_oauth_code_manager: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         mock_oauth_code_manager.consume_authorization_code.return_value = {
             "uid": "uid1",
             "clientId": "client1",
@@ -331,8 +342,12 @@ class TestOAuthTokenAuthCodeEdgeCases:
 
 class TestOAuthTokenTTLCap:
     def test_ttl_capped_at_max(
-        self, route, mock_oauth_code_manager, mock_jwt_service, mock_account_manager
-    ):
+        self,
+        route: OAuthTokenRoute,
+        mock_oauth_code_manager: MagicMock,
+        mock_jwt_service: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         mock_oauth_code_manager.consume_authorization_code.return_value = {
             "uid": "uid1",
             "clientId": "client1",
@@ -365,14 +380,17 @@ class TestOAuthTokenTTLCap:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["expires_in"] == 3600  # MAX_TTL
 
 
 class TestOAuthTokenScopeValidation:
     def test_refresh_scope_exceeds_grant_returns_400(
-        self, route, mock_oauth_code_manager, mock_account_manager
-    ):
+        self,
+        route: OAuthTokenRoute,
+        mock_oauth_code_manager: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         mock_oauth_code_manager.consume_refresh_token.return_value = {
             "uid": "uid1",
             "clientId": "client1",
@@ -395,12 +413,16 @@ class TestOAuthTokenScopeValidation:
         )
         response = route.handle(event)
         assert response.status_code == 400
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["errno"] == 165
 
     def test_refresh_scope_subset_succeeds(
-        self, route, mock_oauth_code_manager, mock_jwt_service, mock_account_manager
-    ):
+        self,
+        route: OAuthTokenRoute,
+        mock_oauth_code_manager: MagicMock,
+        mock_jwt_service: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         mock_oauth_code_manager.consume_refresh_token.return_value = {
             "uid": "uid1",
             "clientId": "client1",
@@ -432,7 +454,7 @@ class TestOAuthTokenScopeValidation:
 
 
 class TestOAuthTokenRefreshEdgeCases:
-    def test_missing_refresh_token_returns_400(self, route):
+    def test_missing_refresh_token_returns_400(self, route: OAuthTokenRoute) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "POST",
@@ -445,8 +467,11 @@ class TestOAuthTokenRefreshEdgeCases:
         assert response.status_code == 400
 
     def test_account_not_found_on_refresh_returns_400(
-        self, route, mock_oauth_code_manager, mock_account_manager
-    ):
+        self,
+        route: OAuthTokenRoute,
+        mock_oauth_code_manager: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         mock_oauth_code_manager.consume_refresh_token.return_value = {
             "uid": "uid1",
             "clientId": "client1",
@@ -472,7 +497,7 @@ class TestOAuthTokenRefreshEdgeCases:
 
 
 class TestOAuthTokenErrors:
-    def test_invalid_json_body_returns_400(self, route):
+    def test_invalid_json_body_returns_400(self, route: OAuthTokenRoute) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "POST",
@@ -484,7 +509,7 @@ class TestOAuthTokenErrors:
         response = route.handle(event)
         assert response.status_code == 400
 
-    def test_missing_grant_type_returns_400(self, route):
+    def test_missing_grant_type_returns_400(self, route: OAuthTokenRoute) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "POST",
@@ -496,7 +521,7 @@ class TestOAuthTokenErrors:
         response = route.handle(event)
         assert response.status_code == 400
 
-    def test_invalid_grant_type_returns_400(self, route):
+    def test_invalid_grant_type_returns_400(self, route: OAuthTokenRoute) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "POST",
@@ -508,7 +533,7 @@ class TestOAuthTokenErrors:
         response = route.handle(event)
         assert response.status_code == 400
 
-    def test_missing_body_returns_400(self, route):
+    def test_missing_body_returns_400(self, route: OAuthTokenRoute) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "POST",
@@ -523,8 +548,12 @@ class TestOAuthTokenErrors:
 
 class TestOAuthTokenFxaCredentials:
     def test_success_returns_access_token(
-        self, route, mock_token_manager, mock_jwt_service, mock_account_manager
-    ):
+        self,
+        route: OAuthTokenRoute,
+        mock_token_manager: MagicMock,
+        mock_jwt_service: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         mock_token_manager.verify_session_hawk.return_value = "uid1"
         mock_jwt_service.sign_jwt.return_value = "fxa-cred-jwt"
         mock_account_manager.get_account_by_uid.return_value = {
@@ -548,13 +577,15 @@ class TestOAuthTokenFxaCredentials:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert body["access_token"] == "fxa-cred-jwt"
         assert body["token_type"] == "bearer"
         assert body["scope"] == "profile"
         assert "refresh_token" not in body
 
-    def test_missing_auth_returns_401(self, route, mock_token_manager):
+    def test_missing_auth_returns_401(
+        self, route: OAuthTokenRoute, mock_token_manager: MagicMock
+    ) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "POST",
@@ -572,7 +603,9 @@ class TestOAuthTokenFxaCredentials:
         response = route.handle(event)
         assert response.status_code == 401
 
-    def test_invalid_session_returns_401(self, route, mock_token_manager):
+    def test_invalid_session_returns_401(
+        self, route: OAuthTokenRoute, mock_token_manager: MagicMock
+    ) -> None:
         mock_token_manager.verify_session_hawk.return_value = None
         event = APIGatewayProxyEvent(
             {
@@ -592,8 +625,11 @@ class TestOAuthTokenFxaCredentials:
         assert response.status_code == 401
 
     def test_returns_400_when_token_manager_not_configured(
-        self, mock_oauth_code_manager, mock_jwt_service, mock_account_manager
-    ):
+        self,
+        mock_oauth_code_manager: MagicMock,
+        mock_jwt_service: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         route_no_tm = OAuthTokenRoute(
             oauth_code_manager=mock_oauth_code_manager,
             jwt_service=mock_jwt_service,
@@ -617,7 +653,12 @@ class TestOAuthTokenFxaCredentials:
         response = route_no_tm.handle(event)
         assert response.status_code == 400
 
-    def test_account_not_found_returns_400(self, route, mock_token_manager, mock_account_manager):
+    def test_account_not_found_returns_400(
+        self,
+        route: OAuthTokenRoute,
+        mock_token_manager: MagicMock,
+        mock_account_manager: MagicMock,
+    ) -> None:
         mock_token_manager.verify_session_hawk.return_value = "uid1"
         mock_account_manager.get_account_by_uid.return_value = None
         event = APIGatewayProxyEvent(
@@ -639,7 +680,7 @@ class TestOAuthTokenFxaCredentials:
 
 
 class TestOAuthTokenBind:
-    def test_bind_registers_post_route(self, route):
+    def test_bind_registers_post_route(self, route: OAuthTokenRoute) -> None:
         mock_api = MagicMock()
         mock_api.post = MagicMock(return_value=lambda f: f)
         route.bind(mock_api)

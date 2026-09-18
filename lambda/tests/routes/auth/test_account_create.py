@@ -8,25 +8,18 @@ from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.routes.auth.account_create import AccountCreateRoute
 from src.shared.oidc import OIDCTokenClaims
+from tests.conftest import json_body
 
 
 @pytest.fixture
-def mock_account_manager():
+def mock_oidc_validator() -> MagicMock:
     return MagicMock()
 
 
 @pytest.fixture
-def mock_token_manager():
-    return MagicMock()
-
-
-@pytest.fixture
-def mock_oidc_validator():
-    return MagicMock()
-
-
-@pytest.fixture
-def route(mock_account_manager, mock_token_manager, mock_oidc_validator):
+def route(
+    mock_account_manager: MagicMock, mock_token_manager: MagicMock, mock_oidc_validator: MagicMock
+) -> AccountCreateRoute:
     return AccountCreateRoute(
         account_manager=mock_account_manager,
         token_manager=mock_token_manager,
@@ -35,7 +28,7 @@ def route(mock_account_manager, mock_token_manager, mock_oidc_validator):
 
 
 @pytest.fixture
-def valid_claims():
+def valid_claims() -> OIDCTokenClaims:
     return OIDCTokenClaims(
         sub="oidc-sub-123",
         iss="https://auth.example.com",
@@ -48,8 +41,13 @@ def valid_claims():
 
 class TestAccountCreate:
     def test_success_returns_uid_and_tokens(
-        self, route, mock_account_manager, mock_token_manager, mock_oidc_validator, valid_claims
-    ):
+        self,
+        route: AccountCreateRoute,
+        mock_account_manager: MagicMock,
+        mock_token_manager: MagicMock,
+        mock_oidc_validator: MagicMock,
+        valid_claims: OIDCTokenClaims,
+    ) -> None:
         mock_oidc_validator.validate_token.return_value = valid_claims
         mock_token_manager.create_session_token.return_value = b"\xaa" * 32
         mock_token_manager.create_key_fetch_token.return_value = b"\xbb" * 32
@@ -64,13 +62,13 @@ class TestAccountCreate:
         )
         response = route.handle(event)
         assert response.status_code == 200
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "uid" in body
         assert body["sessionToken"] == "aa" * 32
         assert body["keyFetchToken"] == "bb" * 32
         assert body["verified"] is True
 
-    def test_missing_auth_header_returns_401(self, route):
+    def test_missing_auth_header_returns_401(self, route: AccountCreateRoute) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "POST",
@@ -82,7 +80,9 @@ class TestAccountCreate:
         response = route.handle(event)
         assert response.status_code == 401
 
-    def test_invalid_oidc_token_returns_401(self, route, mock_oidc_validator):
+    def test_invalid_oidc_token_returns_401(
+        self, route: AccountCreateRoute, mock_oidc_validator: MagicMock
+    ) -> None:
         mock_oidc_validator.validate_token.side_effect = Exception("Invalid token")
         event = APIGatewayProxyEvent(
             {
@@ -96,8 +96,12 @@ class TestAccountCreate:
         assert response.status_code == 401
 
     def test_duplicate_email_returns_409(
-        self, route, mock_account_manager, mock_oidc_validator, valid_claims
-    ):
+        self,
+        route: AccountCreateRoute,
+        mock_account_manager: MagicMock,
+        mock_oidc_validator: MagicMock,
+        valid_claims: OIDCTokenClaims,
+    ) -> None:
         mock_oidc_validator.validate_token.return_value = valid_claims
         mock_account_manager.create_account.side_effect = ValueError("Email already exists")
         event = APIGatewayProxyEvent(
@@ -111,7 +115,12 @@ class TestAccountCreate:
         response = route.handle(event)
         assert response.status_code == 409
 
-    def test_missing_email_returns_400(self, route, mock_oidc_validator, valid_claims):
+    def test_missing_email_returns_400(
+        self,
+        route: AccountCreateRoute,
+        mock_oidc_validator: MagicMock,
+        valid_claims: OIDCTokenClaims,
+    ) -> None:
         mock_oidc_validator.validate_token.return_value = valid_claims
         event = APIGatewayProxyEvent(
             {
@@ -124,7 +133,12 @@ class TestAccountCreate:
         response = route.handle(event)
         assert response.status_code == 400
 
-    def test_missing_authpw_returns_400(self, route, mock_oidc_validator, valid_claims):
+    def test_missing_authpw_returns_400(
+        self,
+        route: AccountCreateRoute,
+        mock_oidc_validator: MagicMock,
+        valid_claims: OIDCTokenClaims,
+    ) -> None:
         mock_oidc_validator.validate_token.return_value = valid_claims
         event = APIGatewayProxyEvent(
             {
@@ -137,7 +151,7 @@ class TestAccountCreate:
         response = route.handle(event)
         assert response.status_code == 400
 
-    def test_malformed_auth_header_returns_401(self, route):
+    def test_malformed_auth_header_returns_401(self, route: AccountCreateRoute) -> None:
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "POST",
@@ -149,7 +163,12 @@ class TestAccountCreate:
         response = route.handle(event)
         assert response.status_code == 401
 
-    def test_invalid_json_body_returns_400(self, route, mock_oidc_validator, valid_claims):
+    def test_invalid_json_body_returns_400(
+        self,
+        route: AccountCreateRoute,
+        mock_oidc_validator: MagicMock,
+        valid_claims: OIDCTokenClaims,
+    ) -> None:
         mock_oidc_validator.validate_token.return_value = valid_claims
         event = APIGatewayProxyEvent(
             {
@@ -162,7 +181,12 @@ class TestAccountCreate:
         response = route.handle(event)
         assert response.status_code == 400
 
-    def test_missing_body_returns_400(self, route, mock_oidc_validator, valid_claims):
+    def test_missing_body_returns_400(
+        self,
+        route: AccountCreateRoute,
+        mock_oidc_validator: MagicMock,
+        valid_claims: OIDCTokenClaims,
+    ) -> None:
         mock_oidc_validator.validate_token.return_value = valid_claims
         event = APIGatewayProxyEvent(
             {
@@ -176,8 +200,13 @@ class TestAccountCreate:
         assert response.status_code == 400
 
     def test_creates_account_with_correct_params(
-        self, route, mock_account_manager, mock_oidc_validator, mock_token_manager, valid_claims
-    ):
+        self,
+        route: AccountCreateRoute,
+        mock_account_manager: MagicMock,
+        mock_oidc_validator: MagicMock,
+        mock_token_manager: MagicMock,
+        valid_claims: OIDCTokenClaims,
+    ) -> None:
         mock_oidc_validator.validate_token.return_value = valid_claims
         mock_token_manager.create_session_token.return_value = b"\xaa" * 32
         mock_token_manager.create_key_fetch_token.return_value = b"\xbb" * 32
@@ -200,7 +229,12 @@ class TestAccountCreate:
         assert len(call_kwargs["wrap_kb"]) == 64
         assert len(call_kwargs["key_rotation_secret"]) == 64
 
-    def test_invalid_authpw_format_returns_400(self, route, mock_oidc_validator, valid_claims):
+    def test_invalid_authpw_format_returns_400(
+        self,
+        route: AccountCreateRoute,
+        mock_oidc_validator: MagicMock,
+        valid_claims: OIDCTokenClaims,
+    ) -> None:
         mock_oidc_validator.validate_token.return_value = valid_claims
         event = APIGatewayProxyEvent(
             {
@@ -212,10 +246,15 @@ class TestAccountCreate:
         )
         response = route.handle(event)
         assert response.status_code == 400
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "authPW" in body["message"]
 
-    def test_invalid_email_format_returns_400(self, route, mock_oidc_validator, valid_claims):
+    def test_invalid_email_format_returns_400(
+        self,
+        route: AccountCreateRoute,
+        mock_oidc_validator: MagicMock,
+        valid_claims: OIDCTokenClaims,
+    ) -> None:
         mock_oidc_validator.validate_token.return_value = valid_claims
         event = APIGatewayProxyEvent(
             {
@@ -227,12 +266,12 @@ class TestAccountCreate:
         )
         response = route.handle(event)
         assert response.status_code == 400
-        body = json.loads(response.body)
+        body = json_body(response)
         assert "email" in body["message"]
 
 
 class TestAccountCreateBind:
-    def test_bind_registers_post_route(self, route):
+    def test_bind_registers_post_route(self, route: AccountCreateRoute) -> None:
         mock_api = MagicMock()
         mock_api.post = MagicMock(return_value=lambda f: f)
         route.bind(mock_api)

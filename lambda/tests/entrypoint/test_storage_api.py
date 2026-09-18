@@ -1,8 +1,11 @@
 """Tests for lambda entrypoint"""
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+from botocore.stub import Stubber
 
 from src.entrypoint import storage_api_handler
+from src.environment.service_provider import ServiceProvider
 from src.services.hawk_service import HawkCredentials
 from src.services.token_generator import TokenGenerator
 
@@ -11,7 +14,11 @@ TEST_GENERATION = 0
 TEST_UID = str(TokenGenerator.generate_uid(TEST_USER_ID, TEST_GENERATION))
 
 
-def test_storage_api_happ_path(mock_service_provider, dynamodb_stubber, sample_lambda_context):
+def test_storage_api_happ_path(
+    mock_service_provider: ServiceProvider,
+    dynamodb_stubber: Stubber,
+    sample_lambda_context: Mock,
+) -> None:
     """
     Integration test: storage_api with MockServiceProvider and stubbed DynamoDB.
 
