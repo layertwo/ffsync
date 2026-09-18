@@ -56,14 +56,24 @@ class DeviceManager:
         return device
 
     def get_devices(self, uid: str, filter_idle_timestamp: Optional[int] = None) -> list[dict]:
-        """List all devices for a user."""
-        response = self.table.scan(
-            FilterExpression=Attr("PK").begins_with(f"{DEVICE_PREFIX}#{uid}#")
-        )
+        """List all devices for a user.
+
+        Scans because the auth table has no GSI. DynamoDB caps each page at 1 MB *scanned*
+        (before FilterExpression is applied), so a page can come back empty while more devices
+        remain — hence the paginator rather than a single scan.
+        """
         devices = []
-        for item in cast(list[dict[str, Any]], response.get("Items", [])):
-            item.pop("PK", None)
-            if filter_idle_timestamp and item.get("lastAccessTime", 0) < filter_idle_timestamp:
-                continue
-            devices.append(item)
+        paginator = self.table.meta.client.get_paginator("scan")
+        for page in paginator.paginate(
+            TableName=self.table.name,
+            # types-boto3 types FilterExpression as str, but the resource client
+            # serialises a ConditionBase here exactly as table.scan does.
+            FilterExpression=cast(Any, Attr("PK").begins_with(f"{DEVICE_PREFIX}#{uid}#")),
+        ):
+            for item in cast(list[dict[str, Any]], page.get("Items", [])):
+                item.pop("PK", None)
+                if filter_idle_timestamp and item.get("lastAccessTime", 0) < filter_idle_timestamp:
+                    continue
+                devices.append(item)
+
         return devices
