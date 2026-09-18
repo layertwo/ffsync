@@ -24,7 +24,7 @@ structure BasicStorageObject {
     @required
     payload: String
 
-    @documentation("Last modified timestamp (milliseconds since epoch)")
+    @documentation("Last modified timestamp (seconds since epoch, 2 decimal places)")
     @required
     modified: Timestamp
 
