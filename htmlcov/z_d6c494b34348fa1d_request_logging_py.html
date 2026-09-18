@@ -67,7 +67,7 @@
             <a id="nextFileLink" class="nav" href="z_d6c494b34348fa1d_weave_timestamp_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.15.4">coverage.py v7.15.4</a>,
-            created at 2026-09-04 22:28 +0000
+            created at 2026-09-18 05:57 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -103,7 +103,7 @@
     <p class="run"><span class="n"><a id="t19" href="#t19">19</a></span><span class="t">        <span class="nam">method</span> <span class="op">=</span> <span class="nam">event</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">&quot;httpMethod&quot;</span><span class="op">,</span> <span class="str">&quot;UNKNOWN&quot;</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t20" href="#t20">20</a></span><span class="t">        <span class="nam">path</span> <span class="op">=</span> <span class="nam">event</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">&quot;path&quot;</span><span class="op">,</span> <span class="str">&quot;UNKNOWN&quot;</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t21" href="#t21">21</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t22" href="#t22">22</a></span><span class="t">        <span class="nam">user_id</span> <span class="op">=</span> <span class="nam">event</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">&quot;requestContext&quot;</span><span class="op">,</span> <span class="op">{</span><span class="op">}</span><span class="op">)</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">&quot;hawk_uid&quot;</span><span class="op">,</span> <span class="str">&quot;anonymous&quot;</span><span class="op">)</span>  <span class="com"># type: ignore</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t22" href="#t22">22</a></span><span class="t">        <span class="nam">user_id</span> <span class="op">=</span> <span class="op">(</span><span class="nam">event</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">&quot;requestContext&quot;</span><span class="op">)</span> <span class="key">or</span> <span class="op">{</span><span class="op">}</span><span class="op">)</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">&quot;hawk_uid&quot;</span><span class="op">,</span> <span class="str">&quot;anonymous&quot;</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t23" href="#t23">23</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t24" href="#t24">24</a></span><span class="t">        <span class="nam">logger</span><span class="op">.</span><span class="nam">info</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t25" href="#t25">25</a></span><span class="t">            <span class="str">&quot;Request received&quot;</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
@@ -152,7 +152,7 @@
             <a class="nav" href="z_d6c494b34348fa1d_weave_timestamp_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.15.4">coverage.py v7.15.4</a>,
-            created at 2026-09-04 22:28 +0000
+            created at 2026-09-18 05:57 +0000
         </p>
     </div>
 </footer>
