@@ -58,14 +58,26 @@ class DeviceManager:
         return device
 
     def get_devices(self, uid: str, filter_idle_timestamp: Optional[int] = None) -> list[dict]:
-        """List all devices for a user."""
-        response = self.table.scan(
-            FilterExpression=Attr("PK").begins_with(f"{DEVICE_PREFIX}#{uid}#")
-        )
+        """List all devices for a user.
+
+        Scans because the auth table has no GSI. DynamoDB caps each page at 1 MB *scanned*
+        (before FilterExpression is applied), so a page can come back empty while more devices
+        remain — pagination must follow LastEvaluatedKey rather than stop on an empty page.
+        """
         devices = []
-        for item in cast(list[dict[str, Any]], response.get("Items", [])):
-            item.pop("PK", None)
-            if filter_idle_timestamp and item.get("lastAccessTime", 0) < filter_idle_timestamp:
-                continue
-            devices.append(item)
-        return devices
+        scan_kwargs: dict[str, Any] = {
+            "FilterExpression": Attr("PK").begins_with(f"{DEVICE_PREFIX}#{uid}#")
+        }
+
+        while True:
+            response = self.table.scan(**scan_kwargs)
+            for item in cast(list[dict[str, Any]], response.get("Items", [])):
+                item.pop("PK", None)
+                if filter_idle_timestamp and item.get("lastAccessTime", 0) < filter_idle_timestamp:
+                    continue
+                devices.append(item)
+
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                return devices
+            scan_kwargs["ExclusiveStartKey"] = last_key

@@ -211,6 +211,66 @@ class TestDeviceManager:
         assert "PK" not in devices[1]
         dynamodb_stubber.assert_no_pending_responses()
 
+    def test_get_devices_follows_pagination(
+        self,
+        manager: DeviceManager,
+        dynamodb_stubber: Stubber,
+        storage_table_name: str,
+        sample_uid: str,
+    ) -> None:
+        """get_devices follows LastEvaluatedKey, including across a page that filtered to empty
+
+        DynamoDB caps a scan page at 1 MB *scanned*, before FilterExpression runs, so an empty
+        page does not mean the end of results. Page 2 here is empty on purpose.
+        """
+        device_id_1 = "device-1-00000000000000000000"
+        device_id_2 = "device-2-00000000000000000000"
+        page_1_key = {"PK": {"S": f"DEVICE#{sample_uid}#{device_id_1}"}}
+        page_2_key = {"PK": {"S": "SESSION#unrelated"}}
+
+        dynamodb_stubber.add_response(
+            "scan",
+            {
+                "Items": [
+                    {
+                        "PK": {"S": f"DEVICE#{sample_uid}#{device_id_1}"},
+                        "id": {"S": device_id_1},
+                        "name": {"S": "Phone"},
+                    }
+                ],
+                "LastEvaluatedKey": page_1_key,
+            },
+            {"TableName": storage_table_name, "FilterExpression": ANY},
+        )
+        # Page scanned 1 MB of non-device items: no Items, but more results remain
+        dynamodb_stubber.add_response(
+            "scan",
+            {"Items": [], "LastEvaluatedKey": page_2_key},
+            {
+                "TableName": storage_table_name,
+                "FilterExpression": ANY,
+                "ExclusiveStartKey": {"PK": f"DEVICE#{sample_uid}#{device_id_1}"},
+            },
+        )
+        dynamodb_stubber.add_response(
+            "scan",
+            {
+                "Items": [
+                    {"PK": {"S": f"DEVICE#{sample_uid}#{device_id_2}"}, "id": {"S": device_id_2}}
+                ]
+            },
+            {
+                "TableName": storage_table_name,
+                "FilterExpression": ANY,
+                "ExclusiveStartKey": {"PK": "SESSION#unrelated"},
+            },
+        )
+
+        devices = manager.get_devices(uid=sample_uid)
+
+        assert [d["id"] for d in devices] == [device_id_1, device_id_2]
+        dynamodb_stubber.assert_no_pending_responses()
+
     def test_get_devices_filters_idle(
         self,
         manager: DeviceManager,
