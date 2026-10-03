@@ -26,7 +26,7 @@ dev = [
     "types-boto3[apigatewaymanagementapi,dynamodb,kms]==1.43.101",
     "hypothesis>=6.0.0",
     "types-requests==v2.33.0.20260906",
-    "datamodel-code-generator==0.82.0",
+    "datamodel-code-generator==0.83.0",
 ]
 
 [tool.pytest.ini_options]
