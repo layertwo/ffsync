@@ -22,7 +22,7 @@ dev = [
     "isort==8.0.1",
     "flake8==7.4.1",
     "Flake8-pyproject==1.2.4",
-    "mypy==2.3.1",
+    "mypy==2.4.0",
     "types-boto3[apigatewaymanagementapi,dynamodb,kms]==1.43.108",
     "hypothesis>=6.0.0",
     "types-requests==v2.33.0.20260906",
