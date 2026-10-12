@@ -25,6 +25,7 @@ from src.routes.auth.session_destroy import SessionDestroyRoute
 from src.routes.auth.session_status import SessionStatusRoute
 from src.services.api_router import ApiRouter
 from src.shared.base_route import BaseRoute
+from src.shared.models import JWKEntry
 
 
 def _make_event(
@@ -168,7 +169,9 @@ class TestRouteDispatch:
 
     def test_jwks_dispatches(self) -> None:
         jwt_svc = MagicMock()
-        jwt_svc.get_public_key_jwk.return_value = {"kty": "RSA", "kid": "test"}
+        jwt_svc.get_public_key_jwk.return_value = JWKEntry(
+            kty="RSA", kid="test", use="sig", alg="RS256", n="n", e="e"
+        )
         route = JWKSRoute(jwt_service=jwt_svc)
         result = _router(route).handler(_make_event("GET", "/v1/jwks"), _make_context())
         assert result["statusCode"] == 200

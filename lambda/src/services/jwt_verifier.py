@@ -85,8 +85,8 @@ class JWTVerifier:
     def _public_key(self) -> RSAPublicKey:
         """Construct and cache the RSA public key from JWK."""
         jwk = self._jwt_service.get_public_key_jwk()
-        n_bytes = b64url_decode(jwk["n"])
-        e_bytes = b64url_decode(jwk["e"])
+        n_bytes = b64url_decode(jwk.n)
+        e_bytes = b64url_decode(jwk.e)
         n = int.from_bytes(n_bytes, byteorder="big")
         e = int.from_bytes(e_bytes, byteorder="big")
         return RSAPublicNumbers(e, n).public_key()

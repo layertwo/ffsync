@@ -9,6 +9,7 @@ from typing import Any, Optional
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from cryptography.hazmat.primitives.serialization import load_der_public_key
 
+from src.shared.models import JWKEntry
 from src.shared.utils import b64url_encode
 
 
@@ -25,7 +26,7 @@ class JWTService:
         return self._issuer
 
     def _get_kid(self) -> str:
-        return str(self._jwk["kid"])
+        return self._jwk.kid
 
     def sign_jwt(
         self,
@@ -78,17 +79,17 @@ class JWTService:
         signature_b64 = b64url_encode(response["Signature"])
         return f"{header_b64}.{payload_b64}.{signature_b64}"
 
-    def get_public_key_jwk(self) -> dict:
+    def get_public_key_jwk(self) -> JWKEntry:
         """Get the public key in JWK format.
 
         Returns:
-            JWK dict with kty, n, e, alg, use, kid fields.
+            JWK entry with kty, kid, use, alg, n and e fields.
         """
         return self._jwk
 
     @cached_property
-    def _jwk(self) -> dict:
-        """Fetch the KMS public key as a JWK, once per instance."""
+    def _jwk(self) -> JWKEntry:
+        """Fetch the KMS public key as a JWK entry, once per instance."""
         response = self._kms.get_public_key(KeyId=self._signing_key_id)
         public_key_der = response["PublicKey"]
 
@@ -104,11 +105,11 @@ class JWTService:
         # Generate kid from the key fingerprint
         kid = hashlib.sha256(public_key_der).hexdigest()[:16]
 
-        return {
-            "kty": "RSA",
-            "use": "sig",
-            "alg": "RS256",
-            "kid": kid,
-            "n": b64url_encode(n_bytes),
-            "e": b64url_encode(e_bytes),
-        }
+        return JWKEntry(
+            kty="RSA",
+            kid=kid,
+            use="sig",
+            alg="RS256",
+            n=b64url_encode(n_bytes),
+            e=b64url_encode(e_bytes),
+        )
