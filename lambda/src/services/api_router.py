@@ -1,5 +1,5 @@
 import json
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, CORSConfig, Response
 from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler
@@ -9,7 +9,19 @@ from aws_lambda_powertools.event_handler.openapi.exceptions import (
 )
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
+from src.middlewares.weave_timestamp import apply_weave_headers
 from src.shared.base_route import BaseRoute
+
+
+def _with_weave_headers(
+    handler: Callable[[Exception], Response[Any]],
+) -> Callable[[Exception], Response[Any]]:
+    """Exception-handler responses never pass through the middleware chain."""
+
+    def wrapped(ex: Exception) -> Response[Any]:
+        return apply_weave_headers(handler(ex))
+
+    return wrapped
 
 
 class ApiRouter:
@@ -31,22 +43,26 @@ class ApiRouter:
 
     def _register_exception_handlers(self, handlers: dict) -> None:
         for exc_type, handler_fn in handlers.items():
-            self.app.exception_handler(exc_type)(handler_fn)
+            self.app.exception_handler(exc_type)(_with_weave_headers(handler_fn))
 
         @self.app.exception_handler(RequestValidationError)
         def _handle_request_validation(ex: RequestValidationError) -> Response:  # pragma: nocover
-            return Response(
-                status_code=422,
-                content_type="application/json",
-                body=json.dumps({"error": "Validation error", "details": ex.errors()}),
+            return apply_weave_headers(
+                Response(
+                    status_code=422,
+                    content_type="application/json",
+                    body=json.dumps({"error": "Validation error", "details": ex.errors()}),
+                )
             )
 
         @self.app.exception_handler(ResponseValidationError)
         def _handle_response_validation(ex: ResponseValidationError) -> Response:  # pragma: nocover
-            return Response(
-                status_code=500,
-                content_type="application/json",
-                body=json.dumps({"error": "Internal server error"}),
+            return apply_weave_headers(
+                Response(
+                    status_code=500,
+                    content_type="application/json",
+                    body=json.dumps({"error": "Internal server error"}),
+                )
             )
 
     def _register_middleware(self) -> None:

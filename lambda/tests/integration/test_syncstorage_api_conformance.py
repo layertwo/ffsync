@@ -253,28 +253,30 @@ class TestResponseHeaders:
         assert response["statusCode"] == 200
         assert _header(response, "X-Last-Modified") == "1234567890.12"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Spec: 'X-Last-Modified ... Included in all success responses (200, 201, 204)'. "
-            "The /info endpoints return 200 without it."
-        ),
-    )
     def test_info_endpoints_carry_x_last_modified(
         self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
     ) -> None:
         response = call(mock_service_provider, sample_lambda_context, "GET", "/info/configuration")
 
-        assert _header(response, "X-Last-Modified") is not None
+        # Static limits, so Mozilla pins this one endpoint to 0.00 (its
+        # get_configuration sets it explicitly rather than via a transaction).
+        assert _header(response, "X-Last-Modified") == "0.00"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Spec: 'X-Weave-Timestamp ... Returned with all responses'. Responses produced by "
-            "the router's exception handlers skip WeaveTimestampMiddleware, so raised 401/403/"
-            "422/500 have no header."
-        ),
-    )
+    def test_other_info_endpoints_report_the_server_clock(
+        self,
+        mock_service_provider: ServiceProvider,
+        sample_lambda_context: Mock,
+        dynamodb_stubber: Stubber,
+    ) -> None:
+        dynamodb_stubber.add_response("query", {"Items": [collection_item("bookmarks")]}, None)
+
+        response = call(mock_service_provider, sample_lambda_context, "GET", "/info/quota")
+
+        assert response["statusCode"] == 200
+        last_modified = _header(response, "X-Last-Modified")
+        assert last_modified is not None
+        assert float(last_modified) > 0
+
     def test_error_responses_carry_x_weave_timestamp(
         self, mock_service_provider: ServiceProvider, sample_lambda_context: Mock
     ) -> None:

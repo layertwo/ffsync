@@ -62,4 +62,7 @@ class ReadConfigurationRoute(BaseRoute):
             status_code=200,
             content_type="application/json",
             body=result.model_dump_json(exclude_none=True),
+            # Static limits, so there is no resource timestamp: Mozilla's
+            # get_configuration pins X-Last-Modified to 0.00 for the same reason.
+            headers={"X-Last-Modified": "0.00"},
         )

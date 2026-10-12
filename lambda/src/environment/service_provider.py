@@ -12,7 +12,7 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from src.middlewares.hawk_auth import HawkAuthenticationError, HawkAuthMiddleware, UidMismatchError
 from src.middlewares.request_logging import RequestLoggingMiddleware
-from src.middlewares.weave_timestamp import WeaveTimestampMiddleware
+from src.middlewares.weave_timestamp import WeaveTimestampMiddleware, apply_weave_headers
 from src.routes.auth.account_attached_clients import AccountAttachedClientsRoute
 from src.routes.auth.account_create import AccountCreateRoute
 from src.routes.auth.account_device import AccountDeviceRoute
@@ -149,26 +149,38 @@ class ServiceProvider:
 
     @cached_property
     def _storage_exception_handlers(self) -> dict:
+        def with_storage_headers(response: Response) -> Response:
+            # Error responses never pass through the router's middleware, and the storage
+            # API reports X-Last-Modified on every response -- Mozilla's transaction
+            # wrapper does the same for everything it produces.
+            return apply_weave_headers(response, ensure_last_modified=True)
+
         def handle_hawk_auth(ex: Exception) -> Response:
-            return Response(
-                status_code=401,
-                content_type="application/json",
-                body='{"error": "Unauthorized"}',
+            return with_storage_headers(
+                Response(
+                    status_code=401,
+                    content_type="application/json",
+                    body='{"error": "Unauthorized"}',
+                )
             )
 
         def handle_uid_mismatch(ex: Exception) -> Response:
-            return Response(
-                status_code=403,
-                content_type="application/json",
-                body='{"error": "uid mismatch"}',
+            return with_storage_headers(
+                Response(
+                    status_code=403,
+                    content_type="application/json",
+                    body='{"error": "uid mismatch"}',
+                )
             )
 
         def handle_unexpected(ex: Exception) -> Response:
             logger.error(f"Internal server error: {ex}")
-            return Response(
-                status_code=500,
-                content_type="application/json",
-                body=json.dumps({"error": "Internal server error"}),
+            return with_storage_headers(
+                Response(
+                    status_code=500,
+                    content_type="application/json",
+                    body=json.dumps({"error": "Internal server error"}),
+                )
             )
 
         return {
