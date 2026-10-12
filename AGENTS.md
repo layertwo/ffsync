@@ -264,6 +264,7 @@ cd lambda && SMITHY_BUILD_DIR="$(git rev-parse --show-toplevel)/build/smithy" ./
 - **Auth**: JWT Bearer → HAWK credentials (300 s)
 - **Headers**: `X-Last-Modified`, `X-If-Unmodified-Since` for optimistic concurrency
 - **Error codes**: 400 (validation), 401 (auth), 403 (uid mismatch), 409 (conflict), 412 (precondition), 413 (too large), 507 (quota)
+- **FxA errnos**: the Auth API's `{code, errno, message}` values are pinned against mozilla/fxa's registry (`libs/accounts/errors/src/constants.ts`) by `lambda/tests/integration/test_fxa_auth_api_conformance.py`. Missing parameter is **108** and unparseable JSON is **106** — both used to be 107, and a duplicate account is **400**/101, not 409. The OAuth routes report 167/172/174/175/182/169; don't reintroduce a bare 107 for a missing field.
 
 ## Key Dependencies
 

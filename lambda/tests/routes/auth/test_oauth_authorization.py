@@ -180,7 +180,7 @@ class TestOAuthAuthorizationRedirectUri:
         response = route.handle(event)
         assert response.status_code == 400
         body = json_body(response)
-        assert body["errno"] == 107
+        assert body["errno"] == 167
         assert "redirect_uri" in body["message"]
 
     def test_default_redirect_uri_when_not_provided(

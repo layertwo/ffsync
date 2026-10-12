@@ -23,7 +23,9 @@ only: Firefox reads every field with ``unwrap_or`` in
 ``components/fxa-client/src/internal/http_client.rs``. It is not pinned here.
 
 Deviations are pinned with ``xfail(strict=True)`` so that fixing one flips a
-single marker instead of requiring a new test.
+single marker instead of requiring a new test. The errno set below is now
+implemented; the only remaining pin is PKCE enforcement, which is blocked on an
+OAuth client registry (public and confidential clients need opposite answers).
 """
 
 import json
@@ -42,11 +44,13 @@ from src.routes.auth.account_keys import AccountKeysRoute
 from src.routes.auth.account_login import AccountLoginRoute
 from src.routes.auth.account_status import AccountStatusRoute
 from src.routes.auth.oauth_authorization import OAuthAuthorizationRoute
+from src.routes.auth.oauth_destroy import OAuthDestroyRoute
 from src.routes.auth.oauth_token import OAuthTokenRoute
 from src.routes.auth.scoped_key_data import ScopedKeyDataRoute
 from src.routes.auth.session_destroy import SessionDestroyRoute
 from src.routes.auth.session_status import SessionStatusRoute
 from src.services.fxa_crypto import derive_verify_hash
+from src.services.oauth_code_manager import ExpiredAuthorizationCode
 from src.shared.oidc import OIDCTokenClaims
 from tests.conftest import json_body
 
@@ -198,36 +202,18 @@ class TestAccountLogin:
         assert response.status_code == 400
         assert json_body(response)["errno"] == 107
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "FxA returns errno 106 (INVALID_JSON) for a body it cannot parse; we return 107 "
-            "(INVALID_PARAMETER). Same fix as the other 107 sites."
-        ),
-    )
     def test_invalid_json_is_400_106(self, login: AccountLoginRoute) -> None:
         response = _call(login, "POST", "/v1/account/login", body="{not json")
 
         assert response.status_code == 400
         assert json_body(response)["errno"] == 106
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "FxA's AppError.translate maps a validation failure containing 'is required' to errno "
-            "108 (MISSING_PARAMETER); we return 107 for every missing field."
-        ),
-    )
     def test_missing_email_is_400_108(self, login: AccountLoginRoute) -> None:
         response = _call(login, "POST", "/v1/account/login", body={"authPW": AUTH_PW})
 
         assert response.status_code == 400
         assert json_body(response)["errno"] == 108
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="As above: a missing authPW is errno 108 (MISSING_PARAMETER), not 107.",
-    )
     def test_missing_auth_pw_is_400_108(self, login: AccountLoginRoute) -> None:
         response = _call(login, "POST", "/v1/account/login", body={"email": EMAIL})
 
@@ -263,13 +249,6 @@ class TestAccountStatus:
         assert response.status_code == 200
         assert json_body(response)["exists"] is False
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "FxA documents GET /account/status as answering errno 108 when a required parameter "
-            "is missing; we answer 107. Same fix as the 107 sites."
-        ),
-    )
     def test_missing_email_is_400_108(self, status: tuple[AccountStatusRoute, MagicMock]) -> None:
         route, _ = status
 
@@ -326,13 +305,6 @@ class TestAccountCreate:
         assert response.status_code == 401
         assert json_body(response)["errno"] == 110
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "FxA returns 400 with errno 101 for a duplicate account (app-error.ts "
-            "AppError.accountExists sets code: 400); we return 409."
-        ),
-    )
     def test_duplicate_account_is_400_101(self) -> None:
         route, accounts, _ = _create_route()
         accounts.create_account.side_effect = ValueError("Account already exists")
@@ -406,6 +378,21 @@ class TestScopedKeyData:
         # presence and type are part of the contract.
         assert isinstance(body[scope]["keyRotationTimestamp"], int)
 
+    def test_missing_scope_is_400_108(self) -> None:
+        """client_id and scope are both required; FxA answers 108 for either."""
+        route = ScopedKeyDataRoute(account_manager=MagicMock())
+
+        response = _call(
+            route,
+            "POST",
+            "/v1/account/scoped-key-data",
+            body={"client_id": "client-id"},
+            request_context=dict(SESSION_CONTEXT),
+        )
+
+        assert response.status_code == 400
+        assert json_body(response)["errno"] == 108
+
 
 @pytest.fixture
 def authorization() -> OAuthAuthorizationRoute:
@@ -431,13 +418,6 @@ class TestOAuthAuthorization:
             "redirect": "urn:ietf:wg:oauth:2.0:oob",
         }
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "FxA answers errno 167 (INCORRECT_REDIRECT_URI) for a redirect_uri the client did not "
-            "register; we answer 107."
-        ),
-    )
     def test_unknown_redirect_uri_is_400_167(self, authorization: OAuthAuthorizationRoute) -> None:
         response = _call(
             authorization,
@@ -455,10 +435,6 @@ class TestOAuthAuthorization:
         assert response.status_code == 400
         assert json_body(response)["errno"] == 167
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="A missing client_id is errno 108 (MISSING_PARAMETER), not 107.",
-    )
     def test_missing_client_id_is_400_108(self, authorization: OAuthAuthorizationRoute) -> None:
         response = _call(
             authorization,
@@ -577,13 +553,6 @@ class TestOAuthToken:
         assert response.status_code == 200
         assert json_body(response)["refresh_token"] == "rotated-refresh-token"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "FxA distinguishes an unknown authorization code (errno 172) from an expired one "
-            "(errno 174); consume_authorization_code collapses both to None and we answer 110."
-        ),
-    )
     def test_unknown_authorization_code_is_400_172(self) -> None:
         route, codes, _ = _token_route()
         codes.consume_authorization_code.return_value = None
@@ -598,13 +567,20 @@ class TestOAuthToken:
         assert response.status_code == 400
         assert json_body(response)["errno"] == 172
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "FxA answers errno 175 (INVALID_PKCE_CHALLENGE) when the code_verifier does not match; "
-            "we answer 110."
-        ),
-    )
+    def test_expired_authorization_code_is_400_174(self) -> None:
+        route, codes, _ = _token_route()
+        codes.consume_authorization_code.side_effect = ExpiredAuthorizationCode("auth-code")
+
+        response = _call(
+            route,
+            "POST",
+            "/v1/oauth/token",
+            body={"grant_type": "authorization_code", "code": "stale-code"},
+        )
+
+        assert response.status_code == 400
+        assert json_body(response)["errno"] == 174
+
     def test_bad_code_verifier_is_400_175(self) -> None:
         route, codes, _ = _token_route()
         codes.consume_authorization_code.return_value = {
@@ -630,13 +606,28 @@ class TestOAuthToken:
         assert response.status_code == 400
         assert json_body(response)["errno"] == 175
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "FxA answers errno 182 (REFRESH_TOKEN_UNKNOWN) for a refresh token it does not know; "
-            "we answer 110."
-        ),
-    )
+    def test_missing_code_verifier_for_a_pkce_code_is_400_169(self) -> None:
+        """FxA answers 169 (MISSING_PKCE_PARAMETERS), not 108, for this case."""
+        route, codes, _ = _token_route()
+        codes.consume_authorization_code.return_value = {
+            "uid": UID,
+            "scope": "profile",
+            "clientId": "client-id",
+            "codeChallenge": "A" * 43,
+            "codeChallengeMethod": "S256",
+            "keysJwe": "",
+        }
+
+        response = _call(
+            route,
+            "POST",
+            "/v1/oauth/token",
+            body={"grant_type": "authorization_code", "code": "auth-code"},
+        )
+
+        assert response.status_code == 400
+        assert json_body(response)["errno"] == 169
+
     def test_unknown_refresh_token_is_400_182(self) -> None:
         route, codes, _ = _token_route()
         codes.consume_refresh_token.return_value = None
@@ -651,13 +642,6 @@ class TestOAuthToken:
         assert response.status_code == 400
         assert json_body(response)["errno"] == 182
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "FxA answers errno 163 (INVALID_SCOPES, 'Requested scopes are not allowed'); we answer "
-            "165, which in FxA's table means REDIS_CONFLICT."
-        ),
-    )
     def test_scope_escalation_is_400_163(self) -> None:
         route, codes, _ = _token_route()
         codes.consume_refresh_token.return_value = {
@@ -736,3 +720,30 @@ class TestDeviceLists:
 
         assert response.status_code == 200
         assert isinstance(json_body(response), list)
+
+
+class TestOAuthDestroy:
+    def test_unknown_token_still_returns_200(self) -> None:
+        """RFC 7009: revocation is idempotent and does not reveal existence."""
+        route = OAuthDestroyRoute(oauth_code_manager=MagicMock())
+
+        response = _call(route, "POST", "/v1/oauth/destroy", body={"token": "no-such-token"})
+
+        assert response.status_code == 200
+        assert json_body(response) == {}
+
+    def test_invalid_json_is_400_106(self) -> None:
+        route = OAuthDestroyRoute(oauth_code_manager=MagicMock())
+
+        response = _call(route, "POST", "/v1/oauth/destroy", body="{not json")
+
+        assert response.status_code == 400
+        assert json_body(response)["errno"] == 106
+
+    def test_missing_token_is_400_108(self) -> None:
+        route = OAuthDestroyRoute(oauth_code_manager=MagicMock())
+
+        response = _call(route, "POST", "/v1/oauth/destroy", body={"client_id": "client-id"})
+
+        assert response.status_code == 400
+        assert json_body(response)["errno"] == 108

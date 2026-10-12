@@ -25,28 +25,16 @@ class OAuthDestroyRoute(BaseRoute):
     def handle(self, event: APIGatewayProxyEvent) -> Response:
         body_str = event.body
         if not body_str:
-            return Response(
-                status_code=400,
-                content_type="application/json",
-                body=json.dumps({"code": 400, "errno": 107, "message": "Missing request body"}),
-            )
+            return self._error(400, 108, "Missing request body")
 
         try:
             body = json.loads(body_str)
         except json.JSONDecodeError, TypeError:
-            return Response(
-                status_code=400,
-                content_type="application/json",
-                body=json.dumps({"code": 400, "errno": 107, "message": "Invalid JSON body"}),
-            )
+            return self._error(400, 106, "Invalid JSON body")
 
         token = body.get("token")
         if not token:
-            return Response(
-                status_code=400,
-                content_type="application/json",
-                body=json.dumps({"code": 400, "errno": 107, "message": "Missing token"}),
-            )
+            return self._error(400, 108, "Missing token")
 
         # Hash the token and delete from DynamoDB (if it exists)
         token_hash = hashlib.sha256(token.encode("ascii")).hexdigest()

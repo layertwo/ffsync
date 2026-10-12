@@ -41,27 +41,27 @@ class OAuthAuthorizationRoute(BaseRoute):
         # Parse body
         body_str = event.body
         if not body_str:
-            return self._error(400, 107, "Missing request body")
+            return self._error(400, 108, "Missing request body")
 
         try:
             body = json.loads(body_str)
         except json.JSONDecodeError, TypeError:
-            return self._error(400, 107, "Invalid JSON body")
+            return self._error(400, 106, "Invalid JSON body")
 
         client_id = body.get("client_id")
         scope = body.get("scope")
         state = body.get("state")
 
         if not client_id:
-            return self._error(400, 107, "Missing client_id")
+            return self._error(400, 108, "Missing client_id")
         if not scope:
-            return self._error(400, 107, "Missing scope")
+            return self._error(400, 108, "Missing scope")
         if not state:
-            return self._error(400, 107, "Missing state")
+            return self._error(400, 108, "Missing state")
 
         redirect_uri = body.get("redirect_uri", DEFAULT_REDIRECT_URI)
         if redirect_uri not in ALLOWED_REDIRECT_URIS:
-            return self._error(400, 107, "Invalid redirect_uri")
+            return self._error(400, 167, "Invalid redirect_uri")
 
         code_challenge = body.get("code_challenge", "")
         code_challenge_method = body.get("code_challenge_method", "S256")
