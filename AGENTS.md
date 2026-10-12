@@ -265,6 +265,8 @@ cd lambda && SMITHY_BUILD_DIR="$(git rev-parse --show-toplevel)/build/smithy" ./
 - **Headers**: `X-Last-Modified`, `X-If-Unmodified-Since` for optimistic concurrency
 - **Error codes**: 400 (validation), 401 (auth), 403 (uid mismatch), 409 (conflict), 412 (precondition), 413 (too large), 507 (quota)
 - **FxA errnos**: the Auth API's `{code, errno, message}` values are pinned against mozilla/fxa's registry (`libs/accounts/errors/src/constants.ts`) by `lambda/tests/integration/test_fxa_auth_api_conformance.py`. Missing parameter is **108** and unparseable JSON is **106** — both used to be 107, and a duplicate account is **400**/101, not 409. The OAuth routes report 167/172/174/175/182/169; don't reintroduce a bare 107 for a missing field.
+- **BSO ids are printable ASCII, not `[a-zA-Z0-9._-]`**: the spec says "BSO ids *must* only contain printable ASCII characters" and calls the 12-character base64-urlsafe form a *should* that "isn't enforced by the server". Mozilla's `BSO_ID_REGEX` is `[ -~]{1,64}`. `CollectionName` is the strict one (`[a-zA-Z0-9._-]{1,32}`). A stricter id pattern silently rejects real client ids — including base64 of a GUID, which legacy Sync 1.1 prefs clients send. Pinned by `test_syncstorage_api_conformance.py::TestBsoIdRule`.
+- **Batch writes return 200**: `POST /1.5/<uid>/storage/<collection>` answers **200** for both creates and updates. It used to answer 201 Created, which Mozilla does not and which is wrong for the update case; the generated OpenAPI had said 200 all along.
 
 ## Key Dependencies
 
