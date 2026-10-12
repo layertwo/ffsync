@@ -1,10 +1,4 @@
-"""Unit tests for the weave response headers.
-
-The storage API's two header rules come from Mozilla's two wrappers: a
-transaction wrapper ensures X-Last-Modified unless the handler set one, and the
-weave middleware then reports X-Weave-Timestamp as the later of that and the
-clock.
-"""
+"""Unit tests for the weave response headers."""
 
 from typing import Any, Optional
 

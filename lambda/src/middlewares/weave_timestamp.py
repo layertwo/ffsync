@@ -1,15 +1,6 @@
-"""Weave response headers.
+"""Weave response headers: X-Last-Modified (storage only) and X-Weave-Timestamp.
 
-The storage API sets two, and Mozilla's server does the same in two wrappers:
-
-- ``transaction.rs`` ensures ``X-Last-Modified`` (from the resource timestamp)
-  unless the handler already set one.
-- ``middleware/weave.rs`` then sets ``X-Weave-Timestamp`` to the later of that
-  and the server's clock, so the weave timestamp is never behind the resource's
-  modification time. The spec wants it "returned with all responses".
-
-Exception-handler responses never pass through the middleware chain, so the same
-helper is applied to them directly (see ``ApiRouter._register_exception_handlers``).
+Also applied to exception-handler responses, which skip the middleware chain.
 """
 
 from typing import Optional
@@ -21,12 +12,7 @@ from src.shared.models import get_current_timestamp
 
 
 def apply_weave_headers(response: Response, *, ensure_last_modified: bool = False) -> Response:
-    """Set X-Weave-Timestamp, and X-Last-Modified when the caller owns it.
-
-    ``ensure_last_modified`` is for the storage API only: the auth, token and
-    profile APIs send X-Weave-Timestamp but have no resource timestamp to
-    report.
-    """
+    """Set X-Weave-Timestamp, plus X-Last-Modified when the caller owns it (storage)."""
     now = get_current_timestamp()
     last_modified: Optional[str] = _header_value(response, "X-Last-Modified")
 
@@ -34,9 +20,7 @@ def apply_weave_headers(response: Response, *, ensure_last_modified: bool = Fals
         last_modified = f"{now:.2f}"
         response.headers["X-Last-Modified"] = last_modified
 
-    # Every producer of X-Last-Modified writes a numeric string (str(round(...)),
-    # "0.00" or f"{ts:.2f}"), so parsing it cannot fail here: a malformed one is a
-    # bug to fix rather than a case to tolerate.
+    # Every producer writes a numeric string, so parsing cannot fail here.
     weave_ts = max(float(last_modified), now) if last_modified is not None else now
     response.headers["X-Weave-Timestamp"] = f"{weave_ts:.2f}"
     return response

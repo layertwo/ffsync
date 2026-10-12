@@ -151,10 +151,8 @@ class ServiceProvider:
     @cached_property
     def _storage_exception_handlers(self) -> dict:
         def with_storage_headers(response: Response) -> Response:
-            # Error responses never pass through the router's middleware, and the storage
-            # API reports X-Last-Modified on every response -- Mozilla's transaction
-            # wrapper does the same for everything it produces. ApiRouter's wrapper adds
-            # X-Weave-Timestamp afterwards, so this only fills the resource timestamp.
+            # Error responses skip the router's middleware; only the resource timestamp
+            # is ours to fill, ApiRouter's wrapper adds X-Weave-Timestamp.
             response.headers.setdefault("X-Last-Modified", get_weave_timestamp())
             return response
 
@@ -163,7 +161,7 @@ class ServiceProvider:
                 Response(
                     status_code=401,
                     content_type="application/json",
-                    body='{"error": "Unauthorized"}',
+                    body=json.dumps({"error": "Unauthorized"}),
                 )
             )
 
@@ -172,7 +170,7 @@ class ServiceProvider:
                 Response(
                     status_code=403,
                     content_type="application/json",
-                    body='{"error": "uid mismatch"}',
+                    body=json.dumps({"error": "uid mismatch"}),
                 )
             )
 

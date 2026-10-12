@@ -52,9 +52,8 @@ class SyncStorageException(Exception):
             # Return integer response code per Mozilla spec
             body = str(self.mozilla_code)
         else:
-            # Return error object for other errors. json.dumps, not an f-string: messages
-            # interpolate client input (e.g. an invalid collection name), so quotes and
-            # newlines must be escaped rather than pasted into the JSON.
+            # json.dumps, not an f-string: messages interpolate client input, so
+            # quotes and newlines must be escaped rather than pasted in.
             body = json.dumps({"error": self.error_code, "message": self.message})
 
         # Build optional headers
