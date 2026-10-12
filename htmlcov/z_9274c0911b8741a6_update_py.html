@@ -67,7 +67,7 @@
             <a id="nextFileLink" class="nav" href="z_c5848dbd8e389083_read_collections_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.16.2">coverage.py v7.16.2</a>,
-            created at 2026-10-12 02:32 +0000
+            created at 2026-10-12 02:45 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -152,7 +152,7 @@
     <p class="run run2"><span class="n"><a id="t68" href="#t68">68</a></span><span class="t">                <span class="op">]</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t69" href="#t69">69</a></span><span class="t">                <span class="nam">ttls</span> <span class="op">=</span> <span class="op">{</span><span class="nam">obj</span><span class="op">[</span><span class="str">&quot;id&quot;</span><span class="op">]</span><span class="op">:</span> <span class="nam">obj</span><span class="op">[</span><span class="str">&quot;ttl&quot;</span><span class="op">]</span> <span class="key">for</span> <span class="nam">obj</span> <span class="key">in</span> <span class="nam">objects_data</span> <span class="key">if</span> <span class="nam">obj</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="str">&quot;ttl&quot;</span><span class="op">)</span> <span class="key">is</span> <span class="key">not</span> <span class="key">None</span><span class="op">}</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t70" href="#t70">70</a></span><span class="t">            <span class="key">except</span> <span class="op">(</span><span class="nam">json</span><span class="op">.</span><span class="nam">JSONDecodeError</span><span class="op">,</span> <span class="nam">KeyError</span><span class="op">)</span> <span class="key">as</span> <span class="nam">e</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t71" href="#t71">71</a></span><span class="t">                <span class="key">raise</span> <span class="nam">ValidationException</span><span class="op">(</span><span class="fst">f&quot;</span><span class="fst">Invalid request body: </span><span class="op">{</span><span class="nam">e</span><span class="op">}</span><span class="fst">&quot;</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t71" href="#t71">71</a></span><span class="t">                <span class="key">raise</span> <span class="nam">ValidationException</span><span class="op">(</span><span class="str">&quot;Invalid request body&quot;</span><span class="op">)</span> <span class="key">from</span> <span class="nam">e</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t72" href="#t72">72</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t73" href="#t73">73</a></span><span class="t">            <span class="com"># Handle conditional update header</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t74" href="#t74">74</a></span><span class="t">            <span class="nam">if_unmodified_since</span> <span class="op">=</span> <span class="key">None</span>&nbsp;</span><span class="r"></span></p>
@@ -214,7 +214,7 @@
             <a class="nav" href="z_c5848dbd8e389083_read_collections_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.16.2">coverage.py v7.16.2</a>,
-            created at 2026-10-12 02:32 +0000
+            created at 2026-10-12 02:45 +0000
         </p>
     </div>
 </footer>
