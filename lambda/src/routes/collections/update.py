@@ -3,6 +3,7 @@ from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
+from pydantic import ValidationError as PydanticValidationError
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
@@ -67,7 +68,7 @@ class UpdateCollectionRoute(BaseRoute):
                     for obj in objects_data
                 ]
                 ttls = {obj["id"]: obj["ttl"] for obj in objects_data if obj.get("ttl") is not None}
-            except (json.JSONDecodeError, KeyError) as e:
+            except (json.JSONDecodeError, KeyError, PydanticValidationError) as e:
                 raise ValidationException("Invalid request body") from e
 
             # Handle conditional update header

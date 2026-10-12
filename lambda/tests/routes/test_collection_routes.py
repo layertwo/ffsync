@@ -135,6 +135,55 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 201
 
+    def test_handle_batch_with_a_legacy_base64_id(self, mock_storage_manager: MagicMock) -> None:
+        """A legacy Sync 1.1 prefs id is base64 of "{<app guid>}".
+
+        Mozilla accepts any printable ASCII id (`[ -~]{1,64}`), so this must be
+        stored and echoed back in `success`, not rejected.
+        """
+        route = CreateCollectionRoute(mock_storage_manager)
+        legacy_prefs_id = "e2VjODAzMGY3LWMyMGEtNDY0Zi05YjBlLTEzYTNhOWU5NzM4NH0="
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"uid": "12345", "collectionName": "prefs"},
+                    "headers": {},
+                    "body": json.dumps([{"id": legacy_prefs_id, "payload": '{"prefs": {}}'}]),
+                }
+            )
+        )
+        mock_storage_manager.create_or_update_collection.return_value = (
+            CollectionData(name="prefs", modified=1234567890.12, count=1, usage=64),
+            BatchResult(success=[legacy_prefs_id], failed={}, modified=1234567890.12),
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 201
+        assert json_body(response)["success"] == [legacy_prefs_id]
+
+    def test_handle_batch_with_an_unprintable_id_returns_400(
+        self, mock_storage_manager: MagicMock
+    ) -> None:
+        """A genuinely invalid id is a client error, not an unhandled 500."""
+        route = CreateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"uid": "12345", "collectionName": "prefs"},
+                    "headers": {},
+                    "body": json.dumps([{"id": "bad\x00id", "payload": "{}"}]),
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        mock_storage_manager.create_or_update_collection.assert_not_called()
+
     def test_handle_success_without_objects(self, mock_storage_manager: MagicMock) -> None:
         """Test collection creation without objects"""
         route = CreateCollectionRoute(mock_storage_manager)
@@ -971,6 +1020,27 @@ class TestUpdateCollectionRoute:
         response = route.handle(event)
 
         assert response.status_code == 400
+
+    def test_handle_batch_with_an_unprintable_id_returns_400(
+        self, mock_storage_manager: MagicMock
+    ) -> None:
+        """A model-level id violation is a client error, not an unhandled 500."""
+        route = UpdateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"uid": "12345", "collectionName": "prefs"},
+                    "headers": {},
+                    "body": json.dumps({"objects": [{"id": "bad\x00id", "payload": "{}"}]}),
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        mock_storage_manager.update_collection.assert_not_called()
 
     def test_handle_direct_array_body(self, mock_storage_manager: MagicMock) -> None:
         """Test batch update with direct JSON array body (SyncStorage API v1.5 format)"""

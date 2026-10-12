@@ -8,7 +8,13 @@ namespace layertwo.ffsync
 string CollectionName
 
 /// Storage object identifier
-@pattern("^[a-zA-Z0-9._-]+$")
+///
+/// The spec requires printable ASCII only: "BSO ids *must* only contain
+/// printable ASCII characters". The 12-character base64-urlsafe form is a
+/// client convention ("*should* be exactly 12 ... while this isn't enforced by
+/// the server"), so the server must not enforce it. Mozilla's own rule is
+/// `BSO_ID_REGEX = r"[ -~]{1,64}"`.
+@pattern("^[ -~]+$")
 @length(min: 1, max: 64)
 string ObjectId
 
