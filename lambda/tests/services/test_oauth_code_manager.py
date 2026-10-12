@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from botocore.exceptions import ClientError
 
-from src.services.oauth_code_manager import OAuthCodeManager
+from src.services.oauth_code_manager import ExpiredAuthorizationCode, OAuthCodeManager
 
 
 @pytest.fixture
@@ -145,9 +145,10 @@ class TestConsumeAuthorizationCode:
         assert result is None
 
     @patch("src.services.oauth_code_manager.time")
-    def test_returns_none_for_expired_code(
+    def test_raises_for_an_expired_code(
         self, mock_time: MagicMock, manager: OAuthCodeManager, mock_table: MagicMock
     ) -> None:
+        """An expired code is reported distinctly so the route can answer errno 174."""
         mock_time.time.return_value = 1000000.0
         mock_table.delete_item.return_value = {
             "Attributes": {
@@ -160,8 +161,8 @@ class TestConsumeAuthorizationCode:
                 "expiry": 999999,
             }
         }
-        result = manager.consume_authorization_code("abc123")
-        assert result is None
+        with pytest.raises(ExpiredAuthorizationCode):
+            manager.consume_authorization_code("abc123")
 
 
 class TestCreateRefreshToken:

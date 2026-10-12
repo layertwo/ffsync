@@ -35,12 +35,12 @@ class ScopedKeyDataRoute(BaseRoute):
         # Parse and validate body
         body_str = event.body
         if not body_str:
-            return self._error(400, 107, "Missing request body")
+            return self._error(400, 108, "Missing request body")
 
         try:
             body_input = ScopedKeyDataInput.model_validate_json(body_str)
         except PydanticValidationError:
-            return self._error(400, 107, "Missing or invalid scope")
+            return self._error(400, 108, "Missing or invalid scope")
 
         scope = body_input.scope
 

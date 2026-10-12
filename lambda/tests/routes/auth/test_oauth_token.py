@@ -414,7 +414,7 @@ class TestOAuthTokenScopeValidation:
         response = route.handle(event)
         assert response.status_code == 400
         body = json_body(response)
-        assert body["errno"] == 165
+        assert body["errno"] == 163
 
     def test_refresh_scope_subset_succeeds(
         self,

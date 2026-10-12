@@ -36,19 +36,19 @@ class AccountLoginRoute(BaseRoute):
         # Parse body
         body_str = event.body
         if not body_str:
-            return self._error(400, 107, "Missing request body")
+            return self._error(400, 108, "Missing request body")
 
         try:
             body = json.loads(body_str)
         except json.JSONDecodeError, TypeError:
-            return self._error(400, 107, "Invalid JSON body")
+            return self._error(400, 106, "Invalid JSON body")
 
         email = body.get("email")
         auth_pw_hex = body.get("authPW")
         if not email:
-            return self._error(400, 107, "Missing email")
+            return self._error(400, 108, "Missing email")
         if not auth_pw_hex:
-            return self._error(400, 107, "Missing authPW")
+            return self._error(400, 108, "Missing authPW")
 
         # Validate input formats
         if "@" not in email:

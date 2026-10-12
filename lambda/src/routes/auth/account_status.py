@@ -1,6 +1,5 @@
 """AccountStatus route — GET /v1/account/status"""
 
-import json
 from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -26,11 +25,7 @@ class AccountStatusRoute(BaseRoute):
         params = event.query_string_parameters or {}
         email = params.get("email")
         if not email:
-            return Response(
-                status_code=400,
-                content_type="application/json",
-                body=json.dumps({"code": 400, "errno": 107, "message": "Missing email parameter"}),
-            )
+            return self._error(400, 108, "Missing email parameter")
 
         account = self._account_manager.get_account_by_email(email)
         result = AccountStatusOutput(exists=account is not None)

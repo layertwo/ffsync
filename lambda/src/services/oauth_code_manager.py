@@ -15,6 +15,14 @@ OAUTHCODE_PREFIX = "OAUTHCODE"
 REFRESH_PREFIX = "REFRESH"
 
 
+class ExpiredAuthorizationCode(Exception):
+    """The authorization code existed but had expired when it was redeemed.
+
+    Distinct from a code that was never issued, because FxA answers those with
+    different errnos (174 and 172).
+    """
+
+
 class OAuthCodeManager:
     """Manages OAuth authorization codes and refresh tokens."""
 
@@ -66,7 +74,10 @@ class OAuthCodeManager:
 
         Returns:
             Dict with uid, clientId, scope, codeChallenge, codeChallengeMethod
-            or None if not found or expired.
+            or None if no such code was ever issued.
+
+        Raises:
+            ExpiredAuthorizationCode: the code existed but had expired.
         """
         try:
             response = self._table.delete_item(
@@ -83,9 +94,9 @@ class OAuthCodeManager:
         if not item:
             return None
 
-        # Check expiry server-side
+        # TTL deletion lags by up to 48h, so an expired code is refused here too.
         if item.get("expiry", 0) < int(time.time()):
-            return None
+            raise ExpiredAuthorizationCode(code)
 
         return {
             "uid": item["uid"],

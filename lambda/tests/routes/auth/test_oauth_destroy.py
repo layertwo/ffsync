@@ -64,7 +64,7 @@ class TestOAuthDestroy:
         response = route.handle(event)
         assert response.status_code == 400
         body = json_body(response)
-        assert body["errno"] == 107
+        assert body["errno"] == 108
 
     def test_invalid_json_body_returns_400(self, route: OAuthDestroyRoute) -> None:
         event = APIGatewayProxyEvent(
@@ -77,6 +77,7 @@ class TestOAuthDestroy:
         )
         response = route.handle(event)
         assert response.status_code == 400
+        assert json_body(response)["errno"] == 106
 
     def test_missing_token_field_returns_400(self, route: OAuthDestroyRoute) -> None:
         event = APIGatewayProxyEvent(
@@ -90,7 +91,7 @@ class TestOAuthDestroy:
         response = route.handle(event)
         assert response.status_code == 400
         body = json_body(response)
-        assert body["errno"] == 107
+        assert body["errno"] == 108
 
 
 class TestOAuthDestroyBind:

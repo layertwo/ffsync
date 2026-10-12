@@ -95,7 +95,7 @@ class TestAccountCreate:
         response = route.handle(event)
         assert response.status_code == 401
 
-    def test_duplicate_email_returns_409(
+    def test_duplicate_email_returns_400_with_errno_101(
         self,
         route: AccountCreateRoute,
         mock_account_manager: MagicMock,
@@ -113,7 +113,8 @@ class TestAccountCreate:
             }
         )
         response = route.handle(event)
-        assert response.status_code == 409
+        assert response.status_code == 400
+        assert json_body(response)["errno"] == 101
 
     def test_missing_email_returns_400(
         self,

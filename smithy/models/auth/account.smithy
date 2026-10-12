@@ -45,7 +45,7 @@ structure AccountStatusOutput {
 operation AccountCreate {
     input: AccountCreateInput
     output: AccountCreateOutput
-    errors: [AuthenticationException, ValidationException, ConflictException]
+    errors: [AuthenticationException, ValidationException]
 }
 
 @input

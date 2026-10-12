@@ -12,7 +12,7 @@ from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 from src.services.auth_account_manager import AuthAccountManager
 from src.services.fxa_token_manager import FxATokenManager
 from src.services.jwt_service import JWTService
-from src.services.oauth_code_manager import OAuthCodeManager
+from src.services.oauth_code_manager import ExpiredAuthorizationCode, OAuthCodeManager
 from src.shared.base_route import BaseRoute
 from src.shared.models import OAuthTokenOutput
 from src.shared.utils import extract_hawk_request_params
@@ -46,16 +46,16 @@ class OAuthTokenRoute(BaseRoute):
     def handle(self, event: APIGatewayProxyEvent) -> Response:
         body_str = event.body
         if not body_str:
-            return self._error(400, 107, "Missing request body")
+            return self._error(400, 108, "Missing request body")
 
         try:
             body = json.loads(body_str)
         except json.JSONDecodeError, TypeError:
-            return self._error(400, 107, "Invalid JSON body")
+            return self._error(400, 106, "Invalid JSON body")
 
         grant_type = body.get("grant_type")
         if not grant_type:
-            return self._error(400, 107, "Missing grant_type")
+            return self._error(400, 108, "Missing grant_type")
 
         if grant_type == "authorization_code":
             return self._handle_authorization_code(body)
@@ -69,25 +69,28 @@ class OAuthTokenRoute(BaseRoute):
     def _handle_authorization_code(self, body: dict) -> Response:
         code = body.get("code")
         if not code:
-            return self._error(400, 107, "Missing code")
+            return self._error(400, 108, "Missing code")
 
         code_verifier = body.get("code_verifier")
 
         # Consume authorization code (single-use)
-        code_data = self._oauth_code_manager.consume_authorization_code(code)
+        try:
+            code_data = self._oauth_code_manager.consume_authorization_code(code)
+        except ExpiredAuthorizationCode:
+            return self._error(400, 174, "Expired authorization code")
         if code_data is None:
-            return self._error(400, 110, "Invalid or expired authorization code")
+            return self._error(400, 172, "Unknown authorization code")
 
         # Verify PKCE if code_challenge was provided
         if code_data["codeChallenge"]:
             if not code_verifier:
-                return self._error(400, 107, "Missing code_verifier")
+                return self._error(400, 169, "Missing code_verifier")
             if not OAuthCodeManager.verify_code_challenge(
                 code_verifier,
                 code_data["codeChallenge"],
                 code_data["codeChallengeMethod"],
             ):
-                return self._error(400, 110, "Invalid code_verifier")
+                return self._error(400, 175, "Invalid code_verifier")
 
         uid = code_data["uid"]
         scope = code_data["scope"]
@@ -139,12 +142,12 @@ class OAuthTokenRoute(BaseRoute):
     def _handle_refresh_token(self, body: dict) -> Response:
         refresh_token = body.get("refresh_token")
         if not refresh_token:
-            return self._error(400, 107, "Missing refresh_token")
+            return self._error(400, 108, "Missing refresh_token")
 
         token_hash = hashlib.sha256(refresh_token.encode("ascii")).hexdigest()
         token_data = self._oauth_code_manager.consume_refresh_token(token_hash)
         if token_data is None:
-            return self._error(400, 110, "Invalid or expired refresh token")
+            return self._error(400, 182, "Unknown refresh token")
 
         uid = token_data["uid"]
         scope = body.get("scope", token_data["scope"])
@@ -154,7 +157,7 @@ class OAuthTokenRoute(BaseRoute):
         requested_scopes = set(scope.split())
         allowed_scopes = set(token_data["scope"].split())
         if not requested_scopes.issubset(allowed_scopes):
-            return self._error(400, 165, "Requested scope exceeds granted scope")
+            return self._error(400, 163, "Requested scope exceeds granted scope")
 
         # Look up account to get oidcSub
         account = self._account_manager.get_account_by_uid(uid)
