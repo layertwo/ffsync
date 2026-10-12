@@ -169,10 +169,15 @@ structure ScopedKeyDataInput {
     scope: String
 }
 
+// The wire body here is a bare JSON object (FxA's contract). A bare map cannot be declared:
+// an operation output is a structure, and AWS protocols only permit structure/blob/document
+// shapes as the payload. smithy-openapi therefore emits {scopes: {...}}, so the generated
+// OpenAPI/pydantic model is an approximation -- the route returns the bare map the spec
+// requires and must not be "aligned" to that model.
 @output
 structure ScopedKeyDataOutput {
     @required
-    @documentation("Map of scope identifiers to key metadata")
+    @documentation("Map of scope identifiers to key metadata; the wire body is a bare JSON object")
     scopes: ScopedKeyDataMap
 }
 

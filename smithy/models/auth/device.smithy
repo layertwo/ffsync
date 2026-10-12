@@ -86,9 +86,15 @@ structure ListDevicesInput {
     filterIdleDevicesTimestamp: Long
 }
 
+// The wire body here is a bare JSON array (FxA's contract). A bare array cannot be declared:
+// an operation output is a structure, and AWS protocols only permit structure/blob/document
+// shapes as the payload. smithy-openapi therefore emits {devices: [...]}, so the generated
+// OpenAPI/pydantic model is an approximation -- the route returns the bare array the spec
+// requires and must not be "aligned" to that model.
 @output
 structure ListDevicesOutput {
     @required
+    @documentation("Array of device records; the wire body is a bare JSON array")
     devices: DeviceList
 }
 
@@ -129,9 +135,15 @@ operation ListAttachedClients {
 @input
 structure ListAttachedClientsInput {}
 
+// The wire body here is a bare JSON array (FxA's contract). A bare array cannot be declared:
+// an operation output is a structure, and AWS protocols only permit structure/blob/document
+// shapes as the payload. smithy-openapi therefore emits {clients: [...]}, so the generated
+// OpenAPI/pydantic model is an approximation -- the route returns the bare array the spec
+// requires and must not be "aligned" to that model.
 @output
 structure ListAttachedClientsOutput {
     @required
+    @documentation("Array of attached clients; the wire body is a bare JSON array")
     clients: AttachedClientList
 }
 

@@ -2,7 +2,11 @@
 # Regenerate pydantic models from smithy.
 #
 # Local dev: runs `smithy build` (CLI, brew install smithy-cli) and emits
-# OpenAPI under smithy/build/smithy/, then runs datamodel-codegen.
+# OpenAPI under the repo-root build/smithy/, then runs datamodel-codegen.
+# Note the CLI cannot resolve the AWS traits (they come from Gradle's
+# smithyBuild(...) config, not from smithy-build.json), so `smithy build`
+# reports Model.UnresolvedTrait errors -- it still writes the OpenAPI, and a
+# second run finds it and skips the build.
 #
 # CI: set SMITHY_BUILD_DIR to a directory of pre-built smithy openapi/<svc>/
 # artifacts (e.g. the output of `./gradlew smithyBuild`). The smithy build
@@ -11,7 +15,10 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SMITHY_DIR="$REPO_ROOT/smithy"
-SMITHY_BUILD_DIR="${SMITHY_BUILD_DIR:-$SMITHY_DIR/build/smithy}"
+# The smithy build writes to the repo-root build/smithy (see outputDirectory in
+# smithy/build.gradle.kts); only CI's explicit SMITHY_BUILD_DIR was pointing there,
+# so the default never matched where the artifacts land.
+SMITHY_BUILD_DIR="${SMITHY_BUILD_DIR:-$REPO_ROOT/build/smithy}"
 GENERATED_DIR="$REPO_ROOT/lambda/src/shared/generated"
 
 # datamodel-codegen ships in the lambda dev dep group. The caller is expected
