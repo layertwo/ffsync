@@ -372,24 +372,18 @@ class TestChannelService:
             },
         )
 
-        # update_item for atomic message count increment
-        dynamodb_stubber.add_response("update_item", {}, None)
-
-        # get_item for CHANNEL# (connections)
+        # update_item for atomic message count increment (ALL_NEW returns connections)
         dynamodb_stubber.add_response(
-            "get_item",
+            "update_item",
             {
-                "Item": {
+                "Attributes": {
                     "PK": {"S": f"CHANNEL#{channel_id}"},
                     "connections": {"L": [{"S": "conn-1"}, {"S": "conn-2"}]},
                     "messageCount": {"N": "1"},
                     "expiry": {"N": str(FIXED_TIME)},
                 }
             },
-            {
-                "TableName": CHANNEL_TABLE_NAME,
-                "Key": {"PK": f"CHANNEL#{channel_id}"},
-            },
+            None,
         )
 
         # post_to_connection to relay message to conn-2
@@ -565,24 +559,18 @@ class TestChannelService:
             },
         )
 
-        # update_item for message count
-        dynamodb_stubber.add_response("update_item", {}, None)
-
-        # get_item for CHANNEL# (connections)
+        # update_item for message count (ALL_NEW returns connections)
         dynamodb_stubber.add_response(
-            "get_item",
+            "update_item",
             {
-                "Item": {
+                "Attributes": {
                     "PK": {"S": f"CHANNEL#{channel_id}"},
                     "connections": {"L": [{"S": "conn-1"}, {"S": "conn-stale"}]},
                     "messageCount": {"N": "1"},
                     "expiry": {"N": str(FIXED_TIME)},
                 }
             },
-            {
-                "TableName": CHANNEL_TABLE_NAME,
-                "Key": {"PK": f"CHANNEL#{channel_id}"},
-            },
+            None,
         )
 
         # post_to_connection raises GoneException for stale conn
@@ -676,24 +664,18 @@ class TestChannelService:
             },
         )
 
-        # update_item for message count
-        dynamodb_stubber.add_response("update_item", {}, None)
-
-        # get_item for CHANNEL# (connections)
+        # update_item for message count (ALL_NEW returns connections)
         dynamodb_stubber.add_response(
-            "get_item",
+            "update_item",
             {
-                "Item": {
+                "Attributes": {
                     "PK": {"S": f"CHANNEL#{channel_id}"},
                     "connections": {"L": [{"S": "conn-1"}, {"S": "conn-2"}]},
                     "messageCount": {"N": "1"},
                     "expiry": {"N": str(FIXED_TIME)},
                 }
             },
-            {
-                "TableName": CHANNEL_TABLE_NAME,
-                "Key": {"PK": f"CHANNEL#{channel_id}"},
-            },
+            None,
         )
 
         # post_to_connection to relay message to conn-2 (empty body)
@@ -723,7 +705,7 @@ class TestChannelService:
     ) -> None:
         """Client is created lazily on first use and cached by endpoint."""
         svc = ChannelService(table=channel_table, session=boto_session)
-        assert svc._apigw_clients == {}
+        assert len(svc._apigw_clients) == 0
 
         event = _ws_event()
         client1 = svc._get_apigw_client(event)
@@ -902,50 +884,6 @@ class TestChannelService:
         event = _ws_event(route_key="$default", connection_id="conn-1", body="hi")
         with pytest.raises(ClientError):
             service.handle(event, None)
-
-    # -- Message: channel gone between count update and connections lookup ----
-
-    def test_message_channel_gone_after_count_update(
-        self,
-        service: ChannelService,
-        dynamodb_stubber: Stubber,
-    ) -> None:
-        """Channel disappears between message count update and connections fetch."""
-        channel_id = "ephemeral-chan"
-
-        # get_item for CONN#
-        dynamodb_stubber.add_response(
-            "get_item",
-            {
-                "Item": {
-                    "PK": {"S": "CONN#conn-1"},
-                    "channelId": {"S": channel_id},
-                    "expiry": {"N": str(FIXED_TIME)},
-                }
-            },
-            {
-                "TableName": CHANNEL_TABLE_NAME,
-                "Key": {"PK": "CONN#conn-1"},
-            },
-        )
-
-        # update_item for message count succeeds
-        dynamodb_stubber.add_response("update_item", {}, None)
-
-        # get_item for CHANNEL# => empty (TTL expired between calls)
-        dynamodb_stubber.add_response(
-            "get_item",
-            {},
-            {
-                "TableName": CHANNEL_TABLE_NAME,
-                "Key": {"PK": f"CHANNEL#{channel_id}"},
-            },
-        )
-
-        event = _ws_event(route_key="$default", connection_id="conn-1", body="hi")
-        result = service.handle(event, None)
-
-        assert result == {"statusCode": 404, "body": "Channel not found"}
 
     # -- Unknown route --------------------------------------------------------
 
