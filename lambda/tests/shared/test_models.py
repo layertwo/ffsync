@@ -60,6 +60,15 @@ class TestValidateBSOId:
         """BSO ID with printable ASCII characters should be valid"""
         validate_bso_id("valid-bso-id_123.test")  # Should not raise
 
+    def test_bso_id_that_is_base64_of_a_guid_is_valid(self) -> None:
+        """A legacy Sync 1.1 prefs record id: base64 of "{<app guid>}".
+
+        Mozilla's rule is `[ -~]{1,64}` (any printable ASCII), so base64 padding
+        and braces are legal. The stricter smithy pattern rejected this in
+        production; the id below is the one observed there.
+        """
+        validate_bso_id("e2VjODAzMGY3LWMyMGEtNDY0Zi05YjBlLTEzYTNhOWU5NzM4NH0=")
+
     def test_bso_id_with_non_printable_chars(self) -> None:
         """BSO ID with non-printable ASCII should raise ValidationError"""
         with pytest.raises(ValidationError, match="non-printable ASCII"):

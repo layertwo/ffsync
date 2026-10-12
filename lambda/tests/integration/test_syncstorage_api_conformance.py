@@ -646,6 +646,59 @@ class TestPostCollection:
         assert body["success"] == ["obj1"]
 
 
+class TestBsoIdRule:
+    """Mozilla accepts any printable ASCII BSO id: `BSO_ID_REGEX = r"[ -~]{1,64}"`.
+
+    (syncstorage-rs, `syncserver/src/server/mod.rs`.) The smithy `ObjectId` was
+    stricter -- `[a-zA-Z0-9._-]` -- so ids Mozilla stores were rejected, and in
+    the batch path that rejection escaped as an unhandled pydantic error (500)
+    instead of a client error (400).
+    """
+
+    # base64("{ec8030f7-c20a-464f-9b0e-13a3a9e97384}") -- the id a legacy Sync
+    # 1.1 prefs client sends (and the one observed hitting this service).
+    LEGACY_PREFS_ID = "e2VjODAzMGY3LWMyMGEtNDY0Zi05YjBlLTEzYTNhOWU5NzM4NH0="
+
+    def test_a_base64_id_is_stored_and_echoed(
+        self,
+        mock_service_provider: ServiceProvider,
+        sample_lambda_context: Mock,
+        dynamodb_stubber: Stubber,
+    ) -> None:
+        dynamodb_stubber.add_response("get_item", {}, None)
+        dynamodb_stubber.add_response("batch_write_item", {"UnprocessedItems": {}}, None)
+        dynamodb_stubber.add_response("put_item", {}, None)
+
+        response = call(
+            mock_service_provider,
+            sample_lambda_context,
+            "POST",
+            "/storage/prefs",
+            body=[{"id": self.LEGACY_PREFS_ID, "payload": '{"prefs": {}}'}],
+            path_params={"collectionName": "prefs"},
+        )
+
+        assert response["statusCode"] in (200, 201)
+        assert _body(response)["success"] == [self.LEGACY_PREFS_ID]
+
+    def test_an_unprintable_id_is_a_400_not_a_500(
+        self,
+        mock_service_provider: ServiceProvider,
+        sample_lambda_context: Mock,
+        dynamodb_stubber: Stubber,
+    ) -> None:
+        response = call(
+            mock_service_provider,
+            sample_lambda_context,
+            "POST",
+            "/storage/prefs",
+            body=[{"id": "bad\x00id", "payload": "{}"}],
+            path_params={"collectionName": "prefs"},
+        )
+
+        assert response["statusCode"] == 400
+
+
 class TestDocumentedDeviations:
     """Clauses the service does not yet satisfy, pinned so they cannot drift silently."""
 
