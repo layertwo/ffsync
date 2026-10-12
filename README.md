@@ -65,7 +65,7 @@
 | src/services/device\_manager.py               |       33 |        0 |        6 |        0 |     100% |           |
 | src/services/fxa\_crypto.py                   |       38 |        0 |        0 |        0 |     100% |           |
 | src/services/fxa\_token\_manager.py           |      131 |        0 |       36 |        0 |     100% |           |
-| src/services/hawk\_service.py                 |      129 |        0 |       26 |        0 |     100% |           |
+| src/services/hawk\_service.py                 |      136 |        0 |       26 |        0 |     100% |           |
 | src/services/jwt\_service.py                  |       51 |        0 |        8 |        0 |     100% |           |
 | src/services/jwt\_verifier.py                 |       56 |        0 |       12 |        0 |     100% |           |
 | src/services/oauth\_code\_manager.py          |       63 |        0 |       16 |        0 |     100% |           |
@@ -82,7 +82,7 @@
 | src/shared/token.py                           |        3 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                            |        8 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                           |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                                     | **3243** |    **0** |  **562** |    **0** | **100%** |           |
+| **TOTAL**                                     | **3250** |    **0** |  **562** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
