@@ -17,7 +17,7 @@ from typing import Optional
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.event_handler.middlewares import BaseMiddlewareHandler, NextMiddleware
 
-from src.shared.utils import get_weave_timestamp
+from src.shared.models import get_current_timestamp
 
 
 def apply_weave_headers(response: Response, *, ensure_last_modified: bool = False) -> Response:
@@ -27,7 +27,7 @@ def apply_weave_headers(response: Response, *, ensure_last_modified: bool = Fals
     profile APIs send X-Weave-Timestamp but have no resource timestamp to
     report.
     """
-    now = float(get_weave_timestamp())
+    now = get_current_timestamp()
     last_modified: Optional[str] = _header_value(response, "X-Last-Modified")
 
     if last_modified is None and ensure_last_modified:
