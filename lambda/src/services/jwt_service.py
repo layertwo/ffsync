@@ -3,6 +3,7 @@
 import hashlib
 import json
 import time
+from functools import cached_property
 from typing import Any, Optional
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
@@ -18,18 +19,13 @@ class JWTService:
         self._kms = kms_client
         self._signing_key_id = signing_key_id
         self._issuer = issuer
-        self._cached_jwk: Optional[dict] = None
-        self._cached_kid: Optional[str] = None
 
     @property
     def issuer(self) -> str:
         return self._issuer
 
     def _get_kid(self) -> str:
-        if self._cached_kid is None:
-            self.get_public_key_jwk()
-        assert self._cached_kid is not None
-        return self._cached_kid
+        return str(self._jwk["kid"])
 
     def sign_jwt(
         self,
@@ -85,14 +81,14 @@ class JWTService:
     def get_public_key_jwk(self) -> dict:
         """Get the public key in JWK format.
 
-        Calls KMS GetPublicKey on first invocation and caches the result.
-
         Returns:
             JWK dict with kty, n, e, alg, use, kid fields.
         """
-        if self._cached_jwk is not None:
-            return self._cached_jwk
+        return self._jwk
 
+    @cached_property
+    def _jwk(self) -> dict:
+        """Fetch the KMS public key as a JWK, once per instance."""
         response = self._kms.get_public_key(KeyId=self._signing_key_id)
         public_key_der = response["PublicKey"]
 
@@ -108,8 +104,7 @@ class JWTService:
         # Generate kid from the key fingerprint
         kid = hashlib.sha256(public_key_der).hexdigest()[:16]
 
-        self._cached_kid = kid
-        self._cached_jwk = {
+        return {
             "kty": "RSA",
             "use": "sig",
             "alg": "RS256",
@@ -117,4 +112,3 @@ class JWTService:
             "n": b64url_encode(n_bytes),
             "e": b64url_encode(e_bytes),
         }
-        return self._cached_jwk
