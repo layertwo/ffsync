@@ -7,7 +7,12 @@ from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
 from src.shared.exceptions import CollectionNotFoundException, ValidationException
-from src.shared.models import ModifiedOutput, ValidationError, validate_collection_name
+from src.shared.models import (
+    ModifiedOutput,
+    ValidationError,
+    get_current_timestamp,
+    validate_collection_name,
+)
 
 
 class DeleteCollectionRoute(BaseRoute):
@@ -64,9 +69,14 @@ class DeleteCollectionRoute(BaseRoute):
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
             )
-        except CollectionNotFoundException as e:
+        except CollectionNotFoundException:
+            # Spec (403/404): "Non-existent collections do not trigger a 404 Not Found for
+            # backwards-compatibility reasons", and Mozilla's delete handler declares only
+            # 200 and 401. A no-op delete reports the server's current time.
+            modified = get_current_timestamp()
             return Response(
-                status_code=404,
+                status_code=200,
                 content_type="application/json",
-                body=json.dumps({"error": str(e)}),
+                body=ModifiedOutput(modified=modified).model_dump_json(),
+                headers={"X-Last-Modified": str(modified)},
             )

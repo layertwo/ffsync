@@ -592,13 +592,6 @@ class TestDelete:
         assert response["statusCode"] == 200
         assert "modified" in _body(response)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Spec (403/404): 'Non-existent collections do not trigger 404 for backwards "
-            "compatibility reasons.' Deleting a collection that does not exist returns 404."
-        ),
-    )
     def test_delete_missing_collection_does_not_404(
         self,
         mock_service_provider: ServiceProvider,

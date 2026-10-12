@@ -1351,7 +1351,11 @@ class TestDeleteCollectionRoute:
 
         response = route.handle(event)
 
-        assert response.status_code == 404
+        # Spec: non-existent collections do not trigger a 404; a no-op delete reports
+        # the server's current time instead.
+        assert response.status_code == 200
+        assert "modified" in json_body(response)
+        assert response.headers["X-Last-Modified"]
 
     def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
         """Unexpected errors propagate to the router's Exception handler"""
