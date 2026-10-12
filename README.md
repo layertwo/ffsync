@@ -66,10 +66,10 @@
 | src/services/fxa\_crypto.py                   |       38 |        0 |        0 |        0 |     100% |           |
 | src/services/fxa\_token\_manager.py           |      131 |        0 |       36 |        0 |     100% |           |
 | src/services/hawk\_service.py                 |      136 |        0 |       26 |        0 |     100% |           |
-| src/services/jwt\_service.py                  |       51 |        0 |        8 |        0 |     100% |           |
+| src/services/jwt\_service.py                  |       47 |        0 |        4 |        0 |     100% |           |
 | src/services/jwt\_verifier.py                 |       56 |        0 |       12 |        0 |     100% |           |
 | src/services/oauth\_code\_manager.py          |       63 |        0 |       16 |        0 |     100% |           |
-| src/services/oidc\_validator.py               |      116 |        0 |       14 |        0 |     100% |           |
+| src/services/oidc\_validator.py               |      112 |        0 |       12 |        0 |     100% |           |
 | src/services/storage\_manager.py              |      273 |        0 |      100 |        0 |     100% |           |
 | src/services/token\_generator.py              |       20 |        0 |        0 |        0 |     100% |           |
 | src/services/user\_manager.py                 |       86 |        0 |       20 |        0 |     100% |           |
@@ -77,12 +77,12 @@
 | src/shared/\_codegen\_base.py                 |        3 |        0 |        0 |        0 |     100% |           |
 | src/shared/base\_route.py                     |       17 |        0 |        0 |        0 |     100% |           |
 | src/shared/exceptions.py                      |      140 |        0 |        8 |        0 |     100% |           |
-| src/shared/models.py                          |      109 |        0 |       22 |        0 |     100% |           |
+| src/shared/models.py                          |      111 |        0 |       22 |        0 |     100% |           |
 | src/shared/oidc.py                            |       11 |        0 |        0 |        0 |     100% |           |
 | src/shared/token.py                           |        3 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                            |        8 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                           |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                                     | **3248** |    **0** |  **560** |    **0** | **100%** |           |
+| **TOTAL**                                     | **3242** |    **0** |  **554** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
