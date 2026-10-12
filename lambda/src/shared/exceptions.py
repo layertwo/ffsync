@@ -1,8 +1,5 @@
-import json
 from http import HTTPStatus
 from typing import Optional
-
-from aws_lambda_powertools.event_handler import Response
 
 # Mozilla Firefox Sync response codes
 # These are returned in the response body for certain error conditions
@@ -34,43 +31,6 @@ class SyncStorageException(Exception):
         self.backoff = backoff  # X-Weave-Backoff header (seconds)
         self.alert = alert  # X-Weave-Alert header (message or JSON)
         super().__init__(self.message)
-
-    def to_response(self) -> Response:
-        """
-        Convert exception to HTTP response.
-
-        Per Mozilla spec (Requirement 13.1):
-        - If mozilla_code is set, return just the integer code
-        - Otherwise, return error object with error_code and message
-
-        Optional headers (Requirements 5.7, 18.1-18.4):
-        - Retry-After: Seconds to wait before retrying (for 409, 503)
-        - X-Weave-Backoff: Seconds to wait before making additional requests (server load)
-        - X-Weave-Alert: Warning message or JSON object
-        """
-        if self.mozilla_code is not None:
-            # Return integer response code per Mozilla spec
-            body = str(self.mozilla_code)
-        else:
-            # json.dumps, not an f-string: messages interpolate client input, so
-            # quotes and newlines must be escaped rather than pasted in.
-            body = json.dumps({"error": self.error_code, "message": self.message})
-
-        # Build optional headers
-        headers = {}
-        if self.retry_after is not None:
-            headers["Retry-After"] = str(self.retry_after)
-        if self.backoff is not None:
-            headers["X-Weave-Backoff"] = str(self.backoff)
-        if self.alert is not None:
-            headers["X-Weave-Alert"] = self.alert
-
-        return Response(
-            status_code=self.status_code,
-            content_type="application/json",
-            body=body,
-            headers=headers if headers else None,
-        )
 
 
 class ValidationException(SyncStorageException):
