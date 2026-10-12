@@ -97,6 +97,7 @@ def mock_token_response() -> TokenResponse:
         uid=12345678,
         duration=300,
         hashalg="sha256",
+        hashed_fxa_uid="fxa_uid_hash",
     )
 
 

@@ -49,6 +49,10 @@ structure GetTokenOutput {
     @documentation("Hash algorithm for HAWK authentication (always 'sha256')")
     hashalg: String
 
+    @required
+    @documentation("Stable per-account identifier used by the client as its telemetry uid; must not change on node reset")
+    hashed_fxa_uid: String
+
     @httpHeader("X-Timestamp")
     @required
     @documentation("Current server time in seconds since Unix epoch")

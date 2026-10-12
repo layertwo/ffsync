@@ -44,6 +44,23 @@ class TokenGenerator:
         uid = int.from_bytes(hash_bytes[:8], byteorder="big") & 0x7FFFFFFFFFFFFFFF
         return uid
 
+    @staticmethod
+    def generate_hashed_fxa_uid(user_id: str) -> str:
+        """Derive the stable per-account identifier Firefox calls `hashed_fxa_uid`.
+
+        The Sync client only uses this as its telemetry uid, but it requires the
+        field to be present when it deserialises the token response, so it is
+        part of the wire contract. It must not change on node reset, hence it is
+        derived from the account id alone rather than from the uid/generation.
+
+        Args:
+            user_id: User identifier from OIDC sub claim (stable)
+
+        Returns:
+            Hex SHA-256 digest of the account id
+        """
+        return hashlib.sha256(user_id.encode("utf-8")).hexdigest()
+
     def generate_token(self, user_id: str, uid: int, generation: int) -> TokenResponse:
         """Generate complete token response with HAWK credentials
 
@@ -54,6 +71,7 @@ class TokenGenerator:
         - uid: Numeric user ID (derived, changes on node reset)
         - duration: Token validity in seconds (300)
         - hashalg: Hash algorithm for HAWK ("sha256")
+        - hashed_fxa_uid: Stable per-account identifier used by the client for telemetry
 
         Args:
             user_id: User identifier from OIDC sub claim (stable)
@@ -82,4 +100,5 @@ class TokenGenerator:
             uid=uid,
             duration=self._hawk_service.token_duration,
             hashalg=self.HASH_ALGORITHM,
+            hashed_fxa_uid=self.generate_hashed_fxa_uid(user_id),
         )

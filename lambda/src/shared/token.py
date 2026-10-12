@@ -15,6 +15,7 @@ class TokenResponse:
         uid: Numeric user ID (hash of user_id)
         duration: Token validity in seconds (300)
         hashalg: Hash algorithm for HAWK ("sha256")
+        hashed_fxa_uid: Stable per-account id; the client uses it as its telemetry uid
     """
 
     id: str
@@ -23,3 +24,4 @@ class TokenResponse:
     uid: int
     duration: int
     hashalg: str
+    hashed_fxa_uid: str

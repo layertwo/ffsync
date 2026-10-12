@@ -16,6 +16,7 @@ class TestTokenResponse:
             uid=12345,
             duration=300,
             hashalg="sha256",
+            hashed_fxa_uid="fxa_uid_hash",
         )
 
         assert token.id == "hawk_id_base64"
@@ -24,6 +25,7 @@ class TestTokenResponse:
         assert token.uid == 12345
         assert token.duration == 300
         assert token.hashalg == "sha256"
+        assert token.hashed_fxa_uid == "fxa_uid_hash"
 
     def test_duration_is_300_seconds(self) -> None:
         token = TokenResponse(
@@ -33,6 +35,7 @@ class TestTokenResponse:
             uid=999,
             duration=300,
             hashalg="sha256",
+            hashed_fxa_uid="fxa_uid_hash",
         )
         assert token.duration == 300
 
@@ -44,6 +47,7 @@ class TestTokenResponse:
             uid=999,
             duration=300,
             hashalg="sha256",
+            hashed_fxa_uid="fxa_uid_hash",
         )
         assert token.hashalg == "sha256"
 
@@ -55,6 +59,7 @@ class TestTokenResponse:
             uid=456,
             duration=300,
             hashalg="sha256",
+            hashed_fxa_uid="fxa_uid_hash",
         )
         assert token.api_endpoint.startswith("https://")
         assert "/1.5/" in token.api_endpoint
@@ -68,6 +73,7 @@ class TestTokenResponse:
             uid=555,
             duration=300,
             hashalg="sha256",
+            hashed_fxa_uid="fxa_uid_hash",
         )
 
         data = asdict(token)
@@ -79,6 +85,7 @@ class TestTokenResponse:
         assert data["uid"] == 555
         assert data["duration"] == 300
         assert data["hashalg"] == "sha256"
+        assert data["hashed_fxa_uid"] == "fxa_uid_hash"
 
     def test_uid_is_numeric(self) -> None:
         token = TokenResponse(
@@ -88,6 +95,7 @@ class TestTokenResponse:
             uid=12345,
             duration=300,
             hashalg="sha256",
+            hashed_fxa_uid="fxa_uid_hash",
         )
         assert isinstance(token.uid, int)
         assert token.uid > 0
@@ -100,6 +108,7 @@ class TestTokenResponse:
             uid=100,
             duration=300,
             hashalg="sha256",
+            hashed_fxa_uid="fxa_uid_hash",
         )
         token2 = TokenResponse(
             id="id2",
@@ -108,5 +117,6 @@ class TestTokenResponse:
             uid=200,
             duration=300,
             hashalg="sha256",
+            hashed_fxa_uid="fxa_uid_hash",
         )
         assert token1.uid != token2.uid

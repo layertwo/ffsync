@@ -204,7 +204,15 @@ class TestGetMethodTokenIssuance:
             body = json.loads(response["body"])
 
             # Verify ONLY the required fields are present (no extra fields)
-            required_fields = {"id", "key", "api_endpoint", "uid", "duration", "hashalg"}
+            required_fields = {
+                "id",
+                "key",
+                "api_endpoint",
+                "uid",
+                "duration",
+                "hashalg",
+                "hashed_fxa_uid",
+            }
             assert set(body.keys()) == required_fields
 
             # Verify hashalg field
