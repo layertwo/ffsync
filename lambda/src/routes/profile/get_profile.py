@@ -52,6 +52,12 @@ class GetProfileRoute(BaseRoute):
             self._metrics.add_metric("JWTAuthFailure", MetricUnit.Count, 1)
             return self._error(401, 110, "Invalid or expired token")
 
+        # RFC 6750: a valid token without the scope the route needs is 403, not 401.
+        # Errno 111 is FxA's UNAUTHORIZED ("Unauthorized for route").
+        if "profile" not in (claims.scope or "").split():
+            self._metrics.add_metric("JWTAuthFailure", MetricUnit.Count, 1)
+            return self._error(403, 111, "Unauthorized for route")
+
         # Look up account by fxa_uid (from JWT) or fall back to oidcSub lookup
         account = None
         if claims.fxa_uid:

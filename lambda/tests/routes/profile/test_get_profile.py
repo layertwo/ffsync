@@ -43,6 +43,7 @@ class TestGetProfile:
             aud="client",
             exp=9999999999,
             iat=1000000000,
+            scope="profile",
             fxa_uid="uid1",
         )
         mock_auth_account_manager.get_account_by_uid.return_value = {
@@ -80,6 +81,7 @@ class TestGetProfile:
             aud="client",
             exp=9999999999,
             iat=1000000000,
+            scope="profile",
         )
         mock_auth_account_manager.get_account_by_uid.return_value = None
         mock_auth_account_manager.get_account_by_oidc_sub.return_value = {
@@ -158,6 +160,7 @@ class TestGetProfile:
             aud="client",
             exp=9999999999,
             iat=1000000000,
+            scope="profile",
         )
         mock_auth_account_manager.get_account_by_uid.return_value = None
         mock_auth_account_manager.get_account_by_oidc_sub.return_value = None

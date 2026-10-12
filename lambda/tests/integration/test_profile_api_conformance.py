@@ -37,6 +37,7 @@ def verifier() -> MagicMock:
         aud="client-id",
         exp=9999999999,
         iat=1000000000,
+        scope="profile",
     )
     return verifier
 
@@ -110,15 +111,23 @@ class TestProfileAuth:
 
         assert _get(route).status_code == 401
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "FxA requires the `profile` scope for GET /v1/profile. The route never checks the "
-            "token's scope, and OIDCTokenClaims carries no scope claim at all, so a token issued "
-            "without it is accepted."
-        ),
+    @pytest.mark.parametrize(
+        "scope", [None, "", "oldsync", "https://identity.mozilla.com/apps/oldsync"]
     )
-    def test_token_without_the_profile_scope_is_rejected(self, route: GetProfileRoute) -> None:
-        # The verifier returns claims that carry no profile scope (the type has no
-        # scope field at all), so a conforming server must refuse the request.
-        assert _get(route).status_code in (401, 403)
+    def test_token_without_the_profile_scope_is_rejected(
+        self, route: GetProfileRoute, verifier: MagicMock, scope: Optional[str]
+    ) -> None:
+        """RFC 6750: a valid token lacking the needed scope is 403, not 401."""
+        verifier.validate_token.return_value = OIDCTokenClaims(
+            sub="oidc-sub-123",
+            iss="https://auth.example.com",
+            aud="client-id",
+            exp=9999999999,
+            iat=1000000000,
+            scope=scope,
+        )
+
+        response = _get(route)
+
+        assert response.status_code == 403
+        assert json_body(response)["errno"] == 111
