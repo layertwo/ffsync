@@ -36,6 +36,10 @@ structure GetProfileOutput {
     avatarDefault: Boolean
 
     @required
+    @documentation("Whether two-factor authentication is enabled for the account")
+    twoFactorAuthentication: Boolean
+
+    @required
     @documentation("OIDC subject identifier")
     sub: String
 }

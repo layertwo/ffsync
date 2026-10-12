@@ -85,15 +85,10 @@ class TestProfileResponse:
     def test_returns_amr_values(self, route: GetProfileRoute) -> None:
         assert "amrValues" in json_body(_get(route))
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "FxA's profile schema includes twoFactorAuthentication (boolean, nullable). We never "
-            "return it."
-        ),
-    )
     def test_returns_two_factor_authentication(self, route: GetProfileRoute) -> None:
-        assert "twoFactorAuthentication" in json_body(_get(route))
+        # FxA reports the account's 2FA state (its schema allows null when it cannot
+        # tell); this service has no second factor, so false is accurate.
+        assert json_body(_get(route))["twoFactorAuthentication"] is False
 
 
 class TestProfileAuth:
