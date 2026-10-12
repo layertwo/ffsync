@@ -138,7 +138,7 @@ class CreateCollectionRoute(BaseRoute):
             )
 
             return Response(
-                status_code=201,  # 201 Created for new collection
+                status_code=200,  # Mozilla returns 200 here, for updates as well as creates
                 content_type="application/json",
                 body=result.model_dump_json(),
                 headers={"X-Last-Modified": str(round(modified_ts, 2))},
