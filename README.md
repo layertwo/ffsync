@@ -41,11 +41,11 @@
 | src/routes/bso/read.py                        |       53 |        0 |       12 |        0 |     100% |           |
 | src/routes/bso/update.py                      |       68 |        0 |        8 |        0 |     100% |           |
 | src/routes/collections/\_\_init\_\_.py        |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/collections/create.py              |       79 |        0 |       20 |        0 |     100% |           |
+| src/routes/collections/create.py              |       80 |        0 |       20 |        0 |     100% |           |
 | src/routes/collections/delete.py              |       38 |        0 |        4 |        0 |     100% |           |
 | src/routes/collections/list.py                |       20 |        0 |        2 |        0 |     100% |           |
 | src/routes/collections/read.py                |       71 |        0 |       20 |        0 |     100% |           |
-| src/routes/collections/update.py              |       55 |        0 |        8 |        0 |     100% |           |
+| src/routes/collections/update.py              |       56 |        0 |        8 |        0 |     100% |           |
 | src/routes/info/\_\_init\_\_.py               |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/info/read\_collections.py          |       20 |        0 |        2 |        0 |     100% |           |
 | src/routes/info/read\_configuration.py        |       26 |        0 |        0 |        0 |     100% |           |
@@ -82,7 +82,7 @@
 | src/shared/token.py                           |        3 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                            |        8 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                           |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                                     | **3254** |    **0** |  **560** |    **0** | **100%** |           |
+| **TOTAL**                                     | **3256** |    **0** |  **560** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
