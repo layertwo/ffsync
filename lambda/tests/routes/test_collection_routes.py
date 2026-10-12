@@ -4,6 +4,7 @@ import json
 from typing import Any
 from unittest.mock import ANY, MagicMock
 
+import pytest
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
@@ -292,8 +293,8 @@ class TestCreateCollectionRoute:
 
         assert response.status_code == 409
 
-    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
-        """Test handling of generic exceptions"""
+    def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
+        """Unexpected errors propagate to the router's Exception handler"""
         route = CreateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -308,9 +309,8 @@ class TestCreateCollectionRoute:
 
         mock_storage_manager.create_or_update_collection.side_effect = Exception("Error")
 
-        response = route.handle(event)
-
-        assert response.status_code == 500
+        with pytest.raises(Exception, match="Error"):
+            route.handle(event)
 
     def test_handle_x_weave_records_exceeds_limit(self, mock_storage_manager: MagicMock) -> None:
         """Test X-Weave-Records header exceeding limit returns 400 with code 17"""
@@ -701,8 +701,8 @@ class TestReadCollectionRoute:
         body = json_body(response)
         assert body == []
 
-    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
-        """Test handling of generic exceptions"""
+    def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
+        """Unexpected errors propagate to the router's Exception handler"""
         route = ReadCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -717,9 +717,8 @@ class TestReadCollectionRoute:
 
         mock_storage_manager.get_collection_objects.side_effect = Exception("Error")
 
-        response = route.handle(event)
-
-        assert response.status_code == 500
+        with pytest.raises(Exception, match="Error"):
+            route.handle(event)
 
     def test_handle_conditional_get_not_modified(self, mock_storage_manager: MagicMock) -> None:
         """Test conditional GET returns 304 when not modified"""
@@ -1179,8 +1178,8 @@ class TestUpdateCollectionRoute:
 
         assert response.status_code == 412
 
-    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
-        """Test handling of generic exceptions"""
+    def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
+        """Unexpected errors propagate to the router's Exception handler"""
         route = UpdateCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -1195,9 +1194,8 @@ class TestUpdateCollectionRoute:
 
         mock_storage_manager.update_collection.side_effect = Exception("Error")
 
-        response = route.handle(event)
-
-        assert response.status_code == 500
+        with pytest.raises(Exception, match="Error"):
+            route.handle(event)
 
 
 class TestDeleteCollectionRoute:
@@ -1285,8 +1283,8 @@ class TestDeleteCollectionRoute:
 
         assert response.status_code == 404
 
-    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
-        """Test handling of generic exceptions"""
+    def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
+        """Unexpected errors propagate to the router's Exception handler"""
         route = DeleteCollectionRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -1300,9 +1298,8 @@ class TestDeleteCollectionRoute:
 
         mock_storage_manager.delete_collection.side_effect = Exception("Error")
 
-        response = route.handle(event)
-
-        assert response.status_code == 500
+        with pytest.raises(Exception, match="Error"):
+            route.handle(event)
 
     def test_handle_selective_deletion(self, mock_storage_manager: MagicMock) -> None:
         """Test selective deletion with ids parameter"""
@@ -1387,8 +1384,8 @@ class TestListCollectionsRoute:
         assert len(body["collections"]) == 2
         assert body["collections"][0]["name"] == "bookmarks"
 
-    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
-        """Test handling of generic exceptions"""
+    def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
+        """Unexpected errors propagate to the router's Exception handler"""
         route = ListCollectionsRoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -1401,9 +1398,8 @@ class TestListCollectionsRoute:
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
-        response = route.handle(event)
-
-        assert response.status_code == 500
+        with pytest.raises(Exception, match="Error"):
+            route.handle(event)
 
 
 class TestCreateCollectionRouteUnauthorized:

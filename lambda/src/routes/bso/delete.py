@@ -1,7 +1,6 @@
 import json
 from typing import Any
 
-from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
@@ -18,8 +17,6 @@ from src.shared.models import (
     validate_bso_id,
     validate_collection_name,
 )
-
-logger = Logger()
 
 
 class DeleteBSORoute(BaseRoute):
@@ -78,11 +75,4 @@ class DeleteBSORoute(BaseRoute):
                 status_code=404,
                 content_type="application/json",
                 body=json.dumps({"error": str(e)}),
-            )
-        except Exception as e:
-            logger.error(f"Internal server error: {e}")
-            return Response(
-                status_code=500,
-                content_type="application/json",
-                body=json.dumps({"error": "Internal server error"}),
             )

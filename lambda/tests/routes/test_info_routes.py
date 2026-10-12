@@ -3,6 +3,7 @@
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
@@ -103,19 +104,16 @@ class TestReadCollectionsInfoRoute:
         # Mozilla format: empty object
         assert body == {}
 
-    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
-        """Test handling of generic exceptions"""
+    def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
+        """Unexpected errors propagate to the router's Exception handler"""
         route = ReadCollectionsInfoRoute(mock_storage_manager)
 
         event: dict[str, Any] = with_auth({})
 
         mock_storage_manager.list_collections.side_effect = Exception("Database error")
 
-        response = route.handle(APIGatewayProxyEvent(event))
-
-        assert response.status_code == 500
-        body = json_body(response)
-        assert body["error"] == "Internal server error"
+        with pytest.raises(Exception, match="Database error"):
+            route.handle(APIGatewayProxyEvent(event))
 
 
 class TestReadCollectionCountsRoute:
@@ -190,17 +188,16 @@ class TestReadCollectionCountsRoute:
         # Mozilla format: empty object
         assert body == {}
 
-    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
-        """Test handling of generic exceptions"""
+    def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
+        """Unexpected errors propagate to the router's Exception handler"""
         route = ReadCollectionCountsRoute(mock_storage_manager)
 
         event: dict[str, Any] = with_auth({})
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
-        response = route.handle(APIGatewayProxyEvent(event))
-
-        assert response.status_code == 500
+        with pytest.raises(Exception, match="Error"):
+            route.handle(APIGatewayProxyEvent(event))
 
 
 class TestReadCollectionUsageRoute:
@@ -275,17 +272,16 @@ class TestReadCollectionUsageRoute:
         # Mozilla format: empty object
         assert body == {}
 
-    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
-        """Test handling of generic exceptions"""
+    def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
+        """Unexpected errors propagate to the router's Exception handler"""
         route = ReadCollectionUsageRoute(mock_storage_manager)
 
         event: dict[str, Any] = with_auth({})
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
-        response = route.handle(APIGatewayProxyEvent(event))
-
-        assert response.status_code == 500
+        with pytest.raises(Exception, match="Error"):
+            route.handle(APIGatewayProxyEvent(event))
 
 
 class TestReadQuotaInfoRoute:
@@ -421,17 +417,16 @@ class TestReadQuotaInfoRoute:
         assert body[0] == 5.0  # 5120 bytes = 5 KB
         assert body[1] is None
 
-    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
-        """Test handling of generic exceptions"""
+    def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
+        """Unexpected errors propagate to the router's Exception handler"""
         route = ReadQuotaInfoRoute(mock_storage_manager)
 
         event: dict[str, Any] = with_auth({})
 
         mock_storage_manager.list_collections.side_effect = Exception("Error")
 
-        response = route.handle(APIGatewayProxyEvent(event))
-
-        assert response.status_code == 500
+        with pytest.raises(Exception, match="Error"):
+            route.handle(APIGatewayProxyEvent(event))
 
     def test_handle_unauthorized_missing_user_id(self, mock_storage_manager: MagicMock) -> None:
         """Test handling when user_id is missing from authorizer context"""

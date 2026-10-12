@@ -1,5 +1,6 @@
 """Tests for lambda entrypoint"""
 
+import json
 from unittest.mock import Mock, patch
 
 from botocore.stub import Stubber
@@ -12,6 +13,50 @@ from src.services.token_generator import TokenGenerator
 TEST_USER_ID = "test-user-123"
 TEST_GENERATION = 0
 TEST_UID = str(TokenGenerator.generate_uid(TEST_USER_ID, TEST_GENERATION))
+
+
+def test_unexpected_route_error_returns_500(
+    mock_service_provider: ServiceProvider,
+    sample_lambda_context: Mock,
+) -> None:
+    """A route that raises unexpectedly is mapped to a 500 by the router's handler.
+
+    Routes no longer carry their own catch-all; StorageProvider's
+    _storage_exception_handlers owns the 500 response.
+    """
+    creds = HawkCredentials(
+        user_id=TEST_USER_ID,
+        generation=TEST_GENERATION,
+        expiry=9999999999,
+        hawk_id="test-hawk-id",
+    )
+    event = {
+        "httpMethod": "GET",
+        "path": f"/1.5/{TEST_UID}/storage",
+        "pathParameters": {"uid": TEST_UID},
+        "headers": {"Authorization": 'Hawk id="test", mac="test"'},
+        "body": None,
+        "queryStringParameters": None,
+        "requestContext": {
+            "requestId": "test-request-id",
+            "accountId": "123456789012",
+            "domainName": "storage.example.com",
+        },
+    }
+
+    with (
+        patch.object(mock_service_provider.hawk_service, "validate", return_value=creds),
+        patch(
+            "src.services.storage_manager.StorageManager.list_collections",
+            side_effect=RuntimeError("boom"),
+        ),
+    ):
+        result = storage_api_handler(
+            event, sample_lambda_context, service_provider=mock_service_provider
+        )
+
+    assert result["statusCode"] == 500
+    assert json.loads(result["body"]) == {"error": "Internal server error"}
 
 
 def test_storage_api_happ_path(
