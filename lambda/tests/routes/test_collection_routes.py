@@ -51,7 +51,7 @@ class TestCreateCollectionRoute:
             }
         )
         result = app.resolve(event, MagicMock())
-        assert result["statusCode"] == 201
+        assert result["statusCode"] == 200
 
     def test_handle_success_with_objects(self, mock_storage_manager: MagicMock) -> None:
         """Test successful collection creation with objects"""
@@ -92,7 +92,7 @@ class TestCreateCollectionRoute:
 
         response = route.handle(event)
 
-        assert response.status_code == 201
+        assert response.status_code == 200
         body = json_body(response)
         # Mozilla-compliant response format
         assert body["modified"] == 1234567890.12
@@ -133,7 +133,7 @@ class TestCreateCollectionRoute:
 
         response = route.handle(event)
 
-        assert response.status_code == 201
+        assert response.status_code == 200
 
     def test_handle_batch_with_a_legacy_base64_id(self, mock_storage_manager: MagicMock) -> None:
         """A legacy Sync 1.1 prefs id is base64 of "{<app guid>}".
@@ -160,7 +160,7 @@ class TestCreateCollectionRoute:
 
         response = route.handle(event)
 
-        assert response.status_code == 201
+        assert response.status_code == 200
         assert json_body(response)["success"] == [legacy_prefs_id]
 
     def test_handle_batch_with_an_unprintable_id_returns_400(
@@ -212,7 +212,7 @@ class TestCreateCollectionRoute:
 
         response = route.handle(event)
 
-        assert response.status_code == 201
+        assert response.status_code == 200
 
     def test_handle_with_precondition_header(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of X-If-Unmodified-Since header"""
@@ -280,7 +280,7 @@ class TestCreateCollectionRoute:
 
         response = route.handle(event)
 
-        assert response.status_code == 201
+        assert response.status_code == 200
 
     def test_handle_invalid_json(self, mock_storage_manager: MagicMock) -> None:
         """Test handling of invalid JSON in body"""
@@ -487,7 +487,7 @@ class TestCreateCollectionRoute:
 
         response = route.handle(event)
 
-        assert response.status_code == 201
+        assert response.status_code == 200
 
     def test_handle_x_weave_records_valid_match(self, mock_storage_manager: MagicMock) -> None:
         """Test X-Weave-Records header matching actual records proceeds normally"""
@@ -521,7 +521,7 @@ class TestCreateCollectionRoute:
 
         response = route.handle(event)
 
-        assert response.status_code == 201
+        assert response.status_code == 200
 
 
 class TestReadCollectionRoute:

@@ -640,7 +640,8 @@ class TestPostCollection:
             path_params={"collectionName": "bookmarks"},
         )
 
-        assert response["statusCode"] in (200, 201)
+        # Mozilla returns 200 here, not 201 -- even when this creates the collection.
+        assert response["statusCode"] == 200
         body = _body(response)
         assert set(body.keys()) == {"modified", "success", "failed"}
         assert body["success"] == ["obj1"]
@@ -678,7 +679,7 @@ class TestBsoIdRule:
             path_params={"collectionName": "prefs"},
         )
 
-        assert response["statusCode"] in (200, 201)
+        assert response["statusCode"] == 200
         assert _body(response)["success"] == [self.LEGACY_PREFS_ID]
 
     def test_an_unprintable_id_is_a_400_not_a_500(
