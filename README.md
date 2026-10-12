@@ -12,7 +12,7 @@
 | src/entrypoint/storage\_api.py                |        5 |        0 |        0 |        0 |     100% |           |
 | src/entrypoint/token\_api.py                  |        5 |        0 |        0 |        0 |     100% |           |
 | src/environment/\_\_init\_\_.py               |        0 |        0 |        0 |        0 |     100% |           |
-| src/environment/service\_provider.py          |      202 |        0 |        0 |        0 |     100% |           |
+| src/environment/service\_provider.py          |      205 |        0 |        0 |        0 |     100% |           |
 | src/middlewares/\_\_init\_\_.py               |        0 |        0 |        0 |        0 |     100% |           |
 | src/middlewares/hawk\_auth.py                 |       56 |        0 |       12 |        0 |     100% |           |
 | src/middlewares/request\_logging.py           |       22 |        0 |        0 |        0 |     100% |           |
@@ -37,26 +37,26 @@
 | src/routes/auth/session\_destroy.py           |       21 |        0 |        2 |        0 |     100% |           |
 | src/routes/auth/session\_status.py            |       17 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/\_\_init\_\_.py                |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/bso/delete.py                      |       42 |        0 |        2 |        0 |     100% |           |
-| src/routes/bso/read.py                        |       58 |        0 |       12 |        0 |     100% |           |
-| src/routes/bso/update.py                      |       72 |        0 |        8 |        0 |     100% |           |
+| src/routes/bso/delete.py                      |       37 |        0 |        2 |        0 |     100% |           |
+| src/routes/bso/read.py                        |       53 |        0 |       12 |        0 |     100% |           |
+| src/routes/bso/update.py                      |       67 |        0 |        8 |        0 |     100% |           |
 | src/routes/collections/\_\_init\_\_.py        |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/collections/create.py              |       84 |        0 |       20 |        0 |     100% |           |
-| src/routes/collections/delete.py              |       43 |        0 |        4 |        0 |     100% |           |
-| src/routes/collections/list.py                |       27 |        0 |        2 |        0 |     100% |           |
-| src/routes/collections/read.py                |       76 |        0 |       20 |        0 |     100% |           |
-| src/routes/collections/update.py              |       60 |        0 |        8 |        0 |     100% |           |
+| src/routes/collections/create.py              |       79 |        0 |       20 |        0 |     100% |           |
+| src/routes/collections/delete.py              |       38 |        0 |        4 |        0 |     100% |           |
+| src/routes/collections/list.py                |       20 |        0 |        2 |        0 |     100% |           |
+| src/routes/collections/read.py                |       71 |        0 |       20 |        0 |     100% |           |
+| src/routes/collections/update.py              |       55 |        0 |        8 |        0 |     100% |           |
 | src/routes/info/\_\_init\_\_.py               |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/info/read\_collections.py          |       26 |        0 |        2 |        0 |     100% |           |
-| src/routes/info/read\_configuration.py        |       29 |        0 |        0 |        0 |     100% |           |
-| src/routes/info/read\_counts.py               |       26 |        0 |        2 |        0 |     100% |           |
-| src/routes/info/read\_quota.py                |       30 |        0 |        2 |        0 |     100% |           |
-| src/routes/info/read\_usage.py                |       26 |        0 |        2 |        0 |     100% |           |
+| src/routes/info/read\_collections.py          |       20 |        0 |        2 |        0 |     100% |           |
+| src/routes/info/read\_configuration.py        |       26 |        0 |        0 |        0 |     100% |           |
+| src/routes/info/read\_counts.py               |       20 |        0 |        2 |        0 |     100% |           |
+| src/routes/info/read\_quota.py                |       24 |        0 |        2 |        0 |     100% |           |
+| src/routes/info/read\_usage.py                |       20 |        0 |        2 |        0 |     100% |           |
 | src/routes/profile/\_\_init\_\_.py            |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/profile/get\_profile.py            |       44 |        0 |       10 |        0 |     100% |           |
 | src/routes/storage/\_\_init\_\_.py            |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/storage/delete\_all.py             |       27 |        0 |        2 |        0 |     100% |           |
-| src/routes/storage/delete\_root.py            |       27 |        0 |        2 |        0 |     100% |           |
+| src/routes/storage/delete\_all.py             |       20 |        0 |        2 |        0 |     100% |           |
+| src/routes/storage/delete\_root.py            |       20 |        0 |        2 |        0 |     100% |           |
 | src/routes/token/\_\_init\_\_.py              |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/token/request.py                   |      120 |        0 |       22 |        0 |     100% |           |
 | src/services/api\_router.py                   |       25 |        0 |        2 |        0 |     100% |           |
@@ -82,7 +82,7 @@
 | src/shared/token.py                           |        3 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                            |        8 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                           |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                                     | **3323** |    **0** |  **562** |    **0** | **100%** |           |
+| **TOTAL**                                     | **3243** |    **0** |  **562** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
