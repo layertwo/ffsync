@@ -1,6 +1,17 @@
+import base64
 from datetime import datetime, timezone
 
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
+
+
+def b64url_encode(data: bytes) -> str:
+    """URL-safe base64 without padding."""
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def b64url_decode(data: str) -> bytes:
+    """Decode URL-safe base64 that may omit padding."""
+    return base64.urlsafe_b64decode(data + "=" * (-len(data) % 4))
 
 
 def get_weave_timestamp() -> str:

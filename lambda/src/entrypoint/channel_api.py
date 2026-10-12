@@ -1,15 +1,12 @@
 """Channel API Lambda handler for WebSocket device pairing."""
 
-from typing import Optional
-
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
-from src.environment.service_provider import ServiceProvider
+from src.environment.service_provider import ServiceProvider, lambda_entrypoint
 
 
-def lambda_handler(
-    event: dict, context: LambdaContext, service_provider: Optional[ServiceProvider] = None
-) -> dict:
+@lambda_entrypoint
+def lambda_handler(event: dict, context: LambdaContext, service_provider: ServiceProvider) -> dict:
     """
     Channel Service WebSocket Lambda handler.
 
@@ -19,11 +16,9 @@ def lambda_handler(
     Args:
         event: Lambda event from API Gateway WebSocket
         context: Lambda context
-        service_provider: Optional ServiceProvider for dependency injection
+        service_provider: ServiceProvider injected by @lambda_entrypoint
 
     Returns:
         WebSocket response dict
     """
-    if service_provider is None:  # pragma: nocover
-        service_provider = ServiceProvider()
     return service_provider.channel_service.handle(event, context)

@@ -1,6 +1,5 @@
 """JWT Verifier for validating self-issued OAuth access tokens."""
 
-import base64
 import json
 import time
 from functools import cached_property
@@ -12,6 +11,7 @@ from cryptography.hazmat.primitives.hashes import SHA256
 from src.services.jwt_service import JWTService
 from src.shared.exceptions import InvalidTokenError
 from src.shared.oidc import OIDCTokenClaims
+from src.shared.utils import b64url_decode
 
 
 class JWTVerifier:
@@ -41,7 +41,7 @@ class JWTVerifier:
 
         # Decode header
         try:
-            header = json.loads(self._b64url_decode(header_b64))
+            header = json.loads(b64url_decode(header_b64))
         except Exception as e:
             raise InvalidTokenError(f"Invalid JWT header: {e}") from e
 
@@ -50,7 +50,7 @@ class JWTVerifier:
 
         # Decode payload
         try:
-            payload = json.loads(self._b64url_decode(payload_b64))
+            payload = json.loads(b64url_decode(payload_b64))
         except Exception as e:
             raise InvalidTokenError(f"Invalid JWT payload: {e}") from e
 
@@ -85,8 +85,8 @@ class JWTVerifier:
     def _public_key(self) -> RSAPublicKey:
         """Construct and cache the RSA public key from JWK."""
         jwk = self._jwt_service.get_public_key_jwk()
-        n_bytes = self._b64url_decode(jwk["n"])
-        e_bytes = self._b64url_decode(jwk["e"])
+        n_bytes = b64url_decode(jwk["n"])
+        e_bytes = b64url_decode(jwk["e"])
         n = int.from_bytes(n_bytes, byteorder="big")
         e = int.from_bytes(e_bytes, byteorder="big")
         return RSAPublicNumbers(e, n).public_key()
@@ -96,17 +96,9 @@ class JWTVerifier:
         public_key = self._public_key
 
         signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
-        signature = self._b64url_decode(signature_b64)
+        signature = b64url_decode(signature_b64)
 
         try:
             public_key.verify(signature, signing_input, PKCS1v15(), SHA256())
         except Exception as e:
             raise InvalidTokenError(f"Invalid signature: {e}") from e
-
-    @staticmethod
-    def _b64url_decode(data: str) -> bytes:
-        """Decode base64url-encoded data with padding."""
-        padding = 4 - len(data) % 4
-        if padding != 4:
-            data += "=" * padding
-        return base64.urlsafe_b64decode(data)

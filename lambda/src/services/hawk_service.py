@@ -28,6 +28,7 @@ from src.shared.exceptions import (
     InvalidHawkHeaderException,
     InvalidHawkSignatureException,
 )
+from src.shared.utils import b64url_decode, b64url_encode
 
 if TYPE_CHECKING:
     from types_boto3_dynamodb.service_resource import Table
@@ -248,10 +249,7 @@ class HawkService:
     def decode_hawk_id(self, hawk_id: str) -> Tuple[str, int, int]:
         """Decode HAWK ID back to user_id, generation, expiry."""
         try:
-            padding = 4 - (len(hawk_id) % 4)
-            if padding != 4:
-                hawk_id += "=" * padding
-            decoded = base64.urlsafe_b64decode(hawk_id).decode("utf-8")
+            decoded = b64url_decode(hawk_id).decode("utf-8")
             parts = decoded.split(":")
             if len(parts) != 3:
                 raise ValueError("HAWK ID must have 3 parts")
@@ -293,9 +291,7 @@ class HawkService:
 
     def generate_hawk_id(self, user_id: str, generation: int, expiry: int) -> str:
         """Generate HAWK identifier (URL-safe base64, no padding)."""
-        id_string = f"{user_id}:{generation}:{expiry}"
-        encoded = base64.urlsafe_b64encode(id_string.encode("utf-8")).decode("utf-8")
-        return encoded.rstrip("=")
+        return b64url_encode(f"{user_id}:{generation}:{expiry}".encode("utf-8"))
 
     def generate_hawk_key(self) -> str:
         """Generate cryptographically random HAWK shared secret (64-char hex)."""

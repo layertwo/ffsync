@@ -1,7 +1,6 @@
 """SessionDestroy route — POST /v1/session/destroy"""
 
 import json
-import re
 from typing import Any, Sequence
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -10,8 +9,6 @@ from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.fxa_token_manager import FxATokenManager
 from src.shared.base_route import BaseRoute
-
-HAWK_ID_PATTERN = re.compile(r'id="([^"]+)"')
 
 
 class SessionDestroyRoute(BaseRoute):
@@ -32,11 +29,9 @@ class SessionDestroyRoute(BaseRoute):
 
     def handle(self, event: APIGatewayProxyEvent) -> Response:
         # Extract token id from Hawk header for deletion
-        headers = event.headers
-        auth_header = headers.get("authorization", "")
-        match = HAWK_ID_PATTERN.search(auth_header)
-        if match:  # pragma: no branch
-            token_id_hex = match.group(1)
+        auth_header = event.headers.get("authorization", "")
+        token_id_hex = self._token_manager.extract_token_id_from_hawk_header(auth_header)
+        if token_id_hex:  # pragma: no branch
             self._token_manager.delete_session(token_id_hex)
 
         return Response(

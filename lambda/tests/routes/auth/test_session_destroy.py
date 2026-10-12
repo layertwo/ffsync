@@ -6,6 +6,7 @@ import pytest
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.routes.auth.session_destroy import SessionDestroyRoute
+from src.services.fxa_token_manager import FxATokenManager
 from tests.conftest import json_body
 
 
@@ -18,6 +19,11 @@ class TestSessionDestroy:
     def test_success_deletes_session(
         self, route: SessionDestroyRoute, mock_token_manager: MagicMock
     ) -> None:
+        # Route delegates parsing to FxATokenManager; use the real parser so the
+        # assertion still proves the parsed id reaches delete_session.
+        mock_token_manager.extract_token_id_from_hawk_header.side_effect = (
+            FxATokenManager.extract_token_id_from_hawk_header
+        )
         event = APIGatewayProxyEvent(
             {
                 "httpMethod": "POST",
