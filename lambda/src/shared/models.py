@@ -24,6 +24,10 @@ from src.shared.generated.auth_models import AccountStatusResponseContent as Acc
 from src.shared.generated.auth_models import AttachedClient as _WireAttachedClient
 from src.shared.generated.auth_models import DeviceRecord as DeviceOutput
 from src.shared.generated.auth_models import (
+    JWKEntry,
+)
+from src.shared.generated.auth_models import JWKSResponseContent as JWKSOutput
+from src.shared.generated.auth_models import (
     OAuthAuthorizationRequestContent as OAuthAuthorizationInput,
 )
 from src.shared.generated.auth_models import (

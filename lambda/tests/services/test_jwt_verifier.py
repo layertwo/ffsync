@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives.hashes import SHA256
 
 from src.services.jwt_verifier import JWTVerifier
 from src.shared.exceptions import InvalidTokenError
+from src.shared.models import JWKEntry
 
 
 def _b64url(data: bytes) -> str:
@@ -62,7 +63,7 @@ def keypair() -> tuple[rsa.RSAPrivateKey, dict[str, str]]:
 def mock_jwt_service(keypair: tuple[rsa.RSAPrivateKey, dict[str, str]]) -> MagicMock:
     _, jwk = keypair
     svc = MagicMock()
-    svc.get_public_key_jwk.return_value = jwk
+    svc.get_public_key_jwk.return_value = JWKEntry(**jwk)
     svc.issuer = "https://auth.example.com"
     return svc
 

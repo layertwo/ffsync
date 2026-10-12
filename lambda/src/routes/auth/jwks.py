@@ -1,6 +1,5 @@
 """JWKS route — GET /v1/jwks"""
 
-import json
 from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -8,6 +7,7 @@ from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.jwt_service import JWTService
 from src.shared.base_route import BaseRoute
+from src.shared.models import JWKSOutput
 
 
 class JWKSRoute(BaseRoute):
@@ -27,5 +27,5 @@ class JWKSRoute(BaseRoute):
         return Response(
             status_code=200,
             content_type="application/json",
-            body=json.dumps({"keys": [jwk]}),
+            body=JWKSOutput(keys=[jwk]).model_dump_json(),
         )

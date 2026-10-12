@@ -8,6 +8,7 @@ import jwt
 import requests
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.metrics import Metrics, MetricUnit
+from cachetools import TTLCache
 
 from src.shared.exceptions import (
     InvalidCredentialsError,
@@ -21,6 +22,9 @@ logger = Logger()
 
 # Default cache TTL in seconds (1 hour) - maintained for backward compatibility
 CACHE_TTL_SECONDS = 3600
+
+# Provider config is a single document, so the cache holds one entry
+_PROVIDER_CONFIG_KEY = "provider_config"
 
 
 class OIDCValidator:
@@ -57,8 +61,9 @@ class OIDCValidator:
         self.client_id = client_id
         self.clock_skew_tolerance = clock_skew_tolerance
         self.cache_ttl_seconds = cache_ttl_seconds
-        self._provider_config: Optional[OIDCProviderConfig] = None
-        self._provider_config_timestamp: float = 0
+        self._provider_config_cache: TTLCache[str, OIDCProviderConfig] = TTLCache(
+            maxsize=1, ttl=cache_ttl_seconds
+        )
         self._jwk_client: Optional[jwt.PyJWKClient] = None
         self._user_agent = user_agent
         self._metrics = metrics
@@ -66,13 +71,6 @@ class OIDCValidator:
     @property
     def _default_headers(self) -> dict[str, str]:
         return {"User-Agent": self._user_agent}
-
-    def _is_cache_valid(self) -> bool:
-        """Check if the cached provider configuration is still valid."""
-        if self._provider_config is None:
-            return False
-        current_time = datetime.now(timezone.utc).timestamp()
-        return (current_time - self._provider_config_timestamp) < self.cache_ttl_seconds
 
     def discover_provider_config(self) -> OIDCProviderConfig:
         """
@@ -87,8 +85,9 @@ class OIDCValidator:
             ServiceUnavailableError: If provider is unreachable
         """
         # Return cached config if still valid
-        if self._is_cache_valid() and self._provider_config is not None:
-            return self._provider_config
+        cached = self._provider_config_cache.get(_PROVIDER_CONFIG_KEY)
+        if cached is not None:
+            return cached
 
         well_known_url = f"{self.provider_url}/.well-known/openid-configuration"
 
@@ -98,21 +97,21 @@ class OIDCValidator:
             response.raise_for_status()
             config_data = response.json()
 
-            self._provider_config = OIDCProviderConfig(
+            config = OIDCProviderConfig(
                 issuer=config_data["issuer"],
                 jwks_uri=config_data["jwks_uri"],
                 authorization_endpoint=config_data.get("authorization_endpoint", ""),
                 token_endpoint=config_data.get("token_endpoint", ""),
                 userinfo_endpoint=config_data.get("userinfo_endpoint", ""),
             )
-            self._provider_config_timestamp = datetime.now(timezone.utc).timestamp()
+            self._provider_config_cache[_PROVIDER_CONFIG_KEY] = config
 
             # Reset JWK client to use new JWKS URI
             self._jwk_client = None
 
             self._metrics.add_metric("OIDCDiscoverySuccess", MetricUnit.Count, 1)
             logger.info("oidc discovery ok", extra={"status": response.status_code})
-            return self._provider_config
+            return config
 
         except requests.exceptions.Timeout:
             self._metrics.add_metric("OIDCDiscoveryFailure", MetricUnit.Count, 1)
@@ -281,6 +280,5 @@ class OIDCValidator:
 
         Useful for testing or when provider configuration changes.
         """
-        self._provider_config = None
-        self._provider_config_timestamp = 0
+        self._provider_config_cache.clear()
         self._jwk_client = None

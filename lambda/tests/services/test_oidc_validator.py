@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import jwt
 import pytest
+from cachetools import TTLCache
 from jwt import PyJWKClientError
 
 from src.services.oidc_validator import OIDCValidator
@@ -147,17 +148,23 @@ class TestDiscoverProviderConfig:
             mock_response.raise_for_status = MagicMock()
             mock_get.return_value = mock_response
 
+            # Drive the TTL from a fake clock
+            now = [1000.0]
+            validator._provider_config_cache = TTLCache(
+                maxsize=1, ttl=validator.cache_ttl_seconds, timer=lambda: now[0]
+            )
+
             # First call
             validator.discover_provider_config()
 
-            # Simulate cache expiry using the validator's cache_ttl_seconds
-            validator._provider_config_timestamp = (
-                datetime.now(timezone.utc).timestamp() - validator.cache_ttl_seconds - 1
-            )
-
-            # Second call should fetch again
+            # Inside the TTL the cached copy is reused
+            now[0] += validator.cache_ttl_seconds - 1
             validator.discover_provider_config()
+            assert mock_get.call_count == 1
 
+            # Past the TTL it is re-fetched
+            now[0] += 2
+            validator.discover_provider_config()
             assert mock_get.call_count == 2
 
     def test_discover_provider_config_custom_cache_ttl(
@@ -181,17 +188,14 @@ class TestDiscoverProviderConfig:
             # First call
             validator.discover_provider_config()
 
-            # Simulate time passage less than custom TTL (1800s)
-            validator._provider_config_timestamp = datetime.now(timezone.utc).timestamp() - 1000
-
             # Second call should use cache
             validator.discover_provider_config()
 
             # Should only call once due to caching
             assert mock_get.call_count == 1
 
-            # Simulate cache expiry beyond custom TTL
-            validator._provider_config_timestamp = datetime.now(timezone.utc).timestamp() - 1800 - 1
+            # Simulate cache expiry
+            validator._provider_config_cache.clear()
 
             # Third call should fetch again
             validator.discover_provider_config()
@@ -850,11 +854,10 @@ class TestClearCache:
 
             # Populate cache
             validator.discover_provider_config()
-            assert validator._provider_config is not None
+            assert len(validator._provider_config_cache) == 1
 
             # Clear cache
             validator.clear_cache()
 
-            assert validator._provider_config is None
-            assert validator._provider_config_timestamp == 0
+            assert len(validator._provider_config_cache) == 0
             assert validator._jwk_client is None

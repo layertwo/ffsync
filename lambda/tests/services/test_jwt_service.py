@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 from src.services.jwt_service import JWTService
+from src.shared.models import JWKEntry
 
 
 def _generate_test_rsa_key() -> tuple[rsa.RSAPrivateKey, bytes]:
@@ -140,15 +141,15 @@ class TestSignJWT:
 
 
 class TestGetPublicKeyJWK:
-    def test_returns_jwk_dict(self, service: JWTService) -> None:
+    def test_returns_jwk_entry(self, service: JWTService) -> None:
         jwk = service.get_public_key_jwk()
-        assert isinstance(jwk, dict)
-        assert jwk["kty"] == "RSA"
-        assert jwk["use"] == "sig"
-        assert jwk["alg"] == "RS256"
-        assert "n" in jwk
-        assert "e" in jwk
-        assert "kid" in jwk
+        assert isinstance(jwk, JWKEntry)
+        assert jwk.kty == "RSA"
+        assert jwk.use == "sig"
+        assert jwk.alg == "RS256"
+        assert jwk.n
+        assert jwk.e
+        assert jwk.kid
 
     def test_caches_public_key(self, service: JWTService, mock_kms: MagicMock) -> None:
         service.get_public_key_jwk()
@@ -162,4 +163,4 @@ class TestGetPublicKeyJWK:
         header_b64 = token.split(".")[0]
         header_b64 += "=" * (4 - len(header_b64) % 4)
         header = json.loads(base64.urlsafe_b64decode(header_b64))
-        assert header["kid"] == jwk["kid"]
+        assert header["kid"] == jwk.kid
