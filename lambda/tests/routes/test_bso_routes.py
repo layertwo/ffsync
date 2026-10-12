@@ -3,6 +3,7 @@
 import json
 from unittest.mock import MagicMock
 
+import pytest
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
@@ -200,8 +201,8 @@ class TestReadBSORoute:
         body = json_body(response)
         assert "error" in body
 
-    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
-        """Test handling of generic exceptions"""
+    def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
+        """Unexpected errors propagate to the router's Exception handler"""
         route = ReadBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -217,11 +218,8 @@ class TestReadBSORoute:
 
         mock_storage_manager.get_storage_object.side_effect = Exception("Database error")
 
-        response = route.handle(event)
-
-        assert response.status_code == 500
-        body = json_body(response)
-        assert body["error"] == "Internal server error"
+        with pytest.raises(Exception, match="Database error"):
+            route.handle(event)
 
 
 class TestUpdateBSORoute:
@@ -508,8 +506,8 @@ class TestUpdateBSORoute:
 
         assert response.status_code == 400
 
-    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
-        """Test handling of generic exceptions"""
+    def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
+        """Unexpected errors propagate to the router's Exception handler"""
         route = UpdateBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -527,9 +525,8 @@ class TestUpdateBSORoute:
 
         mock_storage_manager.update_storage_object.side_effect = Exception("Error")
 
-        response = route.handle(event)
-
-        assert response.status_code == 500
+        with pytest.raises(Exception, match="Error"):
+            route.handle(event)
 
 
 class TestDeleteBSORoute:
@@ -650,8 +647,8 @@ class TestDeleteBSORoute:
 
         assert response.status_code == 404
 
-    def test_handle_generic_exception(self, mock_storage_manager: MagicMock) -> None:
-        """Test handling of generic exceptions"""
+    def test_unexpected_exception_propagates(self, mock_storage_manager: MagicMock) -> None:
+        """Unexpected errors propagate to the router's Exception handler"""
         route = DeleteBSORoute(mock_storage_manager)
 
         event = APIGatewayProxyEvent(
@@ -667,9 +664,8 @@ class TestDeleteBSORoute:
 
         mock_storage_manager.delete_storage_object.side_effect = Exception("Error")
 
-        response = route.handle(event)
-
-        assert response.status_code == 500
+        with pytest.raises(Exception, match="Error"):
+            route.handle(event)
 
 
 class TestReadBSORouteUnauthorized:

@@ -1,14 +1,11 @@
 import json
 from typing import Any
 
-from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
-
-logger = Logger()
 
 # Default quota limit in KB (None means unlimited/not enforced)
 DEFAULT_QUOTA_KB = None
@@ -32,31 +29,22 @@ class ReadQuotaInfoRoute(BaseRoute):
         - usage_kb: Current storage usage in KB
         - quota_kb: Storage quota in KB, or null if not enforced
         """
-        try:
-            user_id = self.hawk_uid(event)
-            if not user_id:
-                return self.unauthorized()
+        user_id = self.hawk_uid(event)
+        if not user_id:
+            return self.unauthorized()
 
-            # Get collections using storage manager to calculate current usage
-            collections = self.storage_manager.list_collections(user_id)
+        # Get collections using storage manager to calculate current usage
+        collections = self.storage_manager.list_collections(user_id)
 
-            # Calculate total usage in bytes, then convert to KB
-            total_usage_bytes = sum(collection.usage for collection in collections)
-            usage_kb = total_usage_bytes / 1024
+        # Calculate total usage in bytes, then convert to KB
+        total_usage_bytes = sum(collection.usage for collection in collections)
+        usage_kb = total_usage_bytes / 1024
 
-            # Return Mozilla format: [usage_kb, quota_kb or null]
-            response_body = [usage_kb, self.quota_kb]
+        # Return Mozilla format: [usage_kb, quota_kb or null]
+        response_body = [usage_kb, self.quota_kb]
 
-            return Response(
-                status_code=200,
-                content_type="application/json",
-                body=json.dumps(response_body),
-            )
-
-        except Exception as e:
-            logger.error(f"Internal server error: {e}")
-            return Response(
-                status_code=500,
-                content_type="application/json",
-                body=json.dumps({"error": "Internal server error"}),
-            )
+        return Response(
+            status_code=200,
+            content_type="application/json",
+            body=json.dumps(response_body),
+        )

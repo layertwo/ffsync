@@ -306,7 +306,7 @@ Python deps are pinned exactly (`==`) with `uv.lock` committed in both `lambda/`
 - **BSO usage delta**: when updating a BSO, fetch the existing object first (`get_storage_object`) to compute `new_len - old_len`.
 - **mypy narrowing**: use `if x is not None:` directly. A derived boolean (`found = x is not None; if found: x.attr`) is not tracked and produces `union-attr`.
 - **Hawk auth**: unified `HawkAuthMiddleware` handles storage (router-level) and session (per-route via `middlewares=[...]` on the route class). No separate Lambda authorizer.
-- **Exception handlers**: router-level handlers format auth errors — `HawkAuthenticationError` → 401, `UidMismatchError` → 403.
+- **Exception handlers**: router-level handlers format auth errors — `HawkAuthenticationError` → 401, `UidMismatchError` → 403. The storage router's `_storage_exception_handlers` also registers a catch-all `Exception` → 500, so storage routes MUST NOT carry their own `except Exception` block; the error propagates to the resolver. A route unit test that calls `route.handle()` directly therefore asserts propagation, not a 500 — the 500 body is covered at the router level in `tests/entrypoint/test_storage_api.py`.
 - **Coverage exclusions**: `pragma: nocover`, `__repr__`, `TYPE_CHECKING`, abstract methods, `*/generated/*`.
 - **HAWK credentials** expire after 300 s; clients refresh via the Token API.
 

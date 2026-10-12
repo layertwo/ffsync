@@ -163,9 +163,18 @@ class ServiceProvider:
                 body='{"error": "uid mismatch"}',
             )
 
+        def handle_unexpected(ex: Exception) -> Response:
+            logger.error(f"Internal server error: {ex}")
+            return Response(
+                status_code=500,
+                content_type="application/json",
+                body=json.dumps({"error": "Internal server error"}),
+            )
+
         return {
             HawkAuthenticationError: handle_hawk_auth,
             UidMismatchError: handle_uid_mismatch,
+            Exception: handle_unexpected,
         }
 
     @cached_property
