@@ -54,6 +54,13 @@ const DEFAULT_TABLE_PROPS: Partial<TableProps> = {
     deletionProtection: true,
 };
 
+// The Token API is the only route that mints credentials, so it is the one
+// worth capping: each call costs a DynamoDB write plus a KMS-free JWT check,
+// and a client refreshes roughly every 300s. These limits are far above
+// legitimate load for a self-hosted instance and only bite on a flood.
+const TOKEN_API_THROTTLE_RATE_LIMIT = 50; // requests per second
+const TOKEN_API_THROTTLE_BURST_LIMIT = 100; // concurrent burst
+
 export interface ServiceStackProps extends StackProps {
     stageType: StageType;
 }
@@ -164,7 +171,10 @@ export class ServiceStack extends Stack {
 
         // APIs
         this.authApi = this.buildApi(Service.AUTH, this.authHandler);
-        this.tokenApi = this.buildApi(Service.TOKEN, this.tokenHandler);
+        this.tokenApi = this.buildApi(Service.TOKEN, this.tokenHandler, {
+            rateLimit: TOKEN_API_THROTTLE_RATE_LIMIT,
+            burstLimit: TOKEN_API_THROTTLE_BURST_LIMIT,
+        });
         this.profileApi = this.buildApi(Service.PROFILE, this.profileHandler);
         this.storageApi = this.buildApi(Service.STORAGE, this.storageHandler);
 
@@ -185,6 +195,7 @@ export class ServiceStack extends Stack {
                 name: "SK",
                 type: AttributeType.STRING,
             },
+            timeToLiveAttribute: "expiry",
             pointInTimeRecoverySpecification: {
                 pointInTimeRecoveryEnabled: true,
             },
@@ -501,7 +512,11 @@ export class ServiceStack extends Stack {
         });
     }
 
-    private buildApi(service: Service, handler: IFunction): SpecRestApi {
+    private buildApi(
+        service: Service,
+        handler: IFunction,
+        throttling?: {rateLimit: number; burstLimit: number},
+    ): SpecRestApi {
         const capitalService = capitalCase(service);
         const domainName = `${service.toLowerCase()}.${this.props.stageType}.${BASE_DOMAIN}`;
         const certificate = new Certificate(this, `${capitalService}Certificate`, {
@@ -530,6 +545,8 @@ export class ServiceStack extends Stack {
                 loggingLevel: MethodLoggingLevel.INFO,
                 accessLogDestination: new LogGroupLogDestination(logGroup),
                 accessLogFormat: AccessLogFormat.jsonWithStandardFields(),
+                throttlingRateLimit: throttling?.rateLimit,
+                throttlingBurstLimit: throttling?.burstLimit,
             },
             disableExecuteApiEndpoint: true,
         });
