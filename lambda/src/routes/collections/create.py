@@ -113,7 +113,7 @@ class CreateCollectionRoute(BaseRoute):
                         obj["id"]: obj["ttl"] for obj in objects_data if obj.get("ttl") is not None
                     }
                 except (json.JSONDecodeError, KeyError) as e:
-                    raise ValidationException(f"Invalid request body: {e}")
+                    raise ValidationException("Invalid request body") from e
 
             # Validate actual record count matches X-Weave-Records if provided
             if x_weave_records:
