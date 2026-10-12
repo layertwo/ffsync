@@ -35,3 +35,12 @@ class BaseRoute(ABC):
             content_type="application/json",
             body=json.dumps({"error": "Unauthorized"}),
         )
+
+    @staticmethod
+    def _error(status: int, errno: int, message: str) -> Response:
+        """The FxA-style error body used by the auth and profile routes."""
+        return Response(
+            status_code=status,
+            content_type="application/json",
+            body=json.dumps({"code": status, "errno": errno, "message": message}),
+        )

@@ -1,6 +1,5 @@
 """Device management for FxA device registration and listing."""
 
-import re
 import time
 import uuid
 from typing import TYPE_CHECKING, Any, Optional, cast
@@ -11,7 +10,6 @@ if TYPE_CHECKING:
     from types_boto3_dynamodb.service_resource import Table
 
 DEVICE_PREFIX = "DEVICE"
-_HAWK_ID_PATTERN = re.compile(r'id="([^"]+)"')
 
 
 class DeviceManager:

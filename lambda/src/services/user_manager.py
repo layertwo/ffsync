@@ -17,6 +17,17 @@ PK_PREFIX = "USER"
 MAX_CLIENT_STATE_HISTORY = 50
 
 
+def _raise_if_unavailable(error: ClientError) -> None:
+    """Map a DynamoDB availability error to ServiceUnavailableError."""
+    if error.response["Error"]["Code"] in (
+        "ResourceNotFoundException",
+        "ProvisionedThroughputExceededException",
+        "RequestLimitExceeded",
+        "InternalServerError",
+    ):
+        raise ServiceUnavailableError(f"DynamoDB unavailable: {error.response['Error']['Code']}")
+
+
 class UserManager:
     """Manages user operations with DynamoDB for the Token Server"""
 
@@ -77,15 +88,7 @@ class UserManager:
             return user_record
 
         except ClientError as e:
-            if e.response["Error"]["Code"] in (
-                "ResourceNotFoundException",
-                "ProvisionedThroughputExceededException",
-                "RequestLimitExceeded",
-                "InternalServerError",
-            ):
-                raise ServiceUnavailableError(
-                    f"DynamoDB unavailable: {e.response['Error']['Code']}"
-                )
+            _raise_if_unavailable(e)
             raise
 
     def get_user(self, user_id: str) -> Optional[UserRecord]:
@@ -119,15 +122,7 @@ class UserManager:
             return UserRecord.model_validate(item)
 
         except ClientError as e:
-            if e.response["Error"]["Code"] in (
-                "ResourceNotFoundException",
-                "ProvisionedThroughputExceededException",
-                "RequestLimitExceeded",
-                "InternalServerError",
-            ):
-                raise ServiceUnavailableError(
-                    f"DynamoDB unavailable: {e.response['Error']['Code']}"
-                )
+            _raise_if_unavailable(e)
             raise
 
     def validate_client_state(self, user_record: UserRecord, client_state: str) -> None:
@@ -211,15 +206,7 @@ class UserManager:
             return UserRecord.model_validate(updated_item)
 
         except ClientError as e:
-            if e.response["Error"]["Code"] in (
-                "ResourceNotFoundException",
-                "ProvisionedThroughputExceededException",
-                "RequestLimitExceeded",
-                "InternalServerError",
-            ):
-                raise ServiceUnavailableError(
-                    f"DynamoDB unavailable: {e.response['Error']['Code']}"
-                )
+            _raise_if_unavailable(e)
             raise
 
     def get_or_create_user(self, user_id: str, client_state: str = "") -> UserRecord:
@@ -305,15 +292,7 @@ class UserManager:
             return updated_item["generation"]
 
         except ClientError as e:
-            if e.response["Error"]["Code"] in (
-                "ResourceNotFoundException",
-                "ProvisionedThroughputExceededException",
-                "RequestLimitExceeded",
-                "InternalServerError",
-            ):
-                raise ServiceUnavailableError(
-                    f"DynamoDB unavailable: {e.response['Error']['Code']}"
-                )
+            _raise_if_unavailable(e)
             raise
 
     def validate_generation(self, user_id: str, generation: int) -> bool:

@@ -1,6 +1,5 @@
 """AccountKeys route — GET /v1/account/keys"""
 
-import json
 from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -66,12 +65,4 @@ class AccountKeysRoute(BaseRoute):
             status_code=200,
             content_type="application/json",
             body=result.model_dump_json(),
-        )
-
-    @staticmethod
-    def _error(status: int, errno: int, message: str) -> Response:
-        return Response(
-            status_code=status,
-            content_type="application/json",
-            body=json.dumps({"code": status, "errno": errno, "message": message}),
         )

@@ -94,11 +94,3 @@ class AccountLoginRoute(BaseRoute):
             content_type="application/json",
             body=result.model_dump_json(by_alias=True, exclude_none=True),
         )
-
-    @staticmethod
-    def _error(status: int, errno: int, message: str) -> Response:
-        return Response(
-            status_code=status,
-            content_type="application/json",
-            body=json.dumps({"code": status, "errno": errno, "message": message}),
-        )

@@ -51,6 +51,42 @@ class StorageManager:
         """Generate sort key for collection metadata"""
         return "METADATA"
 
+    def _update_collection_metadata(
+        self,
+        user_id: str,
+        collection_name: str,
+        modified: float,
+        count_delta: int,
+        usage_delta: int,
+    ) -> None:
+        """Atomically set collection metadata, adding count/usage deltas.
+
+        Uses update_item (not put_item) so concurrent writers do not clobber
+        each other's count/usage increments.
+        """
+        self.table.update_item(
+            Key={
+                "PK": self._collection_pk(user_id, collection_name),
+                "SK": self._metadata_sk(),
+            },
+            UpdateExpression="SET #modified = :modified, #name = :name, #user_id = :user_id"
+            " ADD #count :count_delta, #usage :usage_delta",
+            ExpressionAttributeNames={
+                "#modified": "modified",
+                "#name": "name",
+                "#user_id": "user_id",
+                "#count": "count",
+                "#usage": "usage",
+            },
+            ExpressionAttributeValues={
+                ":modified": Decimal(str(modified)),
+                ":name": collection_name,
+                ":user_id": user_id,
+                ":count_delta": count_delta,
+                ":usage_delta": usage_delta,
+            },
+        )
+
     def _object_sk(self, object_id: str) -> str:
         """Generate sort key for storage object"""
         return f"OBJECT#{object_id}"
@@ -310,27 +346,8 @@ class StorageManager:
             # Atomically update existing metadata with ADD to avoid race conditions
             new_count = existing_collection.count + new_objects_count
             new_usage = existing_collection.usage + usage_delta
-            self.table.update_item(
-                Key={
-                    "PK": self._collection_pk(user_id, collection_name),
-                    "SK": self._metadata_sk(),
-                },
-                UpdateExpression="SET #modified = :modified, #name = :name, #user_id = :user_id"
-                " ADD #count :count_delta, #usage :usage_delta",
-                ExpressionAttributeNames={
-                    "#modified": "modified",
-                    "#name": "name",
-                    "#user_id": "user_id",
-                    "#count": "count",
-                    "#usage": "usage",
-                },
-                ExpressionAttributeValues={
-                    ":modified": Decimal(str(modified)),
-                    ":name": collection_name,
-                    ":user_id": user_id,
-                    ":count_delta": new_objects_count,
-                    ":usage_delta": usage_delta,
-                },
+            self._update_collection_metadata(
+                user_id, collection_name, modified, new_objects_count, usage_delta
             )
         else:
             # New collection — write full metadata with put_item
@@ -386,10 +403,7 @@ class StorageManager:
             )
 
         # Get current collection metadata
-        try:
-            collection = self.get_collection(user_id, collection_name)
-        except CollectionNotFoundException:
-            raise
+        collection = self.get_collection(user_id, collection_name)
 
         # Check optimistic concurrency control
         if if_unmodified_since is not None:
@@ -410,27 +424,8 @@ class StorageManager:
         new_usage = collection.usage + usage_delta
         new_count = collection.count + new_objects_count
 
-        self.table.update_item(
-            Key={
-                "PK": self._collection_pk(user_id, collection_name),
-                "SK": self._metadata_sk(),
-            },
-            UpdateExpression="SET #modified = :modified, #name = :name, #user_id = :user_id"
-            " ADD #count :count_delta, #usage :usage_delta",
-            ExpressionAttributeNames={
-                "#modified": "modified",
-                "#name": "name",
-                "#user_id": "user_id",
-                "#count": "count",
-                "#usage": "usage",
-            },
-            ExpressionAttributeValues={
-                ":modified": Decimal(str(modified)),
-                ":name": collection_name,
-                ":user_id": user_id,
-                ":count_delta": new_objects_count,
-                ":usage_delta": usage_delta,
-            },
+        self._update_collection_metadata(
+            user_id, collection_name, modified, new_objects_count, usage_delta
         )
 
         collection_data = CollectionData(
@@ -728,27 +723,8 @@ class StorageManager:
         usage_delta = len(payload) - len(existing_obj.payload)
         count_delta = 1 if is_new_bso else 0
 
-        self.table.update_item(
-            Key={
-                "PK": self._collection_pk(user_id, collection_name),
-                "SK": self._metadata_sk(),
-            },
-            UpdateExpression="SET #modified = :modified, #name = :name, #user_id = :user_id"
-            " ADD #count :count_delta, #usage :usage_delta",
-            ExpressionAttributeNames={
-                "#modified": "modified",
-                "#name": "name",
-                "#user_id": "user_id",
-                "#count": "count",
-                "#usage": "usage",
-            },
-            ExpressionAttributeValues={
-                ":modified": Decimal(str(modified)),
-                ":name": collection_name,
-                ":user_id": user_id,
-                ":count_delta": count_delta,
-                ":usage_delta": usage_delta,
-            },
+        self._update_collection_metadata(
+            user_id, collection_name, modified, count_delta, usage_delta
         )
 
         return obj
