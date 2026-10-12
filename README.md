@@ -76,13 +76,13 @@
 | src/shared/\_\_init\_\_.py                    |        0 |        0 |        0 |        0 |     100% |           |
 | src/shared/\_codegen\_base.py                 |        3 |        0 |        0 |        0 |     100% |           |
 | src/shared/base\_route.py                     |       17 |        0 |        0 |        0 |     100% |           |
-| src/shared/exceptions.py                      |      141 |        0 |        8 |        0 |     100% |           |
+| src/shared/exceptions.py                      |      127 |        0 |        0 |        0 |     100% |           |
 | src/shared/models.py                          |      111 |        0 |       22 |        0 |     100% |           |
 | src/shared/oidc.py                            |       11 |        0 |        0 |        0 |     100% |           |
 | src/shared/token.py                           |        3 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                            |        8 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                           |       21 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                                     | **3285** |    **0** |  **564** |    **0** | **100%** |           |
+| **TOTAL**                                     | **3271** |    **0** |  **556** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
