@@ -3135,3 +3135,93 @@ class TestStorageManager:
 
         assert len(result["items"]) == 2
         assert {item.id for item in result["items"]} == {"obj1", "obj2"}
+
+
+class TestBsoTtlEnforcement:
+    """A BSO past its `expiry` is treated as absent.
+
+    DynamoDB TTL deletion lags by up to 48 hours, so expiry is re-checked on
+    read (AGENTS.md: TTL is not an access check).
+    """
+
+    EXPIRED = "1"  # 1970-01-01
+    LIVE = "4102444800"  # 2100-01-01
+
+    @pytest.fixture
+    def storage_manager(self, dynamodb_table: "Table") -> StorageManager:
+        return StorageManager(table=dynamodb_table)
+
+    @staticmethod
+    def _object_item(object_id: str, expiry: str | None = None) -> dict[str, dict[str, str]]:
+        item = {
+            "PK": {"S": "USER#test-user-123#COLLECTION#bookmarks"},
+            "SK": {"S": f"OBJECT#{object_id}"},
+            "id": {"S": object_id},
+            "payload": {"S": "payload"},
+            "modified": {"N": "1234567890.00"},
+        }
+        if expiry is not None:
+            item["expiry"] = {"N": expiry}
+        return item
+
+    def test_expired_object_is_not_found(
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber
+    ) -> None:
+        dynamodb_stubber.add_response(
+            "get_item", {"Item": self._object_item("obj1", self.EXPIRED)}, None
+        )
+
+        with pytest.raises(StorageObjectNotFoundException):
+            storage_manager.get_storage_object("test-user-123", "bookmarks", "obj1")
+
+    def test_object_with_future_expiry_is_returned(
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber
+    ) -> None:
+        dynamodb_stubber.add_response(
+            "get_item", {"Item": self._object_item("obj1", self.LIVE)}, None
+        )
+
+        obj = storage_manager.get_storage_object("test-user-123", "bookmarks", "obj1")
+
+        assert obj.id == "obj1"
+
+    def test_query_excludes_expired_objects(
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber
+    ) -> None:
+        dynamodb_stubber.add_response(
+            "query",
+            {
+                "Items": [
+                    self._object_item("obj1", self.LIVE),
+                    self._object_item("obj2", self.EXPIRED),
+                ]
+            },
+            None,
+        )
+
+        result = storage_manager.get_collection_objects("test-user-123", "bookmarks", limit=10)
+
+        assert [item.id for item in result["items"]] == ["obj1"]
+
+    def test_batch_get_excludes_expired_objects(
+        self, storage_manager: StorageManager, dynamodb_stubber: Stubber, storage_table_name: str
+    ) -> None:
+        dynamodb_stubber.add_response(
+            "batch_get_item",
+            {
+                "Responses": {
+                    storage_table_name: [
+                        self._object_item("obj1", self.LIVE),
+                        self._object_item("obj2", self.EXPIRED),
+                    ]
+                },
+                "UnprocessedKeys": {},
+            },
+            None,
+        )
+
+        result = storage_manager.get_collection_objects(
+            "test-user-123", "bookmarks", ids="obj1,obj2"
+        )
+
+        assert [item.id for item in result["items"]] == ["obj1"]

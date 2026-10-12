@@ -1,5 +1,6 @@
 """Storage manager for DynamoDB operations"""
 
+import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
@@ -107,6 +108,16 @@ class StorageManager:
         for page in paginator.paginate(TableName=self.table.name, **kwargs):
             yield page.get("Items", [])
 
+    @staticmethod
+    def _is_expired(item: dict[str, Any]) -> bool:
+        """True if the item carries an `expiry` that has already passed.
+
+        DynamoDB's TTL deletion lags by up to 48 hours, so expiry is re-checked
+        on read and an expired BSO is treated as absent.
+        """
+        expiry = item.get("expiry")
+        return expiry is not None and int(expiry) < time.time()
+
     def _batch_get_existing_objects(
         self, pk: str, object_ids: list[str]
     ) -> dict[str, BasicStorageObject]:
@@ -139,6 +150,8 @@ class StorageManager:
             )
 
             for item in response.get("Responses", {}).get(self.table.name, []):
+                if self._is_expired(item):
+                    continue
                 obj = BasicStorageObject.model_validate(item)
                 result[obj.id] = obj
 
@@ -149,6 +162,8 @@ class StorageManager:
                     RequestItems={self.table.name: unprocessed}
                 )
                 for item in response.get("Responses", {}).get(self.table.name, []):
+                    if self._is_expired(item):
+                        continue
                     obj = BasicStorageObject.model_validate(item)
                     result[obj.id] = obj
                 unprocessed = response.get("UnprocessedKeys", {}).get(self.table.name)
@@ -216,6 +231,10 @@ class StorageManager:
                 )
 
             item = response["Item"]
+            if self._is_expired(item):
+                raise StorageObjectNotFoundException(
+                    f"Object '{object_id}' not found in collection '{collection_name}'"
+                )
             return BasicStorageObject.model_validate(item)
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
@@ -581,13 +600,16 @@ class StorageManager:
             if filter_parts:
                 query_kwargs["FilterExpression"] = " AND ".join(filter_parts)
 
-            # Use ProjectionExpression when full objects aren't needed
+            # Use ProjectionExpression when full objects aren't needed. `expiry`
+            # is always projected so expired BSOs can be filtered out.
             if not full:
-                query_kwargs["ProjectionExpression"] = "SK, modified, sortindex"
+                query_kwargs["ProjectionExpression"] = "SK, modified, sortindex, expiry"
 
             items = []
             for page in self._query_pages(**query_kwargs):
-                items.extend(BasicStorageObject.model_validate(item) for item in page)
+                for item in page:
+                    if not self._is_expired(item):
+                        items.append(BasicStorageObject.model_validate(item))
 
         # Apply newer/older filters for BatchGetItem path (not pushed to DynamoDB)
         if id_set is not None:
