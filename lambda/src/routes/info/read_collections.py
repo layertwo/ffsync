@@ -6,6 +6,7 @@ from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
+from src.shared.utils import get_weave_timestamp
 
 
 class ReadCollectionsInfoRoute(BaseRoute):
@@ -40,4 +41,6 @@ class ReadCollectionsInfoRoute(BaseRoute):
             status_code=200,
             content_type="application/json",
             body=json.dumps(response_body),
+            # Spec: X-Last-Modified "will be included in all success responses".
+            headers={"X-Last-Modified": get_weave_timestamp()},
         )

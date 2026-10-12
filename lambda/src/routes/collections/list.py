@@ -5,7 +5,7 @@ from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEvent
 
 from src.services.storage_manager import StorageManager
 from src.shared.base_route import BaseRoute
-from src.shared.models import CollectionsResponse
+from src.shared.models import CollectionsResponse, get_current_timestamp
 
 
 class ListCollectionsRoute(BaseRoute):
@@ -28,8 +28,13 @@ class ListCollectionsRoute(BaseRoute):
 
         response = CollectionsResponse(collections=collections)
 
+        # The target resource is the collection list, so its last-modified time is the
+        # newest member's -- or the clock when there is nothing to report.
+        last_modified = max((c.modified for c in collections), default=get_current_timestamp())
+
         return Response(
             status_code=200,
             content_type="application/json",
             body=response.model_dump_json(),
+            headers={"X-Last-Modified": f"{last_modified:.2f}"},
         )

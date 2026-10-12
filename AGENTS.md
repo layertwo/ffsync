@@ -228,6 +228,8 @@ cd lambda && SMITHY_BUILD_DIR="$(git rev-parse --show-toplevel)/build/smithy" ./
 
 ## Key Conventions
 
+- **Comments**: at most 2 lines when adding one, and only for a non-obvious *why*. A comment that narrates what the code does is noise.
+
 ### Python (Lambda)
 
 - **Line length**: 100 (Black)

@@ -1,3 +1,4 @@
+import json
 from http import HTTPStatus
 from typing import Optional
 
@@ -51,8 +52,9 @@ class SyncStorageException(Exception):
             # Return integer response code per Mozilla spec
             body = str(self.mozilla_code)
         else:
-            # Return error object for other errors
-            body = f'{{"error": "{self.error_code}", "message": "{self.message}"}}'
+            # json.dumps, not an f-string: messages interpolate client input, so
+            # quotes and newlines must be escaped rather than pasted in.
+            body = json.dumps({"error": self.error_code, "message": self.message})
 
         # Build optional headers
         headers = {}

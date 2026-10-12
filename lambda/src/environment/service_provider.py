@@ -60,6 +60,7 @@ from src.services.oidc_validator import OIDCValidator
 from src.services.storage_manager import StorageManager
 from src.services.token_generator import TokenGenerator
 from src.services.user_manager import UserManager
+from src.shared.utils import get_weave_timestamp
 
 if TYPE_CHECKING:
     from types_boto3_dynamodb.service_resource import DynamoDBServiceResource, Table
@@ -149,26 +150,38 @@ class ServiceProvider:
 
     @cached_property
     def _storage_exception_handlers(self) -> dict:
+        def with_storage_headers(response: Response) -> Response:
+            # Error responses skip the router's middleware; only the resource timestamp
+            # is ours to fill, ApiRouter's wrapper adds X-Weave-Timestamp.
+            response.headers.setdefault("X-Last-Modified", get_weave_timestamp())
+            return response
+
         def handle_hawk_auth(ex: Exception) -> Response:
-            return Response(
-                status_code=401,
-                content_type="application/json",
-                body='{"error": "Unauthorized"}',
+            return with_storage_headers(
+                Response(
+                    status_code=401,
+                    content_type="application/json",
+                    body=json.dumps({"error": "Unauthorized"}),
+                )
             )
 
         def handle_uid_mismatch(ex: Exception) -> Response:
-            return Response(
-                status_code=403,
-                content_type="application/json",
-                body='{"error": "uid mismatch"}',
+            return with_storage_headers(
+                Response(
+                    status_code=403,
+                    content_type="application/json",
+                    body=json.dumps({"error": "uid mismatch"}),
+                )
             )
 
         def handle_unexpected(ex: Exception) -> Response:
             logger.error(f"Internal server error: {ex}")
-            return Response(
-                status_code=500,
-                content_type="application/json",
-                body=json.dumps({"error": "Internal server error"}),
+            return with_storage_headers(
+                Response(
+                    status_code=500,
+                    content_type="application/json",
+                    body=json.dumps({"error": "Internal server error"}),
+                )
             )
 
         return {
