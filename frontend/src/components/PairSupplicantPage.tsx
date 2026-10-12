@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
-import { Loader2, CheckCircle2, XCircle } from "lucide-react"
+import { CheckCircle2, XCircle } from "lucide-react"
+import { LoadingPage } from "@/components/LoadingPage"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -146,27 +147,13 @@ export function PairSupplicantPage({ config }: PairSupplicantPageProps) {
 
   if (state.step === "connecting") {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-16 space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">
-            Connecting to pairing channel...
-          </p>
-        </CardContent>
-      </Card>
+      <LoadingPage message="Connecting to pairing channel..." />
     )
   }
 
   if (state.step === "waiting") {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-16 space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">
-            Waiting for the other device to approve...
-          </p>
-        </CardContent>
-      </Card>
+      <LoadingPage message="Waiting for the other device to approve..." />
     )
   }
 

@@ -212,7 +212,7 @@ class ChannelService:
         try:
             client.post_to_connection(
                 ConnectionId=connection_id,
-                Data=data.encode("utf-8") if isinstance(data, str) else data,
+                Data=data.encode("utf-8"),
             )
         except client.exceptions.GoneException:
             logger.warning("Connection %s is gone, cleaning up", connection_id)

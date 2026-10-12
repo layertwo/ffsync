@@ -1,6 +1,5 @@
 """GetProfile route — GET /v1/profile (OAuth Bearer auth)"""
 
-import json
 from typing import Any
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
@@ -74,12 +73,4 @@ class GetProfileRoute(BaseRoute):
             status_code=200,
             content_type="application/json",
             body=result.model_dump_json(by_alias=True),
-        )
-
-    @staticmethod
-    def _error(status: int, errno: int, message: str) -> Response:
-        return Response(
-            status_code=status,
-            content_type="application/json",
-            body=json.dumps({"code": status, "errno": errno, "message": message}),
         )

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { LogIn, CheckCircle2, Loader2 } from "lucide-react"
+import { LogIn, CheckCircle2 } from "lucide-react"
+import { LoadingPage } from "@/components/LoadingPage"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -339,14 +340,7 @@ export function SignInPage({
 
   if (signInState.step === "processing") {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-16 space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">
-            {signInState.message}
-          </p>
-        </CardContent>
-      </Card>
+      <LoadingPage message={signInState.message} />
     )
   }
 

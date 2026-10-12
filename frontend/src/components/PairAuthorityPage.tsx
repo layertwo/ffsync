@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
-import { Loader2, CheckCircle2, XCircle, Smartphone } from "lucide-react"
+import { CheckCircle2, XCircle, Smartphone } from "lucide-react"
+import { LoadingPage } from "@/components/LoadingPage"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -204,14 +205,7 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
 
   if (state.step === "creating-channel") {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-16 space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">
-            Creating pairing channel...
-          </p>
-        </CardContent>
-      </Card>
+      <LoadingPage message="Creating pairing channel..." />
     )
   }
 
@@ -274,14 +268,7 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
 
   if (state.step === "authorizing") {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-16 space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">
-            Authorizing device...
-          </p>
-        </CardContent>
-      </Card>
+      <LoadingPage message="Authorizing device..." />
     )
   }
 

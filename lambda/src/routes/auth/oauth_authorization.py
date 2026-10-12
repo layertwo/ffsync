@@ -86,11 +86,3 @@ class OAuthAuthorizationRoute(BaseRoute):
             content_type="application/json",
             body=result.model_dump_json(),
         )
-
-    @staticmethod
-    def _error(status: int, errno: int, message: str) -> Response:
-        return Response(
-            status_code=status,
-            content_type="application/json",
-            body=json.dumps({"code": status, "errno": errno, "message": message}),
-        )
