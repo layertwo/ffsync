@@ -79,6 +79,7 @@ class JWTVerifier:
             exp=payload["exp"],
             iat=payload["iat"],
             fxa_uid=payload.get("fxa_uid"),
+            scope=payload.get("scope"),
         )
 
     @cached_property

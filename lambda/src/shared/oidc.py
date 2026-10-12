@@ -28,6 +28,7 @@ class OIDCTokenClaims:
     iat: int
     email: Optional[str] = None
     fxa_uid: Optional[str] = None
+    scope: Optional[str] = None
 
 
 @dataclass
