@@ -76,6 +76,18 @@ const BUNDLING_ASSET_EXCLUDES = [
     "*.egg-info/",
 ];
 
+// src/shared/generated is generated from the Smithy IDL, not committed. A bundle
+// built without it imports fine here and dies at runtime with
+// "No module named 'src.shared.generated'", so fail the synth instead: the hook
+// runs inside the bundling container, before the source is copied to output.
+const BUNDLING_COMMAND_HOOKS = {
+    beforeBundling: (inputDir: string, _outputDir: string): string[] => [
+        `test -f ${inputDir}/src/shared/generated/__init__.py || (echo ` +
+            `"ERROR: src/shared/generated missing; run lambda/scripts/codegen.sh" && exit 1)`,
+    ],
+    afterBundling: (_inputDir: string, _outputDir: string): string[] => [],
+};
+
 export class ServiceStack extends Stack {
     private readonly props: ServiceStackProps;
 
@@ -303,6 +315,7 @@ export class ServiceStack extends Stack {
             bundling: {
                 image: this.bundlingImage,
                 assetExcludes: BUNDLING_ASSET_EXCLUDES,
+                commandHooks: BUNDLING_COMMAND_HOOKS,
             },
         });
 
@@ -339,6 +352,7 @@ export class ServiceStack extends Stack {
             bundling: {
                 image: this.bundlingImage,
                 assetExcludes: BUNDLING_ASSET_EXCLUDES,
+                commandHooks: BUNDLING_COMMAND_HOOKS,
             },
         });
 
@@ -374,6 +388,7 @@ export class ServiceStack extends Stack {
             bundling: {
                 image: this.bundlingImage,
                 assetExcludes: BUNDLING_ASSET_EXCLUDES,
+                commandHooks: BUNDLING_COMMAND_HOOKS,
             },
         });
 
@@ -405,6 +420,7 @@ export class ServiceStack extends Stack {
             bundling: {
                 image: this.bundlingImage,
                 assetExcludes: BUNDLING_ASSET_EXCLUDES,
+                commandHooks: BUNDLING_COMMAND_HOOKS,
             },
         });
 
@@ -442,6 +458,7 @@ export class ServiceStack extends Stack {
             bundling: {
                 image: this.bundlingImage,
                 assetExcludes: BUNDLING_ASSET_EXCLUDES,
+                commandHooks: BUNDLING_COMMAND_HOOKS,
             },
         });
 

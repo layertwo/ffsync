@@ -96,6 +96,31 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+
+      # src/shared/generated is git-ignored, so a bare checkout has no models and
+      # the Lambda bundle would ship without them -- which fails at runtime with
+      # "No module named 'src.shared.generated'". CI regenerates from the IDL.
+      #
+      # setup-python is required, not incidental: UV_SYSTEM_PYTHON makes uv
+      # install into the interpreter on PATH, and without it that is /usr, which
+      # is externally managed (PEP 668) and refuses. lambda-tests.yml has the same
+      # pair (plus a ./lambda default cwd).
+      - name: Generate pydantic models from smithy
+        working-directory: lambda
+        env:
+          SMITHY_BUILD_DIR: ${{ github.workspace }}/build/smithy
+          UV_SYSTEM_PYTHON: "1"
+        run: |
+          uv pip install --group dev .
+          ./scripts/codegen.sh
+
       - name: CDK synth
         run: npx cdk synth --all --output build/cdk.out
 
