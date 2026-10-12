@@ -96,6 +96,21 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+
+      # src/shared/generated is git-ignored, so a bare checkout has no models and
+      # the Lambda bundle would ship without them -- which fails at runtime with
+      # "No module named 'src.shared.generated'". CI regenerates from the IDL.
+      - name: Generate pydantic models from smithy
+        working-directory: lambda
+        env:
+          SMITHY_BUILD_DIR: ${{ github.workspace }}/build/smithy
+        run: |
+          uv pip install --group dev .
+          ./scripts/codegen.sh
+
       - name: CDK synth
         run: npx cdk synth --all --output build/cdk.out
 
