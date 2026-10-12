@@ -194,11 +194,21 @@ class ChannelService:
     def _relay_message(
         self, event: dict, sender_connection_id: str, connections: list, message_body: str
     ) -> None:
-        """Relay message to all connections except sender."""
+        """Relay message to all connections except sender.
+
+        The frame is the channelserver envelope the pairing clients expect: the
+        sender's payload under `message`, plus a `sender` object carrying origin
+        metadata. API Gateway gives us no geo, so city/country/region are omitted
+        (all optional in the client's sender schema).
+        """
+        identity = event.get("requestContext", {}).get("identity") or {}
         data = json.dumps(
             {
-                "sender": sender_connection_id,
-                "body": message_body,
+                "message": message_body,
+                "sender": {
+                    "remote": identity.get("sourceIp", ""),
+                    "ua": identity.get("userAgent", ""),
+                },
             }
         )
         for conn_id in connections:

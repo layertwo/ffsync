@@ -392,7 +392,9 @@ class TestChannelService:
             {},
             {
                 "ConnectionId": "conn-2",
-                "Data": json.dumps({"sender": "conn-1", "body": "hello"}).encode("utf-8"),
+                "Data": json.dumps({"message": "hello", "sender": {"remote": "", "ua": ""}}).encode(
+                    "utf-8"
+                ),
             },
         )
 
@@ -580,7 +582,9 @@ class TestChannelService:
             service_message="Connection gone",
             expected_params={
                 "ConnectionId": "conn-stale",
-                "Data": json.dumps({"sender": "conn-1", "body": "ping"}).encode("utf-8"),
+                "Data": json.dumps({"message": "ping", "sender": {"remote": "", "ua": ""}}).encode(
+                    "utf-8"
+                ),
             },
         )
 
@@ -684,7 +688,9 @@ class TestChannelService:
             {},
             {
                 "ConnectionId": "conn-2",
-                "Data": json.dumps({"sender": "conn-1", "body": ""}).encode("utf-8"),
+                "Data": json.dumps({"message": "", "sender": {"remote": "", "ua": ""}}).encode(
+                    "utf-8"
+                ),
             },
         )
 
