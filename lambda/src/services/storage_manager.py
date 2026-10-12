@@ -1,7 +1,7 @@
 """Storage manager for DynamoDB operations"""
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
 from botocore.exceptions import ClientError
 
@@ -90,6 +90,19 @@ class StorageManager:
     def _object_sk(self, object_id: str) -> str:
         """Generate sort key for storage object"""
         return f"OBJECT#{object_id}"
+
+    def _query_pages(self, **kwargs: Any) -> Iterator[list[dict[str, Any]]]:
+        """Run a query and yield each page, using the DynamoDB Query paginator.
+
+        DynamoDB returns at most 1 MB per call, so callers must consume every
+        page or results are silently truncated.
+
+        The paginator comes from the low-level client because the Table
+        resource exposes none, and it therefore needs TableName explicitly.
+        """
+        paginator = self.table.meta.client.get_paginator("query")
+        for page in paginator.paginate(TableName=self.table.name, **kwargs):
+            yield page.get("Items", [])
 
     def _batch_get_existing_objects(
         self, pk: str, object_ids: list[str]
@@ -455,24 +468,13 @@ class StorageManager:
         pk = self._collection_pk(user_id, collection_name)
 
         # Query all items (only keys needed) and batch-delete
-        response = self.table.query(
-            KeyConditionExpression="PK = :pk",
-            ExpressionAttributeValues={":pk": pk},
-            ProjectionExpression="PK, SK",
-        )
-
         with self.table.batch_writer() as batch:
-            for item in response.get("Items", []):
-                batch.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
-
-            while "LastEvaluatedKey" in response:
-                response = self.table.query(
-                    KeyConditionExpression="PK = :pk",
-                    ExpressionAttributeValues={":pk": pk},
-                    ProjectionExpression="PK, SK",
-                    ExclusiveStartKey=response["LastEvaluatedKey"],
-                )
-                for item in response.get("Items", []):
+            for page in self._query_pages(
+                KeyConditionExpression="PK = :pk",
+                ExpressionAttributeValues={":pk": pk},
+                ProjectionExpression="PK, SK",
+            ):
+                for item in page:
                     batch.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
 
         return modified
@@ -486,30 +488,15 @@ class StorageManager:
         Returns:
             List of CollectionData objects
         """
-        collections = []
+        collections: List[CollectionData] = []
 
-        # Query GSI for all collections for this user
-        response = self.table.query(
+        # Query the GSI for all collections for this user
+        for page in self._query_pages(
             IndexName="UserCollectionsIndex",
             KeyConditionExpression="user_id = :user_id",
             ExpressionAttributeValues={":user_id": user_id},
-        )
-
-        for item in response.get("Items", []):
-            collection = CollectionData.model_validate(item)
-            collections.append(collection)
-
-        # Handle pagination if there are more results
-        while "LastEvaluatedKey" in response:
-            response = self.table.query(
-                IndexName="UserCollectionsIndex",
-                KeyConditionExpression="user_id = :user_id",
-                ExpressionAttributeValues={":user_id": user_id},
-                ExclusiveStartKey=response["LastEvaluatedKey"],
-            )
-            for item in response.get("Items", []):
-                collection = CollectionData.model_validate(item)
-                collections.append(collection)
+        ):
+            collections.extend(CollectionData.model_validate(item) for item in page)
 
         return collections
 
@@ -592,16 +579,9 @@ class StorageManager:
             if not full:
                 query_kwargs["ProjectionExpression"] = "SK, modified, sortindex"
 
-            response = self.table.query(**query_kwargs)
-            items = [BasicStorageObject.model_validate(item) for item in response.get("Items", [])]
-
-            # Handle pagination from DynamoDB
-            while "LastEvaluatedKey" in response:
-                query_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
-                response = self.table.query(**query_kwargs)
-                items.extend(
-                    BasicStorageObject.model_validate(item) for item in response.get("Items", [])
-                )
+            items = []
+            for page in self._query_pages(**query_kwargs):
+                items.extend(BasicStorageObject.model_validate(item) for item in page)
 
         # Apply newer/older filters for BatchGetItem path (not pushed to DynamoDB)
         if id_set is not None:
