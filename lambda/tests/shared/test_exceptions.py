@@ -97,6 +97,14 @@ class TestValidationException:
         assert body["error"] == "ValidationException"
         assert body["message"] == "Invalid input"
 
+    def test_to_response_escapes_a_message_with_quotes(self) -> None:
+        """Messages can contain quotes: the collection-name error interpolates one."""
+        message = "Collection name contains invalid character: '\"'."
+
+        body = json_body(ValidationException(message).to_response())
+
+        assert body["message"] == message
+
 
 class TestConflictException:
     """Tests for ConflictException"""

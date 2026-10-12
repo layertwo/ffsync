@@ -1606,6 +1606,27 @@ class TestCreateCollectionRouteInvalidCollectionName:
         assert response.status_code == 400
         mock_storage_manager.create_or_update_collection.assert_not_called()
 
+    def test_handle_collection_name_with_a_quote(self, mock_storage_manager: MagicMock) -> None:
+        """Printable ASCII is legal in ids, so a quote reaches the error message."""
+        route = CreateCollectionRoute(mock_storage_manager)
+
+        event = APIGatewayProxyEvent(
+            with_auth(
+                {
+                    "pathParameters": {"uid": "12345", "collectionName": 'quo"te'},
+                    "headers": {},
+                    "body": None,
+                }
+            )
+        )
+
+        response = route.handle(event)
+
+        assert response.status_code == 400
+        # The route builds its own envelope; what matters here is that a quote in the
+        # name still produces a parseable body.
+        assert "invalid character" in json_body(response)["error"]
+
 
 class TestReadCollectionRouteInvalidCollectionName:
     """Tests that validate_collection_name is called before storage in ReadCollectionRoute"""
