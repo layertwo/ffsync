@@ -3,6 +3,7 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
+from aws_lambda_powertools import Logger
 from botocore.exceptions import ClientError
 
 from src.shared.exceptions import (
@@ -22,6 +23,8 @@ from src.shared.models import (
 
 if TYPE_CHECKING:
     from types_boto3_dynamodb.service_resource import Table
+
+logger = Logger(child=True)
 
 _PK = "PK"
 _SK = "SK"
@@ -265,8 +268,10 @@ class StorageManager:
                 obj_ttl = (ttls or {}).get(obj.id)
                 obj_item = bso_to_item(updated_obj, user_id, collection_name, ttl=obj_ttl)
                 items_to_write.append((obj.id, obj_item, obj_delta, is_new_bso))
-            except Exception as e:  # pragma: nocover
-                failed[obj.id] = [str(e)]
+            except Exception:  # pragma: nocover
+                # Detail goes to the log; the client gets a stable reason.
+                logger.exception("Failed to prepare BSO %s for writing", obj.id)
+                failed[obj.id] = ["Internal error"]
 
         # Write all items using batch_writer (auto-batches 25 per BatchWriteItem).
         # Note: batch_writer buffers items; errors surface on __exit__, not per-item.
@@ -279,8 +284,9 @@ class StorageManager:
                     usage_delta += obj_delta
                     if is_new_bso:
                         new_objects_count += 1
-                except Exception as e:  # pragma: nocover
-                    failed[obj_id] = [str(e)]
+                except Exception:  # pragma: nocover
+                    logger.exception("Failed to write BSO %s", obj_id)
+                    failed[obj_id] = ["Internal error"]
 
         return success, failed, new_objects_count, usage_delta
 

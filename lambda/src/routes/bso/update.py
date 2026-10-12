@@ -58,9 +58,12 @@ class UpdateBSORoute(BaseRoute):
             try:
                 bso_input = BSOInput.model_validate_json(body)
             except PydanticValidationError as e:
-                raise ValidationException(f"Invalid request body: {e}")
+                # Name the offending field(s); pydantic's own text leaks the
+                # model name, the echoed input and a docs URL.
+                fields = sorted({str(err["loc"][0]) for err in e.errors() if err["loc"]})
+                raise ValidationException(f"Invalid request body: {', '.join(fields)}") from e
             except (TypeError, ValueError) as e:  # pragma: nocover
-                raise ValidationException(f"Invalid request body: {e}")
+                raise ValidationException("Invalid request body") from e
 
             # If body contains id, validate it matches the path parameter
             if bso_input.id is not None and bso_input.id != object_id:

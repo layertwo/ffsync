@@ -68,7 +68,7 @@ class UpdateCollectionRoute(BaseRoute):
                 ]
                 ttls = {obj["id"]: obj["ttl"] for obj in objects_data if obj.get("ttl") is not None}
             except (json.JSONDecodeError, KeyError) as e:
-                raise ValidationException(f"Invalid request body: {e}")
+                raise ValidationException("Invalid request body") from e
 
             # Handle conditional update header
             if_unmodified_since = None
