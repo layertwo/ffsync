@@ -1,6 +1,5 @@
 """JWT Service for signing OAuth tokens with KMS and providing JWKS public keys."""
 
-import base64
 import hashlib
 import json
 import time
@@ -8,6 +7,8 @@ from typing import Any, Optional
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from cryptography.hazmat.primitives.serialization import load_der_public_key
+
+from src.shared.utils import b64url_encode
 
 
 class JWTService:
@@ -23,9 +24,6 @@ class JWTService:
     @property
     def issuer(self) -> str:
         return self._issuer
-
-    def _b64url(self, data: bytes) -> str:
-        return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
     def _get_kid(self) -> str:
         if self._cached_kid is None:
@@ -69,8 +67,8 @@ class JWTService:
         if fxa_uid is not None:
             payload["fxa_uid"] = fxa_uid
 
-        header_b64 = self._b64url(json.dumps(header, separators=(",", ":")).encode())
-        payload_b64 = self._b64url(json.dumps(payload, separators=(",", ":")).encode())
+        header_b64 = b64url_encode(json.dumps(header, separators=(",", ":")).encode())
+        payload_b64 = b64url_encode(json.dumps(payload, separators=(",", ":")).encode())
 
         signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
 
@@ -81,7 +79,7 @@ class JWTService:
             SigningAlgorithm="RSASSA_PKCS1_V1_5_SHA_256",
         )
 
-        signature_b64 = self._b64url(response["Signature"])
+        signature_b64 = b64url_encode(response["Signature"])
         return f"{header_b64}.{payload_b64}.{signature_b64}"
 
     def get_public_key_jwk(self) -> dict:
@@ -116,7 +114,7 @@ class JWTService:
             "use": "sig",
             "alg": "RS256",
             "kid": kid,
-            "n": self._b64url(n_bytes),
-            "e": self._b64url(e_bytes),
+            "n": b64url_encode(n_bytes),
+            "e": b64url_encode(e_bytes),
         }
         return self._cached_jwk

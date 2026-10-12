@@ -1,6 +1,5 @@
 """OAuth Code Manager for authorization codes and refresh tokens in DynamoDB."""
 
-import base64
 import hashlib
 import hmac
 import os
@@ -8,6 +7,8 @@ import time
 from typing import Any, Optional
 
 from botocore.exceptions import ClientError
+
+from src.shared.utils import b64url_encode
 
 _PK = "PK"
 OAUTHCODE_PREFIX = "OAUTHCODE"
@@ -170,7 +171,7 @@ class OAuthCodeManager:
         """
         if method == "S256":
             digest = hashlib.sha256(verifier.encode("ascii")).digest()
-            computed = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+            computed = b64url_encode(digest)
             return hmac.compare_digest(computed, challenge)
         elif method == "plain":
             return hmac.compare_digest(verifier, challenge)
