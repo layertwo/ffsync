@@ -20,20 +20,20 @@
 | src/routes/\_\_init\_\_.py                    |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/\_\_init\_\_.py               |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/account\_attached\_clients.py |       24 |        0 |        2 |        0 |     100% |           |
-| src/routes/auth/account\_create.py            |       69 |        0 |       14 |        0 |     100% |           |
+| src/routes/auth/account\_create.py            |       66 |        0 |       14 |        0 |     100% |           |
 | src/routes/auth/account\_device.py            |       23 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/account\_devices.py           |       28 |        0 |        2 |        0 |     100% |           |
 | src/routes/auth/account\_devices\_notify.py   |       15 |        0 |        0 |        0 |     100% |           |
-| src/routes/auth/account\_keys.py              |       41 |        0 |        6 |        0 |     100% |           |
-| src/routes/auth/account\_login.py             |       56 |        0 |       14 |        0 |     100% |           |
+| src/routes/auth/account\_keys.py              |       37 |        0 |        6 |        0 |     100% |           |
+| src/routes/auth/account\_login.py             |       53 |        0 |       14 |        0 |     100% |           |
 | src/routes/auth/account\_status.py            |       22 |        0 |        2 |        0 |     100% |           |
 | src/routes/auth/jwks.py                       |       16 |        0 |        0 |        0 |     100% |           |
-| src/routes/auth/oauth\_authorization.py       |       48 |        0 |       10 |        0 |     100% |           |
+| src/routes/auth/oauth\_authorization.py       |       45 |        0 |       10 |        0 |     100% |           |
 | src/routes/auth/oauth\_destroy.py             |       28 |        0 |        4 |        0 |     100% |           |
-| src/routes/auth/oauth\_token.py               |      124 |        0 |       40 |        0 |     100% |           |
+| src/routes/auth/oauth\_token.py               |      121 |        0 |       40 |        0 |     100% |           |
 | src/routes/auth/oidc\_discovery.py            |       16 |        0 |        0 |        0 |     100% |           |
 | src/routes/auth/oidc\_exchange.py             |      100 |        0 |       10 |        0 |     100% |           |
-| src/routes/auth/scoped\_key\_data.py          |       40 |        0 |        6 |        0 |     100% |           |
+| src/routes/auth/scoped\_key\_data.py          |       37 |        0 |        6 |        0 |     100% |           |
 | src/routes/auth/session\_destroy.py           |       25 |        0 |        2 |        0 |     100% |           |
 | src/routes/auth/session\_status.py            |       17 |        0 |        0 |        0 |     100% |           |
 | src/routes/bso/\_\_init\_\_.py                |        0 |        0 |        0 |        0 |     100% |           |
@@ -53,7 +53,7 @@
 | src/routes/info/read\_quota.py                |       30 |        0 |        2 |        0 |     100% |           |
 | src/routes/info/read\_usage.py                |       26 |        0 |        2 |        0 |     100% |           |
 | src/routes/profile/\_\_init\_\_.py            |        0 |        0 |        0 |        0 |     100% |           |
-| src/routes/profile/get\_profile.py            |       48 |        0 |       10 |        0 |     100% |           |
+| src/routes/profile/get\_profile.py            |       44 |        0 |       10 |        0 |     100% |           |
 | src/routes/storage/\_\_init\_\_.py            |        0 |        0 |        0 |        0 |     100% |           |
 | src/routes/storage/delete\_all.py             |       27 |        0 |        2 |        0 |     100% |           |
 | src/routes/storage/delete\_root.py            |       27 |        0 |        2 |        0 |     100% |           |
@@ -62,7 +62,7 @@
 | src/services/api\_router.py                   |       25 |        0 |        2 |        0 |     100% |           |
 | src/services/auth\_account\_manager.py        |       76 |        0 |       14 |        0 |     100% |           |
 | src/services/channel\_service.py              |      110 |        0 |       32 |        0 |     100% |           |
-| src/services/device\_manager.py               |       35 |        0 |        6 |        0 |     100% |           |
+| src/services/device\_manager.py               |       33 |        0 |        6 |        0 |     100% |           |
 | src/services/fxa\_crypto.py                   |       38 |        0 |        0 |        0 |     100% |           |
 | src/services/fxa\_token\_manager.py           |      131 |        0 |       36 |        0 |     100% |           |
 | src/services/hawk\_service.py                 |      133 |        0 |       28 |        0 |     100% |           |
@@ -70,19 +70,19 @@
 | src/services/jwt\_verifier.py                 |       62 |        0 |       14 |        0 |     100% |           |
 | src/services/oauth\_code\_manager.py          |       63 |        0 |       16 |        0 |     100% |           |
 | src/services/oidc\_validator.py               |      116 |        0 |       14 |        0 |     100% |           |
-| src/services/storage\_manager.py              |      274 |        0 |      100 |        0 |     100% |           |
+| src/services/storage\_manager.py              |      273 |        0 |      100 |        0 |     100% |           |
 | src/services/token\_generator.py              |       20 |        0 |        0 |        0 |     100% |           |
-| src/services/user\_manager.py                 |       87 |        0 |       26 |        0 |     100% |           |
+| src/services/user\_manager.py                 |       86 |        0 |       20 |        0 |     100% |           |
 | src/shared/\_\_init\_\_.py                    |        0 |        0 |        0 |        0 |     100% |           |
 | src/shared/\_codegen\_base.py                 |        3 |        0 |        0 |        0 |     100% |           |
-| src/shared/base\_route.py                     |       14 |        0 |        0 |        0 |     100% |           |
+| src/shared/base\_route.py                     |       17 |        0 |        0 |        0 |     100% |           |
 | src/shared/exceptions.py                      |      140 |        0 |        8 |        0 |     100% |           |
 | src/shared/models.py                          |      109 |        0 |       22 |        0 |     100% |           |
 | src/shared/oidc.py                            |       11 |        0 |        0 |        0 |     100% |           |
 | src/shared/token.py                           |        3 |        0 |        0 |        0 |     100% |           |
 | src/shared/user.py                            |        8 |        0 |        0 |        0 |     100% |           |
 | src/shared/utils.py                           |       16 |        0 |        2 |        0 |     100% |           |
-| **TOTAL**                                     | **3358** |    **0** |  **572** |    **0** | **100%** |           |
+| **TOTAL**                                     | **3334** |    **0** |  **566** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
