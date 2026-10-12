@@ -34,12 +34,10 @@ def apply_weave_headers(response: Response, *, ensure_last_modified: bool = Fals
         last_modified = f"{now:.2f}"
         response.headers["X-Last-Modified"] = last_modified
 
-    try:
-        weave_ts = max(float(last_modified), now) if last_modified is not None else now
-    except ValueError:
-        # A handler set a non-numeric X-Last-Modified; prefer the clock over failing.
-        weave_ts = now
-
+    # Every producer of X-Last-Modified writes a numeric string (str(round(...)),
+    # "0.00" or f"{ts:.2f}"), so parsing it cannot fail here: a malformed one is a
+    # bug to fix rather than a case to tolerate.
+    weave_ts = max(float(last_modified), now) if last_modified is not None else now
     response.headers["X-Weave-Timestamp"] = f"{weave_ts:.2f}"
     return response
 

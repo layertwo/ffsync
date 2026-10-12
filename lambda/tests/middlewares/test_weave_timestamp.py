@@ -60,13 +60,6 @@ class TestWeaveTimestamp:
 
         assert len(header(response, "X-Weave-Timestamp").split(".")[1]) == 2
 
-    @pytest.mark.parametrize("value", ["not-a-number", ""])
-    def test_malformed_resource_timestamp_falls_back_to_the_clock(self, value: str) -> None:
-        """A handler's bad value must not turn an error response into a 502."""
-        response = apply_weave_headers(_response({"X-Last-Modified": value}))
-
-        assert float(header(response, "X-Weave-Timestamp")) > 0
-
     @pytest.mark.parametrize("value", [["1234567890.12"], []])
     def test_list_valued_resource_timestamp(self, value: list[str]) -> None:
         """powertools types Response.headers as str | list[str]."""

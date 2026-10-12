@@ -12,7 +12,7 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from src.middlewares.hawk_auth import HawkAuthenticationError, HawkAuthMiddleware, UidMismatchError
 from src.middlewares.request_logging import RequestLoggingMiddleware
-from src.middlewares.weave_timestamp import WeaveTimestampMiddleware, apply_weave_headers
+from src.middlewares.weave_timestamp import WeaveTimestampMiddleware
 from src.routes.auth.account_attached_clients import AccountAttachedClientsRoute
 from src.routes.auth.account_create import AccountCreateRoute
 from src.routes.auth.account_device import AccountDeviceRoute
@@ -60,6 +60,7 @@ from src.services.oidc_validator import OIDCValidator
 from src.services.storage_manager import StorageManager
 from src.services.token_generator import TokenGenerator
 from src.services.user_manager import UserManager
+from src.shared.utils import get_weave_timestamp
 
 if TYPE_CHECKING:
     from types_boto3_dynamodb.service_resource import DynamoDBServiceResource, Table
@@ -152,8 +153,10 @@ class ServiceProvider:
         def with_storage_headers(response: Response) -> Response:
             # Error responses never pass through the router's middleware, and the storage
             # API reports X-Last-Modified on every response -- Mozilla's transaction
-            # wrapper does the same for everything it produces.
-            return apply_weave_headers(response, ensure_last_modified=True)
+            # wrapper does the same for everything it produces. ApiRouter's wrapper adds
+            # X-Weave-Timestamp afterwards, so this only fills the resource timestamp.
+            response.headers.setdefault("X-Last-Modified", get_weave_timestamp())
+            return response
 
         def handle_hawk_auth(ex: Exception) -> Response:
             return with_storage_headers(
