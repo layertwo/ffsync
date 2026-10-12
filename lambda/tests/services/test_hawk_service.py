@@ -173,11 +173,11 @@ class TestGetHawkKeyFromCache:
             }
         }
 
-        hawk_key, user_id, generation = hawk_service.get_hawk_key_from_cache(hawk_id)
+        entry = hawk_service.get_hawk_key_from_cache(hawk_id)
 
-        assert hawk_key == "a" * 64
-        assert user_id == "user123"
-        assert generation == 5
+        assert entry.hawk_key == "a" * 64
+        assert entry.user_id == "user123"
+        assert entry.generation == 5
         mock_dynamodb_table.get_item.assert_called_once_with(Key={"PK": f"TOKEN#{hawk_id}"})
 
     def test_get_hawk_key_not_found(

@@ -308,13 +308,11 @@ class TestTokenServerToStorageServerFlow:
                 },
             )
 
-            retrieved_key, retrieved_user_id, retrieved_generation = (
-                hawk_service.get_hawk_key_from_cache(hawk_id)
-            )
+            retrieved = hawk_service.get_hawk_key_from_cache(hawk_id)
 
-            assert retrieved_key == hawk_key
-            assert retrieved_user_id == user_id
-            assert retrieved_generation == 0
+            assert retrieved.hawk_key == hawk_key
+            assert retrieved.user_id == user_id
+            assert retrieved.generation == 0
 
     def test_expired_token_rejected_by_middleware(
         self,

@@ -20,6 +20,7 @@ import mohawk
 import mohawk.exc
 from aws_lambda_powertools import Logger
 from botocore.exceptions import ClientError
+from cachetools import TTLCache, cachedmethod
 
 from src.shared.exceptions import (
     AuthenticationException,
@@ -39,6 +40,13 @@ logger = Logger(child=True)
 _HAWK_ID_PATTERN = re.compile(r'id="([^"]+)"')
 _HAWK_FIELD_PATTERN = re.compile(r'(\w+)="([^"]*)"')
 
+# Memoize HAWK key lookups so the query-order correction and mohawk's MAC
+# verification share one DynamoDB read per request. The TTL is well under
+# token_duration so a rotated key is never served for long, and maxsize bounds
+# the cache because hawk_id comes from the unauthenticated Authorization header.
+CREDENTIAL_CACHE_TTL_SECONDS = 30
+CREDENTIAL_CACHE_MAXSIZE = 256
+
 
 @dataclass
 class HawkCredentials:
@@ -49,6 +57,22 @@ class HawkCredentials:
     expiry: int
     hawk_id: str
     hawk_key: Optional[str] = None  # Only populated when generating
+
+
+@dataclass
+class HawkCacheEntry:
+    """
+    HAWK key and identity stored under TOKEN#<hawk_id> in the token cache
+
+    Attributes:
+        hawk_key: HAWK shared secret (hex-encoded)
+        user_id: Owner of the credential
+        generation: User generation at issue time
+    """
+
+    hawk_key: str
+    user_id: str
+    generation: int
 
 
 class HawkService:
@@ -72,6 +96,11 @@ class HawkService:
         self.token_cache_table = token_cache_table
         self.timestamp_skew_tolerance = timestamp_skew_tolerance
         self.token_duration = token_duration
+        # Not thread-safe, but a Lambda execution environment handles one
+        # invocation at a time, so no lock is needed.
+        self._credential_cache: TTLCache[str, HawkCacheEntry] = TTLCache(
+            maxsize=CREDENTIAL_CACHE_MAXSIZE, ttl=CREDENTIAL_CACHE_TTL_SECONDS
+        )
 
     def validate(
         self,
@@ -111,12 +140,12 @@ class HawkService:
 
         # Credentials lookup called by mohawk during MAC verification
         def credentials_map(sender_id: str) -> dict:
-            hawk_key, cached_user_id, cached_generation = self.get_hawk_key_from_cache(sender_id)
-            if cached_generation != generation:
+            entry = self.get_hawk_key_from_cache(sender_id)
+            if entry.generation != generation:
                 raise InvalidGenerationException(
-                    f"Generation mismatch: expected {cached_generation}, got {generation}"
+                    f"Generation mismatch: expected {entry.generation}, got {generation}"
                 )
-            return {"id": sender_id, "key": hawk_key, "algorithm": "sha256"}
+            return {"id": sender_id, "key": entry.hawk_key, "algorithm": "sha256"}
 
         # mohawk handles: header parsing, timestamp skew, normalized string, MAC verification
         try:
@@ -200,7 +229,7 @@ class HawkService:
             return None
 
         try:
-            hawk_key, _, _ = self.get_hawk_key_from_cache(hawk_id)
+            hawk_key = self.get_hawk_key_from_cache(hawk_id).hawk_key
         except AuthenticationException, ClientError:
             return None  # Let mohawk handle the error
 
@@ -262,14 +291,23 @@ class HawkService:
         """Validate HAWK ID hasn't expired."""
         return int(time.time()) < expiry
 
-    def get_hawk_key_from_cache(self, hawk_id: str) -> Tuple[str, str, int]:
-        """Retrieve HAWK shared secret from token cache."""
+    @cachedmethod(lambda self: self._credential_cache)
+    def get_hawk_key_from_cache(self, hawk_id: str) -> HawkCacheEntry:
+        """Retrieve HAWK key and identity from token cache.
+
+        Memoized for CREDENTIAL_CACHE_TTL_SECONDS. Misses raise and are not
+        cached, so an invalid or revoked token always re-reads DynamoDB.
+        """
         try:
             response = self.token_cache_table.get_item(Key={"PK": f"TOKEN#{hawk_id}"})
             if "Item" not in response:
                 raise AuthenticationException(f"HAWK token not found: {hawk_id}")
             item = cast(dict[str, Any], response["Item"])
-            return (item["hawk_key"], item["user_id"], int(item["generation"]))
+            return HawkCacheEntry(
+                hawk_key=item["hawk_key"],
+                user_id=item["user_id"],
+                generation=int(item["generation"]),
+            )
         except ClientError as e:
             logger.error(f"Failed to retrieve HAWK token from cache: {e}")
             raise AuthenticationException(f"Failed to retrieve HAWK token: {e}")
