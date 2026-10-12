@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from boto3.session import Session
 from botocore.exceptions import ClientError
+from cachetools import LRUCache
 
 if TYPE_CHECKING:
     from types_boto3_dynamodb.service_resource import Table
@@ -30,7 +31,8 @@ class ChannelService:
     def __init__(self, table: "Table", session: Session):
         self._table = table
         self._session = session
-        self._apigw_clients: dict[str, Any] = {}
+        # One endpoint per (apiId, region, stage); bounded so the cache can't grow.
+        self._apigw_clients: LRUCache[str, Any] = LRUCache(maxsize=8)
 
     def handle(self, event: dict, context: Any) -> dict[str, Any]:
         """Dispatch on WebSocket route key."""
@@ -159,9 +161,10 @@ class ChannelService:
 
         channel_id = cast(dict[str, Any], result["Item"])["channelId"]
 
-        # Atomic message count increment with limit check
+        # Atomic message count increment with limit check. ALL_NEW returns the
+        # channel item, so the connections list needs no second read.
         try:
-            self._table.update_item(
+            response = self._table.update_item(
                 Key={"PK": f"CHANNEL#{channel_id}"},
                 UpdateExpression="SET messageCount = messageCount + :one",
                 ConditionExpression=("attribute_exists(PK) AND messageCount < :max"),
@@ -169,6 +172,7 @@ class ChannelService:
                     ":one": 1,
                     ":max": MAX_MESSAGES_PER_CHANNEL,
                 },
+                ReturnValues="ALL_NEW",
             )
         except ClientError as e:
             if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
@@ -180,12 +184,7 @@ class ChannelService:
                     return {"statusCode": 429, "body": "Message limit reached"}
             raise
 
-        # Get connections from channel metadata
-        channel_result = self._table.get_item(Key={"PK": f"CHANNEL#{channel_id}"})
-        if "Item" not in channel_result:
-            return {"statusCode": 404, "body": "Channel not found"}
-
-        connections = cast(dict[str, Any], channel_result["Item"])["connections"]
+        connections = cast(dict[str, Any], response["Attributes"])["connections"]
         message_body = event.get("body", "")
 
         self._relay_message(event, connection_id, connections, message_body)
