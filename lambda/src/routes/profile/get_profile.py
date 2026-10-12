@@ -67,6 +67,8 @@ class GetProfileRoute(BaseRoute):
             email=account["email"],
             avatar="",
             avatar_default=True,
+            # No second factor exists here, so the answer is known, not unknown.
+            two_factor_authentication=False,
             sub=uid,
         )
         return Response(
