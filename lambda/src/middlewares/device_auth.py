@@ -38,7 +38,12 @@ class DeviceAuthMiddleware(BaseMiddlewareHandler):
             return self._session_hawk.handler(app, next_middleware)
 
         token = auth_header[len("Bearer ") :]
-        token_hash = hashlib.sha256(token.encode("ascii")).hexdigest()
+        try:
+            token_hash = hashlib.sha256(token.encode("ascii")).hexdigest()
+        except UnicodeEncodeError:
+            # A malformed bearer is a client error, not an internal one.
+            self._metrics.add_metric("HawkAuthFailure", MetricUnit.Count, 1)
+            raise HawkAuthenticationError("Invalid or expired session token") from None
         record = self._oauth_code_manager.get_refresh_token(token_hash)
         if record is None:
             self._metrics.add_metric("HawkAuthFailure", MetricUnit.Count, 1)

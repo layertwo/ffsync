@@ -123,3 +123,19 @@ class TestDeviceAuthMiddleware:
             middleware.handler(_make_app(None), MagicMock())
 
         session_hawk.handler.assert_called_once()
+
+    def test_non_ascii_bearer_raises_instead_of_crashing(
+        self,
+        dynamodb_table: object,
+        dynamodb_stubber: Stubber,
+    ) -> None:
+        oauth = OAuthCodeManager(table=dynamodb_table)
+        session_hawk = MagicMock()
+        middleware = DeviceAuthMiddleware(
+            metrics=MagicMock(), oauth_code_manager=oauth, session_hawk=session_hawk
+        )
+
+        with pytest.raises(HawkAuthenticationError):
+            middleware.handler(_make_app("Bearer tökén"), MagicMock())
+
+        session_hawk.handler.assert_not_called()
