@@ -284,13 +284,19 @@ export class ServiceStack extends Stack {
     }
 
     private buildBundlingImage(): DockerImage {
+        // type=gha only resolves under GitHub Actions buildx; plain docker/podman
+        // reject it and fail the synth, so cache only in CI.
+        const buildkitCache = {
+            cacheFrom: [{type: "gha", params: {scope: "ffsync-lambda-bundling"}}],
+            cacheTo: {type: "gha", params: {mode: "max", scope: "ffsync-lambda-bundling"}},
+        };
+
         return DockerImage.fromBuild(path.join(__dirname, "../../docker/bundling"), {
             buildArgs: {
                 IMAGE: Runtime.PYTHON_3_14.bundlingImage.image,
             },
             platform: Architecture.ARM_64.dockerPlatform,
-            cacheFrom: [{type: "gha", params: {scope: "ffsync-lambda-bundling"}}],
-            cacheTo: {type: "gha", params: {mode: "max", scope: "ffsync-lambda-bundling"}},
+            ...(process.env.CI ? buildkitCache : {}),
         });
     }
 

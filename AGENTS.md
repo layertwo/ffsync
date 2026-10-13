@@ -317,7 +317,7 @@ Python deps are pinned exactly (`==`) with `uv.lock` committed in both `lambda/`
 
 ### TypeScript/CDK
 
-- **`cdk synth` needs Docker with buildx** (Lambda bundling builds an image from `docker/bundling/Dockerfile` with hardcoded `type=gha` BuildKit cache flags) **and** a prior `./gradlew smithyBuild` — `buildOpenApiSpec` does a synth-time `readFileSync` of `build/smithy/<service>/openapi/<Service>Service.openapi.json` and throws ENOENT without it.
+- **`cdk synth` needs Docker, and buildx only for the cache.** `docker/bundling/Dockerfile` is built with `type=gha` BuildKit flags gated on `process.env.CI` (`buildBundlingImage`), so local synth works under plain docker/podman but gets no layer cache. It also needs a prior `./gradlew smithyBuild` — `buildOpenApiSpec` does a synth-time `readFileSync` of `build/smithy/<service>/openapi/<Service>Service.openapi.json` and throws ENOENT without it.
 - **`cdk synth` also needs the pydantic models.** `lambda/src/shared/generated/` is git-ignored, and the bundler rsyncs `lambda/` as-is (`BUNDLING_ASSET_EXCLUDES` does not exclude it), so a synth without a prior `lambda/scripts/codegen.sh` ships a bundle with no models — which deploys fine and then fails every request with `ImportModuleError: No module named 'src.shared.generated'`. This broke production once (CI's synth job never ran codegen). `build.yml` now generates them before synth, and `BUNDLING_COMMAND_HOOKS.beforeBundling` in `lib/stacks/service.ts` fails the synth if they are missing — do not remove it.
 - **REST integrations are wired by string substitution**, not CDK constructs: `smithy/models/main.smithy` carries `CDK_LAMBDA_FUNCTION_ARN`, `CDK_API_ROLE_ARN`, `CDK_CORS_ORIGIN` placeholders that `buildOpenApiSpec` regex-replaces. Renaming a placeholder silently breaks the integration.
 - **All tables have `deletionProtection: true` and `RETAIN_ON_UPDATE_OR_DELETE`.** Never change a `tableName`, partition key, or sort key — CloudFormation treats it as a replacement, orphans the old table, and the new one starts empty.
@@ -368,7 +368,7 @@ Eight workflows in `.github/workflows/`:
 | `lambda-tests.yml` | `lambda/**` | Java 17 + `gradlew smithyBuild` → Python 3.14 + uv → `codegen.sh` → **black → isort → flake8 → mypy → pytest** |
 | `build.yml` | reusable | smithy build → frontend build → `cdk synth` |
 | `cdk-diff.yml` | PRs to `lib/`, `lambda/`, `smithy/`, CDK config | reuses `build.yml`, diffs prod; destructive changes warn but do not fail |
-| `deploy.yml` | **push to `mainline`** | `cdk deploy *-prod GitHubOidcStack --require-approval never` |
+| `deploy.yml` | **push to `mainline`** | `cdk deploy *-prod GitHubOidcStack --require-approval never --concurrency 4 --asset-parallelism` |
 | `frontend-build.yml` | `frontend/**` | Node 24, `npm ci` → `npm test` → `npm run build` |
 | `codeql.yml` | push/PR + weekly cron | actions, javascript-typescript, python |
 | `code-review.yml` | PRs touching `**.ts`/`**.py`/`**.smithy` | Claude Code on Bedrock |
