@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import time
 import uuid
 from typing import TYPE_CHECKING, Any, cast
@@ -18,6 +19,8 @@ logger = logging.getLogger(__name__)
 MAX_CONNECTIONS_PER_CHANNEL = 3
 MAX_MESSAGES_PER_CHANNEL = 10
 CHANNEL_TTL_SECONDS = 300
+CHANNEL_POST_RETRIES = 5
+CHANNEL_POST_RETRY_DELAY_SECONDS = 0.2
 
 
 class ChannelService:
@@ -36,6 +39,8 @@ class ChannelService:
 
     def handle(self, event: dict, context: Any) -> dict[str, Any]:
         """Dispatch on WebSocket route key."""
+        if "ffsyncChannelPost" in event:
+            return self._handle_channel_post(event)
         route_key = event["requestContext"]["routeKey"]
         connection_id = event["requestContext"]["connectionId"]
         logger.info("route=%s connection=%s", route_key, connection_id)
@@ -57,11 +62,15 @@ class ChannelService:
         expiry = int(time.time()) + CHANNEL_TTL_SECONDS
 
         if channel_id:
-            return self._join_channel(channel_id, connection_id, expiry)
+            result, channel_id = self._join_channel(channel_id, connection_id, expiry)
         else:
-            return self._create_channel(event, connection_id, expiry)
+            result, channel_id = self._create_channel(connection_id, expiry)
 
-    def _create_channel(self, event: dict, connection_id: str, expiry: int) -> dict[str, Any]:
+        if result.get("statusCode") == 200:
+            self._schedule_channel_id_post(event, connection_id, channel_id)
+        return result
+
+    def _create_channel(self, connection_id: str, expiry: int) -> tuple[dict[str, Any], str]:
         """Create a new channel with this connection as the first member."""
         channel_id = str(uuid.uuid4())
         logger.info("Creating channel=%s for connection=%s", channel_id, connection_id)
@@ -85,16 +94,11 @@ class ChannelService:
             }
         )
 
-        # Notify creator of channel ID
-        self._post_to_connection(
-            event,
-            connection_id,
-            json.dumps({"channelid": channel_id}),
-        )
+        return ({"statusCode": 200}, channel_id)
 
-        return {"statusCode": 200}
-
-    def _join_channel(self, channel_id: str, connection_id: str, expiry: int) -> dict[str, Any]:
+    def _join_channel(
+        self, channel_id: str, connection_id: str, expiry: int
+    ) -> tuple[dict[str, Any], str]:
         """Join an existing channel atomically."""
         logger.info("Joining channel=%s connection=%s", channel_id, connection_id)
         try:
@@ -112,9 +116,9 @@ class ChannelService:
                 # Distinguish 404 (channel doesn't exist) vs 403 (channel full)
                 result = self._table.get_item(Key={"PK": f"CHANNEL#{channel_id}"})
                 if "Item" not in result:
-                    return {"statusCode": 404, "body": "Channel not found"}
+                    return ({"statusCode": 404, "body": "Channel not found"}, channel_id)
                 else:
-                    return {"statusCode": 403, "body": "Channel full"}
+                    return ({"statusCode": 403, "body": "Channel full"}, channel_id)
             raise
 
         # Put reverse lookup
@@ -126,7 +130,48 @@ class ChannelService:
             }
         )
 
+        return ({"statusCode": 200}, channel_id)
+
+    def _schedule_channel_id_post(self, event: dict, connection_id: str, channel_id: str) -> None:
+        """Async self-invocation to post the channel id after $connect returns."""
+        payload = {
+            "ffsyncChannelPost": {
+                "connectionId": connection_id,
+                "channelId": channel_id,
+                "apiId": event["requestContext"]["apiId"],
+                "stage": event["requestContext"]["stage"],
+            }
+        }
+        self._session.client("lambda").invoke(
+            FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"],
+            InvocationType="Event",
+            Payload=json.dumps(payload).encode("utf-8"),
+        )
+
+    def _handle_channel_post(self, event: dict) -> dict[str, Any]:
+        """Deferred post of the channel id, racing the $connect registration."""
+        data = event["ffsyncChannelPost"]
+        self._post_channel_id(data["apiId"], data["stage"], data["connectionId"], data["channelId"])
         return {"statusCode": 200}
+
+    def _post_channel_id(
+        self, api_id: str, stage: str, connection_id: str, channel_id: str
+    ) -> None:
+        """Post the channel id, retrying GoneException until the connection registers."""
+        client = self._apigw_client(api_id, stage)
+        data = json.dumps({"channelid": channel_id}).encode("utf-8")
+        for attempt in range(CHANNEL_POST_RETRIES):
+            try:
+                client.post_to_connection(ConnectionId=connection_id, Data=data)
+                return
+            except client.exceptions.GoneException:
+                if attempt < CHANNEL_POST_RETRIES - 1:
+                    time.sleep(CHANNEL_POST_RETRY_DELAY_SECONDS)
+        logger.warning(
+            "Gave up posting channel id to connection=%s after %d attempts",
+            connection_id,
+            CHANNEL_POST_RETRIES,
+        )
 
     def _handle_disconnect(self, connection_id: str) -> None:
         """Handle disconnect — remove connection from channel."""
@@ -228,13 +273,17 @@ class ChannelService:
             self._handle_disconnect(connection_id)
 
     def _get_apigw_client(self, event: dict) -> Any:
+        """Lazy API Gateway Management API client for the relay path."""
+        return self._apigw_client(
+            event["requestContext"]["apiId"], event["requestContext"]["stage"]
+        )
+
+    def _apigw_client(self, api_id: str, stage: str) -> Any:
         """Lazy API Gateway Management API client, cached by endpoint.
 
         Uses the execute-api domain (not the custom domain) because the
         Management API and its IAM policy are scoped to the execute-api ARN.
         """
-        api_id = event["requestContext"]["apiId"]
-        stage = event["requestContext"]["stage"]
         region = self._session.region_name
         endpoint = f"https://{api_id}.execute-api.{region}.amazonaws.com/{stage}"
 

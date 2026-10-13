@@ -29,7 +29,7 @@ import {
     TableEncryption,
     TableProps,
 } from "aws-cdk-lib/aws-dynamodb";
-import {Role, ServicePrincipal} from "aws-cdk-lib/aws-iam";
+import {PolicyStatement, Role, ServicePrincipal} from "aws-cdk-lib/aws-iam";
 import {Key, KeySpec, KeyUsage} from "aws-cdk-lib/aws-kms";
 import {Architecture, IFunction, Runtime} from "aws-cdk-lib/aws-lambda";
 import {LogGroup, RetentionDays} from "aws-cdk-lib/aws-logs";
@@ -463,6 +463,14 @@ export class ServiceStack extends Stack {
         });
 
         this.channelTable.grantReadWriteData(fn);
+        fn.addToRolePolicy(
+            new PolicyStatement({
+                actions: ["lambda:InvokeFunction"],
+                resources: [
+                    `arn:aws:lambda:${this.region}:${this.account}:function:ffsync-channel-api-${this.props.stageType.toLowerCase()}`,
+                ],
+            }),
+        );
 
         return fn;
     }

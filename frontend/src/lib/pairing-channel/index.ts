@@ -19,6 +19,8 @@ import {
 const CLOSE_FLUSH_BUFFER_INTERVAL_MS = 200
 const CLOSE_FLUSH_BUFFER_MAX_TRIES = 5
 
+export const CHANNEL_HANDSHAKE_TIMEOUT_MS = 10_000
+
 export class PairingChannel extends EventTarget {
   _channelId: string
   _channelKey: Uint8Array
@@ -86,6 +88,7 @@ export class PairingChannel extends EventTarget {
   ): Promise<PairingChannel> {
     const socket = new WebSocket(wsUri)
     return new Promise((resolve, reject) => {
+      let timeout: ReturnType<typeof setTimeout>
       let stopListening: () => void
       const onConnectionError = async () => {
         stopListening()
@@ -110,6 +113,7 @@ export class PairingChannel extends EventTarget {
         }
       }
       stopListening = () => {
+        clearTimeout(timeout)
         socket.removeEventListener("close", onConnectionError)
         socket.removeEventListener("error", onConnectionError)
         socket.removeEventListener("message", onFirstMessage)
@@ -117,6 +121,11 @@ export class PairingChannel extends EventTarget {
       socket.addEventListener("close", onConnectionError)
       socket.addEventListener("error", onConnectionError)
       socket.addEventListener("message", onFirstMessage)
+      timeout = setTimeout(() => {
+        stopListening()
+        socket.close()
+        reject(new Error("Timed out creating the pairing channel"))
+      }, CHANNEL_HANDSHAKE_TIMEOUT_MS)
     })
   }
 
