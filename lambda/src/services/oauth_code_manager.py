@@ -164,6 +164,23 @@ class OAuthCodeManager:
             "scope": item["scope"],
         }
 
+    def get_refresh_token(self, token_hash: str) -> Optional[dict]:
+        """Look up a refresh token without consuming it (device bearer auth)."""
+        response = self._table.get_item(Key={_PK: f"{REFRESH_PREFIX}#{token_hash}"})
+        item = response.get("Item")
+        if not item:
+            return None
+
+        # TTL deletion lags by up to 48h, so an expired token is refused here too.
+        if item.get("expiry", 0) < int(time.time()):
+            return None
+
+        return {
+            "uid": item["uid"],
+            "clientId": item["clientId"],
+            "scope": item["scope"],
+        }
+
     def delete_refresh_token(self, token_hash: str) -> None:
         """Delete a refresh token by its hash."""
         self._table.delete_item(Key={_PK: f"{REFRESH_PREFIX}#{token_hash}"})
