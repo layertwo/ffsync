@@ -62,6 +62,21 @@ describe("getPairingOAuthParams", () => {
     vi.advanceTimersByTime(10_000)
     await expect(promise).resolves.toBeNull()
   })
+
+  it("resolves null on an error reply", async () => {
+    const promise = getPairingOAuthParams()
+    replyFromFirefox("fxaccounts:pair_oauth_start", {
+      error: { message: "Failed to begin a pairing OAuth flow" },
+    })
+    await expect(promise).resolves.toBeNull()
+  })
+
+  it("resolves null when a required param field is missing", async () => {
+    const promise = getPairingOAuthParams()
+    const { keys_jwk: _keysJwk, ...partial } = PARAMS
+    replyFromFirefox("fxaccounts:pair_oauth_start", partial)
+    await expect(promise).resolves.toBeNull()
+  })
 })
 
 describe("sendOAuthLogin", () => {
