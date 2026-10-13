@@ -373,6 +373,24 @@ class TestChannelService:
         assert mock_sleep.call_count == CHANNEL_POST_RETRIES - 1
         apigw_stubber.assert_no_pending_responses()
 
+    def test_handle_channel_post_gives_up_on_a_non_gone_error(
+        self,
+        service: ChannelService,
+        apigw_stubber: Stubber,
+    ) -> None:
+        """A non-Gone ClientError (throttle/IAM) is logged and abandoned, never raised."""
+        apigw_stubber.add_client_error(
+            "post_to_connection",
+            service_error_code="LimitExceededException",
+            service_message="Throttled",
+            http_status_code=429,
+        )
+
+        result = service.handle(_channel_post_event(), None)
+
+        assert result == {"statusCode": 200}
+        apigw_stubber.assert_no_pending_responses()
+
     # -- Disconnect with cleanup ----------------------------------------------
 
     def test_disconnect_cleans_up(
