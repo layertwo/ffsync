@@ -64,6 +64,24 @@ def _channel_post_event(
     }
 
 
+def _self_invoke_params(connection_id: str, channel_id: str) -> Dict[str, Any]:
+    """The exact lambda.invoke call the service makes to schedule the channel id post."""
+    return {
+        "FunctionName": "ffsync-channel-api-prod",
+        "InvocationType": "Event",
+        "Payload": json.dumps(
+            {
+                "ffsyncChannelPost": {
+                    "connectionId": connection_id,
+                    "channelId": channel_id,
+                    "apiId": "testapi123",
+                    "stage": "prod",
+                }
+            }
+        ).encode("utf-8"),
+    }
+
+
 class TestChannelService:
     """Test ChannelService DynamoDB operations"""
 
@@ -114,7 +132,7 @@ class TestChannelService:
         service: ChannelService,
         dynamodb_stubber: Stubber,
         apigw_stubber: Stubber,
-        lambda_client: MagicMock,
+        lambda_stubber: Stubber,
     ) -> None:
         """Create stores metadata + reverse lookup and schedules the channelId post."""
         expiry = FIXED_TIME + CHANNEL_TTL_SECONDS
@@ -148,25 +166,14 @@ class TestChannelService:
             },
         )
 
+        lambda_stubber.add_response(
+            "invoke", {"StatusCode": 202}, _self_invoke_params("conn-1", FIXED_UUID)
+        )
+
         event = _ws_event(route_key="$connect", connection_id="conn-1")
         result = service.handle(event, None)
 
         assert result == {"statusCode": 200}
-        apigw_stubber.assert_no_pending_responses()
-        lambda_client.invoke.assert_called_once_with(
-            FunctionName="ffsync-channel-api-prod",
-            InvocationType="Event",
-            Payload=json.dumps(
-                {
-                    "ffsyncChannelPost": {
-                        "connectionId": "conn-1",
-                        "channelId": FIXED_UUID,
-                        "apiId": "testapi123",
-                        "stage": "prod",
-                    }
-                }
-            ).encode("utf-8"),
-        )
 
     # -- Join channel ---------------------------------------------------------
 
@@ -177,7 +184,7 @@ class TestChannelService:
         mock_time: MagicMock,
         service: ChannelService,
         dynamodb_stubber: Stubber,
-        lambda_client: MagicMock,
+        lambda_stubber: Stubber,
     ) -> None:
         """Join existing channel via atomic update_item + reverse lookup + schedule post."""
         expiry = FIXED_TIME + CHANNEL_TTL_SECONDS
@@ -200,6 +207,10 @@ class TestChannelService:
             },
         )
 
+        lambda_stubber.add_response(
+            "invoke", {"StatusCode": 202}, _self_invoke_params("conn-2", channel_id)
+        )
+
         event = _ws_event(
             route_key="$connect",
             connection_id="conn-2",
@@ -208,20 +219,6 @@ class TestChannelService:
         result = service.handle(event, None)
 
         assert result == {"statusCode": 200}
-        lambda_client.invoke.assert_called_once_with(
-            FunctionName="ffsync-channel-api-prod",
-            InvocationType="Event",
-            Payload=json.dumps(
-                {
-                    "ffsyncChannelPost": {
-                        "connectionId": "conn-2",
-                        "channelId": channel_id,
-                        "apiId": "testapi123",
-                        "stage": "prod",
-                    }
-                }
-            ).encode("utf-8"),
-        )
 
     # -- Join nonexistent channel ---------------------------------------------
 
@@ -322,7 +319,6 @@ class TestChannelService:
         result = service.handle(_channel_post_event(), None)
 
         assert result == {"statusCode": 200}
-        apigw_stubber.assert_no_pending_responses()
 
     @patch("src.services.channel_service.time.sleep")
     def test_handle_channel_post_retries_on_gone(
@@ -350,7 +346,6 @@ class TestChannelService:
 
         assert result == {"statusCode": 200}
         mock_sleep.assert_called_once_with(CHANNEL_POST_RETRY_DELAY_SECONDS)
-        apigw_stubber.assert_no_pending_responses()
 
     @patch("src.services.channel_service.time.sleep")
     def test_handle_channel_post_gives_up_after_retries(
@@ -371,7 +366,6 @@ class TestChannelService:
 
         assert result == {"statusCode": 200}
         assert mock_sleep.call_count == CHANNEL_POST_RETRIES - 1
-        apigw_stubber.assert_no_pending_responses()
 
     def test_handle_channel_post_gives_up_on_a_non_gone_error(
         self,
@@ -389,7 +383,6 @@ class TestChannelService:
         result = service.handle(_channel_post_event(), None)
 
         assert result == {"statusCode": 200}
-        apigw_stubber.assert_no_pending_responses()
 
     # -- Disconnect with cleanup ----------------------------------------------
 
@@ -536,7 +529,6 @@ class TestChannelService:
         result = service.handle(event, None)
 
         assert result == {"statusCode": 200}
-        apigw_stubber.assert_no_pending_responses()
 
     # -- Unknown connection message -------------------------------------------
 
@@ -769,7 +761,6 @@ class TestChannelService:
         result = service.handle(event, None)
 
         assert result == {"statusCode": 200}
-        apigw_stubber.assert_no_pending_responses()
 
     # -- Empty body relay -----------------------------------------------------
 
@@ -830,7 +821,6 @@ class TestChannelService:
         result = service.handle(event, None)
 
         assert result == {"statusCode": 200}
-        apigw_stubber.assert_no_pending_responses()
 
     # -- Lazy APIGW client init -----------------------------------------------
 

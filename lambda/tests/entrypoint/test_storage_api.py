@@ -93,7 +93,10 @@ def test_storage_api_happ_path(
         },
         {
             "TableName": "test-storage-table",
-            "Key": {"PK": {"S": "COLLECTION#bookmarks"}, "SK": {"S": "OBJECT#item123"}},
+            "Key": {
+                "PK": "USER#test-user-123#COLLECTION#bookmarks",
+                "SK": "OBJECT#item123",
+            },
         },
     )
 
