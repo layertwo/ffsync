@@ -20,6 +20,7 @@ const CLOSE_FLUSH_BUFFER_INTERVAL_MS = 200
 const CLOSE_FLUSH_BUFFER_MAX_TRIES = 5
 
 export const CHANNEL_HANDSHAKE_TIMEOUT_MS = 10_000
+export const ACK_TIMEOUT_MS = 15_000
 
 export class PairingChannel extends EventTarget {
   _channelId: string
@@ -87,6 +88,41 @@ export class PairingChannel extends EventTarget {
     psk: Uint8Array
   ): Promise<PairingChannel> {
     const socket = new WebSocket(wsUri)
+    // Ack-serialize outbound frames: the server relays frame N before acking it,
+    // so waiting for each ack guarantees the peer sees frames in order.
+    const pendingAcks: Array<() => void> = []
+    let previousAck: Promise<void> = Promise.resolve()
+    const sendAndAwaitAck = async (b64: string): Promise<void> => {
+      const gate = previousAck
+      const acked = new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          reject(new Error("Timed out waiting for the relay ack"))
+        }, ACK_TIMEOUT_MS)
+        pendingAcks.push(() => {
+          clearTimeout(timer)
+          resolve()
+        })
+      })
+      previousAck = acked
+      await gate
+      socket.send(b64)
+      await acked
+    }
+    socket.addEventListener("message", (event: MessageEvent) => {
+      let envelope: Record<string, unknown>
+      try {
+        envelope = JSON.parse(event.data)
+      } catch {
+        return
+      }
+      if (envelope.ack === undefined) {
+        return
+      }
+      const resolve = pendingAcks.shift()
+      if (resolve) {
+        resolve()
+      }
+    })
     return new Promise((resolve, reject) => {
       let timeout: ReturnType<typeof setTimeout>
       let stopListening: () => void
@@ -102,9 +138,7 @@ export class PairingChannel extends EventTarget {
           const connection = await ConnectionClass.create(
             psk,
             pskId,
-            (data: Uint8Array) => {
-              socket.send(bytesToBase64url(data))
-            }
+            (data: Uint8Array) => sendAndAwaitAck(bytesToBase64url(data))
           )
           const instance = new this(channelId, psk, socket, connection)
           resolve(instance)
@@ -133,6 +167,9 @@ export class PairingChannel extends EventTarget {
     this._socket!.addEventListener("message", async (event: MessageEvent) => {
       try {
         const channelServerEnvelope = JSON.parse(event.data)
+        if (channelServerEnvelope.ack !== undefined) {
+          return
+        }
         const payload = await this._connection!.recv(
           base64urlToBytes(channelServerEnvelope.message)
         )

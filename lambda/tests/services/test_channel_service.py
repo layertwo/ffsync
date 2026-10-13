@@ -521,11 +521,84 @@ class TestChannelService:
             },
         )
 
+        # post_to_connection to ack the sender conn-1
+        apigw_stubber.add_response(
+            "post_to_connection",
+            {},
+            {"ConnectionId": "conn-1", "Data": json.dumps({"ack": 1}).encode("utf-8")},
+        )
+
         event = _ws_event(
             route_key="$default",
             connection_id="conn-1",
             body="hello",
         )
+        result = service.handle(event, None)
+
+        assert result == {"statusCode": 200}
+
+    def test_relay_message_acks_sender(
+        self,
+        service: ChannelService,
+        dynamodb_stubber: Stubber,
+        apigw_stubber: Stubber,
+    ) -> None:
+        """Relay posts the message to the peer and an {"ack": 1} to the sender."""
+        channel_id = "chan-1"
+
+        # get_item for CONN#
+        dynamodb_stubber.add_response(
+            "get_item",
+            {
+                "Item": {
+                    "PK": {"S": "CONN#conn-1"},
+                    "channelId": {"S": channel_id},
+                    "expiry": {"N": str(FIXED_TIME)},
+                }
+            },
+            {
+                "TableName": CHANNEL_TABLE_NAME,
+                "Key": {"PK": "CONN#conn-1"},
+            },
+        )
+
+        # update_item for atomic message count increment (ALL_NEW returns connections)
+        dynamodb_stubber.add_response(
+            "update_item",
+            {
+                "Attributes": {
+                    "PK": {"S": f"CHANNEL#{channel_id}"},
+                    "connections": {"L": [{"S": "conn-1"}, {"S": "conn-2"}]},
+                    "messageCount": {"N": "1"},
+                    "expiry": {"N": str(FIXED_TIME)},
+                }
+            },
+            None,
+        )
+
+        # post_to_connection to relay message to conn-2
+        apigw_stubber.add_response(
+            "post_to_connection",
+            {},
+            {
+                "ConnectionId": "conn-2",
+                "Data": json.dumps({"message": "hello", "sender": {"remote": "", "ua": ""}}).encode(
+                    "utf-8"
+                ),
+            },
+        )
+
+        # post_to_connection to ack the sender conn-1
+        apigw_stubber.add_response(
+            "post_to_connection",
+            {},
+            {
+                "ConnectionId": "conn-1",
+                "Data": json.dumps({"ack": 1}).encode("utf-8"),
+            },
+        )
+
+        event = _ws_event(route_key="$default", connection_id="conn-1", body="hello")
         result = service.handle(event, None)
 
         assert result == {"statusCode": 200}
@@ -757,6 +830,13 @@ class TestChannelService:
         # update_item to REMOVE connections[1]
         dynamodb_stubber.add_response("update_item", {}, None)
 
+        # post_to_connection to ack the sender conn-1 after the relay
+        apigw_stubber.add_response(
+            "post_to_connection",
+            {},
+            {"ConnectionId": "conn-1", "Data": json.dumps({"ack": 1}).encode("utf-8")},
+        )
+
         event = _ws_event(route_key="$default", connection_id="conn-1", body="ping")
         result = service.handle(event, None)
 
@@ -813,6 +893,13 @@ class TestChannelService:
                     "utf-8"
                 ),
             },
+        )
+
+        # post_to_connection to ack the sender conn-1
+        apigw_stubber.add_response(
+            "post_to_connection",
+            {},
+            {"ConnectionId": "conn-1", "Data": json.dumps({"ack": 1}).encode("utf-8")},
         )
 
         # Event with no body key
