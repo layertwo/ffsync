@@ -3,6 +3,11 @@ name: deploy
 on:
   push:
     branches: [mainline]
+    # build.yml only consumes lib/, lambda/, smithy/, frontend/ and the npm
+    # manifests, so a docs-only commit has nothing to synth or deploy.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   workflow_dispatch:
 
 concurrency:

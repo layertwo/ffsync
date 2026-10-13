@@ -1,22 +1,23 @@
 name: frontend-build
 
 on:
-  push:
-    paths:
-     - 'frontend/**'
-     - '.github/workflows/frontend-build.yml'
-    branches: [ "mainline" ]
+  # No push trigger: deploy.yml -> build.yml runs the same npm ci && test &&
+  # build on every push to mainline, so this would double up.
   pull_request:
     paths:
      - 'frontend/**'
      - '.github/workflows/frontend-build.yml'
     branches: [ "mainline" ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04-arm
 
     steps:
       - name: Checkout code
