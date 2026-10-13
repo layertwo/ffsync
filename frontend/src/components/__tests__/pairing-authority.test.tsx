@@ -2,6 +2,7 @@ import { cleanup, render, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { PairAuthorityPage } from "@/components/PairAuthorityPage"
+import { storeAuth } from "@/lib/session"
 import type { AppConfig } from "@/lib/types"
 
 const { created } = vi.hoisted(() => ({ created: [] as unknown[] }))
@@ -39,6 +40,9 @@ const config: AppConfig = {
 describe("PairAuthorityPage", () => {
   beforeEach(() => {
     created.length = 0
+    sessionStorage.clear()
+    // The authority page requires a session before it creates a channel.
+    storeAuth("st", "u", "e")
   })
 
   afterEach(() => {

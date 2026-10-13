@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { PairSupplicantPage } from "@/components/PairSupplicantPage"
 import { PairAuthorityPage } from "@/components/PairAuthorityPage"
+import { PairingChannel } from "@/lib/pairing-channel"
 import type { AppConfig } from "@/lib/types"
 
 const h = vi.hoisted(() => {
@@ -91,6 +92,8 @@ const session = vi.hoisted(() => ({
   storeAuth: vi.fn(),
   clearAuth: vi.fn(),
   clearAll: vi.fn(),
+  storePairingPending: vi.fn(),
+  consumePairingPending: vi.fn(),
 }))
 vi.mock("@/lib/session", () => session)
 
@@ -263,6 +266,32 @@ describe("PairSupplicantPage", () => {
 })
 
 describe("PairAuthorityPage", () => {
+  // The happy path requires a session and in-document key custody; the tests
+  // that exercise the missing-custody branches override these.
+  beforeEach(() => {
+    session.getAuth.mockReturnValue({
+      sessionToken: "st",
+      uid: "u",
+      email: "e",
+    })
+    custody.getPairingCustody.mockReturnValue({
+      keyFetchToken: "kft",
+      unwrapBKey: "ubk",
+    })
+  })
+
+  it("sends a signed-out authority to sign-in instead of creating a channel", async () => {
+    session.getAuth.mockReturnValue(null)
+
+    render(<PairAuthorityPage config={config} />)
+
+    await waitFor(() =>
+      expect(session.storePairingPending).toHaveBeenCalled()
+    )
+    expect(PairingChannel.create).not.toHaveBeenCalled()
+    expect(screen.queryByText(/Scan this QR code/i)).toBeNull()
+  })
+
   it("sends pair:auth:cancel and pair:auth:decline on decline", async () => {
     render(<PairAuthorityPage config={config} />)
     const ch = h.instances[0]
@@ -381,7 +410,7 @@ describe("PairAuthorityPage", () => {
     )
   })
 
-  it("lands in the error state when key custody is absent", async () => {
+  it("hands a keys_jwk pairing whose custody was lost on reload to sign-in", async () => {
     session.getAuth.mockReturnValue({ sessionToken: "st", uid: "u", email: "e" })
     custody.getPairingCustody.mockReturnValue(null)
 
@@ -394,7 +423,10 @@ describe("PairAuthorityPage", () => {
 
     fireEvent.click(screen.getByText("Approve"))
 
-    await waitFor(() => expect(screen.getByText(/sign in again/i)).toBeTruthy())
+    await waitFor(() => expect(session.clearAuth).toHaveBeenCalled())
+    expect(session.storePairingPending).toHaveBeenCalled()
+    expect(authClient.requestOAuthCode).not.toHaveBeenCalled()
+    expect(syncKeys.deriveAndEncryptSyncKeys).not.toHaveBeenCalled()
   })
 
   it("lands in the error state when keys_jwk is present but empty", async () => {

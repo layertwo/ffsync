@@ -5,6 +5,7 @@ const KEYS = {
   state: "ffsync_state",
   oidcConfig: "ffsync_oidc_config",
   fxaParams: "ffsync_fxa_params",
+  pairPending: "ffsync_pair_pending",
 } as const
 
 // Session-scoped, never persisted to disk or shared across tabs: FxA keeps its
@@ -80,10 +81,23 @@ export function clearAuth(): void {
   clearPairingCustody()
 }
 
+// Key custody only exists in the document whose sign-in flow set it, so a
+// pairing bounce records its intent here and returns to /pair client-side.
+export function storePairingPending(): void {
+  sessionStorage.setItem(KEYS.pairPending, "1")
+}
+
+export function consumePairingPending(): boolean {
+  const pending = sessionStorage.getItem(KEYS.pairPending) === "1"
+  if (pending) sessionStorage.removeItem(KEYS.pairPending)
+  return pending
+}
+
 export function clearAll(): void {
   sessionStorage.removeItem(KEYS.codeVerifier)
   sessionStorage.removeItem(KEYS.state)
   sessionStorage.removeItem(KEYS.oidcConfig)
   sessionStorage.removeItem(KEYS.fxaParams)
+  sessionStorage.removeItem(KEYS.pairPending)
   clearAuth()
 }
