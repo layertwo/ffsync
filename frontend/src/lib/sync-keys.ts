@@ -32,6 +32,7 @@ interface ScopedKeyJWK {
 
 export interface DeriveAndEncryptParams {
   authServerUrl: string
+  clientId: string
   keyFetchTokenHex: string
   unwrapBKeyHex: string
   sessionTokenHex: string
@@ -204,6 +205,7 @@ export async function deriveAndEncryptSyncKeys(
 ): Promise<string> {
   const {
     authServerUrl,
+    clientId,
     keyFetchTokenHex,
     unwrapBKeyHex,
     sessionTokenHex,
@@ -224,7 +226,7 @@ export async function deriveAndEncryptSyncKeys(
   const scopedKeyData = await fetchScopedKeyData(
     authServerUrl,
     sessionTokenHex,
-    scope.split(" ")[0],
+    clientId,
     scope
   )
 

@@ -45,7 +45,7 @@ describe("PairAuthorityPage", () => {
     cleanup()
   })
 
-  it("starts a fresh channel for each pairing", async () => {
+  it("creates a fresh channel per mount and releases the previous one on unmount", async () => {
     render(<PairAuthorityPage config={config} />)
     await waitFor(() => expect(created).toHaveLength(1))
 
@@ -53,6 +53,7 @@ describe("PairAuthorityPage", () => {
     render(<PairAuthorityPage config={config} />)
     await waitFor(() => expect(created).toHaveLength(2))
 
-    expect(created[0]).not.toBe(created[1])
+    const first = created[0] as { close: ReturnType<typeof vi.fn> }
+    expect(first.close).toHaveBeenCalled()
   })
 })

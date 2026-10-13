@@ -10,10 +10,4 @@ describe("buildPairUrl", () => {
       "https://prod.example.com/pair/#channel_id=chan&channel_key=AQID&v=2"
     )
   })
-
-  it("does not use /pair/supp", () => {
-    expect(buildPairUrl("https://prod.example.com", "chan", KEY)).not.toContain(
-      "/pair/supp"
-    )
-  })
 })

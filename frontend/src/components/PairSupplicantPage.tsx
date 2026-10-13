@@ -138,7 +138,15 @@ export function PairSupplicantPage({ config }: PairSupplicantPageProps) {
       })
 
       channel.addEventListener("close", () => {
-        // Peer closed the channel
+        setState((prev) => {
+          if (prev.step === "waiting" || prev.step === "confirming") {
+            return {
+              step: "error",
+              message: "Pairing channel closed before pairing finished.",
+            }
+          }
+          return prev
+        })
       })
     } catch (err) {
       setState({
