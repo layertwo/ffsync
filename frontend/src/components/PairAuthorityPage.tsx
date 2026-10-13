@@ -177,7 +177,7 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
       // A v1 supplicant sends no keys_jwk: skip wrapping and complete without keys.
       let keysJwe: string | undefined
       if (keysJwk !== undefined) {
-        if (!keysJwk.trim()) {
+        if (typeof keysJwk !== "string" || keysJwk.trim() === "") {
           handleError("This device did not provide a usable key.")
           return
         }
@@ -188,6 +188,7 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
         }
         keysJwe = await deriveAndEncryptSyncKeys({
           authServerUrl: config.authServerUrl,
+          clientId: suppRequest.client_id || config.clientId,
           keyFetchTokenHex: custody.keyFetchToken,
           unwrapBKeyHex: custody.unwrapBKey,
           sessionTokenHex: auth.sessionToken,
@@ -202,6 +203,7 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
         suppRequest.client_id || config.clientId,
         scope,
         suppRequest.state || crypto.randomUUID(),
+        // No PKCE fallback: a challenge the supplicant holds no verifier for would fail the exchange.
         suppRequest.code_challenge,
         keysJwe,
         redirectUri

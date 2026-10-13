@@ -237,6 +237,7 @@ export function SignInPage({
         })
         keysJwe = await deriveAndEncryptSyncKeys({
           authServerUrl: config.authServerUrl,
+          clientId: fxaClientId,
           keyFetchTokenHex: keyFetchToken,
           unwrapBKeyHex: unwrapBKey,
           sessionTokenHex: sessionToken,

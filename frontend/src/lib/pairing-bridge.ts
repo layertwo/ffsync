@@ -4,6 +4,7 @@ import {
   sendToFirefox,
 } from "@/lib/webchannel"
 
+// Mirrors fxa-settings' exported PAIR_OAUTH_TIMEOUT_MS; keep in step if Firefox changes it.
 const PAIR_OAUTH_TIMEOUT_MS = 10_000
 
 // From fxa-settings firefox.ts `PairOAuthStartState` and iOS `FxAPairingOAuthHandler.parameterNames`:

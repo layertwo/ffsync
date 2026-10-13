@@ -226,6 +226,40 @@ describe("PairSupplicantPage", () => {
       screen.getByText("Waiting for the other device to approve...")
     ).toBeTruthy()
   })
+
+  it("ends on a terminal error when the channel closes while waiting", async () => {
+    bridge.getPairingOAuthParams.mockResolvedValue(BRIDGE_PARAMS)
+    render(<PairSupplicantPage config={config} />)
+    const ch = h.instances[0]
+
+    await waitFor(() => expect(ch.sent).toHaveLength(1))
+
+    act(() => ch.dispatch("close"))
+
+    await waitFor(() => expect(screen.getByText(/Pairing Error/)).toBeTruthy())
+  })
+
+  it("does not overwrite the complete state when the channel closes after success", async () => {
+    bridge.getPairingOAuthParams.mockResolvedValue(BRIDGE_PARAMS)
+    render(<PairSupplicantPage config={config} />)
+    const ch = h.instances[0]
+
+    await waitFor(() => expect(ch.sent).toHaveLength(1))
+
+    act(() =>
+      ch.dispatch("message", {
+        data: {
+          message: "pair:auth:authorize",
+          data: { code: "code-1", state: "state-1" },
+        },
+      })
+    )
+    await waitFor(() => expect(screen.getByText(/Pairing Complete/)).toBeTruthy())
+
+    act(() => ch.dispatch("close"))
+
+    expect(screen.getByText(/Pairing Complete/)).toBeTruthy()
+  })
 })
 
 describe("PairAuthorityPage", () => {
@@ -271,6 +305,7 @@ describe("PairAuthorityPage", () => {
     await waitFor(() =>
       expect(syncKeys.deriveAndEncryptSyncKeys).toHaveBeenCalledWith({
         authServerUrl: "https://auth.example.com",
+        clientId: "client-id",
         keyFetchTokenHex: "kft",
         unwrapBKeyHex: "ubk",
         sessionTokenHex: "st",
@@ -387,6 +422,34 @@ describe("PairAuthorityPage", () => {
     expect(authClient.requestOAuthCode).not.toHaveBeenCalled()
   })
 
+  it("lands in the error state when keys_jwk is present but not a string", async () => {
+    session.getAuth.mockReturnValue({ sessionToken: "st", uid: "u", email: "e" })
+    custody.getPairingCustody.mockReturnValue({
+      keyFetchToken: "kft",
+      unwrapBKey: "ubk",
+    })
+
+    render(<PairAuthorityPage config={config} />)
+    const ch = h.instances[0]
+
+    await waitFor(() => expect(screen.getByText(/Scan this QR code/i)).toBeTruthy())
+    act(() =>
+      ch.dispatch("message", {
+        data: {
+          message: "pair:supp:request",
+          data: { ...REQUEST, keys_jwk: null },
+        },
+      })
+    )
+    await waitFor(() => expect(screen.getByText("Approve")).toBeTruthy())
+
+    fireEvent.click(screen.getByText("Approve"))
+
+    await waitFor(() => expect(screen.getByText(/did not provide/i)).toBeTruthy())
+    expect(syncKeys.deriveAndEncryptSyncKeys).not.toHaveBeenCalled()
+    expect(authClient.requestOAuthCode).not.toHaveBeenCalled()
+  })
+
   it("lands in the error state when key derivation fails", async () => {
     session.getAuth.mockReturnValue({ sessionToken: "st", uid: "u", email: "e" })
     custody.getPairingCustody.mockReturnValue({
@@ -412,6 +475,19 @@ describe("PairAuthorityPage", () => {
     const ch = h.instances[0]
 
     await waitFor(() => expect(screen.getByText(/Scan this QR code/i)).toBeTruthy())
+
+    act(() => ch.dispatch("close"))
+
+    await waitFor(() => expect(screen.getByText(/Pairing Error/)).toBeTruthy())
+  })
+
+  it("ends on a terminal error when the channel closes while confirming", async () => {
+    render(<PairAuthorityPage config={config} />)
+    const ch = h.instances[0]
+
+    await waitFor(() => expect(screen.getByText(/Scan this QR code/i)).toBeTruthy())
+    act(() => ch.dispatch("message", requestMessage()))
+    await waitFor(() => expect(screen.getByText("Approve")).toBeTruthy())
 
     act(() => ch.dispatch("close"))
 

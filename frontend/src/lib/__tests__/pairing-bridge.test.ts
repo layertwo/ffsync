@@ -64,6 +64,8 @@ describe("getPairingOAuthParams", () => {
     replyFromFirefox("fxaccounts:pair_oauth_start", PARAMS)
     await promise
     expect(messagesToChrome()[0].command).toBe("fxaccounts:pair_oauth_start")
+    // iOS drops a bridge request that carries no messageId, so it must be sent.
+    expect(messagesToChrome()[0].messageId).toBeTruthy()
   })
 
   it("resolves null when the bridge never answers", async () => {
