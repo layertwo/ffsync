@@ -178,6 +178,17 @@ function PairRoute({
   return <Component config={config} />
 }
 
+function PairEntry({ config }: { config: AppConfig }) {
+  const hasChannelId = new URLSearchParams(window.location.hash.slice(1)).has(
+    "channel_id"
+  )
+  return hasChannelId ? (
+    <PairSupplicantPage config={config} />
+  ) : (
+    <PairAuthorityPage config={config} />
+  )
+}
+
 export default function App() {
   return (
     <ThemeProvider defaultTheme="system">
@@ -185,7 +196,7 @@ export default function App() {
         <Routes>
           <Route
             path="/pair"
-            element={<PairRoute Component={PairAuthorityPage} />}
+            element={<PairRoute Component={PairEntry} />}
           />
           <Route
             path="/pair/supp"

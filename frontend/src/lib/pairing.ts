@@ -15,13 +15,14 @@ export function base64urlToChannelKey(b64: string): Uint8Array {
   return bytes
 }
 
+// Firefox iOS's FxAPairingURLParser requires the exact /pair path and a v=2 param.
 export function buildPairUrl(
-  contentUrl: string,
+  origin: string,
   channelId: string,
   channelKey: Uint8Array
 ): string {
   const keyB64 = channelKeyToBase64url(channelKey)
-  return `${contentUrl}/pair/supp#channel_id=${channelId}&channel_key=${keyB64}`
+  return `${origin}/pair/#channel_id=${channelId}&channel_key=${keyB64}&v=2`
 }
 
 export function parsePairFragment(

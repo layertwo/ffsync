@@ -99,9 +99,9 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
       const channel = await PairingChannel.create(config.pairingServerUrl)
       channelRef.current = channel
 
-      const contentUrl = config.redirectUri.replace(/\/+$/, "")
+      // The QR host must match the phone's content server, so use this SPA's own origin.
       const pairUrl = buildPairUrl(
-        contentUrl,
+        window.location.origin,
         channel.channelId,
         channel.channelKey
       )
