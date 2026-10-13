@@ -167,6 +167,13 @@ class ChannelService:
             except client.exceptions.GoneException:
                 if attempt < CHANNEL_POST_RETRIES - 1:
                     time.sleep(CHANNEL_POST_RETRY_DELAY_SECONDS)
+            except ClientError as error:
+                # A throttle or IAM error will not clear on retry; log it rather than
+                # drop the channel id silently, and let the client timeout end the wait.
+                logger.warning(
+                    "Failed to post channel id to connection=%s: %s", connection_id, error
+                )
+                return
         logger.warning(
             "Gave up posting channel id to connection=%s after %d attempts",
             connection_id,
