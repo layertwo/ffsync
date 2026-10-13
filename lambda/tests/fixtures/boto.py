@@ -115,6 +115,12 @@ def apigw_client(boto_session: boto3.session.Session) -> ApiGatewayManagementApi
 
 
 @pytest.fixture
+def lambda_client() -> MagicMock:
+    """Mocked Lambda client for the channel service's async self-invocation."""
+    return MagicMock()
+
+
+@pytest.fixture
 def apigw_stubber(apigw_client: ApiGatewayManagementApiClient) -> Generator[Stubber, None, None]:
     """Botocore Stubber for API Gateway Management API."""
     with Stubber(apigw_client) as stubber:
@@ -155,6 +161,7 @@ def boto_resource_patch(
     dynamodb_resource: "DynamoDBServiceResource",
     kms_client: KMSClient,
     apigw_client: ApiGatewayManagementApiClient,
+    lambda_client: MagicMock,
 ) -> Generator:
     def client(service: str, *args: Any, **kwargs: Any) -> Any:
         if service == "dynamodb":
@@ -163,6 +170,8 @@ def boto_resource_patch(
             return kms_client
         if service == "apigatewaymanagementapi":
             return apigw_client
+        if service == "lambda":
+            return lambda_client
 
         raise ValueError(f"client for {service} not recognized")
 
