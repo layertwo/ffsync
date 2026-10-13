@@ -13,9 +13,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import type { AppConfig } from "@/lib/types"
 import { PairingChannel } from "@/lib/pairing-channel"
-import { buildPairUrl } from "@/lib/pairing"
+import { buildPairUrl, DEFAULT_SYNC_SCOPE } from "@/lib/pairing"
 import { requestOAuthCode } from "@/lib/auth-client"
-import { generatePKCE } from "@/lib/pkce"
+import { deriveAndEncryptSyncKeys } from "@/lib/sync-keys"
+import { getPairingCustody } from "@/lib/pairing-custody"
 import {
   listenFromFirefox,
   sendPairComplete,
@@ -47,6 +48,9 @@ interface SuppRequest {
 interface PairAuthorityPageProps {
   config: AppConfig
 }
+
+const SIGNED_OUT_MESSAGE =
+  "You must be signed in to approve pairing. Please sign in again."
 
 export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
   const [state, setState] = useState<PairAuthorityState>({
@@ -99,9 +103,9 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
       const channel = await PairingChannel.create(config.pairingServerUrl)
       channelRef.current = channel
 
-      const contentUrl = config.redirectUri.replace(/\/+$/, "")
+      // The QR host must match the phone's content server, so use this SPA's own origin.
       const pairUrl = buildPairUrl(
-        contentUrl,
+        window.location.origin,
         channel.channelId,
         channel.channelKey
       )
@@ -135,7 +139,17 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
       })
 
       channel.addEventListener("close", () => {
-        // Peer closed the channel
+        // If the supplicant never finishes, end on a terminal error rather
+        // than spin; ignore a close once we are already settled.
+        setState((prev) => {
+          if (prev.step === "showing-qr" || prev.step === "confirming") {
+            return {
+              step: "error",
+              message: "Pairing channel closed before the device finished.",
+            }
+          }
+          return prev
+        })
       })
     } catch (err) {
       handleError(err instanceof Error ? err.message : String(err))
@@ -151,31 +165,45 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
     try {
       const auth = session.getAuth()
       if (!auth || !config.authServerUrl) {
-        handleError(
-          "You must be signed in to approve pairing. Please sign in first."
-        )
+        handleError(SIGNED_OUT_MESSAGE)
         return
       }
 
       const redirectUri =
         "urn:ietf:wg:oauth:2.0:oob:pair-auth-webchannel"
+      const scope = suppRequest.scope || DEFAULT_SYNC_SCOPE
+      const keysJwk = suppRequest.keys_jwk
 
-      // Generate our own PKCE if needed, or use the supplicant's
-      let codeChallenge = suppRequest.code_challenge
-      if (!codeChallenge) {
-        const pkce = await generatePKCE()
-        codeChallenge = pkce.codeChallenge
+      // A v1 supplicant sends no keys_jwk: skip wrapping and complete without keys.
+      let keysJwe: string | undefined
+      if (keysJwk !== undefined) {
+        if (!keysJwk.trim()) {
+          handleError("This device did not provide a usable key.")
+          return
+        }
+        const custody = getPairingCustody()
+        if (!custody) {
+          handleError(SIGNED_OUT_MESSAGE)
+          return
+        }
+        keysJwe = await deriveAndEncryptSyncKeys({
+          authServerUrl: config.authServerUrl,
+          keyFetchTokenHex: custody.keyFetchToken,
+          unwrapBKeyHex: custody.unwrapBKey,
+          sessionTokenHex: auth.sessionToken,
+          keysJwkB64: keysJwk,
+          scope,
+        })
       }
 
       const oauthResult = await requestOAuthCode(
         config.authServerUrl,
         auth.sessionToken,
         suppRequest.client_id || config.clientId,
-        suppRequest.scope ||
-          "https://identity.mozilla.com/apps/oldsync profile",
+        scope,
         suppRequest.state || crypto.randomUUID(),
-        codeChallenge,
-        undefined,
+        suppRequest.code_challenge,
+        keysJwe,
         redirectUri
       )
 
@@ -185,7 +213,6 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
         data: {
           code: oauthResult.code,
           state: oauthResult.state,
-          redirect: oauthResult.redirect,
         },
       })
 
@@ -198,6 +225,7 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
   function handleDecline() {
     if (state.step !== "confirming") return
     const { channel } = state
+    channel.send({ message: "pair:auth:cancel", data: {} }).catch(() => {})
     channel.send({ message: "pair:auth:decline", data: {} }).catch(() => {})
     channel.close().catch(() => {})
     setState({ step: "error", message: "Pairing declined." })

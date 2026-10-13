@@ -1,3 +1,5 @@
+import { clearPairingCustody } from "@/lib/pairing-custody"
+
 const KEYS = {
   codeVerifier: "ffsync_code_verifier",
   state: "ffsync_state",
@@ -75,6 +77,7 @@ export function clearAuth(): void {
   sessionStorage.removeItem(AUTH_KEYS.sessionToken)
   sessionStorage.removeItem(AUTH_KEYS.uid)
   sessionStorage.removeItem(AUTH_KEYS.email)
+  clearPairingCustody()
 }
 
 export function clearAll(): void {

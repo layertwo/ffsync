@@ -12,8 +12,9 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import type { AppConfig } from "@/lib/types"
 import { PairingChannel } from "@/lib/pairing-channel"
-import { parsePairFragment } from "@/lib/pairing"
+import { DEFAULT_SYNC_SCOPE, parsePairFragment } from "@/lib/pairing"
 import { generatePKCE } from "@/lib/pkce"
+import { getPairingOAuthParams, sendOAuthLogin } from "@/lib/pairing-bridge"
 
 type PairSupplicantState =
   | { step: "connecting" }
@@ -82,21 +83,20 @@ export function PairSupplicantPage({ config }: PairSupplicantPageProps) {
       )
       channelRef.current = channel
 
-      // Generate PKCE for the OAuth flow
-      const pkce = await generatePKCE()
+      // Prefer the browser-minted OAuth params; fall back to our own PKCE (v1).
+      // shortcut: a bridge-less supplicant waits the 10s probe (matches FxA), probe sooner if v1 pairing latency matters
+      const bridgeParams = await getPairingOAuthParams()
+      const requestData = bridgeParams
+        ? { client_id: config.clientId, ...bridgeParams }
+        : {
+            client_id: config.clientId,
+            state: crypto.randomUUID(),
+            scope: DEFAULT_SYNC_SCOPE,
+            code_challenge: (await generatePKCE()).codeChallenge,
+            code_challenge_method: "S256",
+          }
 
-      // Send the supplicant request
-      await channel.send({
-        message: "pair:supp:request",
-        data: {
-          client_id: config.clientId,
-          state: crypto.randomUUID(),
-          scope:
-            "https://identity.mozilla.com/apps/oldsync profile",
-          code_challenge: pkce.codeChallenge,
-          code_challenge_method: "S256",
-        },
-      })
+      await channel.send({ message: "pair:supp:request", data: requestData })
 
       setState({ step: "waiting" })
 
@@ -112,13 +112,16 @@ export function PairSupplicantPage({ config }: PairSupplicantPageProps) {
             uid: data.data.uid,
           })
         } else if (data.message === "pair:auth:authorize") {
-          setState({
-            step: "complete",
-            code: data.data.code,
-            state: data.data.state,
-          })
+          const { code, state: oauthState } = data.data
+          // v2 requires this ack before the hand-off; our own authority ignores it.
+          channel.send({ message: "pair:supp:authorize", data: {} }).catch(() => {})
+          sendOAuthLogin({ code, state: oauthState })
+          setState({ step: "complete", code, state: oauthState })
           channel.close().catch(() => {})
-        } else if (data.message === "pair:auth:decline") {
+        } else if (
+          data.message === "pair:auth:cancel" ||
+          data.message === "pair:auth:decline"
+        ) {
           setState({
             step: "error",
             message: "Pairing was declined by the other device.",

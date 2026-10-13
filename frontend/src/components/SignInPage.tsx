@@ -34,6 +34,7 @@ import {
 } from "@/lib/webchannel"
 import { generatePKCE } from "@/lib/pkce"
 import { deriveAndEncryptSyncKeys } from "@/lib/sync-keys"
+import { setPairingCustody } from "@/lib/pairing-custody"
 import { SyncPasswordForm } from "@/components/SyncPasswordForm"
 
 type SignInState =
@@ -283,6 +284,7 @@ export function SignInPage({
       void action
 
       session.storeAuth(sessionToken, uid, email)
+      setPairingCustody({ keyFetchToken, unwrapBKey })
       if (onLoginComplete) {
         onLoginComplete(email, uid, sessionToken)
         return
