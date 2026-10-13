@@ -100,7 +100,7 @@ Use `@lambda_entrypoint` (`src/environment/service_provider.py`) on new handlers
 - **Token API** (SpecRestApi, edge): `token.<stage>.<BASE_DOMAIN>` — Bearer self-signed JWT
 - **Profile API** (SpecRestApi, edge): `profile.<stage>.<BASE_DOMAIN>` — Bearer self-signed JWT
 - **Storage API** (SpecRestApi, edge): `storage.<stage>.<BASE_DOMAIN>` — HAWK (inline middleware)
-- **Channel API** (API Gateway v2 `WebSocketApi`, regional): `wss://channel.<stage>.<BASE_DOMAIN>` — no auth on `$connect`; bounded to 3 connections and 10 messages per channel with a 300 s TTL (`src/services/channel_service.py`)
+- **Channel API** (API Gateway v2 `WebSocketApi`, regional): `wss://channel.<stage>.<BASE_DOMAIN>` — no auth on `$connect`; bounded to 3 connections and 50 messages per channel with a 300 s TTL (`src/services/channel_service.py`)
 
 All four REST APIs set `disableExecuteApiEndpoint: true`, so `https://<id>.execute-api.<region>.amazonaws.com/...` always returns 403 — **manual testing MUST use the custom domain.** The Channel API has no Smithy model or OpenAPI spec; it is declared directly in `lib/stacks/service.ts`.
 
@@ -417,7 +417,7 @@ uv run python get_hawk_token.py \
 | **User** | Identified by OIDC subject claim; storage isolated per user |
 | **HAWK** | HTTP auth scheme used by Firefox Sync clients |
 | **Device** | FxA device record: `id`, `name`, `type`, `pushCallback`/`pushPublicKey`/`pushAuthKey`, `availableCommands`, `sessionTokenId`, `createdAt`/`lastAccessTime` in **milliseconds**. Keyed `DEVICE#{uid}#{device_id}`. Endpoints are implemented, not stubs. |
-| **Channel** | Short-lived WebSocket pairing channel: `channelId`, up to 3 connections, up to 10 messages, 300 s TTL |
+| **Channel** | Short-lived WebSocket pairing channel: `channelId`, up to 3 connections, up to 50 messages, 300 s TTL |
 
 ## In-Package Resources
 
