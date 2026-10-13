@@ -162,7 +162,8 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
     try {
       const auth = session.getAuth()
       const custody = getPairingCustody()
-      if (!auth || !custody || !config.authServerUrl) {
+      // Custody is only needed to wrap a present keys_jwk; a v1 request has none.
+      if (!auth || !config.authServerUrl || (suppRequest.keys_jwk && !custody)) {
         handleError(
           "You must be signed in to approve pairing. Please sign in again."
         )
@@ -174,15 +175,21 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
       const scope =
         suppRequest.scope ||
         "https://identity.mozilla.com/apps/oldsync profile"
+      const keysJwk = suppRequest.keys_jwk
 
-      const keysJwe = await deriveAndEncryptSyncKeys({
-        authServerUrl: config.authServerUrl,
-        keyFetchTokenHex: custody.keyFetchToken,
-        unwrapBKeyHex: custody.unwrapBKey,
-        sessionTokenHex: auth.sessionToken,
-        keysJwkB64: suppRequest.keys_jwk ?? "",
-        scope,
-      })
+      // A v1 supplicant sends no keys_jwk: skip wrapping and complete without
+      // keys (the accepted non-goal). Only a present keys_jwk needs custody.
+      const keysJwe =
+        keysJwk && custody
+          ? await deriveAndEncryptSyncKeys({
+              authServerUrl: config.authServerUrl,
+              keyFetchTokenHex: custody.keyFetchToken,
+              unwrapBKeyHex: custody.unwrapBKey,
+              sessionTokenHex: auth.sessionToken,
+              keysJwkB64: keysJwk,
+              scope,
+            })
+          : undefined
 
       const oauthResult = await requestOAuthCode(
         config.authServerUrl,

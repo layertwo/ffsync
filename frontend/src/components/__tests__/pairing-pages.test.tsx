@@ -301,6 +301,50 @@ describe("PairAuthorityPage", () => {
     expect(authorize.data).not.toHaveProperty("redirect")
   })
 
+  it("completes without keys when the supplicant sends no keys_jwk", async () => {
+    session.getAuth.mockReturnValue({ sessionToken: "st", uid: "u", email: "e" })
+    custody.getPairingCustody.mockReturnValue(null)
+    authClient.requestOAuthCode.mockResolvedValue({
+      code: "code-1",
+      state: "state-1",
+      redirect: "ignored",
+    })
+
+    render(<PairAuthorityPage config={config} />)
+    const ch = h.instances[0]
+
+    await waitFor(() => expect(screen.getByText(/Scan this QR code/i)).toBeTruthy())
+    act(() =>
+      ch.dispatch("message", {
+        data: {
+          message: "pair:supp:request",
+          data: { ...REQUEST, keys_jwk: undefined },
+        },
+      })
+    )
+    await waitFor(() => expect(screen.getByText("Approve")).toBeTruthy())
+
+    fireEvent.click(screen.getByText("Approve"))
+
+    await waitFor(() =>
+      expect(ch.sent).toContainEqual({
+        message: "pair:auth:authorize",
+        data: { code: "code-1", state: "state-1" },
+      })
+    )
+    expect(syncKeys.deriveAndEncryptSyncKeys).not.toHaveBeenCalled()
+    expect(authClient.requestOAuthCode).toHaveBeenCalledWith(
+      "https://auth.example.com",
+      "st",
+      "client-id",
+      "https://identity.mozilla.com/apps/oldsync profile",
+      "state-1",
+      "challenge",
+      undefined,
+      "urn:ietf:wg:oauth:2.0:oob:pair-auth-webchannel"
+    )
+  })
+
   it("lands in the error state when key custody is absent", async () => {
     session.getAuth.mockReturnValue({ sessionToken: "st", uid: "u", email: "e" })
     custody.getPairingCustody.mockReturnValue(null)
