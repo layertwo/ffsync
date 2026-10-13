@@ -115,7 +115,7 @@ class TestChannelService:
 
     def test_constants(self) -> None:
         assert MAX_CONNECTIONS_PER_CHANNEL == 3
-        assert MAX_MESSAGES_PER_CHANNEL == 10
+        assert MAX_MESSAGES_PER_CHANNEL == 50
         assert CHANNEL_TTL_SECONDS == 300
         assert CHANNEL_POST_RETRIES == 5
         assert CHANNEL_POST_RETRY_DELAY_SECONDS == 0.2
