@@ -1,0 +1,75 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+
+import {
+  getPairingOAuthParams,
+  sendOAuthLogin,
+} from "@/lib/pairing-bridge"
+
+const PARAMS = {
+  state: "state-value",
+  scope: "https://identity.mozilla.com/apps/oldsync profile",
+  code_challenge: "challenge",
+  code_challenge_method: "S256",
+  keys_jwk: "{}",
+}
+
+function replyFromFirefox(command: string, data: Record<string, unknown>) {
+  window.dispatchEvent(
+    new CustomEvent("WebChannelMessageToContent", {
+      detail: JSON.stringify({
+        id: "account_updates",
+        message: { command, data, messageId: "123" },
+      }),
+    })
+  )
+}
+
+function messagesToChrome(): Array<{ command: string; data: Record<string, unknown> }> {
+  return chromeMessages.map((d) => JSON.parse(d).message)
+}
+
+const chromeMessages: string[] = []
+const chromeListener = (event: Event) =>
+  chromeMessages.push((event as CustomEvent).detail as string)
+
+beforeEach(() => {
+  chromeMessages.length = 0
+  window.addEventListener("WebChannelMessageToChrome", chromeListener)
+})
+
+afterEach(() => {
+  window.removeEventListener("WebChannelMessageToChrome", chromeListener)
+  vi.useRealTimers()
+})
+
+describe("getPairingOAuthParams", () => {
+  it("resolves the browser-minted OAuth params from a pair_oauth_start reply", async () => {
+    const promise = getPairingOAuthParams()
+    replyFromFirefox("fxaccounts:pair_oauth_start", PARAMS)
+    await expect(promise).resolves.toEqual(PARAMS)
+  })
+
+  it("requests params from the browser with fxaccounts:pair_oauth_start", async () => {
+    const promise = getPairingOAuthParams()
+    replyFromFirefox("fxaccounts:pair_oauth_start", PARAMS)
+    await promise
+    expect(messagesToChrome()[0].command).toBe("fxaccounts:pair_oauth_start")
+  })
+
+  it("resolves null when the bridge never answers", async () => {
+    vi.useFakeTimers()
+    const promise = getPairingOAuthParams()
+    vi.advanceTimersByTime(10_000)
+    await expect(promise).resolves.toBeNull()
+  })
+})
+
+describe("sendOAuthLogin", () => {
+  it("posts fxaccounts:oauth_login with the code and state", () => {
+    sendOAuthLogin({ code: "code-value", state: "state-value" })
+    const msg = messagesToChrome()[0]
+    expect(msg.command).toBe("fxaccounts:oauth_login")
+    expect(msg.data.code).toBe("code-value")
+    expect(msg.data.state).toBe("state-value")
+  })
+})
