@@ -93,7 +93,6 @@ class TestDeviceManager:
         assert result["createdAt"] == 1000000000
         assert result["lastAccessTime"] == 1000000000
         assert result["sessionTokenId"] == sample_session_token_id
-        dynamodb_stubber.assert_no_pending_responses()
 
     # -- upsert_device (update) ------------------------------------------------
 
@@ -159,7 +158,6 @@ class TestDeviceManager:
         assert result["createdAt"] == 999000000
         assert result["lastAccessTime"] == 1000000000
         assert result["sessionTokenId"] == sample_session_token_id
-        dynamodb_stubber.assert_no_pending_responses()
 
     # -- get_devices -----------------------------------------------------------
 
@@ -209,7 +207,6 @@ class TestDeviceManager:
         # PK should be stripped
         assert "PK" not in devices[0]
         assert "PK" not in devices[1]
-        dynamodb_stubber.assert_no_pending_responses()
 
     def test_get_devices_follows_pagination(
         self,
@@ -269,7 +266,6 @@ class TestDeviceManager:
         devices = manager.get_devices(uid=sample_uid)
 
         assert [d["id"] for d in devices] == [device_id_1, device_id_2]
-        dynamodb_stubber.assert_no_pending_responses()
 
     def test_get_devices_filters_idle(
         self,
@@ -312,7 +308,6 @@ class TestDeviceManager:
         assert len(devices) == 1
         assert devices[0]["id"] == device_id_active
         assert devices[0]["name"] == "Active Phone"
-        dynamodb_stubber.assert_no_pending_responses()
 
     def test_get_devices_empty(
         self,
@@ -335,4 +330,3 @@ class TestDeviceManager:
         devices = manager.get_devices(uid=sample_uid)
 
         assert devices == []
-        dynamodb_stubber.assert_no_pending_responses()

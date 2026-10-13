@@ -115,8 +115,6 @@ class TestCreateSessionToken:
 
             manager.create_session_token(sample_uid)
 
-        dynamodb_stubber.assert_no_pending_responses()
-
 
 class TestVerifySessionTokenId:
     """Tests for verify_session_token_id method"""
@@ -316,8 +314,6 @@ class TestCreateKeyFetchToken:
             )
 
             manager.create_key_fetch_token(sample_uid)
-
-        dynamodb_stubber.assert_no_pending_responses()
 
 
 class TestConsumeKeyFetchToken:
@@ -794,16 +790,6 @@ class TestVerifySessionHawk:
             {
                 "TableName": storage_table_name,
                 "Key": {"PK": f"SESSION#{token_id_hex}"},
-            },
-        )
-
-        dynamodb_stubber.add_response(
-            "put_item",
-            {},
-            {
-                "TableName": storage_table_name,
-                "Item": ANY,
-                "ConditionExpression": "attribute_not_exists(PK)",
             },
         )
 
@@ -1373,8 +1359,6 @@ class TestDeleteSession:
 
         manager.delete_session(token_id_hex)
 
-        dynamodb_stubber.assert_no_pending_responses()
-
 
 class TestConstants:
     """Tests for module-level constants"""
@@ -1439,8 +1423,6 @@ class TestCustomTTL:
 
             manager.create_session_token("test-uid")
 
-        dynamodb_stubber.assert_no_pending_responses()
-
     def test_custom_keyfetch_ttl(
         self,
         dynamodb_table: "Table",
@@ -1479,8 +1461,6 @@ class TestCustomTTL:
             )
 
             manager.create_key_fetch_token("test-uid")
-
-        dynamodb_stubber.assert_no_pending_responses()
 
 
 class TestExtractTokenIdFromHawkHeader:

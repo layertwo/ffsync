@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from types_boto3_dynamodb.client import DynamoDBClient
     from types_boto3_dynamodb.service_resource import DynamoDBServiceResource, Table
     from types_boto3_kms.client import KMSClient
+    from types_boto3_lambda.client import LambdaClient
 
 
 @pytest.fixture(scope="session")
@@ -55,6 +56,7 @@ def dynamodb_stubber(
 ) -> Generator[Stubber, None, None]:
     with Stubber(dynamodb_resource.meta.client) as stubber:
         yield stubber
+        stubber.assert_no_pending_responses()
 
 
 @pytest.fixture
@@ -103,6 +105,7 @@ def kms_stubber(kms_client: KMSClient) -> Generator[Stubber, None, None]:
     """Botocore Stubber for KMS. Tests that call KMS add their own stubs."""
     with Stubber(kms_client) as stubber:
         yield stubber
+        stubber.assert_no_pending_responses()
 
 
 @pytest.fixture
@@ -115,9 +118,17 @@ def apigw_client(boto_session: boto3.session.Session) -> ApiGatewayManagementApi
 
 
 @pytest.fixture
-def lambda_client() -> MagicMock:
-    """Mocked Lambda client for the channel service's async self-invocation."""
-    return MagicMock()
+def lambda_client(boto_session: boto3.session.Session) -> "LambdaClient":
+    """Lambda client for the channel service's async self-invocation."""
+    return boto_session.client("lambda")
+
+
+@pytest.fixture
+def lambda_stubber(lambda_client: "LambdaClient") -> Generator[Stubber, None, None]:
+    """Botocore Stubber for Lambda. Tests that invoke add their own stubs."""
+    with Stubber(lambda_client) as stubber:
+        yield stubber
+        stubber.assert_no_pending_responses()
 
 
 @pytest.fixture
@@ -125,6 +136,7 @@ def apigw_stubber(apigw_client: ApiGatewayManagementApiClient) -> Generator[Stub
     """Botocore Stubber for API Gateway Management API."""
     with Stubber(apigw_client) as stubber:
         yield stubber
+        stubber.assert_no_pending_responses()
 
 
 @pytest.fixture(autouse=True)
@@ -161,7 +173,7 @@ def boto_resource_patch(
     dynamodb_resource: "DynamoDBServiceResource",
     kms_client: KMSClient,
     apigw_client: ApiGatewayManagementApiClient,
-    lambda_client: MagicMock,
+    lambda_client: "LambdaClient",
 ) -> Generator:
     def client(service: str, *args: Any, **kwargs: Any) -> Any:
         if service == "dynamodb":

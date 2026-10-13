@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.14"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -537,7 +537,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
-    { name = "types-boto3", extra = ["apigatewaymanagementapi", "dynamodb", "kms"] },
+    { name = "types-boto3", extra = ["apigatewaymanagementapi", "dynamodb", "kms", "lambda"] },
     { name = "types-requests" },
 ]
 
@@ -565,7 +565,7 @@ dev = [
     { name = "pytest", specifier = "==9.1.1" },
     { name = "pytest-cov", specifier = "==7.1.0" },
     { name = "pytest-xdist", specifier = "==3.8.0" },
-    { name = "types-boto3", extras = ["apigatewaymanagementapi", "dynamodb", "kms"], specifier = "==1.43.108" },
+    { name = "types-boto3", extras = ["apigatewaymanagementapi", "dynamodb", "kms", "lambda"], specifier = "==1.43.108" },
     { name = "types-requests", specifier = "==2.33.0.20261006" },
 ]
 
@@ -1255,6 +1255,9 @@ dynamodb = [
 kms = [
     { name = "types-boto3-kms" },
 ]
+lambda = [
+    { name = "types-boto3-lambda" },
+]
 
 [[package]]
 name = "types-boto3-apigatewaymanagementapi"
@@ -1281,6 +1284,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/0d/46/7343b52e16eaa9dec7099cdd6a901317df583473b1658d04cb42885c8d03/types_boto3_kms-1.43.12.tar.gz", hash = "sha256:f9a06ca5a1cbf02f820208f1e84983a750daa1bce305bd11231961a9d770d9cd", size = 30696, upload-time = "2026-05-20T20:01:12.294Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/37/e1/08af811394ca720a077a4a9fda7cce33c043819e56e0d722d21c977de444/types_boto3_kms-1.43.12-py3-none-any.whl", hash = "sha256:e3c2d0e510593920464aff052382fc31d7159c15cb2c439c5ad8988f6c8417e2", size = 38951, upload-time = "2026-05-20T20:01:08.731Z" },
+]
+
+[[package]]
+name = "types-boto3-lambda"
+version = "1.43.112"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1c/b3/55fa2cbd21e495ae163b24a255c7a6a1ca94d249fb706a9aeabac45f3513/types_boto3_lambda-1.43.112.tar.gz", hash = "sha256:99503a4886a97d15e6591a8c8e6be832692c3d320b7f4d09b1de8bec9ce5a40f", size = 53266, upload-time = "2026-10-12T20:04:13.709Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a2/3a/09ce188b1fa4d8ebf3e112466ff92ee184bbc865519761b8b1dfe90da8ba/types_boto3_lambda-1.43.112-py3-none-any.whl", hash = "sha256:64b41ee72603f13fa6571ac58b8babf57c60a0800c64de56ec488ae0290c717c", size = 61691, upload-time = "2026-10-12T20:04:11.254Z" },
 ]
 
 [[package]]
