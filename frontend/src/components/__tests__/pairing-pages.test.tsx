@@ -54,7 +54,8 @@ vi.mock("@/lib/pairing-channel", () => ({
   },
 }))
 
-vi.mock("@/lib/pairing", () => ({
+vi.mock("@/lib/pairing", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/pairing")>()),
   parsePairFragment: () => ({
     channelId: "chan-1",
     channelKey: new Uint8Array([1, 2, 3]),

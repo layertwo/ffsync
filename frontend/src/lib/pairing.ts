@@ -1,3 +1,6 @@
+export const DEFAULT_SYNC_SCOPE =
+  "https://identity.mozilla.com/apps/oldsync profile"
+
 export function channelKeyToBase64url(key: Uint8Array): string {
   let binary = ""
   for (const byte of key) {

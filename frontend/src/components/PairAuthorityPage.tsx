@@ -13,7 +13,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import type { AppConfig } from "@/lib/types"
 import { PairingChannel } from "@/lib/pairing-channel"
-import { buildPairUrl } from "@/lib/pairing"
+import { buildPairUrl, DEFAULT_SYNC_SCOPE } from "@/lib/pairing"
 import { requestOAuthCode } from "@/lib/auth-client"
 import { deriveAndEncryptSyncKeys } from "@/lib/sync-keys"
 import { getPairingCustody } from "@/lib/pairing-custody"
@@ -48,6 +48,9 @@ interface SuppRequest {
 interface PairAuthorityPageProps {
   config: AppConfig
 }
+
+const SIGNED_OUT_MESSAGE =
+  "You must be signed in to approve pairing. Please sign in again."
 
 export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
   const [state, setState] = useState<PairAuthorityState>({
@@ -161,19 +164,14 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
 
     try {
       const auth = session.getAuth()
-      const custody = getPairingCustody()
       if (!auth || !config.authServerUrl) {
-        handleError(
-          "You must be signed in to approve pairing. Please sign in again."
-        )
+        handleError(SIGNED_OUT_MESSAGE)
         return
       }
 
       const redirectUri =
         "urn:ietf:wg:oauth:2.0:oob:pair-auth-webchannel"
-      const scope =
-        suppRequest.scope ||
-        "https://identity.mozilla.com/apps/oldsync profile"
+      const scope = suppRequest.scope || DEFAULT_SYNC_SCOPE
       const keysJwk = suppRequest.keys_jwk
 
       // A v1 supplicant sends no keys_jwk: skip wrapping and complete without keys.
@@ -183,10 +181,9 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
           handleError("This device did not provide a usable key.")
           return
         }
+        const custody = getPairingCustody()
         if (!custody) {
-          handleError(
-            "You must be signed in to approve pairing. Please sign in again."
-          )
+          handleError(SIGNED_OUT_MESSAGE)
           return
         }
         keysJwe = await deriveAndEncryptSyncKeys({

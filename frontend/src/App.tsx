@@ -5,6 +5,7 @@ import { checkBrowserCompatibility } from "@/lib/browser-check"
 import { loadConfig } from "@/lib/config"
 import { checkSessionStatus } from "@/lib/auth-client"
 import * as session from "@/lib/session"
+import { DEFAULT_SYNC_SCOPE } from "@/lib/pairing"
 import { LoadingPage } from "@/components/LoadingPage"
 import { ErrorPage } from "@/components/ErrorPage"
 import { BrowserWarning } from "@/components/BrowserWarning"
@@ -132,10 +133,7 @@ function MainFlow() {
       state={fxaParams.get("state") ?? undefined}
       codeChallenge={fxaParams.get("code_challenge") ?? undefined}
       clientId={fxaParams.get("client_id") ?? config.clientId}
-      scope={
-        fxaParams.get("scope") ??
-        "https://identity.mozilla.com/apps/oldsync profile"
-      }
+      scope={fxaParams.get("scope") ?? DEFAULT_SYNC_SCOPE}
       keysJwk={fxaParams.get("keys_jwk") ?? undefined}
       onLoginComplete={handleLoginComplete}
     />

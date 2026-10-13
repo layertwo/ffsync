@@ -12,7 +12,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import type { AppConfig } from "@/lib/types"
 import { PairingChannel } from "@/lib/pairing-channel"
-import { parsePairFragment } from "@/lib/pairing"
+import { DEFAULT_SYNC_SCOPE, parsePairFragment } from "@/lib/pairing"
 import { generatePKCE } from "@/lib/pkce"
 import { getPairingOAuthParams, sendOAuthLogin } from "@/lib/pairing-bridge"
 
@@ -91,8 +91,7 @@ export function PairSupplicantPage({ config }: PairSupplicantPageProps) {
         : {
             client_id: config.clientId,
             state: crypto.randomUUID(),
-            scope:
-              "https://identity.mozilla.com/apps/oldsync profile",
+            scope: DEFAULT_SYNC_SCOPE,
             code_challenge: (await generatePKCE()).codeChallenge,
             code_challenge_method: "S256",
           }
@@ -113,10 +112,11 @@ export function PairSupplicantPage({ config }: PairSupplicantPageProps) {
             uid: data.data.uid,
           })
         } else if (data.message === "pair:auth:authorize") {
-          const { code, state } = data.data
+          const { code, state: oauthState } = data.data
+          // v2 requires this ack before the hand-off; our own authority ignores it.
           channel.send({ message: "pair:supp:authorize", data: {} }).catch(() => {})
-          sendOAuthLogin({ code, state })
-          setState({ step: "complete", code, state })
+          sendOAuthLogin({ code, state: oauthState })
+          setState({ step: "complete", code, state: oauthState })
           channel.close().catch(() => {})
         } else if (
           data.message === "pair:auth:cancel" ||

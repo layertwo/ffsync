@@ -4,18 +4,10 @@ import {
   sendToFirefox,
 } from "@/lib/webchannel"
 
-// From fxa-settings firefox.ts `PairOAuthStartState` and iOS `FxAPairingOAuthHandler.parameterNames`:
-// the pair_oauth_start reply carries these five fields, has no client_id, and keys_jwk is required.
-export interface PairingOAuthParams {
-  state: string
-  scope: string
-  code_challenge: string
-  code_challenge_method: string
-  keys_jwk: string
-}
-
 const PAIR_OAUTH_TIMEOUT_MS = 10_000
 
+// From fxa-settings firefox.ts `PairOAuthStartState` and iOS `FxAPairingOAuthHandler.parameterNames`:
+// the pair_oauth_start reply carries these five fields, has no client_id, and keys_jwk is required.
 const PARAM_FIELDS = [
   "state",
   "scope",
@@ -23,6 +15,8 @@ const PARAM_FIELDS = [
   "code_challenge_method",
   "keys_jwk",
 ] as const
+
+type PairingOAuthParams = Record<(typeof PARAM_FIELDS)[number], string>
 
 function isPairingOAuthParams(data: unknown): data is PairingOAuthParams {
   const record = data as Record<string, unknown>
