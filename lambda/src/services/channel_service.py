@@ -241,6 +241,10 @@ class ChannelService:
 
         self._relay_message(event, connection_id, connections, message_body)
 
+        # Ack the sender after the relay so the client sends one frame at a time,
+        # preserving order for the TLS-1.3-with-PSK handshake.
+        self._post_to_connection(event, connection_id, json.dumps({"ack": 1}))
+
         return {"statusCode": 200}
 
     def _relay_message(

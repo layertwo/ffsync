@@ -3,13 +3,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
-import { PairingChannel, CHANNEL_HANDSHAKE_TIMEOUT_MS } from "../index"
+import { PairingChannel, CHANNEL_HANDSHAKE_TIMEOUT_MS, ACK_TIMEOUT_MS, bytesToBase64url } from "../index"
+
+const mockTls = vi.hoisted(() => ({
+  sendCallback: null as ((data: Uint8Array) => void | Promise<void>) | null,
+}))
 
 vi.mock("../tlsconnection", () => {
   const connection = { connected: Promise.resolve() }
+  const capture = (
+    sendCallback: (data: Uint8Array) => void | Promise<void>
+  ) => {
+    mockTls.sendCallback = sendCallback
+    return connection
+  }
   return {
-    ClientConnection: { create: async () => connection },
-    ServerConnection: { create: async () => connection },
+    ClientConnection: { create: async (_p: unknown, _i: unknown, cb: (data: Uint8Array) => void | Promise<void>) => capture(cb) },
+    ServerConnection: { create: async (_p: unknown, _i: unknown, cb: (data: Uint8Array) => void | Promise<void>) => capture(cb) },
   }
 })
 
@@ -83,5 +93,46 @@ describe("PairingChannel handshake", () => {
     const channel = await promise
     expect(channel.channelId).toBe("chan-123")
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("does not send the next frame until the previous frame's ack arrives", async () => {
+    const promise = PairingChannel.create("wss://example.test/")
+    const socket = MockWebSocket.instances[0]
+    socket.emit("message", { data: JSON.stringify({ channelid: "chan-123" }) })
+    await promise
+
+    const send = mockTls.sendCallback!
+    const frame1 = bytesToBase64url(new Uint8Array([1, 2, 3]))
+    const frame2 = bytesToBase64url(new Uint8Array([4, 5, 6]))
+
+    const p1 = send(new Uint8Array([1, 2, 3]))
+    const p2 = send(new Uint8Array([4, 5, 6]))
+
+    // Flush microtasks: only frame1 reaches the socket (frame2 waits for the ack).
+    await Promise.resolve()
+    expect(socket.sent).toEqual([frame1])
+
+    socket.emit("message", { data: JSON.stringify({ ack: 1 }) })
+    await p1
+    expect(socket.sent).toEqual([frame1, frame2])
+
+    socket.emit("message", { data: JSON.stringify({ ack: 1 }) })
+    await p2
+  })
+
+  it("rejects the send when the relay ack never arrives", async () => {
+    vi.useFakeTimers()
+
+    const promise = PairingChannel.create("wss://example.test/")
+    const socket = MockWebSocket.instances[0]
+    socket.emit("message", { data: JSON.stringify({ channelid: "chan-123" }) })
+    await promise
+
+    const send = mockTls.sendCallback!
+    const p = send(new Uint8Array([1, 2, 3]))
+    const assertion = expect(p).rejects.toThrow("Timed out waiting for the relay ack")
+
+    await vi.advanceTimersByTimeAsync(ACK_TIMEOUT_MS)
+    await assertion
   })
 })
