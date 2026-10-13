@@ -19,9 +19,11 @@ export function sendToFirefox(
     message: { command, data, messageId },
   }
   console.log(`[ffsync:webchannel] → ${command}`, data)
+  // Firefox iOS expects the detail as an object; Desktop and Fennec as a JSON string.
+  const forIOS = navigator.userAgent.toLowerCase().includes("fxios")
   window.dispatchEvent(
     new CustomEvent("WebChannelMessageToChrome", {
-      detail: JSON.stringify(detail),
+      detail: forIOS ? detail : JSON.stringify(detail),
     })
   )
 }
