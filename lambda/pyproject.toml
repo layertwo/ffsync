@@ -24,7 +24,7 @@ dev = [
     "flake8==7.4.1",
     "Flake8-pyproject==1.2.4",
     "mypy==2.3.1",
-    "types-boto3[apigatewaymanagementapi,dynamodb,kms]==1.43.108",
+    "types-boto3[apigatewaymanagementapi,dynamodb,kms,lambda]==1.43.108",
     "hypothesis>=6.0.0",
     "types-requests==2.33.0.20261006",
     "datamodel-code-generator==0.83.0",
