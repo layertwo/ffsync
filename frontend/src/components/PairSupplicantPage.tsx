@@ -84,6 +84,7 @@ export function PairSupplicantPage({ config }: PairSupplicantPageProps) {
       channelRef.current = channel
 
       // Prefer the browser-minted OAuth params; fall back to our own PKCE (v1).
+      // shortcut: a bridge-less supplicant waits the 10s probe (matches FxA), probe sooner if v1 pairing latency matters
       const bridgeParams = await getPairingOAuthParams()
       const requestData = bridgeParams
         ? { client_id: config.clientId, ...bridgeParams }

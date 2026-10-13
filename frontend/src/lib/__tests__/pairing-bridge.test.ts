@@ -13,18 +13,28 @@ const PARAMS = {
   keys_jwk: "{}",
 }
 
-function replyFromFirefox(command: string, data: Record<string, unknown>) {
+function replyFromFirefox(
+  command: string,
+  data: Record<string, unknown>,
+  messageId?: string
+) {
+  const sent = messagesToChrome()
+  const id = messageId ?? (sent[sent.length - 1]?.messageId as string | undefined)
   window.dispatchEvent(
     new CustomEvent("WebChannelMessageToContent", {
       detail: JSON.stringify({
         id: "account_updates",
-        message: { command, data, messageId: "123" },
+        message: { command, data, messageId: id },
       }),
     })
   )
 }
 
-function messagesToChrome(): Array<{ command: string; data: Record<string, unknown> }> {
+function messagesToChrome(): Array<{
+  command: string
+  data: Record<string, unknown>
+  messageId?: string
+}> {
   return chromeMessages.map((d) => JSON.parse(d).message)
 }
 
@@ -76,6 +86,24 @@ describe("getPairingOAuthParams", () => {
     const { keys_jwk: _keysJwk, ...partial } = PARAMS
     replyFromFirefox("fxaccounts:pair_oauth_start", partial)
     await expect(promise).resolves.toBeNull()
+  })
+
+  it("ignores a reply with a mismatched messageId and waits for the matching one", async () => {
+    vi.useFakeTimers()
+    const promise = getPairingOAuthParams()
+
+    replyFromFirefox("fxaccounts:pair_oauth_start", PARAMS, "other-id")
+
+    let settled = false
+    promise.then(() => {
+      settled = true
+    })
+
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(settled).toBe(false)
+
+    replyFromFirefox("fxaccounts:pair_oauth_start", PARAMS)
+    await expect(promise).resolves.toEqual(PARAMS)
   })
 })
 

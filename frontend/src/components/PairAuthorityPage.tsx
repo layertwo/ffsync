@@ -162,8 +162,7 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
     try {
       const auth = session.getAuth()
       const custody = getPairingCustody()
-      // Custody is only needed to wrap a present keys_jwk; a v1 request has none.
-      if (!auth || !config.authServerUrl || (suppRequest.keys_jwk && !custody)) {
+      if (!auth || !config.authServerUrl) {
         handleError(
           "You must be signed in to approve pairing. Please sign in again."
         )
@@ -177,19 +176,28 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
         "https://identity.mozilla.com/apps/oldsync profile"
       const keysJwk = suppRequest.keys_jwk
 
-      // A v1 supplicant sends no keys_jwk: skip wrapping and complete without
-      // keys (the accepted non-goal). Only a present keys_jwk needs custody.
-      const keysJwe =
-        keysJwk && custody
-          ? await deriveAndEncryptSyncKeys({
-              authServerUrl: config.authServerUrl,
-              keyFetchTokenHex: custody.keyFetchToken,
-              unwrapBKeyHex: custody.unwrapBKey,
-              sessionTokenHex: auth.sessionToken,
-              keysJwkB64: keysJwk,
-              scope,
-            })
-          : undefined
+      // A v1 supplicant sends no keys_jwk: skip wrapping and complete without keys.
+      let keysJwe: string | undefined
+      if (keysJwk !== undefined) {
+        if (!keysJwk.trim()) {
+          handleError("This device did not provide a usable key.")
+          return
+        }
+        if (!custody) {
+          handleError(
+            "You must be signed in to approve pairing. Please sign in again."
+          )
+          return
+        }
+        keysJwe = await deriveAndEncryptSyncKeys({
+          authServerUrl: config.authServerUrl,
+          keyFetchTokenHex: custody.keyFetchToken,
+          unwrapBKeyHex: custody.unwrapBKey,
+          sessionTokenHex: auth.sessionToken,
+          keysJwkB64: keysJwk,
+          scope,
+        })
+      }
 
       const oauthResult = await requestOAuthCode(
         config.authServerUrl,

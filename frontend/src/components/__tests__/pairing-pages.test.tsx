@@ -361,6 +361,31 @@ describe("PairAuthorityPage", () => {
     await waitFor(() => expect(screen.getByText(/sign in again/i)).toBeTruthy())
   })
 
+  it("lands in the error state when keys_jwk is present but empty", async () => {
+    session.getAuth.mockReturnValue({ sessionToken: "st", uid: "u", email: "e" })
+    custody.getPairingCustody.mockReturnValue({
+      keyFetchToken: "kft",
+      unwrapBKey: "ubk",
+    })
+
+    render(<PairAuthorityPage config={config} />)
+    const ch = h.instances[0]
+
+    await waitFor(() => expect(screen.getByText(/Scan this QR code/i)).toBeTruthy())
+    act(() =>
+      ch.dispatch("message", {
+        data: { message: "pair:supp:request", data: { ...REQUEST, keys_jwk: "" } },
+      })
+    )
+    await waitFor(() => expect(screen.getByText("Approve")).toBeTruthy())
+
+    fireEvent.click(screen.getByText("Approve"))
+
+    await waitFor(() => expect(screen.getByText(/did not provide/i)).toBeTruthy())
+    expect(syncKeys.deriveAndEncryptSyncKeys).not.toHaveBeenCalled()
+    expect(authClient.requestOAuthCode).not.toHaveBeenCalled()
+  })
+
   it("lands in the error state when key derivation fails", async () => {
     session.getAuth.mockReturnValue({ sessionToken: "st", uid: "u", email: "e" })
     custody.getPairingCustody.mockReturnValue({

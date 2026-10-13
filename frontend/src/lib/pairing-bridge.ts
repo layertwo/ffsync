@@ -36,8 +36,10 @@ export function getPairingOAuthParams(): Promise<PairingOAuthParams | null> {
       resolve(null)
     }, PAIR_OAUTH_TIMEOUT_MS)
 
-    const cleanup = listenFromFirefox((command, data) => {
+    const messageId = String(Date.now())
+    const cleanup = listenFromFirefox((command, data, replyId) => {
       if (command !== "fxaccounts:pair_oauth_start") return
+      if (replyId !== messageId) return
       cleanup()
       window.clearTimeout(timeoutId)
       // iOS sends an error reply under the same command; treat it as "no answer".
@@ -45,7 +47,7 @@ export function getPairingOAuthParams(): Promise<PairingOAuthParams | null> {
     })
 
     // iOS replies only to a request that carries a messageId; the request data is ignored by native.
-    sendToFirefox("fxaccounts:pair_oauth_start", {}, String(Date.now()))
+    sendToFirefox("fxaccounts:pair_oauth_start", {}, messageId)
   })
 }
 
