@@ -175,6 +175,9 @@ export class FrontendStack extends Stack {
             destinationBucket: this.bucket,
             distribution,
             distributionPaths: ["/*"],
+            // Assets are content-hashed and old ones are pruned, so the deploy
+            // need not block on the invalidation completing.
+            waitForDistributionInvalidation: false,
         });
         return distribution;
     }

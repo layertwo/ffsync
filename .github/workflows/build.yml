@@ -93,8 +93,10 @@ jobs:
           name: frontend-dist
           path: frontend/dist
 
-      - name: Build TypeScript
-        run: npm run build
+      # cdk.json runs the app through ts-node --prefer-ts-exts, so the emitted
+      # lib/*.js are never read; keep the typecheck only.
+      - name: Typecheck TypeScript
+        run: npx tsc --noEmit
 
       - uses: actions/setup-python@v7
         with:
