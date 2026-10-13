@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
-import { clearAuth, getAuth, storeAuth } from "@/lib/session"
+import {
+  clearAll,
+  clearAuth,
+  consumePairingPending,
+  getAuth,
+  storeAuth,
+  storePairingPending,
+} from "@/lib/session"
 
 describe("session auth storage", () => {
   beforeEach(() => {
@@ -40,5 +47,35 @@ describe("session auth storage", () => {
 
     expect(getAuth()).toBeNull()
     expect(sessionStorage.length).toBe(0)
+  })
+})
+
+describe("pending pairing intent", () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    localStorage.clear()
+  })
+
+  it("survives clearAuth, which the pairing page calls to force a fresh sign-in", () => {
+    storePairingPending()
+
+    clearAuth()
+
+    expect(consumePairingPending()).toBe(true)
+  })
+
+  it("is consumed once so a later sign-in does not bounce back to /pair", () => {
+    storePairingPending()
+
+    expect(consumePairingPending()).toBe(true)
+    expect(consumePairingPending()).toBe(false)
+  })
+
+  it("is dropped by clearAll on sign-out", () => {
+    storePairingPending()
+
+    clearAll()
+
+    expect(consumePairingPending()).toBe(false)
   })
 })

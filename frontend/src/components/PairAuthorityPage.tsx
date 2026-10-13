@@ -80,6 +80,14 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
       }
     })
 
+    // Pairing needs the in-memory key custody that only this document's
+    // sign-in flow sets, so hand a signed-out visitor to sign-in.
+    if (!session.getAuth()) {
+      session.storePairingPending()
+      window.location.assign("/")
+      return cleanup
+    }
+
     initChannel()
 
     return () => {
@@ -183,7 +191,11 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
         }
         const custody = getPairingCustody()
         if (!custody) {
-          handleError(SIGNED_OUT_MESSAGE)
+          // Reloaded after signing in: keyFetchToken is never re-issued from a
+          // session token, so the keys need a fresh sign-in in this document.
+          session.storePairingPending()
+          session.clearAuth()
+          window.location.assign("/")
           return
         }
         keysJwe = await deriveAndEncryptSyncKeys({

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Routes, Route, useSearchParams } from "react-router"
+import { Routes, Route, useNavigate, useSearchParams } from "react-router"
 import type { AppConfig } from "@/lib/types"
 import { checkBrowserCompatibility } from "@/lib/browser-check"
 import { loadConfig } from "@/lib/config"
@@ -24,6 +24,7 @@ type MainState =
 
 function MainFlow() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [state, setState] = useState<MainState>({ kind: "initializing" })
   const [config, setConfig] = useState<AppConfig | null>(null)
   const initialized = useRef(false)
@@ -78,9 +79,15 @@ function MainFlow() {
 
   const handleLoginComplete = useCallback(
     (email: string) => {
+      // A pairing that bounced through sign-in returns here; go back
+      // client-side so the key custody that sign-in just set survives.
+      if (session.consumePairingPending()) {
+        navigate("/pair")
+        return
+      }
       setState({ kind: "dashboard", email })
     },
-    []
+    [navigate]
   )
 
   const handleSignOut = useCallback(() => {
