@@ -313,3 +313,51 @@ class TestDeleteRefreshToken:
     def test_deletes_by_hash(self, manager: OAuthCodeManager, mock_table: MagicMock) -> None:
         manager.delete_refresh_token("somehash")
         mock_table.delete_item.assert_called_once()
+
+
+class TestGetRefreshToken:
+    @patch("src.services.oauth_code_manager.time")
+    def test_returns_data_without_consuming(
+        self, mock_time: MagicMock, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
+        mock_time.time.return_value = 1000000.0
+        token_hash = hashlib.sha256(b"token123").hexdigest()
+        mock_table.get_item.return_value = {
+            "Item": {
+                "PK": f"REFRESH#{token_hash}",
+                "uid": "uid1",
+                "clientId": "client1",
+                "scope": "openid",
+                "expiry": 1086400,
+            }
+        }
+        result = manager.get_refresh_token(token_hash)
+        assert result is not None
+        assert result["uid"] == "uid1"
+        assert result["clientId"] == "client1"
+        assert result["scope"] == "openid"
+        mock_table.get_item.assert_called_once_with(Key={"PK": f"REFRESH#{token_hash}"})
+        mock_table.delete_item.assert_not_called()
+
+    def test_returns_none_for_unknown_token(
+        self, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
+        mock_table.get_item.return_value = {}
+        assert manager.get_refresh_token("unknown") is None
+
+    @patch("src.services.oauth_code_manager.time")
+    def test_returns_none_for_expired_token(
+        self, mock_time: MagicMock, manager: OAuthCodeManager, mock_table: MagicMock
+    ) -> None:
+        mock_time.time.return_value = 1000000.0
+        token_hash = hashlib.sha256(b"token123").hexdigest()
+        mock_table.get_item.return_value = {
+            "Item": {
+                "PK": f"REFRESH#{token_hash}",
+                "uid": "uid1",
+                "clientId": "client1",
+                "scope": "openid",
+                "expiry": 999999,
+            }
+        }
+        assert manager.get_refresh_token(token_hash) is None

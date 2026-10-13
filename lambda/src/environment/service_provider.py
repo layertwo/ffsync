@@ -10,6 +10,7 @@ from aws_lambda_powertools.logging import Logger
 from aws_lambda_powertools.metrics import Metrics
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
+from src.middlewares.device_auth import DeviceAuthMiddleware
 from src.middlewares.hawk_auth import HawkAuthenticationError, HawkAuthMiddleware, UidMismatchError
 from src.middlewares.request_logging import RequestLoggingMiddleware
 from src.middlewares.weave_timestamp import WeaveTimestampMiddleware
@@ -348,6 +349,14 @@ class ServiceProvider:
         return HawkAuthMiddleware(token_manager=self.fxa_token_manager, metrics=self.metrics)
 
     @cached_property
+    def device_auth_middleware(self) -> DeviceAuthMiddleware:
+        return DeviceAuthMiddleware(
+            metrics=self.metrics,
+            oauth_code_manager=self.oauth_code_manager,
+            session_hawk=self.session_hawk_middleware,
+        )
+
+    @cached_property
     def cors_config(self) -> CORSConfig:
         return CORSConfig(
             allow_origin=f"https://{self.base_domain}",
@@ -412,18 +421,18 @@ class ServiceProvider:
                 # Device management routes
                 AccountDeviceRoute(
                     device_manager=self.device_manager,
-                    middlewares=[self.session_hawk_middleware],
+                    middlewares=[self.device_auth_middleware],
                 ),
                 AccountDevicesRoute(
                     device_manager=self.device_manager,
-                    middlewares=[self.session_hawk_middleware],
+                    middlewares=[self.device_auth_middleware],
                 ),
                 AccountAttachedClientsRoute(
                     device_manager=self.device_manager,
                     middlewares=[self.session_hawk_middleware],
                 ),
                 AccountDevicesNotifyRoute(
-                    middlewares=[self.session_hawk_middleware],
+                    middlewares=[self.device_auth_middleware],
                 ),
             ],
             middlewares=[WeaveTimestampMiddleware()],
