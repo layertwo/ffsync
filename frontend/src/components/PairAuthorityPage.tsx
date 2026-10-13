@@ -15,7 +15,8 @@ import type { AppConfig } from "@/lib/types"
 import { PairingChannel } from "@/lib/pairing-channel"
 import { buildPairUrl } from "@/lib/pairing"
 import { requestOAuthCode } from "@/lib/auth-client"
-import { generatePKCE } from "@/lib/pkce"
+import { deriveAndEncryptSyncKeys } from "@/lib/sync-keys"
+import { getPairingCustody } from "@/lib/pairing-custody"
 import {
   listenFromFirefox,
   sendPairComplete,
@@ -135,7 +136,17 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
       })
 
       channel.addEventListener("close", () => {
-        // Peer closed the channel
+        // If the supplicant never finishes, end on a terminal error rather
+        // than spin; ignore a close once we are already settled.
+        setState((prev) => {
+          if (prev.step === "showing-qr" || prev.step === "confirming") {
+            return {
+              step: "error",
+              message: "Pairing channel closed before the device finished.",
+            }
+          }
+          return prev
+        })
       })
     } catch (err) {
       handleError(err instanceof Error ? err.message : String(err))
@@ -150,32 +161,37 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
 
     try {
       const auth = session.getAuth()
-      if (!auth || !config.authServerUrl) {
+      const custody = getPairingCustody()
+      if (!auth || !custody || !config.authServerUrl) {
         handleError(
-          "You must be signed in to approve pairing. Please sign in first."
+          "You must be signed in to approve pairing. Please sign in again."
         )
         return
       }
 
       const redirectUri =
         "urn:ietf:wg:oauth:2.0:oob:pair-auth-webchannel"
+      const scope =
+        suppRequest.scope ||
+        "https://identity.mozilla.com/apps/oldsync profile"
 
-      // Generate our own PKCE if needed, or use the supplicant's
-      let codeChallenge = suppRequest.code_challenge
-      if (!codeChallenge) {
-        const pkce = await generatePKCE()
-        codeChallenge = pkce.codeChallenge
-      }
+      const keysJwe = await deriveAndEncryptSyncKeys({
+        authServerUrl: config.authServerUrl,
+        keyFetchTokenHex: custody.keyFetchToken,
+        unwrapBKeyHex: custody.unwrapBKey,
+        sessionTokenHex: auth.sessionToken,
+        keysJwkB64: suppRequest.keys_jwk ?? "",
+        scope,
+      })
 
       const oauthResult = await requestOAuthCode(
         config.authServerUrl,
         auth.sessionToken,
         suppRequest.client_id || config.clientId,
-        suppRequest.scope ||
-          "https://identity.mozilla.com/apps/oldsync profile",
+        scope,
         suppRequest.state || crypto.randomUUID(),
-        codeChallenge,
-        undefined,
+        suppRequest.code_challenge,
+        keysJwe,
         redirectUri
       )
 
@@ -185,7 +201,6 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
         data: {
           code: oauthResult.code,
           state: oauthResult.state,
-          redirect: oauthResult.redirect,
         },
       })
 
@@ -198,6 +213,7 @@ export function PairAuthorityPage({ config }: PairAuthorityPageProps) {
   function handleDecline() {
     if (state.step !== "confirming") return
     const { channel } = state
+    channel.send({ message: "pair:auth:cancel", data: {} }).catch(() => {})
     channel.send({ message: "pair:auth:decline", data: {} }).catch(() => {})
     channel.close().catch(() => {})
     setState({ step: "error", message: "Pairing declined." })
