@@ -49,7 +49,7 @@ function MainFlow() {
           return
         }
 
-        // Check for existing session in localStorage
+        // Check for an existing session in sessionStorage
         const auth = session.getAuth()
         if (auth && cfg.authServerUrl) {
           try {

@@ -5,6 +5,8 @@ const KEYS = {
   fxaParams: "ffsync_fxa_params",
 } as const
 
+// Session-scoped, never persisted to disk or shared across tabs: FxA keeps its
+// account/session data in sessionStorage too, and only the theme in localStorage.
 const AUTH_KEYS = {
   sessionToken: "ffsync_session_token",
   uid: "ffsync_uid",
@@ -56,23 +58,23 @@ export function removeFxAParams(): void {
 }
 
 export function storeAuth(sessionToken: string, uid: string, email: string): void {
-  localStorage.setItem(AUTH_KEYS.sessionToken, sessionToken)
-  localStorage.setItem(AUTH_KEYS.uid, uid)
-  localStorage.setItem(AUTH_KEYS.email, email)
+  sessionStorage.setItem(AUTH_KEYS.sessionToken, sessionToken)
+  sessionStorage.setItem(AUTH_KEYS.uid, uid)
+  sessionStorage.setItem(AUTH_KEYS.email, email)
 }
 
 export function getAuth(): { sessionToken: string; uid: string; email: string } | null {
-  const sessionToken = localStorage.getItem(AUTH_KEYS.sessionToken)
-  const uid = localStorage.getItem(AUTH_KEYS.uid)
-  const email = localStorage.getItem(AUTH_KEYS.email)
+  const sessionToken = sessionStorage.getItem(AUTH_KEYS.sessionToken)
+  const uid = sessionStorage.getItem(AUTH_KEYS.uid)
+  const email = sessionStorage.getItem(AUTH_KEYS.email)
   if (!sessionToken || !uid || !email) return null
   return { sessionToken, uid, email }
 }
 
 export function clearAuth(): void {
-  localStorage.removeItem(AUTH_KEYS.sessionToken)
-  localStorage.removeItem(AUTH_KEYS.uid)
-  localStorage.removeItem(AUTH_KEYS.email)
+  sessionStorage.removeItem(AUTH_KEYS.sessionToken)
+  sessionStorage.removeItem(AUTH_KEYS.uid)
+  sessionStorage.removeItem(AUTH_KEYS.email)
 }
 
 export function clearAll(): void {
