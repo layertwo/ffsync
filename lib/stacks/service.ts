@@ -76,6 +76,34 @@ const BUNDLING_ASSET_EXCLUDES = [
     "*.egg-info/",
 ];
 
+// CDK fingerprints the whole source tree, not the bundle, and matches these with
+// GLOB semantics, so directories need /** here (unlike the rsync excludes above).
+// Never exclude src/shared/generated: it is git-ignored but required at runtime.
+const HASHABLE_ASSET_EXCLUDE = [
+    ".venv/**",
+    ".git/**",
+    "tests/**",
+    "htmlcov/**",
+    ".pytest_cache/**",
+    ".mypy_cache/**",
+    "__pycache__/**",
+    "*.egg-info/**",
+    "*.pyc",
+    "cdk/**",
+    "build/**",
+    "scripts/**",
+    "README.md",
+    "coverage.xml",
+    ".coverage",
+    ".DS_Store",
+];
+
+// uv-python-lambda reads this option but omits it from BundlingOptions, so the
+// spread bypasses the excess-property check.
+const HASHABLE_ASSET_EXCLUDE_OPTION = {
+    hashableAssetExclude: HASHABLE_ASSET_EXCLUDE,
+};
+
 // src/shared/generated is generated from the Smithy IDL, not committed. A bundle
 // built without it imports fine here and dies at runtime with
 // "No module named 'src.shared.generated'", so fail the synth instead: the hook
@@ -322,6 +350,7 @@ export class ServiceStack extends Stack {
                 image: this.bundlingImage,
                 assetExcludes: BUNDLING_ASSET_EXCLUDES,
                 commandHooks: BUNDLING_COMMAND_HOOKS,
+                ...HASHABLE_ASSET_EXCLUDE_OPTION,
             },
         });
 
@@ -359,6 +388,7 @@ export class ServiceStack extends Stack {
                 image: this.bundlingImage,
                 assetExcludes: BUNDLING_ASSET_EXCLUDES,
                 commandHooks: BUNDLING_COMMAND_HOOKS,
+                ...HASHABLE_ASSET_EXCLUDE_OPTION,
             },
         });
 
@@ -395,6 +425,7 @@ export class ServiceStack extends Stack {
                 image: this.bundlingImage,
                 assetExcludes: BUNDLING_ASSET_EXCLUDES,
                 commandHooks: BUNDLING_COMMAND_HOOKS,
+                ...HASHABLE_ASSET_EXCLUDE_OPTION,
             },
         });
 
@@ -427,6 +458,7 @@ export class ServiceStack extends Stack {
                 image: this.bundlingImage,
                 assetExcludes: BUNDLING_ASSET_EXCLUDES,
                 commandHooks: BUNDLING_COMMAND_HOOKS,
+                ...HASHABLE_ASSET_EXCLUDE_OPTION,
             },
         });
 
@@ -465,6 +497,7 @@ export class ServiceStack extends Stack {
                 image: this.bundlingImage,
                 assetExcludes: BUNDLING_ASSET_EXCLUDES,
                 commandHooks: BUNDLING_COMMAND_HOOKS,
+                ...HASHABLE_ASSET_EXCLUDE_OPTION,
             },
         });
 
