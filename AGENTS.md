@@ -148,7 +148,7 @@ lib/                          # CDK infrastructure (TypeScript)
     ├── github-oidc.ts        # GitHub Actions OIDC deploy role
     └── monitoring.ts         # CloudWatch dashboard only (no alarms, no SNS)
 
-test/                         # The only CDK test (frontend.test.ts), run by root jest.config.ts
+test/                         # The only CDK test (frontend.test.ts), run by root vitest.config.mts
                               # NOT run by any workflow; its afterAll deletes frontend/dist/
 
 frontend/                     # React SPA (Vite + Tailwind v4)
