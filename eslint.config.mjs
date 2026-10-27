@@ -1,6 +1,6 @@
 import {FlatCompat} from "@eslint/eslintrc";
 import js from "@eslint/js";
-import stylisticJs from "@stylistic/eslint-plugin-js";
+import stylistic from "@stylistic/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import prettier from "eslint-plugin-prettier";
 import path from "node:path";
@@ -22,7 +22,7 @@ export default [
     {
         plugins: {
             prettier,
-            "@stylistic/js": stylisticJs,
+            "@stylistic": stylistic,
         },
         languageOptions: {
             parser: tsParser,
@@ -31,9 +31,9 @@ export default [
         },
         rules: {
             "prettier/prettier": ["error"],
-            "@stylistic/js/semi": ["error", "always"],
-            "@stylistic/js/comma-dangle": ["error", "always-multiline"],
-            "@stylistic/js/indent": ["error", 4],
+            "@stylistic/semi": ["error", "always"],
+            "@stylistic/comma-dangle": ["error", "always-multiline"],
+            "@stylistic/indent": ["error", 4],
             "@typescript-eslint/no-explicit-any": "off",
             "@typescript-eslint/ban-ts-comment": [
                 "error",
@@ -61,8 +61,8 @@ export default [
     {
         files: ["**/package.json"],
         rules: {
-            "@stylistic/js/semi": "off",
-            "@stylistic/js/comma-dangle": "off",
+            "@stylistic/semi": "off",
+            "@stylistic/comma-dangle": "off",
             "max-len": "off",
             "@typescript-eslint/no-unused-expressions": "off",
         },

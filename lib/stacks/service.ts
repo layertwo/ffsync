@@ -473,7 +473,8 @@ export class ServiceStack extends Stack {
             new PolicyStatement({
                 actions: ["lambda:InvokeFunction"],
                 resources: [
-                    `arn:aws:lambda:${this.region}:${this.account}:function:ffsync-channel-api-${this.props.stageType.toLowerCase()}`,
+                    `arn:aws:lambda:${this.region}:${this.account}:function:` +
+                        `ffsync-channel-api-${this.props.stageType.toLowerCase()}`,
                 ],
             }),
         );

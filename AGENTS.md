@@ -153,7 +153,7 @@ test/                         # The only CDK test (frontend.test.ts), run by roo
 
 frontend/                     # React SPA (Vite + Tailwind v4)
 ├── src/
-│   ├── lib/pairing-channel/  # WebSocket pairing client (+ __tests__, 111 vitest tests)
+│   ├── lib/pairing-channel/  # WebSocket pairing client (part of the 155 vitest tests)
 │   ├── lib/sanitize.ts       # dompurify wrapper
 │   └── index.css             # Tailwind v4 CSS-first config (@theme / .dark blocks)
 ├── vite.config.ts            # @tailwindcss/vite plugin, happy-dom test env
@@ -257,8 +257,8 @@ cd lambda && SMITHY_BUILD_DIR="$(git rev-parse --show-toplevel)/build/smithy" ./
 
 - **Framework**: React 19 + Vite + Tailwind CSS v4, react-router v8
 - **Tailwind v4 is CSS-first**: the `@tailwindcss/vite` plugin plus `@theme` / `.dark` blocks in `src/index.css`. There is no `tailwind.config.js` or `postcss.config.js` — **do not add either.**
-- **Do not lint the frontend.** `frontend/` has no `eslint.config.*`, so `npm run lint` resolves to the repo-root config (CDK/Prettier rules) and reports ~13,500 spurious errors. The enforced gates are `npm test` and `tsc -b && vite build`.
-- **Tests**: `npm test` = `vitest run` — 111 tests under `src/lib/pairing-channel/__tests__/` (happy-dom). These gate deployment.
+- **Do not add linting to the frontend.** `frontend/` has no `eslint.config.*` and no `lint` script or ESLint dependencies; the enforced gates are `npm test` and `tsc -b && vite build`.
+- **Tests**: `npm test` = `vitest run` — 155 tests in 13 files under `src/lib/` (including `pairing-channel/__tests__/`) and `src/components/__tests__/` (happy-dom). These gate deployment.
 
 ### API Design
 
@@ -319,6 +319,7 @@ Python deps are pinned exactly (`==`) with `uv.lock` committed in both `lambda/`
 
 - **`cdk synth` needs Docker, and buildx only for the cache.** `docker/bundling/Dockerfile` is built with `type=gha` BuildKit flags gated on `process.env.CI` (`buildBundlingImage`), so local synth works under plain docker/podman but gets no layer cache. It also needs a prior `./gradlew smithyBuild` — `buildOpenApiSpec` does a synth-time `readFileSync` of `build/smithy/<service>/openapi/<Service>Service.openapi.json` and throws ENOENT without it.
 - **`cdk synth` also needs the pydantic models.** `lambda/src/shared/generated/` is git-ignored, and the bundler rsyncs `lambda/` as-is (`BUNDLING_ASSET_EXCLUDES` does not exclude it), so a synth without a prior `lambda/scripts/codegen.sh` ships a bundle with no models — which deploys fine and then fails every request with `ImportModuleError: No module named 'src.shared.generated'`. This broke production once (CI's synth job never ran codegen). `build.yml` now generates them before synth, and `BUNDLING_COMMAND_HOOKS.beforeBundling` in `lib/stacks/service.ts` fails the synth if they are missing — do not remove it.
+- **Only `aws-cdk` is a production dependency.** The deploy job runs `npm ci --omit=dev` and then `npx cdk deploy --app build/cdk.out`, so the CLI only reads a pre-synthesized assembly; `aws-cdk-lib`, `constructs`, `cdk-monitoring-constructs` and `uv-python-lambda` are synth-time only and live in `devDependencies`. CI's synth job installs everything with a plain `npm ci`.
 - **REST integrations are wired by string substitution**, not CDK constructs: `smithy/models/main.smithy` carries `CDK_LAMBDA_FUNCTION_ARN`, `CDK_API_ROLE_ARN`, `CDK_CORS_ORIGIN` placeholders that `buildOpenApiSpec` regex-replaces. Renaming a placeholder silently breaks the integration.
 - **All tables have `deletionProtection: true` and `RETAIN_ON_UPDATE_OR_DELETE`.** Never change a `tableName`, partition key, or sort key — CloudFormation treats it as a replacement, orphans the old table, and the new one starts empty.
 - **`...DEFAULT_TABLE_PROPS` is spread LAST** in every table literal (`service.ts:191, 221, 236, 250, 413`), so a per-table override of the four props it sets (`billingMode`, `encryption`, `removalPolicy`, `deletionProtection`) is silently discarded. Change the shared const, or move the spread above your override.
@@ -429,7 +430,7 @@ uv run python get_hawk_token.py \
 | CDK Stacks | `lib/stacks/` | Infrastructure definitions |
 | Python Config | `lambda/pyproject.toml` | pytest, black, isort, flake8, mypy settings |
 | CDK Config | `cdk.json` | CDK app config, context, output directory |
-| Frontend config | `frontend/package.json`, `frontend/vite.config.ts` | `frontend/README.md` is an unmodified Vite starter — use these instead |
+| Frontend config | `frontend/package.json`, `frontend/vite.config.ts` | Commands and layout; see also `frontend/README.md` |
 
 ## References
 
