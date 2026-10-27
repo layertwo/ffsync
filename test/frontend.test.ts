@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import {afterAll, beforeAll, describe, expect, test} from "vitest";
 
 import {App, Stack} from "aws-cdk-lib";
 import {Template} from "aws-cdk-lib/assertions";
@@ -33,8 +34,16 @@ describe("FrontendStack", () => {
             tokenApiDomain: "token.example.com",
             profileApiDomain: "profile.example.com",
             channelApiDomain: "channel.example.com",
-            oidcProviderUrl: StringParameter.fromStringParameterName(helperStack, "OidcParam", "/test/oidc-url"),
-            clientId: StringParameter.fromStringParameterName(helperStack, "ClientIdParam", "/test/client-id"),
+            oidcProviderUrl: StringParameter.fromStringParameterName(
+                helperStack,
+                "OidcParam",
+                "/test/oidc-url",
+            ),
+            clientId: StringParameter.fromStringParameterName(
+                helperStack,
+                "ClientIdParam",
+                "/test/client-id",
+            ),
         });
 
         const template = Template.fromStack(stack);
