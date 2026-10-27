@@ -83,6 +83,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check format
+        run: npm run check-format
+
+      # The CDK test's afterAll deletes frontend/dist, so it runs before the
+      # real artifact is downloaded below.
+      - name: Test CDK
+        run: npm test
+
       - uses: actions/download-artifact@v8
         with:
           name: smithy-output
