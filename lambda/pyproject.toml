@@ -10,7 +10,7 @@ dependencies = [
     "mohawk==1.1.0",
     "PyJWT==2.15.1",
     "requests==2.34.2",
-    "cachetools==7.2.7",
+    "cachetools==7.2.8",
 ]
 
 
