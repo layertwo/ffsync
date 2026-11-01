@@ -5,7 +5,7 @@
 # shortcut: AL2023 ships no python3.15 and AWS publishes no 3.15 build image,
 # so uv fetches the standalone CPython built for AL2023's glibc.
 FROM ghcr.io/astral-sh/uv:0.13.6 AS uv
-FROM amazonlinux:2023
+FROM amazonlinux:2027
 
 # rsync is required by uv-python-lambda's bundling command.
 RUN dnf install -y rsync && \
