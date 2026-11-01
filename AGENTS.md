@@ -20,7 +20,7 @@ This file provides context for AI coding agents working on this repository. It c
 |-------|-------|
 | Package | @layertwo/ffsync |
 | Build System | npm (CDK), pytest (Lambda), Gradle (Smithy), Vite (Frontend) |
-| Languages | TypeScript (CDK + Frontend), Python 3.14 (Lambda) |
+| Languages | TypeScript (CDK + Frontend), Python 3.15 (Lambda) |
 | Runtime | AWS Lambda (ARM64) |
 | Purpose | Self-hosted Firefox Sync protocol implementation on AWS |
 | Account / Region | `830583812777` / `us-west-2` (hardcoded in `lib/config.ts`) |
@@ -319,6 +319,7 @@ Python deps are pinned exactly (`==`) with `uv.lock` committed in both `lambda/`
 
 - **`cdk synth` needs Docker, and buildx only for the cache.** `docker/bundling/Dockerfile` is built with `type=gha` BuildKit flags gated on `process.env.CI` (`buildBundlingImage`), so local synth works under plain docker/podman but gets no layer cache. It also needs a prior `./gradlew smithyBuild` — `buildOpenApiSpec` does a synth-time `readFileSync` of `build/smithy/<service>/openapi/<Service>Service.openapi.json` and throws ENOENT without it.
 - **`cdk synth` also needs the pydantic models.** `lambda/src/shared/generated/` is git-ignored, and the bundler rsyncs `lambda/` as-is (`BUNDLING_ASSET_EXCLUDES` does not exclude it), so a synth without a prior `lambda/scripts/codegen.sh` ships a bundle with no models — which deploys fine and then fails every request with `ImportModuleError: No module named 'src.shared.generated'`. This broke production once (CI's synth job never ran codegen). `build.yml` now generates them before synth, and `BUNDLING_COMMAND_HOOKS.beforeBundling` in `lib/stacks/service.ts` fails the synth if they are missing — do not remove it.
+- **Python 3.15 is not in `aws-cdk-lib` yet.** There is no `Runtime.PYTHON_3_15` (aws/aws-cdk#39165), so `service.ts` builds `new Runtime("python3.15", RuntimeFamily.PYTHON)`. AWS publishes no `sam/build-python3.15` either, so `docker/bundling/Dockerfile` owns its base (`amazonlinux:2023`, with `uv` from `ghcr.io/astral-sh/uv` fetching the standalone CPython 3.15 for matching glibc) instead of taking `LAMBDA_RUNTIME.bundlingImage`; building on 3.14 would ship `cp314` wheels (`pydantic-core`, `cryptography`) that fail on 3.15. Swap in `Runtime.PYTHON_3_15` and a 3.15 build image once shipped.
 - **Only `aws-cdk` is a production dependency.** The deploy job runs `npm ci --omit=dev` and then `npx cdk deploy --app build/cdk.out`, so the CLI only reads a pre-synthesized assembly; `aws-cdk-lib`, `constructs`, `cdk-monitoring-constructs` and `uv-python-lambda` are synth-time only and live in `devDependencies`. CI's synth job installs everything with a plain `npm ci`.
 - **The Lambda asset key is a fingerprint of `lambda/` source, not the bundle.** `HASHABLE_ASSET_EXCLUDE` in `service.ts` keeps tests, caches and build artifacts out of it; directory patterns there need `/**`, and `src/shared/generated/` must stay in. `BUNDLING_ASSET_EXCLUDES` only affects the rsync copy. The option is passed as a spread because `uv-python-lambda` reads it without declaring it in `BundlingOptions`.
 - **REST integrations are wired by string substitution**, not CDK constructs: `smithy/models/main.smithy` carries `CDK_LAMBDA_FUNCTION_ARN`, `CDK_API_ROLE_ARN`, `CDK_CORS_ORIGIN` placeholders that `buildOpenApiSpec` regex-replaces. Renaming a placeholder silently breaks the integration.
@@ -331,7 +332,7 @@ Python deps are pinned exactly (`==`) with `uv.lock` committed in both `lambda/`
 ### AWS Services
 
 - **DynamoDB**: PAY_PER_REQUEST; TTL attribute is `expiry` (not `ttl`); `ffsync-storage-*` has no TTL configured.
-- **Lambda**: ARM64, Python 3.14.
+- **Lambda**: ARM64, Python 3.15.
 - **KMS**: RSA-2048 for signing self-signed JWTs; Token and Profile call `GetPublicKey` to verify.
 
 ### Smithy
