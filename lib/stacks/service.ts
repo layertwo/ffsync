@@ -31,7 +31,7 @@ import {
 } from "aws-cdk-lib/aws-dynamodb";
 import {PolicyStatement, Role, ServicePrincipal} from "aws-cdk-lib/aws-iam";
 import {Key, KeySpec, KeyUsage} from "aws-cdk-lib/aws-kms";
-import {Architecture, IFunction, Runtime} from "aws-cdk-lib/aws-lambda";
+import {Architecture, IFunction, Runtime, RuntimeFamily} from "aws-cdk-lib/aws-lambda";
 import {LogGroup, RetentionDays} from "aws-cdk-lib/aws-logs";
 import {
     HostedZone,
@@ -46,6 +46,10 @@ import {IStringParameter, StringParameter} from "aws-cdk-lib/aws-ssm";
 import {BASE_DOMAIN, HOSTED_ZONE_ID, StageType} from "../config";
 import {Service} from "../config/service";
 import {capitalCase} from "../utils";
+
+// aws-cdk-lib has no Runtime.PYTHON_3_15 yet (aws/aws-cdk#39165). The bundling
+// base is pinned in docker/bundling/Dockerfile; SAM has no 3.15 build image.
+const LAMBDA_RUNTIME = new Runtime("python3.15", RuntimeFamily.PYTHON);
 
 const DEFAULT_TABLE_PROPS: Partial<TableProps> = {
     billingMode: BillingMode.PAY_PER_REQUEST,
@@ -320,9 +324,6 @@ export class ServiceStack extends Stack {
         };
 
         return DockerImage.fromBuild(path.join(__dirname, "../../docker/bundling"), {
-            buildArgs: {
-                IMAGE: Runtime.PYTHON_3_14.bundlingImage.image,
-            },
             platform: Architecture.ARM_64.dockerPlatform,
             ...(process.env.CI ? buildkitCache : {}),
         });
@@ -332,7 +333,7 @@ export class ServiceStack extends Stack {
         const fn = new PythonFunction(this, "ApiHandler", {
             rootDir: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
-            runtime: Runtime.PYTHON_3_14,
+            runtime: LAMBDA_RUNTIME,
             architecture: Architecture.ARM_64,
             handler: "storage_api_handler",
             functionName: `ffsync-storage-api-${this.props.stageType.toLowerCase()}`,
@@ -367,7 +368,7 @@ export class ServiceStack extends Stack {
         const fn = new PythonFunction(this, "AuthApiHandler", {
             rootDir: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
-            runtime: Runtime.PYTHON_3_14,
+            runtime: LAMBDA_RUNTIME,
             architecture: Architecture.ARM_64,
             handler: "auth_api_handler",
             functionName: `ffsync-auth-api-${this.props.stageType.toLowerCase()}`,
@@ -405,7 +406,7 @@ export class ServiceStack extends Stack {
         const fn = new PythonFunction(this, "TokenApiHandler", {
             rootDir: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
-            runtime: Runtime.PYTHON_3_14,
+            runtime: LAMBDA_RUNTIME,
             architecture: Architecture.ARM_64,
             handler: "token_api_handler",
             functionName: `ffsync-token-api-${this.props.stageType.toLowerCase()}`,
@@ -442,7 +443,7 @@ export class ServiceStack extends Stack {
         const fn = new PythonFunction(this, "ProfileApiHandler", {
             rootDir: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
-            runtime: Runtime.PYTHON_3_14,
+            runtime: LAMBDA_RUNTIME,
             architecture: Architecture.ARM_64,
             handler: "profile_api_handler",
             functionName: `ffsync-profile-api-${this.props.stageType.toLowerCase()}`,
@@ -483,7 +484,7 @@ export class ServiceStack extends Stack {
         const fn = new PythonFunction(this, "ChannelApiHandler", {
             rootDir: path.join(__dirname, "../../lambda"),
             index: "src/entrypoint/__init__.py",
-            runtime: Runtime.PYTHON_3_14,
+            runtime: LAMBDA_RUNTIME,
             architecture: Architecture.ARM_64,
             handler: "channel_api_handler",
             functionName: `ffsync-channel-api-${this.props.stageType.toLowerCase()}`,

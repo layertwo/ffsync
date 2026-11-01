@@ -108,10 +108,11 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.14"
+          python-version: "3.15"
 
       - uses: astral-sh/setup-uv@v10.3.3
         with:
+          version: "0.13.6"
           enable-cache: true
 
       # src/shared/generated is git-ignored, so a bare checkout has no models and
