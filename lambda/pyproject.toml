@@ -4,7 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
     "aws-lambda-powertools==3.39.0",
-    "boto3==1.43.125",
+    "boto3==1.43.126",
     "cryptography==50.0.2",
     "pydantic==2.14.3",
     "mohawk==1.1.0",
@@ -24,7 +24,7 @@ dev = [
     "flake8==7.5.0",
     "Flake8-pyproject==1.2.4",
     "mypy==2.4.1",
-    "types-boto3[apigatewaymanagementapi,dynamodb,kms,lambda]==1.43.124",
+    "types-boto3[apigatewaymanagementapi,dynamodb,kms,lambda]==1.43.126",
     "types-requests==2.33.0.20261030",
     "datamodel-code-generator==0.91.0",
 ]
