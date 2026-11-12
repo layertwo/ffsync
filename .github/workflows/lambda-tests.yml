@@ -48,7 +48,7 @@ jobs:
       - name: Enable caching
         uses: astral-sh/setup-uv@v10.3.3
         with:
-          version: "0.13.7"
+          version: "0.13.8"
           enable-cache: true
 
       - name: Install dependencies
